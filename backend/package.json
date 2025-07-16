@@ -1,0 +1,41 @@
+{
+  "name": "payments-backend",
+  "version": "1.0.0",
+  "description": "Backend para sistema de pagos con QR",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "build": "bun build src/index.ts --target node --outdir ./dist",
+    "lint": "eslint .",
+    "init-db": "bun run src/scripts/init-db.ts",
+    "create-env": "bun run src/scripts/create-env.ts",
+    "seed-db": "bun run src/scripts/seed-db.ts"
+  },
+  "dependencies": {
+    "@bogeychan/elysia-logger": "^0.1.8",
+    "@eajr/elylog": "^1.0.1",
+    "@elysiajs/cors": "^0.7.2",
+    "@elysiajs/cron": "^0.8.0",
+    "@elysiajs/swagger": "^0.8.5",
+    "bcrypt": "^5.1.1",
+    "bcryptjs": "^3.0.2",
+    "cron": "^4.3.1",
+    "date-fns": "^2.30.0",
+    "elysia": "^0.8.14",
+    "jsonwebtoken": "^9.0.2",
+    "nanoid": "^5.0.4",
+    "node-fetch": "^3.3.2",
+    "pg": "^8.11.3",
+    "qrcode": "^1.5.3"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/node": "^20.10.2",
+    "@types/pg": "^8.10.9",
+    "@types/qrcode": "^1.5.5",
+    "bun-types": "latest",
+    "typescript": "^5.3.2"
+  }
+}

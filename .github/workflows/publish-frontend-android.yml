@@ -1,0 +1,67 @@
+name: Build frontend android
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/publish-frontend-android.yml'
+      - '!**/readme.md'
+      - '!**/.env'
+      - '!frontend/ios/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/publish-frontend-android.yml'
+      - '!**/readme.md'
+      - '!**/.env'
+      - '!frontend/ios/**'
+defaults:
+  run:
+    working-directory: ./frontend
+
+env:
+  NODE_ENV: production
+  VITE_API_URL: https://pagui-api.iathings.com/api
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+      - name: Setup java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - name: Install app dependencies
+        run: bun install
+      - name: Build Svelte app
+        run: bun run build
+      - name: Capacitor update
+        run: bun run cap update
+      - name: Capacitor copy
+        run: bun run cap copy
+      - name: Build app bundle
+        run: cd android && ./gradlew bundleRelease && ./gradlew assembleRelease
+      - name: Upload release bundle
+        uses: actions/upload-artifact@v3
+        with:
+          name: app-release-bundle
+          path: frontend/android/app/build/outputs/bundle/release/*.aab
+          retention-days: 7
+      - name: Upload release apk
+        uses: actions/upload-artifact@v3
+        with:
+          name: app-release-apk
+          path: frontend/android/app/build/outputs/apk/release/*.apk
+          retention-days: 7 

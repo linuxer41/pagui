@@ -1,35 +1,39 @@
-version: '3.8'
-
 services:
+  postgres:
+    image: postgres:17-alpine
+    ports:
+      - "5439:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=anarkia41
+      - POSTGRES_DB=pagui
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
   backend:
     build: 
       context: ./backend
     ports:
-      - "3000:3000"
+      - "5000:3000"
     depends_on:
       - postgres
     environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=payments
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
+      DATABASE_URL: "postgresql://postgres:anarkia41@postgres:5432/pagui"
+      JWT_SECRET: "cambiar_por_secreto_seguro"
+      JWT_EXPIRATION: "24h"
     volumes:
       - ./backend:/app
-      - /app/node_modules
     restart: unless-stopped
 
-  postgres:
-    image: postgres:15-alpine
+  frontend:
+    build: 
+      context: ./frontend
     ports:
-      - "5432:5432"
+      - "3001:80"
+    depends_on:
+      - backend
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=payments
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
+      - VITE_API_URL=http://backend:5000
 
 volumes:
   postgres_data: 

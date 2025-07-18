@@ -1,22 +1,27 @@
-FROM oven/bun:alpine
+FROM oven/bun:alpine AS builder
 
 WORKDIR /app
 
-# Instalar dependencias de PostgreSQL
-RUN apk add --no-cache postgresql-client
-
-COPY package.json bun.lockb ./
+COPY package.json bun.lock ./
 RUN bun install
 
 COPY . .
+RUN bun build --target=bun src/index.ts --outdir=./dist
 
-# Variables de entorno para la base de datos
-ENV DB_HOST=postgres
-ENV DB_PORT=5432
-ENV DB_NAME=payments
-ENV DB_USER=postgres
-ENV DB_PASSWORD=postgres
+CMD ["bun", "run", "src/index.ts"]
 
-EXPOSE 3000
+# FROM oven/bun:alpine
 
-CMD ["bun", "run", "src/index.ts"] 
+# WORKDIR /app
+
+# # Instalar dependencias de PostgreSQL
+# RUN apk add --no-cache postgresql-client
+
+# # Copiar solo los archivos necesarios para la ejecución
+# COPY --from=builder /app/dist /app/dist
+# # COPY --from=builder /app/node_modules /app/node_modules
+# COPY --from=builder /app/package.json /app/
+
+# EXPOSE 3000
+
+# CMD ["bun", "run", "dist/index.js"] 

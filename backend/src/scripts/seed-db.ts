@@ -1,14 +1,5 @@
 import { pool, query } from '../config/database';
-import bcrypt from 'bcryptjs';
-// import { loadEnv } from './load-env';
 
-// // Cargar variables de entorno
-// loadEnv();
-
-/**
- * Script para poblar la base de datos con datos iniciales
- * Ejecutar con: bun run src/scripts/seed-db.ts
- */
 async function seedDatabase() {
   try {
     console.log('Poblando la base de datos con datos iniciales...');
@@ -101,7 +92,10 @@ async function seedDatabase() {
     // 3. Insertar usuario administrador
     console.log('Insertando usuario administrador...');
     // Generar hash de la contraseña
-    const passwordHash = await bcrypt.hash(defaultPassword, 10);
+    const passwordHash = await Bun.password.hash(defaultPassword, {
+      algorithm: 'bcrypt',
+      cost: 10
+    });
     
     const userResult = await query(`
       INSERT INTO users (email, password, full_name, company_id, role, status)

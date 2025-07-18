@@ -1,6 +1,5 @@
 import { query } from '../config/database';
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcrypt';
 import { CryptoService } from './crypto.service';
 import { logActivity } from './monitor.service';
 
@@ -49,7 +48,7 @@ class AuthService {
     }
     const user = userQuery.rows[0];
     // Verificar contraseña
-    const valid = await bcrypt.compare(password, user.password);
+    const valid = await Bun.password.verify(password, user.password);
     if (!valid) {
       return {
         user: {
@@ -135,7 +134,7 @@ class AuthService {
       const user = userResult.rows[0];
 
       // Verificar contraseña actual
-      const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+      const isValidPassword = await Bun.password.verify(currentPassword, user.password);
 
       if (!isValidPassword) {
         await logActivity(
@@ -153,8 +152,10 @@ class AuthService {
       }
 
       // Hash de la nueva contraseña
-      const saltRounds = 10;
-      const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+      const hashedPassword = await Bun.password.hash(newPassword, {
+        algorithm: 'bcrypt',
+        cost: 10
+      });
 
       // Actualizar contraseña
       await query(
@@ -247,8 +248,10 @@ class AuthService {
       }
       
       // Hash de la contraseña
-      const saltRounds = 10;
-      const hashedPassword = await bcrypt.hash(userData.password, saltRounds);
+      const hashedPassword = await Bun.password.hash(userData.password, {
+        algorithm: 'bcrypt',
+        cost: 10
+      });
       
       // Crear el usuario
       const result = await query(`

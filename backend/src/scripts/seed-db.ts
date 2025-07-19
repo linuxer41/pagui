@@ -1,6 +1,6 @@
 import { pool, query } from '../config/database';
 
-async function seedDatabase() {
+export async function seedDatabase() {
   try {
     console.log('Poblando la base de datos con datos iniciales...');
     
@@ -195,7 +195,7 @@ async function seedDatabase() {
     console.error('Error al poblar la base de datos:', error);
   } finally {
     // Cerrar la conexión a la base de datos
-    await pool.end();
+    // await pool.end();  // Eliminamos esta línea que cierra la conexión
   }
 }
 

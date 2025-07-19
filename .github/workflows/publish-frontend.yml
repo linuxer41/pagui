@@ -63,7 +63,7 @@ jobs:
         with:
           context: ./frontend
           build-args: |
-            VITE_API_URL=${{ env.VITE_API_URL }}
+            BUILD_API_URL=${{ env.VITE_API_URL }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

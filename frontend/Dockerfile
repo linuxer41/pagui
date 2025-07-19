@@ -1,5 +1,7 @@
 # Etapa de build
 FROM oven/bun:alpine AS builder
+ENV NODE_ENV=production
+ENV VITE_API_URL=${VITE_API_URL}
 WORKDIR /app
 COPY package.json bun.lock ./
 RUN bun install

@@ -28,12 +28,12 @@ services:
   frontend:
     build: 
       context: ./frontend
+      args:
+        - BUILD_API_URL=http://backend:5000
     ports:
       - "3001:80"
     depends_on:
       - backend
-    environment:
-      - VITE_API_URL=http://backend:5000
 
 volumes:
   postgres_data: 

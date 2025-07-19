@@ -1,18 +1,18 @@
-import { Elysia } from 'elysia';
-import { swagger } from '@elysiajs/swagger';
 import { cors } from '@elysiajs/cors';
 import { cron } from '@elysiajs/cron';
+import { swagger } from '@elysiajs/swagger';
+import { Elysia } from 'elysia';
 
 // Servicios
-import qrService from './services/qr.service';
 import { initScheduledTasks } from './services/monitor.service';
+import qrService from './services/qr.service';
 
 // Config y middlewares
 import { initDatabase, testConnection } from './config/database';
 
 // Rutas
 import { routes } from './routes';
-import authRoutes from './routes/auth.routes';
+import { seedDatabase } from './scripts/seed-db';
 
 // Variables de entorno
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
@@ -87,7 +87,12 @@ async function start() {
     
     // Inicializar la base de datos
     await initDatabase();
-    
+
+    // Ejecutar seed-db.ts
+    await seedDatabase();
+
+
+        
     // Iniciar tareas programadas
     initScheduledTasks();
     
@@ -102,3 +107,4 @@ async function start() {
 }
 
 start();
+

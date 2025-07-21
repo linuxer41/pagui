@@ -51,11 +51,6 @@
   
   // Cargar datos al montar el componente
   onMount(async () => {
-    // Verificar autenticación
-    if (!$auth.isAuthenticated) {
-      goto('/login');
-      return;
-    }
     
     // Cargar transacciones
     await loadTransactions();

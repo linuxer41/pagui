@@ -6,6 +6,7 @@ import apiKeyRoutes from './apikeys.routes';
 import userRoutes from './users.routes';
 import companiesRoutes from './admin/companies.routes';
 import banksRoutes from './admin/banks.routes';
+import hooksRoutes from './hooks.route';
 
 // Agrupar todas las rutas
 export const routes = new Elysia({ prefix: '/api' })
@@ -14,4 +15,5 @@ export const routes = new Elysia({ prefix: '/api' })
   .use(apiKeyRoutes)
   .use(userRoutes)
   .use(companiesRoutes)
-  .use(banksRoutes);
+  .use(banksRoutes)
+  .use(hooksRoutes)

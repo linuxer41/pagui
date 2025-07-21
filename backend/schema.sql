@@ -7,6 +7,7 @@ DROP TABLE IF EXISTS qr_payments;
 DROP TABLE IF EXISTS qr_codes;
 DROP TABLE IF EXISTS company_bank_configs;
 DROP TABLE IF EXISTS api_keys;
+DROP TABLE IF EXISTS auth_tokens;
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS companies;
 DROP TABLE IF EXISTS banks;
@@ -46,9 +47,25 @@ CREATE TABLE users (
   email VARCHAR(100) UNIQUE NOT NULL,
   password VARCHAR(255) NOT NULL,
   full_name VARCHAR(100),
-  company_id INTEGER REFERENCES companies(id),
+  company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
   role VARCHAR(20) NOT NULL DEFAULT 'USER',
   status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+  external_id VARCHAR(255) UNIQUE,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ
+);
+
+-- Crear tabla para tokens de autenticación
+CREATE TABLE auth_tokens (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  token_type VARCHAR(50) NOT NULL, -- 'PASSWORD_RESET', 'REFRESH_TOKEN', etc.
+  token VARCHAR(255) NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_times INTEGER DEFAULT 0,
+  ip_address VARCHAR(50),
+  user_agent TEXT,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   deleted_at TIMESTAMPTZ
@@ -59,7 +76,7 @@ CREATE TABLE api_keys (
   id SERIAL PRIMARY KEY,
   api_key VARCHAR(64) UNIQUE NOT NULL,
   description TEXT,
-  company_id INTEGER NOT NULL REFERENCES companies(id),
+  company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   permissions JSONB NOT NULL,
   expires_at TIMESTAMPTZ,
   status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
@@ -71,8 +88,8 @@ CREATE TABLE api_keys (
 -- Crear tabla para configuración de empresa-banco
 CREATE TABLE company_bank_configs (
   id SERIAL PRIMARY KEY,
-  company_id INTEGER NOT NULL REFERENCES companies(id),
-  bank_id INTEGER NOT NULL REFERENCES banks(id),
+  company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  bank_id INTEGER NOT NULL REFERENCES banks(id) ON DELETE CASCADE,
   account_number VARCHAR(50),
   account_type INTEGER NOT NULL DEFAULT 1,
   account_name VARCHAR(50),
@@ -95,8 +112,8 @@ CREATE TABLE qr_codes (
   qr_id VARCHAR(50) UNIQUE NOT NULL,
   transaction_id VARCHAR(100) NOT NULL,
   account_credit TEXT NOT NULL,
-  company_id INTEGER NOT NULL REFERENCES companies(id),
-  bank_id INTEGER NOT NULL REFERENCES banks(id),
+  company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  bank_id INTEGER NOT NULL REFERENCES banks(id) ON DELETE CASCADE,
   currency VARCHAR(3) NOT NULL,
   amount DECIMAL(10, 2) NOT NULL,
   description TEXT,
@@ -115,8 +132,8 @@ CREATE TABLE qr_codes (
 CREATE TABLE qr_payments (
   id SERIAL PRIMARY KEY,
   qr_id VARCHAR(50) NOT NULL,
-  company_id INTEGER NOT NULL REFERENCES companies(id),
-  bank_id INTEGER NOT NULL REFERENCES banks(id),
+  company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  bank_id INTEGER NOT NULL REFERENCES banks(id) ON DELETE CASCADE,
   transaction_id VARCHAR(100) NOT NULL,
   payment_date TIMESTAMPTZ NOT NULL,
   payment_time VARCHAR(10) NOT NULL,
@@ -130,20 +147,22 @@ CREATE TABLE qr_payments (
   branch_code VARCHAR(10),
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   deleted_at TIMESTAMPTZ,
-  FOREIGN KEY (qr_id) REFERENCES qr_codes(qr_id)
+  FOREIGN KEY (qr_id) REFERENCES qr_codes(qr_id) ON DELETE CASCADE
 );
 
 -- Crear tabla para registro de actividad y monitoreo
 CREATE TABLE activity_logs (
   id SERIAL PRIMARY KEY,
-  company_id INTEGER REFERENCES companies(id),
-  user_id INTEGER REFERENCES users(id),
+  company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   action_type VARCHAR(50) NOT NULL,
   action_details JSONB,
   status VARCHAR(20) NOT NULL,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   deleted_at TIMESTAMPTZ
 );
+
+
 
 -- Crear índices para mejorar rendimiento
 CREATE INDEX idx_qr_codes_company_id ON qr_codes(company_id);
@@ -157,5 +176,7 @@ CREATE INDEX idx_activity_logs_company_id ON activity_logs(company_id);
 CREATE INDEX idx_activity_logs_action_type ON activity_logs(action_type);
 CREATE INDEX idx_activity_logs_status ON activity_logs(status);
 CREATE INDEX idx_api_keys_company_id ON api_keys(company_id);
+CREATE INDEX idx_users_external_id ON users(external_id);
+CREATE INDEX idx_users_email ON users(email);
 
 -- Nota: Los datos iniciales ahora se insertan a través del script seed-db.ts 

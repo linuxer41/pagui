@@ -177,7 +177,7 @@ class ApiClient {
   
   // Login - POST /api/authentication/authenticate
   async login(email: string, password: string): Promise<ApiResponse> {
-    const response = await this.post<ApiResponse>('/authentication/authenticate', { email, password });
+    const response = await this.post<ApiResponse>('/auth/login', { email, password });
 
     // Si la autenticación es exitosa, guardar en el store
     if (response.user && response.auth && response.auth.accessToken) {

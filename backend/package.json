@@ -21,7 +21,6 @@
     "elysia": "^0.8.14",
     "jsonwebtoken": "^9.0.2",
     "nanoid": "^5.0.4",
-    "node-fetch": "^3.3.2",
     "pg": "^8.11.3",
     "qrcode": "^1.5.3"
   },

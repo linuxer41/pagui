@@ -189,6 +189,87 @@ export async function seedDatabase() {
     
     console.log(`API key generada: ${apiKey}`);
     
+    // 6. Crear tokens de autenticación de ejemplo con información de dispositivo
+    console.log('Creando tokens de autenticación de ejemplo...');
+    
+    // Generar un token JWT de ejemplo (no es un JWT real, solo para demostración)
+    const demoAccessToken = generateApiKey(64);
+    const demoRefreshToken = generateApiKey(64);
+    
+    // Fechas de expiración
+    const accessTokenExpiry = new Date();
+    accessTokenExpiry.setHours(accessTokenExpiry.getHours() + 24); // 24 horas
+    
+    const refreshTokenExpiry = new Date();
+    refreshTokenExpiry.setDate(refreshTokenExpiry.getDate() + 30); // 30 días
+    
+    // Información de dispositivos de ejemplo
+    const deviceInfos = [
+      {
+        ip: '192.168.1.100',
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        deviceType: 'Desktop - Windows'
+      },
+      {
+        ip: '192.168.1.101',
+        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1',
+        deviceType: 'Mobile - iOS'
+      },
+      {
+        ip: '192.168.1.102',
+        userAgent: 'Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36',
+        deviceType: 'Mobile - Android'
+      }
+    ];
+    
+    // Insertar tokens de acceso para diferentes dispositivos
+    for (const device of deviceInfos) {
+      const token = generateApiKey(64);
+      
+      await query(`
+        INSERT INTO auth_tokens (
+          user_id, 
+          token_type, 
+          token, 
+          expires_at, 
+          used_times, 
+          ip_address, 
+          user_agent
+        ) VALUES (
+          $1, 'ACCESS_TOKEN', $2, $3, 0, $4, $5
+        )
+      `, [
+        userId,
+        token,
+        accessTokenExpiry.toISOString(),
+        device.ip,
+        `${device.userAgent} | ${device.deviceType}`
+      ]);
+      
+      // También insertar un refresh token para cada dispositivo
+      await query(`
+        INSERT INTO auth_tokens (
+          user_id, 
+          token_type, 
+          token, 
+          expires_at, 
+          used_times, 
+          ip_address, 
+          user_agent
+        ) VALUES (
+          $1, 'REFRESH_TOKEN', $2, $3, 0, $4, $5
+        )
+      `, [
+        userId,
+        generateApiKey(64),
+        refreshTokenExpiry.toISOString(),
+        device.ip,
+        `${device.userAgent} | ${device.deviceType}`
+      ]);
+    }
+    
+    console.log('Tokens de autenticación creados para diferentes dispositivos');
+    
     console.log('Base de datos poblada correctamente.');
     
   } catch (error) {
@@ -214,4 +295,7 @@ function generateApiKey(length = 32): string {
 }
 
 // Ejecutar la función principal
-seedDatabase();
+if (require.main === module) {
+  seedDatabase();
+}
+// seedDatabase();

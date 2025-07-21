@@ -43,11 +43,11 @@ async function query<T extends QueryResultRow>(text: string, params: any[] = [])
 }
 
 // Crear tablas iniciales si no existen
-async function initDatabase() {
+async function migrateDB(reset: boolean = false) {
   try {
     //  check if tables exist
     const tables = await pool.query('SELECT table_name FROM information_schema.tables WHERE table_schema = $1', ['public']);
-    if (tables.rowCount === 0) {
+    if (tables.rowCount === 0 || reset) {
       // read schema.sql
       const schema = readFileSync('schema.sql', 'utf8');
       await pool.query(schema);
@@ -73,4 +73,4 @@ function generateApiKey(): string {
   return result;
 }
 
-export { pool, query, testConnection, initDatabase, generateApiKey }; 
+export { pool, query, testConnection, migrateDB, generateApiKey }; 

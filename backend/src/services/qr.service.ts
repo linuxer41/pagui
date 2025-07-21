@@ -1,11 +1,18 @@
-import QRCode from 'qrcode';
-import { nanoid } from 'nanoid';
 import { format } from 'date-fns';
-import { query } from '../config/database';
+import { Static } from 'elysia';
+import QRCode from 'qrcode';
+import { BanecoApi } from '../banks';
+import { pool, query } from '../config/database';
+import { BANECO_NotifyPaymentQRRequestSchema, BANECO_NotifyPaymentQRResponseSchema } from '../schemas/baneco.scheamas';
+import { QRRequest } from '../schemas/qr.schemas';
 import cryptoService, { CryptoService } from './crypto.service';
 import { logActivity } from './monitor.service';
-import { BanecoApi, BnbApi, VisaApi } from '../banks';
-import { QRRequest } from '../schemas/qr.schemas';
+
+enum BANK_DB_ID {
+  BANCO_ECONOMICO = 1,
+  BANCO_BNB = 2,
+  BANCO_VISA = 3
+}
 
 interface PaymentRequest {
   qrId: string;
@@ -1497,7 +1504,99 @@ class QrService {
       };
     }
   }
-}
+
+  async banecoQRNotify(data: Static<typeof BANECO_NotifyPaymentQRRequestSchema>): Promise<Static<typeof BANECO_NotifyPaymentQRResponseSchema>> {
+    try {
+      const checkQR = await query<{id: number, status: string, transactionId: string, bankId: number, companyId: number}>(`
+        SELECT id, status, transaction_id as "transactionId", bank_id as "bankId", company_id as "companyId" 
+        FROM qr_codes WHERE qr_id = $1 AND bank_id = $2
+      `, [data.payment.qrId, BANK_DB_ID.BANCO_ECONOMICO]);
+      
+      if (checkQR.rowCount === 0) {
+        return {
+          responseCode: 1,
+          message: 'QR no encontrado'
+        };
+      }
+      
+      const qrInfo = checkQR.rows[0];
+      if (qrInfo.status !== 'PENDING') {
+        return {
+          responseCode: 1,
+          message: 'QR no está pendiente de pago'
+        };
+      }
+
+      // Extraer datos del pago de la notificación
+      const payment = data.payment;
+      const paymentDate = new Date(payment.paymentDate);
+
+      // create db transaction to update qr and payment
+      const client = await pool.connect();
+      await client.query('BEGIN');
+
+      try {
+        // Actualizar estado del QR
+        await client.query(`
+          UPDATE qr_codes 
+          SET status = 'PAID', updated_at = CURRENT_TIMESTAMP 
+          WHERE id = $1
+        `, [qrInfo.id]);
+        
+        // Verificar si ya existe un registro de pago para este QR
+        const checkPayment = await client.query(`
+          SELECT id FROM qr_payments WHERE qr_id = $1
+        `, [payment.qrId]);
+        
+        if (checkPayment.rowCount === 0) {
+          // Insertar nuevo registro de pago con todos los datos disponibles
+          await client.query(`
+            INSERT INTO qr_payments (
+              qr_id, company_id, bank_id, transaction_id, payment_date, payment_time,
+              currency, amount, sender_bank_code, sender_name, sender_document_id,
+              sender_account, description, branch_code, created_at, status
+            ) VALUES (
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, CURRENT_TIMESTAMP, 'PAID'
+            )
+          `, [
+            payment.qrId,
+            qrInfo.companyId,
+            qrInfo.bankId,
+            payment.transactionId,
+            paymentDate,
+            payment.paymentTime,
+            payment.currency,
+            payment.amount,
+            payment.senderBankCode,
+            payment.senderName,
+            payment.senderDocumentId,
+            payment.senderAccount,
+            payment.description,
+            payment.branchCode || null,
+          ]);
+        }
+        
+        await client.query('COMMIT');
+        return {
+          responseCode: 0,
+          message: 'QR notificado correctamente'
+        };
+      } catch (error) {
+        console.error('Error notificando pago de QR:', error);
+        await client.query('ROLLBACK');
+        throw new Error('Error al actualizar el estado del QR');
+      } finally {
+        await client.release();
+      }
+    } catch (error) {
+      console.error('Error notificando pago de QR:', error);
+      return {
+        responseCode: 1,
+        message: error instanceof Error ? error.message : 'Error notificando pago de QR'
+      };
+    }
+  }
+} 
 
 export const qrService = new QrService();
 export default qrService; 

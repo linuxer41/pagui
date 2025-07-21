@@ -51,10 +51,6 @@
 
   // Verificar autenticación y cargar datos
   onMount(async () => {
-    if (!$auth.isAuthenticated) {
-      goto('/login');
-      return;
-    }
     
     try {
       // Cargar estadísticas de QR

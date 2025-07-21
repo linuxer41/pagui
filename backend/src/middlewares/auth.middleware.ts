@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { authService } from '../services/auth.service';
 import { apiKeyService } from '../services/apikey.service';
 import { logActivity } from '../services/monitor.service';
+import { query } from '../config/database';
 
 // Define the ApiKeyPermissions interface locally to match the one in apikey.service
 interface ApiKeyPermissions {
@@ -30,11 +31,54 @@ export interface AuthData {
   apiKeyInfo?: ApiKeyInfo;
 }
 
+// Función para verificar y actualizar el token en la base de datos
+async function verifyTokenInDatabase(token: string): Promise<boolean> {
+  try {
+    // Buscar el token en la base de datos
+    const result = await query(`
+      SELECT id, user_id, expires_at, used_times
+      FROM auth_tokens
+      WHERE token = $1
+      AND token_type = 'ACCESS_TOKEN'
+      AND deleted_at IS NULL
+      AND expires_at > NOW()
+    `, [token]);
+
+    // Si no existe el token o ha expirado
+    if (result.rowCount === 0) {
+      return false;
+    }
+
+    const tokenData = result.rows[0];
+
+    // Actualizar el contador de usos
+    await query(`
+      UPDATE auth_tokens
+      SET used_times = used_times + 1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+    `, [tokenData.id]);
+
+    return true;
+  } catch (error) {
+    console.error('Error verificando token en base de datos:', error);
+    return false;
+  }
+}
+
 // Middleware base de autenticación
 export const authMiddleware = new Elysia({ name: 'auth' })
  
   .derive(async (context) => {
     try {
+      // Obtener información del dispositivo
+      const ipAddress = context.request.headers.get('x-forwarded-for') || 
+                         context.request.headers.get('cf-connecting-ip') || 
+                         context.request.headers.get('x-real-ip') || 
+                         context.request.headers.get('host') || 
+                         'unknown';
+      
+      const userAgent = context.request.headers.get('user-agent') || 'unknown';
+      
       // Revisar primero el header Authorization para JWT
       const authHeader = context.headers.authorization;
       
@@ -43,7 +87,15 @@ export const authMiddleware = new Elysia({ name: 'auth' })
         
         // Verificar el JWT
         try {
+          // Primero verificar la firma del JWT
           const decodedToken = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as any;
+          
+          // Luego verificar si el token existe en la base de datos
+          const isValidInDb = await verifyTokenInDatabase(token);
+          
+          if (!isValidInDb) {
+            throw new Error('Token no encontrado en la base de datos o ha expirado');
+          }
           
           // Obtener información del usuario
           const userInfo = await authService.getUserInfo(decodedToken.email);
@@ -51,6 +103,20 @@ export const authMiddleware = new Elysia({ name: 'auth' })
           if (!userInfo || userInfo.responseCode !== 0) {
             throw new Error('Usuario no encontrado');
           }
+          
+          // Registrar uso del token
+          await logActivity(
+            'TOKEN_USED',
+            {
+              path: context.path,
+              method: context.request.method,
+              ipAddress,
+              userAgent
+            },
+            'SUCCESS',
+            userInfo.companyId,
+            userInfo.id
+          );
           
           // Retornar datos de autenticación (JWT)
           return {
@@ -65,6 +131,7 @@ export const authMiddleware = new Elysia({ name: 'auth' })
             } as AuthData
           };
         } catch (error) {
+          console.error('Error en autenticación JWT:', error);
           throw new Error('Error en autenticación');
         }
       }
@@ -85,7 +152,9 @@ export const authMiddleware = new Elysia({ name: 'auth' })
             'API_KEY_USED',
             {
               path: context.path,
-              method: context.request.method
+              method: context.request.method,
+              ipAddress,
+              userAgent
             },
             'SUCCESS',
             verification.companyId
@@ -108,6 +177,7 @@ export const authMiddleware = new Elysia({ name: 'auth' })
       
       throw new Error('No autorizado. Se requiere autenticación válida.');
     } catch (error) {
+      console.error('Error en middleware de autenticación:', error);
       throw new Error('Error en autenticación');
     }
   });

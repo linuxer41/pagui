@@ -8,7 +8,7 @@ import { initScheduledTasks } from './services/monitor.service';
 import qrService from './services/qr.service';
 
 // Config y middlewares
-import { initDatabase, testConnection } from './config/database';
+import { migrateDB, testConnection, query } from './config/database';
 
 // Rutas
 import { routes } from './routes';
@@ -16,6 +16,8 @@ import { seedDatabase } from './scripts/seed-db';
 
 // Variables de entorno
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+
+
 
 // Inicializar la aplicación
 const app = new Elysia()
@@ -73,7 +75,8 @@ const app = new Elysia()
 // Ruta de estado del sistema
 app.get('/', () => ({
   status: 'online',
-  timestamp: new Date().toISOString()
+  timestamp: new Date().toISOString(),
+  auth_provider: 'zitadel'
 }));
 
 // Usar todas las rutas modularizadas
@@ -82,24 +85,43 @@ app.use(routes);
 // Inicializar base de datos y servidor
 async function start() {
   try {
+    // Obtener argumentos de línea de comandos (el primer argumento es node, el segundo es el archivo)
+    const args = process.argv.slice(2);
+    const command = args[0]?.toLowerCase();
+
+    console.log(command);
+
     // Probar conexión a la base de datos
     await testConnection();
     
-    // Inicializar la base de datos
-    await initDatabase();
-
-    // Ejecutar seed-db.ts
-    await seedDatabase();
-
-
-        
-    // Iniciar tareas programadas
-    initScheduledTasks();
+    // Ejecutar comandos específicos basados en argumentos
+    if (command === 'init-db' || command === 'create-db') {
+      console.log('🗄️ Inicializando la base de datos...');
+      await migrateDB();
+      process.exit(0);
+    }
     
-    // Iniciar servidor
-    app.listen(PORT);
-    console.log(`🚀 Servidor iniciado en http://localhost:${PORT}`);
-    console.log(`📚 Documentación de la API disponible en http://localhost:${PORT}/swagger`);
+    if (command === 'seed') {
+      console.log('🌱 Ejecutando seed de la base de datos...');
+      await migrateDB(); // Aseguramos que la DB está inicializada antes de hacer seed
+      await seedDatabase();
+      process.exit(0);
+    }
+    
+    // Flujo normal de inicio del servidor (sin argumentos específicos)
+    if (!command) {
+      // Iniciar tareas programadas
+      initScheduledTasks();
+      
+      // Iniciar servidor
+      app.listen(PORT);
+      console.log(`🚀 Servidor iniciado en http://localhost:${PORT}`);
+      console.log(`📚 Documentación de la API disponible en http://localhost:${PORT}/swagger`);
+    } else {
+      console.log(`❌ Comando desconocido: ${command}`);
+      console.log('Comandos disponibles: init-db, seed');
+      process.exit(1);
+    }
   } catch (error) {
     console.error('Error iniciando la aplicación:', error);
     process.exit(1);

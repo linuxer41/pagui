@@ -1,12 +1,3 @@
-import fetch from 'node-fetch';
-
-/**
- * Cliente API para Banco Nacional de Bolivia (BNB)
- * Implementa las operaciones necesarias para generar y gestionar QRs
- * 
- * NOTA: Esta es una implementación placeholder. La integración real
- * debe implementarse según la documentación oficial del banco.
- */
 export class BnbApi {
   private apiBaseUrl: string;
   private apiKey: string;

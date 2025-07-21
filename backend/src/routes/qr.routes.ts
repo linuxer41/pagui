@@ -3,6 +3,7 @@ import { authMiddleware } from '../middlewares/auth.middleware';
 import qrService from '../services/qr.service';
 import apiKeyService from '../services/apikey.service';
 import { QRRequestSchema } from '../schemas/qr.schemas';
+import { BANECO_NotifyPaymentQRRequestSchema } from '../schemas/baneco.scheamas';
 
 
 // Rutas para códigos QR
@@ -92,7 +93,7 @@ export const qrRoutes = new Elysia({ prefix: '/qrsimple' })
   })
   
   // Verificar estado de QR
-  .get('/v2/statusQR/:id', async ({ params, auth }) => {
+  .get('/:id/status', async ({ params, auth }) => {
     // Obtener companyId según el tipo de autenticación
     let companyId: number;
     let userId: number | undefined;
@@ -128,49 +129,6 @@ export const qrRoutes = new Elysia({ prefix: '/qrsimple' })
     detail: {
       tags: ['qr'],
       summary: 'Verificar estado de un código QR'
-    }
-  })
-  
-  // Listar QR pagados por fecha
-  .get('/v2/paidQR/:fecha', async ({ params, query, auth }) => {
-    // Obtener companyId según el tipo de autenticación
-    let companyId: number;
-    let userId: number | undefined;
-    
-    if (auth?.type === 'jwt') {
-      companyId = auth.user!.companyId;
-      userId = auth.user!.id;
-    } else if (auth?.type === 'apikey') {
-      const hasPermission = await apiKeyService.hasPermission(
-        auth.apiKeyInfo!.companyId.toString(), 
-        'qr_status'
-      );
-      
-      if (!hasPermission) {
-        return {
-          responseCode: 1,
-          message: 'API Key no tiene permisos para listar QR pagados'
-        };
-      }
-      companyId = auth.apiKeyInfo!.companyId;
-    } else {
-      return {
-        responseCode: 1,
-        message: 'No autorizado'
-      };
-    }
-    
-    return await qrService.getPaidQRs(companyId, params.fecha, query.bankId, userId);
-  }, {
-    params: t.Object({
-      fecha: t.String()
-    }),
-    query: t.Object({
-      bankId: t.Optional(t.Numeric())
-    }),
-    detail: {
-      tags: ['qr'],
-      summary: 'Obtener lista de QRs pagados en una fecha determinada'
     }
   })
   
@@ -239,6 +197,6 @@ export const qrRoutes = new Elysia({ prefix: '/qrsimple' })
       tags: ['qr'],
       summary: 'Simular pago de un código QR (solo para desarrollo)'
     }
-  });
+  })
 
 export default qrRoutes; 

@@ -19,19 +19,6 @@
   } from '@lucide/svelte';
   
   // Verificar autenticación en cada cambio de ruta
-  $: {
-    const path = $page.url.pathname;
-    
-    // Si no está en la página de login y no está autenticado, redirigir a login
-    if (path !== '/login' && !$auth.isAuthenticated) {
-      goto('/login');
-    }
-    
-    // Si está en login y ya está autenticado, redirigir a home
-    if (path === '/login' && $auth.isAuthenticated) {
-      goto('/');
-    }
-  }
 
     // Determinar si estamos en móvil o escritorio
     let isMobile = false;
@@ -52,29 +39,8 @@
     if (deviceInsets && deviceInsets.adjustedInsetTop) {
     console.log(deviceInsets.adjustedInsetTop); // f.E. 96
     }
-
-    // Centralizar el ajuste de color de barra según el tema
     await theme.applyTheme($theme);
 
-    // set the status and navigation bar color
-    // choose either "dark", "light" or "system" (default)
-    if ($auth.token) {
-      try {
-        // Verificar si el token está expirado
-        const tokenData = JSON.parse(atob($auth.token.split('.')[1]));
-        const expirationTime = tokenData.exp * 1000; // convertir a milisegundos
-        
-        if (Date.now() > expirationTime) {
-          console.log('Token expirado, cerrando sesión...');
-          auth.logout();
-          goto('/login');
-        }
-      } catch (error) {
-        console.error('Error al verificar token:', error);
-        auth.logout();
-        goto('/login');
-      }
-    }
   });
   
   // Obtener la ruta actual

@@ -45,13 +45,6 @@
   // Banco Economico hardcoded as the bank
   const BANCO_ECONOMICO_ID = 1;
 
-  // Verificar autenticación
-  onMount(async () => {
-    if (!$auth.isAuthenticated) {
-      goto('/login');
-    }
-  });
-
   $: if (qrData && qrData.qrImage) {
     qrImageSrc = `data:image/png;base64,${qrData.qrImage}`;
   } else {

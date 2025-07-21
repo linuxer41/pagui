@@ -37,7 +37,7 @@ export class BanecoApi {
   async encryptText(text: string, aesKey?: string): Promise<string> {
     const key = aesKey || this.aesKey;
     const url = `${this.apiBaseUrl}api/authentication/encrypt?text=${encodeURIComponent(text)}&aesKey=${key}`;
-    
+    console.log({url});
     try {
       const res = await fetch(url);
  
@@ -45,7 +45,6 @@ export class BanecoApi {
         throw new Error(`Error al encriptar texto: ${await res.text() || 'Error desconocido'}`);
       }
       const data = await res.json() as string;
-      console.log(data);
       return data;
     } catch (error) {
       console.error('Error en encriptación Baneco:', error);
@@ -65,11 +64,15 @@ export class BanecoApi {
       const encryptedPassword = 'zJDKXV7e4eGwVsMaoko3X26URZsqOnS8+GrN7IpMACo=';
       const url = `${this.apiBaseUrl}api/authentication/authenticate`;
       
+      
       const res = await fetch(url, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ userName: username, password: encryptedPassword })
       });
+      if (!res.ok) {
+        throw new Error(`Error de autenticación: ${await res.text() || 'Error desconocido'}`);
+      }
       
       const data = await res.json() as unknown as Static<typeof BANECO_AuthResponseSchema>;
       

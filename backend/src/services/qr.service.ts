@@ -102,6 +102,8 @@ interface BanecoStatusResponse {
 }
 
 interface BankConfig {
+  id: number;
+  environment: number;
   accountNumber: string;
   aesKey: string;
   testApiUrl: string;
@@ -132,26 +134,22 @@ class QrService {
     merchantId: string;
   }> {
     try {
-      // Buscar configuración específica para esta empresa
+      // Obtener la configuración de la empresa con el banco
       const configQuery = await query(`
         SELECT 
-          cbc.account_number as "accountNumber", 
-          cbc.encryption_key as "encryptionKey",
-          cbc.account_username as "accountUsername",
-          cbc.account_password as "accountPassword",
+          cbc.account_number as "accountNumber",
           cbc.merchant_id as "merchantId",
           cbc.environment as "environment",
+          cbc.additional_config as "additionalConfig",
           b.test_api_url as "testApiUrl",
-          b.prod_api_url as "prodApiUrl",
-          b.encryption_key as "bankEncryptionKey"
-        FROM company_bank_configs cbc
+          b.prod_api_url as "prodApiUrl"
+        FROM company_bank cbc
         JOIN banks b ON cbc.bank_id = b.id
         WHERE cbc.company_id = $1 
           AND b.code = $2 
           AND cbc.status = 'ACTIVE'
           AND b.status = 'ACTIVE'
           AND cbc.deleted_at IS NULL
-          AND b.deleted_at IS NULL
       `, [companyId, bankCode]);
       
       if (configQuery.rowCount === 0) {
@@ -159,12 +157,15 @@ class QrService {
       }
       
       const config = configQuery.rows[0];
-      // const accountNumber = cryptoService.decrypt(config.accountNumber);
       const accountNumber = config.accountNumber;
-      const username = config.accountUsername;
-      const password = config.accountPassword;
+      
+      const additionalConfig = config.additionalConfig || {};
+      const username = additionalConfig.username;
+      const password = additionalConfig.password;
+      
       const merchantId = config.merchantId;
-      const aesKey = config.encryptionKey || config.bankEncryptionKey || '6F09E3167E1D40829207B01041A65B12';
+      // Use a default AES key if needed
+      const aesKey = '6F09E3167E1D40829207B01041A65B12';
       const apiBaseUrl = config.environment === 2 ? config.testApiUrl : config.prodApiUrl;
       
       if (!username || !password) {
@@ -195,18 +196,19 @@ class QrService {
     console.log({companyId, bankId, qrData, userId});
     try {
       const currency = 'BOB';
-      const branchCode = 'E0001';
       // Verificar que la empresa existe y tiene configuración para el banco seleccionado
       const configCheck = await query<BankConfig>(`
         SELECT 
-          cbc.account_number as "accountNumber", 
-          cbc.encryption_key as "aesKey"  ,
+          cbc.id,
+          cbc.environment,
+          cbc.account_number as "accountNumber",
+          cbc.additional_config as "additionalConfig",
           b.test_api_url as "testApiUrl", 
           b.prod_api_url as "prodApiUrl",
           b.code as "bankCode",
           b.name as "bankName",
           c.name as "companyName"
-        FROM company_bank_configs cbc
+        FROM company_bank cbc
         JOIN banks b ON cbc.bank_id = b.id
         JOIN companies c ON cbc.company_id = c.id
         WHERE cbc.company_id = $1
@@ -259,7 +261,6 @@ class QrService {
               dueDate: qrData.dueDate,
               singleUse: qrData.singleUse,
               modifyAmount: qrData.modifyAmount,
-              branchCode,
               currency: currency
             }
           ) as BanecoQRResponse;
@@ -271,14 +272,14 @@ class QrService {
               transaction_id,
               account_credit,
               company_id,
-              bank_id,
+              company_bank_id,
+              environment,
               currency,
               amount,
               description,
               due_date,
               single_use,
               modify_amount,
-              branch_code,
               qr_image,
               status
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
@@ -287,14 +288,14 @@ class QrService {
             qrData.transactionId,
             cryptoService.encrypt(config.accountNumber), // Cifrar cuenta
             companyId,
-            bankId,
+            bankConfig.id,
+            bankConfig.environment,
             'BOB',
             qrData.amount,
             qrData.description || 'Pago QR',
             qrData.dueDate ? new Date(qrData.dueDate) : new Date('2025-12-31'),
             qrData.singleUse !== undefined ? qrData.singleUse : true,
             qrData.modifyAmount !== undefined ? qrData.modifyAmount : false,
-            branchCode,
             qrResult.qrImage,
             'ACTIVE'
           ]);
@@ -308,7 +309,7 @@ class QrService {
               amount: qrData.amount,
               bankCode: BANCO_ECONOMICO_CODE
             },
-            'SUCCESS',
+            'INFO',
             companyId,
             userId
           );
@@ -434,7 +435,6 @@ class QrService {
           dueDate: qrData.dueDate,
           singleUse: qrData.singleUse,
           modifyAmount: qrData.modifyAmount,
-          branchCode,
           bankCode: BANCO_ECONOMICO_CODE
         };
         
@@ -448,14 +448,14 @@ class QrService {
             transaction_id,
             account_credit,
             company_id,
-            bank_id,
+            company_bank_id,
+            environment,
             currency,
             amount,
             description,
             due_date,
             single_use,
             modify_amount,
-            branch_code,
             qr_image,
             status
           ) 
@@ -472,7 +472,6 @@ class QrService {
           qrData.dueDate,
           qrData.singleUse,
           qrData.modifyAmount,
-          branchCode,
           qrImage,
           'ACTIVE'
         ]);
@@ -489,7 +488,7 @@ class QrService {
             currency: currency,
             dueDate: qrData.dueDate
           },
-          'SUCCESS',
+          'INFO',
           companyId,
           userId
         );
@@ -551,12 +550,13 @@ class QrService {
       // Verificar que el QR existe y pertenece a la empresa
       const qrCheck = await query(`
         SELECT 
-          qr.bank_id,
+          qr.company_bank_id,
           qr.status,
           b.code as bank_code,
           b.name as bankName
         FROM qr_codes qr
-        JOIN banks b ON qr.bank_id = b.id
+        JOIN company_bank cbc ON qr.company_bank_id = cbc.id
+        JOIN banks b ON cbc.bank_id = b.id
         WHERE qr.qr_id = $1 AND qr.company_id = $2
         AND qr.deleted_at IS NULL
         AND b.deleted_at IS NULL
@@ -605,7 +605,7 @@ class QrService {
           await logActivity(
             'QR_CANCELLED',
             { qrId },
-            'SUCCESS',
+            'INFO',
             companyId,
             userId
           );
@@ -666,10 +666,10 @@ class QrService {
         'QR_CANCELLED',
         {
           qrId,
-          bankId: qrData.bankId,
+          companyBankId: qrData.company_bank_id,
           bankName: qrData.bankName
         },
-        'SUCCESS',
+        'INFO',
         companyId,
         userId
       );
@@ -714,12 +714,13 @@ class QrService {
       // Verificar que el QR existe y pertenece a la empresa
       const qrCheck = await query(`
         SELECT 
-          qr.bank_id,
+          qr.company_bank_id,
           qr.status,
           b.code as bankCode,
           b.name as bankName
         FROM qr_codes qr
-        JOIN banks b ON qr.bank_id = b.id
+        JOIN company_bank cbc ON qr.company_bank_id = cbc.id
+        JOIN banks b ON cbc.bank_id = b.id
         WHERE qr.qr_id = $1 AND qr.company_id = $2
         AND qr.deleted_at IS NULL
         AND b.deleted_at IS NULL
@@ -756,7 +757,7 @@ class QrService {
               qrId,
               status: statusResult.statusQrCode
             },
-            'SUCCESS',
+            'INFO',
             companyId,
             userId
           );
@@ -845,10 +846,10 @@ class QrService {
         {
           qrId,
           status: qrData.status,
-          bankId: qrData.bankId,
+          companyBankId: qrData.company_bank_id,
           bankName: qrData.bankName
         },
-        'SUCCESS',
+        'INFO',
         companyId,
         userId
       );
@@ -935,7 +936,7 @@ class QrService {
                 date: formattedDate,
                 count: paidQRs.length
               },
-              'SUCCESS',
+              'INFO',
               companyId,
               userId
             );
@@ -996,8 +997,7 @@ class QrService {
           sender_name,
           sender_document_id,
           sender_account,
-          description,
-          branch_code
+          description
         FROM qr_payments
         WHERE company_id = $1 
         AND date(payment_date) = $2
@@ -1016,8 +1016,7 @@ class QrService {
         senderName: row.sender_name,
         senderDocumentId: row.sender_document_id,
         senderAccount: row.sender_account,
-        description: row.description,
-        branchCode: row.branch_code
+        description: row.description
       }));
       
       // Registrar actividad
@@ -1028,7 +1027,7 @@ class QrService {
           count: payments.length,
           bankId
         },
-        'SUCCESS',
+        'INFO',
         companyId,
         userId
       );
@@ -1070,7 +1069,7 @@ class QrService {
         SELECT
           q.qr_id,
           q.company_id,
-          q.bank_id,
+          cb.bank_id,
           q.due_date,
           q.currency,
           q.amount,
@@ -1078,7 +1077,8 @@ class QrService {
           b.name as bankName
         FROM qr_codes q
         JOIN companies c ON q.company_id = c.id
-        JOIN banks b ON q.bank_id = b.id
+        JOIN company_bank cb ON q.company_id = cb.company_id
+        JOIN banks b ON cb.bank_id = b.id
         WHERE q.status = 'ACTIVE'
         AND q.due_date BETWEEN $1 AND $2
         AND q.deleted_at IS NULL
@@ -1159,7 +1159,8 @@ class QrService {
           q.*,
           b.name as bankName
         FROM qr_codes q
-        JOIN banks b ON q.bank_id = b.id
+        JOIN company_bank cb ON q.company_id = cb.company_id
+        JOIN banks b ON cb.bank_id = b.id
         WHERE q.qr_id = $1 AND q.company_id = $2 AND q.status = 'ACTIVE'
         AND q.deleted_at IS NULL
       `, [qrId, companyId]);
@@ -1253,7 +1254,7 @@ class QrService {
           bankName: qrInfo.bankName,
           transactionId
         },
-        'SUCCESS',
+        'INFO',
         companyId,
         userId
       );
@@ -1302,11 +1303,11 @@ class QrService {
           q.description,
           q.single_use,
           q.modify_amount,
-          q.branch_code,
-          b.id as bankId,
+          cb.bank_id as bankId,
           b.name as bankName
         FROM qr_codes q
-        JOIN banks b ON q.bank_id = b.id
+        JOIN company_bank cb ON q.company_id = cb.company_id
+        JOIN banks b ON cb.bank_id = b.id
         WHERE q.company_id = $1
         AND q.deleted_at IS NULL
       `;
@@ -1335,7 +1336,7 @@ class QrService {
       }
       
       if (filters.bankId) {
-        sqlQuery += ` AND q.bank_id = $${paramIndex}`;
+        sqlQuery += ` AND cb.bank_id = $${paramIndex}`;
         queryParams.push(typeof filters.bankId === 'string' ? parseInt(filters.bankId) : filters.bankId);
         paramIndex++;
       }
@@ -1372,7 +1373,7 @@ class QrService {
       }
       
       if (filters.bankId) {
-        countQuery += ` AND q.bank_id = $${countParamIndex}`;
+        countQuery += ` AND cb.bank_id = $${countParamIndex}`;
       }
       
       // Ejecutar la consulta de conteo
@@ -1472,7 +1473,7 @@ class QrService {
           count: qrList.length,
           totalCount
         },
-        'SUCCESS',
+        'INFO',
         companyId,
         userId
       );
@@ -1507,10 +1508,11 @@ class QrService {
 
   async banecoQRNotify(data: Static<typeof BANECO_NotifyPaymentQRRequestSchema>): Promise<Static<typeof BANECO_NotifyPaymentQRResponseSchema>> {
     try {
-      const checkQR = await query<{id: number, status: string, transactionId: string, bankId: number, companyId: number}>(`
-        SELECT id, status, transaction_id as "transactionId", bank_id as "bankId", company_id as "companyId" 
-        FROM qr_codes WHERE qr_id = $1 AND bank_id = $2
-      `, [data.payment.qrId, BANK_DB_ID.BANCO_ECONOMICO]);
+      const checkQR = await query<{id: number, status: string, transactionId: string, companyId: number}>(`
+        SELECT q.id, q.status, q.transaction_id as "transactionId", q.company_id as "companyId" 
+        FROM qr_codes q
+        WHERE q.qr_id = $1
+      `, [data.payment.qrId]);
       
       if (checkQR.rowCount === 0) {
         return {
@@ -1526,6 +1528,9 @@ class QrService {
           message: 'QR no está pendiente de pago'
         };
       }
+
+      // Obtener el banco_id de BANECO
+      const bankId = BANK_DB_ID.BANCO_ECONOMICO;
 
       // Extraer datos del pago de la notificación
       const payment = data.payment;

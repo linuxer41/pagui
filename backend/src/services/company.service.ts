@@ -12,8 +12,9 @@ interface CompanyData {
 interface BankConfig {
   bankId: number;
   accountNumber: string;
+  accountType?: number;
+  accountName?: string;
   merchantId?: string;
-  encryptionKey?: string;
   additionalConfig?: Record<string, any>;
 }
 
@@ -39,7 +40,7 @@ class CompanyService {
         [companyData.businessId]
       );
       
-      if (existingCheck.rowCount > 0) {
+      if (existingCheck.rowCount && existingCheck.rowCount > 0) {
         return {
           responseCode: 1,
           message: `Ya existe una empresa con el ID de negocio '${companyData.businessId}'`
@@ -75,7 +76,7 @@ class CompanyService {
           name: companyData.name,
           businessId: companyData.businessId
         },
-        'SUCCESS',
+        'INFO',
         companyId,
         userId
       );
@@ -132,7 +133,7 @@ class CompanyService {
             [companyData.businessId, companyId]
           );
           
-          if (existingCheck.rowCount > 0) {
+          if (existingCheck.rowCount && existingCheck.rowCount > 0) {
             return {
               responseCode: 1,
               message: `Ya existe otra empresa con el ID de negocio '${companyData.businessId}'`
@@ -189,7 +190,7 @@ class CompanyService {
           companyId,
           updatedFields: Object.keys(companyData)
         },
-        'SUCCESS',
+        'INFO',
         companyId,
         userId
       );
@@ -223,12 +224,13 @@ class CompanyService {
     message: string;
   }> {
     try {
-      // Obtener información de la empresa
       const companyResult = await query(`
         SELECT 
           id, 
           name, 
           business_id, 
+          type,
+          document_id,
           address, 
           contact_email, 
           contact_phone, 
@@ -236,7 +238,7 @@ class CompanyService {
           created_at, 
           updated_at
         FROM companies
-        WHERE id = $1
+        WHERE id = $1 AND deleted_at IS NULL
       `, [companyId]);
       
       if (companyResult.rowCount === 0) {
@@ -246,7 +248,6 @@ class CompanyService {
         };
       }
       
-      // Obtener configuraciones de bancos para la empresa
       const bankConfigsResult = await query(`
         SELECT 
           cbc.id,
@@ -254,10 +255,12 @@ class CompanyService {
           b.code as bank_code,
           b.name as bank_name,
           cbc.account_number,
+          cbc.account_type,
+          cbc.account_name,
           cbc.merchant_id,
           cbc.additional_config,
           cbc.status
-        FROM company_bank_configs cbc
+        FROM company_bank cbc
         JOIN banks b ON cbc.bank_id = b.id
         WHERE cbc.company_id = $1
         ORDER BY b.name
@@ -267,6 +270,8 @@ class CompanyService {
         id: companyResult.rows[0].id,
         name: companyResult.rows[0].name,
         businessId: companyResult.rows[0].business_id,
+        type: companyResult.rows[0].type,
+        documentId: companyResult.rows[0].document_id,
         address: companyResult.rows[0].address,
         contactEmail: companyResult.rows[0].contact_email,
         contactPhone: companyResult.rows[0].contact_phone,
@@ -281,6 +286,8 @@ class CompanyService {
         bankCode: row.bank_code,
         bankName: row.bank_name,
         accountNumber: row.account_number,
+        accountType: row.account_type,
+        accountName: row.account_name,
         merchantId: row.merchant_id,
         additionalConfig: row.additional_config,
         status: row.status
@@ -382,30 +389,32 @@ class CompanyService {
       // Verificar si ya existe una configuración para esta empresa y banco
       const configCheck = await query(`
         SELECT id 
-        FROM company_bank_configs
+        FROM company_bank
         WHERE company_id = $1 AND bank_id = $2
       `, [companyId, bankConfig.bankId]);
       
       let configId;
       
-      if (configCheck.rowCount > 0) {
+      if (configCheck.rowCount && configCheck.rowCount > 0) {
         // Actualizar la configuración existente
         configId = configCheck.rows[0].id;
         
         await query(`
-          UPDATE company_bank_configs
+          UPDATE company_bank
           SET 
             account_number = $1,
-            merchant_id = $2,
-            encryption_key = $3,
-            additional_config = $4,
+            account_type = $2,
+            account_name = $3,
+            merchant_id = $4,
+            additional_config = $5,
             status = 'ACTIVE',
             updated_at = CURRENT_TIMESTAMP
-          WHERE id = $5
+          WHERE id = $6
         `, [
           bankConfig.accountNumber,
+          bankConfig.accountType || 1,
+          bankConfig.accountName || 'Cuenta Principal',
           bankConfig.merchantId || null,
-          bankConfig.encryptionKey || null,
           bankConfig.additionalConfig ? JSON.stringify(bankConfig.additionalConfig) : null,
           configId
         ]);
@@ -418,7 +427,7 @@ class CompanyService {
             bankId: bankConfig.bankId,
             configId
           },
-          'SUCCESS',
+          'INFO',
           companyId,
           userId
         );
@@ -431,22 +440,24 @@ class CompanyService {
       } else {
         // Crear una nueva configuración
         const result = await query(`
-          INSERT INTO company_bank_configs (
+          INSERT INTO company_bank (
             company_id,
             bank_id,
             account_number,
+            account_type,
+            account_name,
             merchant_id,
-            encryption_key,
             additional_config
           )
-          VALUES ($1, $2, $3, $4, $5, $6)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
           RETURNING id
         `, [
           companyId,
           bankConfig.bankId,
           bankConfig.accountNumber,
+          bankConfig.accountType || 1,
+          bankConfig.accountName || 'Cuenta Principal',
           bankConfig.merchantId || null,
-          bankConfig.encryptionKey || null,
           bankConfig.additionalConfig ? JSON.stringify(bankConfig.additionalConfig) : null
         ]);
         
@@ -460,7 +471,7 @@ class CompanyService {
             bankId: bankConfig.bankId,
             configId
           },
-          'SUCCESS',
+          'INFO',
           companyId,
           userId
         );
@@ -472,11 +483,11 @@ class CompanyService {
         };
       }
     } catch (error) {
-      console.error('Error configurando banco para la empresa:', error);
+      console.error('Error configurando banco para empresa:', error);
       
       return {
         responseCode: 1,
-        message: error instanceof Error ? error.message : 'Error configurando banco'
+        message: error instanceof Error ? error.message : 'Error configurando banco para empresa'
       };
     }
   }
@@ -508,7 +519,7 @@ class CompanyService {
           companyId,
           companyName: companyCheck.rows[0].name
         },
-        'SUCCESS',
+        'INFO',
         companyId,
         userId
       );

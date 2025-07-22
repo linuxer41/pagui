@@ -64,7 +64,7 @@ class BankService {
           code: bankData.code,
           name: bankData.name
         },
-        'SUCCESS',
+        'INFO',
         companyId,
         userId
       );
@@ -175,7 +175,7 @@ class BankService {
           bankId,
           updatedFields: Object.keys(bankData)
         },
-        'SUCCESS',
+        'INFO',
         companyId,
         userId
       );
@@ -320,7 +320,7 @@ class BankService {
           bankCode: bankCheck.rows[0].code,
           bankName: bankCheck.rows[0].name
         },
-        'SUCCESS',
+        'INFO',
         companyId,
         userId
       );

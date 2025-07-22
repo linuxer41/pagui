@@ -1,9 +1,10 @@
 import { Elysia, t } from 'elysia';
 import jwt from 'jsonwebtoken';
-import { authService } from '../services/auth.service';
+import {authService}  from '../services/auth.service';
 import { apiKeyService } from '../services/apikey.service';
 import { logActivity } from '../services/monitor.service';
 import { query } from '../config/database';
+import { ApiError } from '../utils/error';
 
 // Define the ApiKeyPermissions interface locally to match the one in apikey.service
 interface ApiKeyPermissions {
@@ -25,10 +26,29 @@ export interface ApiKeyInfo {
   permissions: ApiKeyPermissions;
 }
 
-export interface AuthData {
-  type: 'jwt' | 'apikey';
-  user?: AuthUser;
-  apiKeyInfo?: ApiKeyInfo;
+interface JWTAuthData {
+  type: 'jwt';
+  user: {
+    id: number;
+    email: string;
+    companyId: number;
+    role: string;
+  };
+}
+
+interface APIKeyAuthData {
+  type: 'apikey';
+  apiKeyInfo: {
+    companyId: number;
+    permissions: Record<string, any>;
+  };
+}
+
+type AuthData = JWTAuthData | APIKeyAuthData;
+
+interface AuthMiddlewareOptions {
+  type: 'jwt' | 'apikey' | 'all';
+  level: 'user' | 'admin';
 }
 
 // Función para verificar y actualizar el token en la base de datos
@@ -65,224 +85,149 @@ async function verifyTokenInDatabase(token: string): Promise<boolean> {
   }
 }
 
-// Middleware base de autenticación
-export const authMiddleware = new Elysia({ name: 'auth' })
- 
-  .derive(async (context) => {
-    try {
-      // Obtener información del dispositivo
-      const ipAddress = context.request.headers.get('x-forwarded-for') || 
+// Define a generic function with conditional return type
+export function authMiddleware<T extends 'jwt' | 'apikey' | 'all'>(
+  options: { type: T; level: 'user' | 'admin' } = { type: 'jwt' as T, level: 'user' }
+) {
+  type ReturnType = 
+    T extends 'jwt' ? { auth: JWTAuthData } :
+    T extends 'apikey' ? { auth: APIKeyAuthData } :
+    { auth: AuthData };
+
+  return new Elysia({ name: 'auth' })
+    .derive(async (context): Promise<ReturnType> => {
+      try {
+        // Get device information
+        const ipAddress = context.request.headers.get('x-forwarded-for') || 
                          context.request.headers.get('cf-connecting-ip') || 
                          context.request.headers.get('x-real-ip') || 
                          context.request.headers.get('host') || 
                          'unknown';
-      
-      const userAgent = context.request.headers.get('user-agent') || 'unknown';
-      
-      // Revisar primero el header Authorization para JWT
-      const authHeader = context.headers.authorization;
-      
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.substring(7); // Quitar 'Bearer ' del inicio
         
-        // Verificar el JWT
-        try {
-          // Primero verificar la firma del JWT
-          const decodedToken = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as any;
+        const userAgent = context.request.headers.get('user-agent') || 'unknown';
+        
+        // Check Authorization header for JWT
+        const authHeader = context.headers.authorization;
+        
+        if (authHeader && authHeader.startsWith('Bearer ') && (options.type === 'jwt' || options.type === 'all')) {
+          const token = authHeader.substring(7); // Remove 'Bearer ' prefix
           
-          // Luego verificar si el token existe en la base de datos
-          const isValidInDb = await verifyTokenInDatabase(token);
-          
-          if (!isValidInDb) {
-            throw new Error('Token no encontrado en la base de datos o ha expirado');
-          }
-          
-          // Obtener información del usuario
-          const userInfo = await authService.getUserInfo(decodedToken.email);
-          
-          if (!userInfo || userInfo.responseCode !== 0) {
-            throw new Error('Usuario no encontrado');
-          }
-          
-          // Registrar uso del token
-          await logActivity(
-            'TOKEN_USED',
-            {
-              path: context.path,
-              method: context.request.method,
-              ipAddress,
-              userAgent
-            },
-            'SUCCESS',
-            userInfo.companyId,
-            userInfo.id
-          );
-          
-          // Retornar datos de autenticación (JWT)
-          return {
-            auth: {
-              type: 'jwt',
-              user: {
-                id: userInfo.id!,
-                email: userInfo.email!,
-                companyId: userInfo.companyId!,
-                role: userInfo.role!
+          try {
+            // Verify JWT signature
+            const decodedToken = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as any;
+            
+            // Verify if token exists in database
+            const isValidInDb = await verifyTokenInDatabase(token);
+            
+            if (!isValidInDb) {
+              throw new ApiError('Token no encontrado en la base de datos o ha expirado', 401);
+            }
+            
+            // Get user information
+            const userInfo = await authService.getUserInfo(decodedToken.email);
+            
+            if (!userInfo || !userInfo.id) {
+              throw new ApiError('Usuario no encontrado', 404);
+            }
+            
+            // Validate required access level
+            if (options.level === 'admin' && userInfo.role !== 'ADMIN' && userInfo.role !== 'SUPER_ADMIN') {
+              throw new ApiError('Se requiere rol de administrador', 403);
+            }
+            
+            // Log token usage
+            await logActivity(
+              'TOKEN_USED',
+              {
+                path: context.path,
+                method: context.request.method,
+                ipAddress,
+                userAgent
+              },
+              'INFO',
+              userInfo.companyId,
+              userInfo.id
+            );
+            
+            // Return authentication data (JWT)
+            return {
+              auth: {
+                type: 'jwt',
+                user: {
+                  id: userInfo.id,
+                  email: userInfo.email!,
+                  companyId: userInfo.companyId!,
+                  role: userInfo.role!
+                }
               }
-            } as AuthData
-          };
-        } catch (error) {
-          console.error('Error en autenticación JWT:', error);
-          throw new Error('Error en autenticación');
-        }
-      }
-      
-      // Verificar si hay API key en los headers
-      const apiKeyHeader = context.headers['x-api-key'];
-      
-      if (apiKeyHeader) {
-        const apiKey = apiKeyHeader;
-        
-        // Verificar la API key
-        const verification = await apiKeyService.verifyApiKey(apiKey);
-        
-        if (verification.isValid && verification.companyId && verification.permissions) {
-          // API key válida
-          // Registrar actividad de uso de API key
-          await logActivity(
-            'API_KEY_USED',
-            {
-              path: context.path,
-              method: context.request.method,
-              ipAddress,
-              userAgent
-            },
-            'SUCCESS',
-            verification.companyId
-          );
-          
-          // Retornar datos de autenticación (API key)
-          return {
-            auth: {
-              type: 'apikey',
-              apiKeyInfo: {
-                companyId: verification.companyId,
-                permissions: verification.permissions
-              }
-            } as AuthData
-          };
+            } as unknown as ReturnType;
+          } catch (error) {
+            console.error('Error en autenticación JWT:', error);
+            if (error instanceof ApiError) {
+              throw error;
+            }
+            throw new ApiError('Error en autenticación', 401);
+          }
         }
         
-        throw new Error('API key inválida');
+        // Check headers for API key
+        const apiKeyHeader = context.headers['x-api-key'];
+        
+        if (apiKeyHeader && (options.type === 'apikey' || options.type === 'all')) {
+          const apiKey = apiKeyHeader;
+          
+          // Verify API key
+          const verification = await apiKeyService.verifyApiKey(apiKey);
+          
+          if (verification.isValid && verification.companyId && verification.permissions) {
+            // If admin level required, verify admin permissions in the API key
+            if (options.level === 'admin' && !verification.permissions.qr_generate) {
+              throw new ApiError('Se requieren permisos de administrador', 403);
+            }
+            
+            // Log API key usage
+            await logActivity(
+              'API_KEY_USED',
+              {
+                path: context.path,
+                method: context.request.method,
+                ipAddress,
+                userAgent
+              },
+              'INFO',
+              verification.companyId
+            );
+            
+            // Return authentication data (API key)
+            return {
+              auth: {
+                type: 'apikey',
+                apiKeyInfo: {
+                  companyId: verification.companyId,
+                  permissions: verification.permissions
+                }
+              }
+            } as unknown as ReturnType;
+          }
+          
+          throw new ApiError('API key inválida', 401);
+        }
+        
+        throw new ApiError(
+          options.type === 'jwt' ? 'Se requiere autenticación JWT' : 
+          options.type === 'apikey' ? 'Se requiere API key' : 
+          'No autorizado. Se requiere autenticación válida.',
+          401
+        );
+      } catch (error) {
+        console.error('Error en middleware de autenticación:', error);
+        if (error instanceof ApiError) {
+          throw error;
+        }
+        throw new ApiError('Error en autenticación', 401);
       }
-      
-      throw new Error('No autorizado. Se requiere autenticación válida.');
-    } catch (error) {
-      console.error('Error en middleware de autenticación:', error);
-      throw new Error('Error en autenticación');
-    }
-  });
-
-// Funciones auxiliares que verifican permisos y roles directamente sin crear middlewares separados
-export const requireApiKeyPermission = (permission: keyof ApiKeyPermissions) => {
-  return async ({ auth, set, path, request }: { 
-    auth?: AuthData, 
-    set: { status: number }, 
-    path: string, 
-    request: { method: string } 
-  }) => {
-    if (!auth || auth.type !== 'apikey') {
-      set.status = 403;
-      return {
-        error: 'Forbidden - API key required',
-        status: 403
-      };
-    }
-
-    if (!auth.apiKeyInfo?.permissions[permission]) {
-      await logActivity(
-        'API_KEY_PERMISSION_DENIED',
-        {
-          permission,
-          path,
-          method: request.method
-        },
-        'ERROR',
-        auth.apiKeyInfo?.companyId
-      );
-
-      set.status = 403;
-      return {
-        error: `Forbidden - Missing permission: ${permission}`,
-        status: 403
-      };
-    }
-
-    // Si todo está bien, no retornamos nada
-    return null;
-  };
-};
-
-export const requireUserRole = (role: string) => {
-  return async ({ auth, set, path, request }: { 
-    auth?: AuthData, 
-    set: { status: number }, 
-    path: string, 
-    request: { method: string } 
-  }) => {
-    if (!auth || auth.type !== 'jwt') {
-      set.status = 403;
-      return {
-        error: 'Forbidden - User authentication required',
-        status: 403
-      };
-    }
-
-    if (auth.user?.role !== role && auth.user?.role !== 'ADMIN') {
-      await logActivity(
-        'ROLE_PERMISSION_DENIED',
-        {
-          requiredRole: role,
-          userRole: auth.user?.role,
-          path,
-          method: request.method
-        },
-        'ERROR',
-        auth.user?.companyId,
-        auth.user?.id
-      );
-
-      set.status = 403;
-      return {
-        error: `Forbidden - Required role: ${role}`,
-        status: 403
-      };
-    }
-
-    // Si todo está bien, no retornamos nada
-    return null;
-  };
-};
-
-// Función para crear un middleware de permisos de API key
-export const apiKeyPermissionMiddleware = (permission: keyof ApiKeyPermissions) => {
-  return new Elysia()
-    .use(authMiddleware)
-    .onBeforeHandle(async (context) => {
-      // Usar la función auxiliar
-      // @ts-ignore - El auth está garantizado por el middleware de autenticación
-      return requireApiKeyPermission(permission)(context);
     });
-};
+}
 
-// Función para crear un middleware de rol de usuario
-export const roleMiddleware = (role: string) => {
-  return new Elysia()
-    .use(authMiddleware)
-    .onBeforeHandle(async (context) => {
-      // Usar la función auxiliar
-      // @ts-ignore - El auth está garantizado por el middleware de autenticación
-      return requireUserRole(role)(context);
-    });
-};
 
 export default authMiddleware; 

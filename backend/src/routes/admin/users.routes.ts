@@ -1,10 +1,10 @@
 import { Elysia, t } from 'elysia';
-import { authMiddleware } from '../middlewares/auth.middleware';
-import authService from '../services/auth.service';
+import { authMiddleware } from '../../middlewares/auth.middleware';
+import {authService} from '../../services/auth.service';
 
 // Rutas para usuarios
 export const userRoutes = new Elysia({ prefix: '/users' })
-  .use(authMiddleware)
+  .use(authMiddleware({ type: 'jwt', level: 'admin' }))
   
   // Crear nuevo usuario (solo administradores)
   .post('/', async ({ body, auth }) => {

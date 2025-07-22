@@ -2,7 +2,7 @@ import { query } from '../config/database';
 import { CronJob } from 'cron';
 import { qrService } from './qr.service';
 
-type ActivityStatus = 'SUCCESS' | 'ERROR' | 'WARNING' | 'FAILED';
+type ActivityStatus = 'INFO' | 'ERROR' | 'WARNING';
 
 // Función para registrar actividad en el sistema
 export async function logActivity(

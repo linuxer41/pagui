@@ -65,7 +65,7 @@
 
   // Sidebar: usar name, si no, email
   function getUserDisplayName(user: User | null): string {
-    return user?.name || user?.email || 'Usuario';
+    return user?.fullName || user?.email || 'Usuario';
   }
   
   // Determinar si la página actual es una página secundaria

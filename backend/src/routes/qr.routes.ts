@@ -8,7 +8,7 @@ import { BANECO_NotifyPaymentQRRequestSchema } from '../schemas/baneco.scheamas'
 
 // Rutas para códigos QR
 export const qrRoutes = new Elysia({ prefix: '/qrsimple' })
-  .use(authMiddleware)
+  .use(authMiddleware({ type: 'all', level: 'user' }))
   
   // Generar QR - Accesible vía API key o JWT
   .post('/generateQR', async ({ body, auth }) => {

@@ -1,4 +1,5 @@
 import { auth } from './stores/auth';
+import { company } from './stores/company';
 import { get } from 'svelte/store';
 import { API_URL, APP_CONFIG } from './config';
 
@@ -112,6 +113,12 @@ class ApiClient {
     // Añadir API key si existe
     if (options.apiKey) {
       headers['X-API-Key'] = options.apiKey;
+    } else {
+      // Si no hay API key en opciones, intentar obtener del store de company
+      const companyData = get(company);
+      if (companyData && companyData.apiKey) {
+        headers['X-API-Key'] = companyData.apiKey;
+      }
     }
     
     const config: RequestInit = {
@@ -180,11 +187,18 @@ class ApiClient {
     const response = await this.post<ApiResponse>('/auth/login', { email, password });
 
     // Si la autenticación es exitosa, guardar en el store
-    if (response.user && response.auth && response.auth.accessToken) {
-      const user = response.user;
-      const accessToken = response.auth.accessToken;
-      const refreshToken = response.auth.refreshToken;
-      auth.login(accessToken, user, refreshToken);
+    if (response.success && response.data) {
+      const { user, auth: authData, company: companyData } = response.data;
+      
+      // Guardar información de usuario y tokens
+      if (user && authData && authData.accessToken) {
+        auth.login(authData.accessToken, user, authData.refreshToken);
+      }
+      
+      // Guardar información de la empresa
+      if (companyData) {
+        company.setCompany(companyData);
+      }
     }
 
     return response;
@@ -195,6 +209,16 @@ class ApiClient {
     return this.post<ApiResponse>('/users/change-password', { currentPassword, newPassword }, options);
   }
   
+  // Solicitar restablecimiento de contraseña
+  async requestPasswordReset(email: string): Promise<ApiResponse> {
+    return this.post<ApiResponse>('/auth/forgot-password', { email });
+  }
+  
+  // Restablecer contraseña con token
+  async resetPassword(token: string, newPassword: string): Promise<ApiResponse> {
+    return this.post<ApiResponse>('/auth/reset-password', { token, newPassword });
+  }
+
   // Método para cerrar sesión (solo en el cliente)
   logout() {
     auth.logout();
@@ -272,20 +296,25 @@ class ApiClient {
     week?: number,
     options: RequestOptions = {}
   ): Promise<TransactionsResponse> {
-    // Esta es una implementación simulada para desarrollo
+    // Construir la URL para el endpoint de estadísticas
+    const endpoint = `/transactions/stats/${periodType}/${year}${month !== undefined ? `/${month}` : ''}${week !== undefined ? `/${week}` : ''}`;
     
-    // En producción, este método haría una llamada real a la API:
-    // return this.get<TransactionsResponse>(`/transactions/stats/${periodType}/${year}${month ? `/${month}` : ''}${week ? `/${week}` : ''}`, options);
-    
-    // Simulación para desarrollo:
-    if (periodType === 'monthly' && month !== undefined) {
-      return this.generateMockMonthlyData(year, month);
-    } else if (periodType === 'weekly' && week !== undefined) {
-      return this.generateMockWeeklyData(year, week);
-    } else if (periodType === 'yearly') {
-      return this.generateMockYearlyData(year);
-    } else {
-      throw new Error('Parámetros inválidos para obtener transacciones por período');
+    try {
+      // Intentar hacer la llamada real a la API
+      return this.get<TransactionsResponse>(endpoint, options);
+    } catch (error) {
+      console.error('Error obteniendo estadísticas de transacciones:', error);
+      
+      // Fallback a datos simulados si la API falla o no está implementada
+      if (periodType === 'monthly' && month !== undefined) {
+        return this.generateMockMonthlyData(year, month);
+      } else if (periodType === 'weekly' && week !== undefined) {
+        return this.generateMockWeeklyData(year, week);
+      } else if (periodType === 'yearly') {
+        return this.generateMockYearlyData(year);
+      } else {
+        throw new Error('Parámetros inválidos para obtener transacciones por período');
+      }
     }
   }
   
@@ -300,122 +329,34 @@ class ApiClient {
     page?: number;
     pageSize?: number;
   } = {}, options: RequestOptions = {}): Promise<TransactionsListResponse> {
-    // En producción, este método haría una llamada real a la API
-    // const queryParams = new URLSearchParams();
-    // if (filters.startDate) queryParams.append('startDate', filters.startDate);
-    // if (filters.endDate) queryParams.append('endDate', filters.endDate);
-    // if (filters.status) queryParams.append('status', filters.status);
-    // if (filters.type) queryParams.append('type', filters.type);
-    // if (filters.minAmount !== undefined) queryParams.append('minAmount', filters.minAmount.toString());
-    // if (filters.maxAmount !== undefined) queryParams.append('maxAmount', filters.maxAmount.toString());
-    // if (filters.page !== undefined) queryParams.append('page', filters.page.toString());
-    // if (filters.pageSize !== undefined) queryParams.append('pageSize', filters.pageSize.toString());
+    const queryParams = new URLSearchParams();
+    if (filters.startDate) queryParams.append('startDate', filters.startDate);
+    if (filters.endDate) queryParams.append('endDate', filters.endDate);
+    if (filters.status) queryParams.append('status', filters.status);
+    if (filters.type) queryParams.append('type', filters.type);
+    if (filters.minAmount !== undefined) queryParams.append('minAmount', filters.minAmount.toString());
+    if (filters.maxAmount !== undefined) queryParams.append('maxAmount', filters.maxAmount.toString());
+    if (filters.page !== undefined) queryParams.append('page', filters.page.toString());
+    if (filters.pageSize !== undefined) queryParams.append('pageSize', filters.pageSize.toString());
     
-    // const queryString = queryParams.toString();
-    // const endpoint = `/transactions${queryString ? `?${queryString}` : ''}`;
+    const queryString = queryParams.toString();
+    const endpoint = `/transactions${queryString ? `?${queryString}` : ''}`;
     
-    // return this.get<TransactionsListResponse>(endpoint, options);
-    
-    // Simulación para desarrollo:
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        // Generar transacciones mock
-        const mockTransactions = this.generateMockTransactions();
-        
-        // Aplicar filtros si existen
-        let filtered = [...mockTransactions];
-        
-        if (filters.status) {
-          filtered = filtered.filter(tx => tx.status === filters.status);
-        }
-        
-        if (filters.type) {
-          filtered = filtered.filter(tx => tx.type === filters.type);
-        }
-        
-        if (filters.startDate) {
-          const startDate = new Date(filters.startDate);
-          filtered = filtered.filter(tx => new Date(tx.date) >= startDate);
-        }
-        
-        if (filters.endDate) {
-          const endDate = new Date(filters.endDate);
-          filtered = filtered.filter(tx => new Date(tx.date) <= endDate);
-        }
-        
-        if (filters.minAmount !== undefined) {
-          filtered = filtered.filter(tx => tx.amount >= filters.minAmount!);
-        }
-        
-        if (filters.maxAmount !== undefined) {
-          filtered = filtered.filter(tx => tx.amount <= filters.maxAmount!);
-        }
-        
-        // Paginación
-        const page = filters.page || 1;
-        const pageSize = filters.pageSize || 10;
-        const startIndex = (page - 1) * pageSize;
-        const paginatedTransactions = filtered.slice(startIndex, startIndex + pageSize);
-        
-        resolve({
-          responseCode: 0,
-          transactions: paginatedTransactions,
-          pagination: {
-            page,
-            pageSize,
-            total: filtered.length,
-            totalPages: Math.ceil(filtered.length / pageSize)
-          }
-        });
-      }, 500); // Simular retraso de red
-    });
+    return this.get<TransactionsListResponse>(endpoint, options);
   }
   
   // Obtener detalle de una transacción específica
   async getTransactionDetails(id: string, options: RequestOptions = {}): Promise<ApiResponse> {
-    // En producción:
-    // return this.get<ApiResponse>(`/transactions/${id}`, options);
-    
-    // Simulación para desarrollo:
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const allTransactions = this.generateMockTransactions();
-        const transaction = allTransactions.find(tx => tx.id === id);
-        
-        if (transaction) {
-          resolve({
-            responseCode: 0,
-            transaction
-          });
-        } else {
-          resolve({
-            responseCode: 404,
-            message: 'Transacción no encontrada'
-          });
-        }
-      }, 300);
-    });
+    return this.get<ApiResponse>(`/transactions/${id}`, options);
   }
   
   // Obtener las transacciones más recientes
   async getRecentTransactions(limit: number = 3, options: RequestOptions = {}): Promise<TransactionsListResponse> {
-    // En producción:
-    // return this.get<TransactionsListResponse>(`/transactions/recent?limit=${limit}`, options);
-    
-    // Simulación para desarrollo:
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const allTransactions = this.generateMockTransactions();
-        const sortedTransactions = [...allTransactions].sort((a, b) => 
-          new Date(b.date).getTime() - new Date(a.date).getTime()
-        );
-        
-        resolve({
-          responseCode: 0,
-          transactions: sortedTransactions.slice(0, limit)
-        });
-      }, 300);
-    });
+    // Usar el endpoint de listTransactions con un límite pequeño y ordenado por fecha reciente
+    return this.listTransactions({
+      page: 1,
+      pageSize: limit
+    }, options);
   }
   
   // Método privado para generar transacciones simuladas

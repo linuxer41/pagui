@@ -1,15 +1,14 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
+import { company } from './company';
 
 // Interfaces
 export interface User {
   userId?: number;
   companyId?: number;
   email?: string;
-  name?: string;  // Campo para nombre completo
+  fullName?: string;  // Campo para nombre completo (anteriormente name)
   role?: string;
-  responseCode: number;
-  message: string;
 }
 
 interface AuthState {
@@ -76,9 +75,11 @@ function createAuthStore() {
       if (browser) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        localStorage.removeItem('company');
         localStorage.removeItem('refreshToken');
       }
+      
+      // Limpiar store de company
+      company.clear();
       
       // Actualizar el store
       set({

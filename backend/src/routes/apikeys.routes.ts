@@ -4,17 +4,10 @@ import apiKeyService from '../services/apikey.service';
 
 // Rutas para API keys
 export const apiKeyRoutes = new Elysia({ prefix: '/api-keys' })
-  .use(authMiddleware)
+  .use(authMiddleware({ type: 'jwt', level: 'user' }))
   
   // Listar API keys de la empresa
   .get('/', async ({ auth }) => {
-    if (auth?.type !== 'jwt') {
-      return {
-        responseCode: 1,
-        message: 'Se requiere autenticación de usuario para esta operación'
-      };
-    }
-    
     return await apiKeyService.listApiKeys(auth.user!.companyId);
   }, {
     detail: {

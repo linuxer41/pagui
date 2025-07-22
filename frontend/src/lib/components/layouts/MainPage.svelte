@@ -22,33 +22,26 @@
   function navigateTo(path: string): void {
     goto(path);
   }
-  
-  // Determinar si la página actual es una página secundaria
-  $: isSecondaryPage = currentPath.includes('/editar-perfil') || 
-                       currentPath.includes('/cambiar-clave') || 
-                       currentPath.split('/').length > 2;
 </script>
 
 <div class="main-page-wrapper">
   <slot />
   
   <!-- Navegación móvil inferior (solo en páginas principales) -->
-  {#if !isSecondaryPage}
-    <nav class="mobile-nav">
-      {#each navItems as item}
-        <button 
-          class="mobile-nav-item {currentPath === item.path ? 'active' : ''}" 
-          on:click={() => navigateTo(item.path)}
-          aria-label={item.label}
-        >
-          <span class="mobile-nav-icon">
-            <svelte:component this={item.icon} size={18}  />
-          </span>
-          <span class="mobile-nav-label">{item.label}</span>
-        </button>
-      {/each}
-    </nav>
-  {/if}
+  <nav class="mobile-nav">
+    {#each navItems as item}
+      <button 
+        class="mobile-nav-item {currentPath === item.path ? 'active' : ''}" 
+        on:click={() => navigateTo(item.path)}
+        aria-label={item.label}
+      >
+        <span class="mobile-nav-icon">
+          <svelte:component this={item.icon} size={18}  />
+        </span>
+        <span class="mobile-nav-label">{item.label}</span>
+      </button>
+    {/each}
+  </nav>
 </div>
 
 <style>
@@ -85,6 +78,9 @@
     0 -1px 3px rgba(0, 0, 0, 0.1);
   border-top: 1px solid var(--border-color);
   z-index: 100;
+  @media screen and (min-width: 768px) {
+    display: none;
+  }
   /* transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   animation: slideUpBottomNav 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); */
 }

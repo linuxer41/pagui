@@ -13,6 +13,7 @@ import { migrateDB, testConnection, query } from './config/database';
 // Rutas
 import { routes } from './routes';
 import { seedDatabase } from './scripts/seed-db';
+import { ApiError } from './utils/error';
 
 // Variables de entorno
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
@@ -34,7 +35,8 @@ const app = new Elysia()
         { name: 'admin', description: 'Endpoints de administración' },
         { name: 'companies', description: 'Endpoints para gestión de empresas' },
         { name: 'banks', description: 'Endpoints para gestión de bancos' },
-        { name: 'api-keys', description: 'Endpoints para gestión de API keys' }
+        { name: 'api-keys', description: 'Endpoints para gestión de API keys' },
+        { name: 'transactions', description: 'Endpoints para gestión de transacciones' }
       ]
       
     },
@@ -64,7 +66,13 @@ const app = new Elysia()
         message: error.message
       };
     }
-    
+    if (error instanceof ApiError) {
+      set.status = error.statusCode;
+      return {
+        responseCode: error.statusCode,
+        message: error.message
+      };
+    }
     set.status = 500;
     return {
       responseCode: 1,

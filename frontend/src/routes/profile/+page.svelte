@@ -48,7 +48,7 @@
   
   // Datos de ejemplo del usuario (normalmente vendrían de la API)
   const userProfile = {
-    name: $auth.user?.name || 'Usuario',
+    name: $auth.user?.fullName || 'Usuario',
     email: $auth.user?.email || 'usuario@ejemplo.com',
     phone: '+591 77712345',
     role: $auth.user?.role || 'Usuario',

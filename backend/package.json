@@ -25,11 +25,11 @@
     "qrcode": "^1.5.3"
   },
   "devDependencies": {
+    "@types/bun": "^1.2.19",
     "@types/jsonwebtoken": "^9.0.5",
     "@types/node": "^20.10.2",
     "@types/pg": "^8.10.9",
     "@types/qrcode": "^1.5.5",
-    "bun-types": "latest",
     "typescript": "^5.3.2"
   }
 }

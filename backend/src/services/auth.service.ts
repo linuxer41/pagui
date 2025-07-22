@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { CryptoService } from './crypto.service';
 import { logActivity } from './monitor.service';
 import crypto from 'crypto';
-
+import { ApiError } from '../utils/error';
 // Secreto para JWT
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 // Expiración del token en segundos (24 horas por defecto)
@@ -18,75 +18,42 @@ class AuthService {
   }
 
   // Autenticación de usuario
-  async authenticate(email: string, password: string, ipAddress?: string, userAgent?: string): Promise<{
-    user: {
-      userId?: number;
-      companyId?: number;
-      email?: string;
-      fullName?: string;
-      role?: string;
-      responseCode: number;
-      message: string;
-    },
-    company?: {
-      id: number;
-      name: string;
-      businessId: string;
-      contactEmail: string;
-      status: string;
-    },
-    banks?: Array<{
-      id: number;
-      code: string;
-      name: string;
-      accountNumber?: string;
-      accountUsername?: string;
-      merchantId?: string;
-      environment: number;
-      status: string;
-    }>,
-    apiKeys?: Array<{
-      id: number;
-      apiKey: string;
-      description: string;
-      permissions: any;
-      expiresAt: string;
-      status: string;
-    }>,
-    auth: {
-      accessToken: string;
-      refreshToken: string;
+  async authenticate(email: string, password: string, ipAddress?: string, userAgent?: string): Promise<
+  {
+    message: string;
+    success: boolean;
+    data: {
+      user: {
+        userId?: number;
+        companyId?: number;
+        email?: string;
+        fullName?: string;
+        role?: string;
+      },
+      company: {
+        id: number;
+        name: string;
+        businessId: string;
+        contactEmail: string;
+        status: string;
+      },
+      auth: {
+        accessToken: string;
+        refreshToken: string;
+      }
     }
   }> {
     // Buscar usuario por email
     const userQuery = await query(`
       SELECT * FROM users WHERE email = $1 AND status = 'ACTIVE' AND deleted_at IS NULL`, [email]);
     if (userQuery.rowCount === 0) {
-      return {
-        user: {
-          responseCode: 1,
-          message: 'Usuario no encontrado'
-        },
-        auth: {
-          accessToken: '',
-          refreshToken: ''
-        }
-      };
+      throw new ApiError('Usuario no encontrado', 404);
     }
     const user = userQuery.rows[0];
     // Verificar contraseña
     const valid = await Bun.password.verify(password, user.password);
     if (!valid) {
-      return {
-        user: {
-          responseCode: 1,
-          message: 'Contraseña incorrecta'
-        },
-        auth: {
-          accessToken: '',
-          refreshToken: ''
-        }
-      };
+      throw new ApiError('Contraseña incorrecta', 401);
     }
     // Generar tokens JWT reales
     const accessToken = jwt.sign(
@@ -125,7 +92,7 @@ class AuthService {
         ipAddress,
         userAgent
       },
-      'SUCCESS',
+      'INFO',
       user.company_id,
       user.id
     );
@@ -137,80 +104,34 @@ class AuthService {
       WHERE id = $1 AND status = 'ACTIVE' AND deleted_at IS NULL
     `, [user.company_id]);
     
-    const company = companyQuery.rowCount && companyQuery.rowCount > 0 ? {
+    if (companyQuery.rowCount === 0) {
+      throw new ApiError('Empresa no encontrada', 404);
+    }
+
+    const company = {
       id: companyQuery.rows[0].id,
       name: companyQuery.rows[0].name,
       businessId: companyQuery.rows[0].business_id,
       contactEmail: companyQuery.rows[0].contact_email,
       status: companyQuery.rows[0].status
-    } : undefined;
-
-    // Obtener configuraciones de bancos para la empresa
-    const banksQuery = await query(`
-      SELECT 
-        b.id, 
-        b.code, 
-        b.name, 
-        cbc.account_number, 
-        cbc.account_username, 
-        cbc.merchant_id, 
-        cbc.environment, 
-        cbc.status
-      FROM company_bank_configs cbc
-      JOIN banks b ON cbc.bank_id = b.id
-      WHERE cbc.company_id = $1 
-      AND cbc.status = 'ACTIVE' 
-      AND cbc.deleted_at IS NULL
-      AND b.status = 'ACTIVE'
-      AND b.deleted_at IS NULL
-    `, [user.company_id]);
-
-    const banks = banksQuery.rows.map(bank => ({
-      id: bank.id,
-      code: bank.code,
-      name: bank.name,
-      accountNumber: bank.account_number,
-      accountUsername: bank.account_username,
-      merchantId: bank.merchant_id,
-      environment: bank.environment,
-      status: bank.status
-    }));
-
-    // Obtener API keys de la empresa
-    const apiKeysQuery = await query(`
-      SELECT id, api_key, description, permissions, expires_at, status
-      FROM api_keys
-      WHERE company_id = $1 
-      AND status = 'ACTIVE' 
-      AND deleted_at IS NULL
-      AND (expires_at IS NULL OR expires_at > NOW())
-    `, [user.company_id]);
-
-    const apiKeys = apiKeysQuery.rows.map(key => ({
-      id: key.id,
-      apiKey: key.api_key,
-      description: key.description,
-      permissions: key.permissions,
-      expiresAt: key.expires_at,
-      status: key.status
-    }));
+    };
     
     return {
-      user: {
-        userId: user.id,
-        companyId: user.company_id,
-        email: user.email,
-        fullName: user.full_name,
-        role: user.role,
-        responseCode: 0,
-        message: 'Autenticación exitosa'
-      },
-      company,
-      banks: banks.length > 0 ? banks : undefined,
-      apiKeys: apiKeys.length > 0 ? apiKeys : undefined,
-      auth: {
-        accessToken,
-        refreshToken
+      message: 'Usuario autenticado exitosamente',
+      success: true,
+      data: {
+        user: {
+          userId: user.id,
+          companyId: user.company_id,
+          email: user.email,
+          fullName: user.full_name,
+          role: user.role,
+        },
+        company,
+        auth: {
+          accessToken,
+          refreshToken
+        }
       }
     };
   }
@@ -334,7 +255,7 @@ class AuthService {
       await logActivity(
         'PASSWORD_CHANGED',
         { userId },
-        'SUCCESS',
+        'INFO',
         user.company_id,
         userId
       );
@@ -355,143 +276,117 @@ class AuthService {
 
   // Solicitar restablecimiento de contraseña
   async requestPasswordReset(email: string, ipAddress?: string, userAgent?: string): Promise<{
-    responseCode: number;
     message: string;
-    token?: string; // Hacemos el token opcional para el tipo
-  }> {
-    try {
-      // Verificar si el usuario existe
-      const userResult = await query(
-        'SELECT id, email, company_id FROM users WHERE email = $1 AND status = \'ACTIVE\' AND deleted_at IS NULL',
-        [email]
-      );
-
-      if (userResult.rowCount === 0) {
-        // No revelamos si el usuario existe o no por seguridad
-        return {
-          responseCode: 0,
-          message: 'Si el correo existe, recibirá instrucciones para restablecer su contraseña'
-        };
-      }
-
-      const user = userResult.rows[0];
-      
-      // Generar token aleatorio
-      const resetToken = crypto.randomBytes(32).toString('hex');
-      
-      // Guardar token en la base de datos
-      await this.saveAuthToken(user.id, resetToken, 'PASSWORD_RESET', '24h', ipAddress, userAgent);
-      
-      // Aquí se enviaría un correo electrónico con el token
-      // Por ahora solo registramos el evento
-      await logActivity(
-        'PASSWORD_RESET_REQUESTED',
-        { userId: user.id, email: user.email, ipAddress, userAgent },
-        'SUCCESS',
-        user.company_id,
-        user.id
-      );
-
-      return {
-        responseCode: 0,
-        message: 'Si el correo existe, recibirá instrucciones para restablecer su contraseña',
-        // Solo para desarrollo, eliminar en producción:
-        token: resetToken
-      };
-    } catch (error) {
-      console.error('Error solicitando reset de contraseña:', error);
-      
-      return {
-        responseCode: 1,
-        message: error instanceof Error ? error.message : 'Error procesando solicitud'
-      };
+    success: boolean;
+    data: {
+      token?: string; // Hacemos el token opcional para el tipo
     }
+  }> {
+    // Verificar si el usuario existe
+    const userResult = await query(
+      'SELECT id, email, company_id FROM users WHERE email = $1 AND status = \'ACTIVE\' AND deleted_at IS NULL',
+      [email]
+    );
+
+    if (userResult.rowCount === 0) {
+      // No revelamos si el usuario existe o no por seguridad
+      throw new ApiError('Si el correo existe, recibirá instrucciones para restablecer su contraseña', 404);
+    }
+
+    const user = userResult.rows[0];
+    
+    // Generar token aleatorio
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    
+    // Guardar token en la base de datos
+    await this.saveAuthToken(user.id, resetToken, 'PASSWORD_RESET', '24h', ipAddress, userAgent);
+    
+    // Aquí se enviaría un correo electrónico con el token
+    // Por ahora solo registramos el evento
+    await logActivity(
+      'PASSWORD_RESET_REQUESTED',
+      { userId: user.id, email: user.email, ipAddress, userAgent },
+      'INFO',
+      user.company_id,
+      user.id
+    );
+
+    return {
+      message: 'Si el correo existe, recibirá instrucciones para restablecer su contraseña',
+      success: true,
+      data: {
+        token: resetToken
+      }
+    };
   }
 
   // Restablecer contraseña con token
   async resetPassword(token: string, newPassword: string, ipAddress?: string, userAgent?: string): Promise<{
-    responseCode: number;
     message: string;
+    success: boolean;
   }> {
-    try {
-      // Buscar el token en la base de datos
-      const tokenResult = await query(
-        `SELECT auth_tokens.id, auth_tokens.user_id, auth_tokens.expires_at, auth_tokens.used_times,
-                users.email, users.company_id
-         FROM auth_tokens 
-         JOIN users ON auth_tokens.user_id = users.id
-         WHERE auth_tokens.token = $1 
-         AND auth_tokens.token_type = 'PASSWORD_RESET'
-         AND auth_tokens.deleted_at IS NULL
-         AND users.status = 'ACTIVE'
-         AND users.deleted_at IS NULL`,
-        [token]
-      );
+    // Buscar el token en la base de datos
+    const tokenResult = await query(
+      `SELECT auth_tokens.id, auth_tokens.user_id, auth_tokens.expires_at, auth_tokens.used_times,
+              users.email, users.company_id
+        FROM auth_tokens 
+        JOIN users ON auth_tokens.user_id = users.id
+        WHERE auth_tokens.token = $1 
+        AND auth_tokens.token_type = 'PASSWORD_RESET'
+        AND auth_tokens.deleted_at IS NULL
+        AND users.status = 'ACTIVE'
+        AND users.deleted_at IS NULL`,
+      [token]
+    );
 
-      if (tokenResult.rowCount === 0) {
-        return {
-          responseCode: 1,
-          message: 'Token inválido o expirado'
-        };
-      }
-
-      const tokenData = tokenResult.rows[0];
-
-      // Verificar si el token ya fue usado
-      if (tokenData.used_times > 0) {
-        return {
-          responseCode: 1,
-          message: 'Este token ya ha sido utilizado'
-        };
-      }
-
-      // Verificar si el token ha expirado
-      if (new Date(tokenData.expires_at) < new Date()) {
-        return {
-          responseCode: 1,
-          message: 'El token ha expirado'
-        };
-      }
-
-      // Hash de la nueva contraseña
-      const hashedPassword = await Bun.password.hash(newPassword, {
-        algorithm: 'bcrypt',
-        cost: 10
-      });
-
-      // Actualizar contraseña
-      await query(
-        'UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-        [hashedPassword, tokenData.user_id]
-      );
-
-      // Incrementar el contador de usos del token
-      await query(
-        'UPDATE auth_tokens SET used_times = used_times + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
-        [tokenData.id]
-      );
-
-      // Registrar cambio de contraseña exitoso
-      await logActivity(
-        'PASSWORD_RESET_COMPLETED',
-        { userId: tokenData.user_id, ipAddress, userAgent },
-        'SUCCESS',
-        tokenData.company_id,
-        tokenData.user_id
-      );
-
-      return {
-        responseCode: 0,
-        message: 'Contraseña restablecida exitosamente'
-      };
-    } catch (error) {
-      console.error('Error restableciendo contraseña:', error);
-      
-      return {
-        responseCode: 1,
-        message: error instanceof Error ? error.message : 'Error restableciendo contraseña'
-      };
+    if (tokenResult.rowCount === 0) {
+      throw new ApiError('Token inválido o expirado', 400);
     }
+
+    const tokenData = tokenResult.rows[0];
+
+    // Verificar si el token ya fue usado
+    if (tokenData.used_times > 0) {
+      throw new ApiError('Este token ya ha sido utilizado', 400);
+    }
+
+    // Verificar si el token ha expirado
+    if (new Date(tokenData.expires_at) < new Date()) {
+      throw new ApiError('El token ha expirado', 400);
+    }
+
+    // Hash de la nueva contraseña
+    const hashedPassword = await Bun.password.hash(newPassword, {
+      algorithm: 'bcrypt',
+      cost: 10
+    });
+
+    // Actualizar contraseña
+    await query(
+      'UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [hashedPassword, tokenData.user_id]
+    );
+
+    // Incrementar el contador de usos del token
+    await query(
+      'UPDATE auth_tokens SET used_times = used_times + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+      [tokenData.id]
+    );
+
+    // Registrar cambio de contraseña exitoso
+    await logActivity(
+      'PASSWORD_RESET_COMPLETED',
+      { userId: tokenData.user_id, ipAddress, userAgent },
+      'INFO',
+      tokenData.company_id,
+      tokenData.user_id
+    );
+
+    return {
+      message: 'Contraseña restablecida exitosamente',
+      success: true
+    };
+    
   }
 
   // Encriptar un texto
@@ -517,8 +412,7 @@ class AuthService {
     try {
       return jwt.verify(token, JWT_SECRET);
     } catch (error) {
-      console.error('Error decodificando JWT:', error);
-      return null;
+      throw new ApiError('Token inválido', 400);
     }
   }
   
@@ -535,91 +429,76 @@ class AuthService {
   ): Promise<{
     id?: number;
     email?: string;
-    responseCode: number;
-    message: string;
+    fullName?: string;
+    companyId?: number;
+    role?: string;
   }> {
-    try {
       // Verificar si el usuario ya existe
-      const existingCheck = await query(
-        'SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL',
-        [userData.email]
-      );
-      
-      if (existingCheck.rowCount && existingCheck.rowCount > 0) {
-        return {
-          responseCode: 1,
-          message: `El usuario ${userData.email} ya existe`
-        };
-      }
-      
-      // Verificar que la empresa exista
-      const companyCheck = await query(
-        'SELECT id FROM companies WHERE id = $1 AND deleted_at IS NULL',
-        [userData.companyId]
-      );
-      
-      if (companyCheck.rowCount === 0) {
-        return {
-          responseCode: 1,
-          message: 'La empresa especificada no existe'
-        };
-      }
-      
-      // Hash de la contraseña
-      const hashedPassword = await Bun.password.hash(userData.password, {
-        algorithm: 'bcrypt',
-        cost: 10
-      });
-      
-      // Insertar nuevo usuario
-      const userResult = await query(
-        `INSERT INTO users (
-          email, password, full_name, company_id, role
-        ) VALUES ($1, $2, $3, $4, $5) RETURNING id, email`,
-        [
-          userData.email,
-          hashedPassword,
-          userData.fullName,
-          userData.companyId,
-          userData.role
-        ]
-      );
-      
-      if (userResult.rowCount === 0) {
-        return {
-          responseCode: 1,
-          message: 'Error al crear el usuario'
-        };
-      }
-      
-      const newUser = userResult.rows[0];
-      
-      // Registrar la creación del usuario
-      await logActivity(
-        'USER_CREATED',
-        { 
-          userId: newUser.id, 
-          email: newUser.email,
-          createdBy: creatorId || null
-        },
-        'SUCCESS',
-        userData.companyId,
-        creatorId
-      );
-      
-      return {
-        id: newUser.id,
-        email: newUser.email,
-        responseCode: 0,
-        message: 'Usuario creado exitosamente'
-      };
-    } catch (error) {
-      console.error('Error al crear usuario:', error);
-      return {
-        responseCode: 1,
-        message: error instanceof Error ? error.message : 'Error al crear el usuario'
-      };
+    const existingCheck = await query(
+      'SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL',
+      [userData.email]
+    );
+    
+    if (existingCheck.rowCount && existingCheck.rowCount > 0) {
+      throw new ApiError(`El usuario ${userData.email} ya existe`, 400);
     }
+    
+    // Verificar que la empresa exista
+    const companyCheck = await query(
+      'SELECT id FROM companies WHERE id = $1 AND deleted_at IS NULL',
+      [userData.companyId]
+    );
+    
+    if (companyCheck.rowCount === 0) {
+      throw new ApiError('La empresa especificada no existe', 400);
+    }
+    
+    // Hash de la contraseña
+    const hashedPassword = await Bun.password.hash(userData.password, {
+      algorithm: 'bcrypt',
+      cost: 10
+    });
+    
+    // Insertar nuevo usuario
+    const userResult = await query(
+      `INSERT INTO users (
+        email, password, full_name, company_id, role
+      ) VALUES ($1, $2, $3, $4, $5) RETURNING id, email`,
+      [
+        userData.email,
+        hashedPassword,
+        userData.fullName,
+        userData.companyId,
+        userData.role
+      ]
+    );
+    
+    if (userResult.rowCount === 0) {
+      throw new ApiError('Error al crear el usuario', 400);
+    }
+    
+    const newUser = userResult.rows[0];
+    
+    // Registrar la creación del usuario
+    await logActivity(
+      'USER_CREATED',
+      { 
+        userId: newUser.id, 
+        email: newUser.email,
+        createdBy: creatorId || null
+      },
+      'INFO',
+      userData.companyId,
+      creatorId
+    );
+    
+    return {
+      id: newUser.id,
+      email: newUser.email,
+      fullName: userData.fullName,
+      companyId: userData.companyId,
+      role: userData.role
+    };
   }
   
   // Obtener información de un usuario
@@ -630,8 +509,6 @@ class AuthService {
     companyId?: number;
     companyName?: string;
     role?: string;
-    responseCode: number;
-    message: string;
   }> {
     try {
       const result = await query(`
@@ -641,17 +518,16 @@ class AuthService {
           u.full_name, 
           u.company_id, 
           c.name as company_name,
-          u.role
+          r.name as role
         FROM users u
-        LEFT JOIN companies c ON u.company_id = c.id
+        INNER JOIN roles r ON u.role_id = r.id
+        INNER JOIN company_bank cb ON u.company_id = cb.company_id
+        LEFT JOIN companies c ON cb.company_id = c.id
         WHERE u.email = $1 AND u.status = 'ACTIVE' AND u.deleted_at IS NULL
       `, [email]);
       
       if (result.rowCount === 0) {
-        return {
-          responseCode: 1,
-          message: 'Usuario no encontrado'
-        };
+        throw new ApiError('Usuario no encontrado', 404);
       }
       
       const user = result.rows[0];
@@ -663,26 +539,18 @@ class AuthService {
         companyId: user.company_id,
         companyName: user.company_name,
         role: user.role,
-        responseCode: 0,
-        message: ''
       };
     } catch (error) {
       console.error('Error obteniendo información de usuario:', error);
       
-      return {
-        responseCode: 1,
-        message: error instanceof Error ? error.message : 'Error obteniendo información de usuario'
-      };
+      throw new ApiError(error instanceof Error ? error.message : 'Error obteniendo información de usuario', 500);
     }
   }
   
   // Listar usuarios de una empresa
   async listUsers(companyId: number): Promise<{
     users: any[];
-    responseCode: number;
-    message: string;
   }> {
-    try {
       const result = await query(`
         SELECT 
           id, 
@@ -707,75 +575,49 @@ class AuthService {
       
       return {
         users,
-        responseCode: 0,
-        message: ''
       };
-    } catch (error) {
-      console.error('Error listando usuarios:', error);
-      
-      return {
-        users: [],
-        responseCode: 1,
-        message: error instanceof Error ? error.message : 'Error listando usuarios'
-      };
-    }
   }
 
   // Obtener todos los tokens de un usuario
   async getUserTokens(userId: number): Promise<{
     tokens: any[];
-    responseCode: number;
-    message: string;
   }> {
-    try {
-      const result = await query(`
-        SELECT 
-          id,
-          token_type,
-          token,
-          expires_at,
-          used_times,
-          ip_address,
-          user_agent,
-          created_at
-        FROM auth_tokens
-        WHERE user_id = $1 AND deleted_at IS NULL
-        ORDER BY created_at DESC
-      `, [userId]);
-      
-      const tokens = result.rows.map(token => ({
-        id: token.id,
-        tokenType: token.token_type,
-        token: token.token,
-        expiresAt: token.expires_at,
-        usedTimes: token.used_times,
-        ipAddress: token.ip_address,
-        userAgent: token.user_agent,
-        createdAt: token.created_at
-      }));
-      
-      return {
-        tokens,
-        responseCode: 0,
-        message: ''
-      };
-    } catch (error) {
-      console.error('Error obteniendo tokens de usuario:', error);
-      
-      return {
-        tokens: [],
-        responseCode: 1,
-        message: error instanceof Error ? error.message : 'Error obteniendo tokens de usuario'
-      };
-    }
+    const result = await query(`
+      SELECT 
+        id,
+        token_type,
+        token,
+        expires_at,
+        used_times,
+        ip_address,
+        user_agent,
+        created_at
+      FROM auth_tokens
+      WHERE user_id = $1 AND deleted_at IS NULL
+      ORDER BY created_at DESC
+    `, [userId]);
+    
+    const tokens = result.rows.map(token => ({
+      id: token.id,
+      tokenType: token.token_type,
+      token: token.token,
+      expiresAt: token.expires_at,
+      usedTimes: token.used_times,
+      ipAddress: token.ip_address,
+      userAgent: token.user_agent,
+      createdAt: token.created_at
+    }));
+    
+    return {
+      tokens,
+    };
   }
 
   // Revocar un token específico
   async revokeToken(tokenId: number): Promise<{
-    responseCode: number;
     message: string;
+    success: boolean;
   }> {
-    try {
       await query(`
         UPDATE auth_tokens 
         SET deleted_at = CURRENT_TIMESTAMP, used_times = used_times + 1
@@ -783,25 +625,16 @@ class AuthService {
       `, [tokenId]);
       
       return {
-        responseCode: 0,
-        message: 'Token revocado exitosamente'
+        message: 'Token revocado exitosamente',
+        success: true
       };
-    } catch (error) {
-      console.error('Error revocando token:', error);
-      
-      return {
-        responseCode: 1,
-        message: error instanceof Error ? error.message : 'Error revocando token'
-      };
-    }
   }
 
   // Revocar todos los tokens de un usuario (logout de todos los dispositivos)
   async revokeAllUserTokens(userId: number): Promise<{
-    responseCode: number;
     message: string;
+    success: boolean;
   }> {
-    try {
       await query(`
         UPDATE auth_tokens 
         SET deleted_at = CURRENT_TIMESTAMP, used_times = used_times + 1
@@ -809,19 +642,11 @@ class AuthService {
       `, [userId]);
       
       return {
-        responseCode: 0,
-        message: 'Todos los tokens revocados exitosamente'
+        message: 'Todos los tokens revocados exitosamente',
+        success: true
       };
-    } catch (error) {
-      console.error('Error revocando tokens de usuario:', error);
-      
-      return {
-        responseCode: 1,
-        message: error instanceof Error ? error.message : 'Error revocando tokens de usuario'
-      };
-    }
   }
 }
 
-export const authService = new AuthService();
-export default authService; 
+const authService = new AuthService();
+export {authService};

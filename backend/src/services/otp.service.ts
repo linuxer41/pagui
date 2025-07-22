@@ -48,7 +48,7 @@ class OTPService {
         await logActivity(
           'OTP_SENT',
           { phoneNumber, userId },
-          'SUCCESS',
+          'INFO',
           companyId,
           userId
         );
@@ -118,7 +118,7 @@ class OTPService {
         await logActivity(
           'OTP_VERIFIED',
           { phoneNumber, userId },
-          'SUCCESS',
+          'INFO',
           companyId,
           userId
         );

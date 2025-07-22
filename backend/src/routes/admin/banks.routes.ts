@@ -4,7 +4,7 @@ import bankService from '../../services/bank.service';
 
 // Rutas para bancos
 export const banksRoutes = new Elysia({ prefix: '/admin/banks' })
-  .use(authMiddleware)
+  .use(authMiddleware({ type: 'jwt', level: 'admin' }))
   
   // Listar todos los bancos
   .get('/', async ({ auth }) => {

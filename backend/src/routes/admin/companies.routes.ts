@@ -4,7 +4,7 @@ import companyService from '../../services/company.service';
 
 // Rutas para empresas (solo para administradores del sistema)
 export const companiesRoutes = new Elysia({ prefix: '/admin/companies' })
-  .use(authMiddleware)
+  .use(authMiddleware({ type: 'jwt', level: 'admin' }))
   
   // Listar todas las empresas
   .get('/', async ({ auth }) => {

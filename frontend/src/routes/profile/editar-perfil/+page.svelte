@@ -20,7 +20,7 @@
   import ProfilePage from '$lib/components/layouts/ProfilePage.svelte';
 
   // Datos del usuario
-  let fullName = $auth.user?.name || '';
+  let fullName = $auth.user?.fullName || '';
   let email = $auth.user?.email || '';
   let phone = '+591 77712345'; // Normalmente vendría de la API
   let profileImage: File | null = null;
@@ -60,7 +60,7 @@
       if ($auth.user) {
         const updatedUser = {
           ...$auth.user,
-          name: fullName
+          fullName: fullName
         };
         auth.updateUser(updatedUser);
       }

@@ -5,7 +5,6 @@ export async function seedDatabase() {
     console.log('Poblando la base de datos con datos iniciales...');
     
     // Obtener variables de entorno
-    const encryptionKey = '6F09E3167E1D40829207B01041A65B12';
     const banecoApiUrl = 'https://apimktdesa.baneco.com.bo/ApiGateway/';
     const banecoUsername = '1649710';
     const banecoPassword = '1234';
@@ -17,7 +16,6 @@ export async function seedDatabase() {
     const bnbApiUrl = 'https://api-sandbox.bnb.com.bo/';
     
     console.log('Usando configuración:');
-    console.log(`- Llave de encriptación: ${encryptionKey}`);
     console.log(`- URL API Banco Económico: ${banecoApiUrl}`);
     console.log(`- Usuario: ${banecoUsername}`);
     console.log(`- Cuenta: ${banecoAccount}`);
@@ -27,48 +25,45 @@ export async function seedDatabase() {
     
     // Banco Económico
     const banecoResult = await query(`
-      INSERT INTO banks (code, name, api_version, encryption_key, test_api_url, prod_api_url, status)
-      VALUES ('1016', 'Banco Económico', 'v1.3', $1, $2, $3, 'ACTIVE')
+      INSERT INTO banks (code, name, api_version, test_api_url, prod_api_url, status)
+      VALUES ('1016', 'Banco Económico', 'v1.3', $1, $2, 'ACTIVE')
       ON CONFLICT (code) 
       DO UPDATE SET 
-        encryption_key = $1,
-        test_api_url = $2,
-        prod_api_url = $3,
+        test_api_url = $1,
+        prod_api_url = $2,
         updated_at = CURRENT_TIMESTAMP
       RETURNING id
-    `, [encryptionKey, 'https://apimktdesa.baneco.com.bo/ApiGateway/', 'https://apimktdesa.baneco.com.bo/ApiGateway/']);
+    `, ['https://apimktdesa.baneco.com.bo/ApiGateway/', 'https://apimktdesa.baneco.com.bo/ApiGateway/']);
     
     const banecoId = banecoResult.rows[0]?.id;
     console.log(`Banco Económico insertado/actualizado con ID: ${banecoId}`);
     
     // Banco BNB
     const bnbResult = await query(`
-      INSERT INTO banks (code, name, api_version, encryption_key, test_api_url, prod_api_url, status)
-      VALUES ('1001', 'Banco Nacional de Bolivia (BNB)', 'v1.0', $1, $2, $3, 'ACTIVE')
+      INSERT INTO banks (code, name, api_version, test_api_url, prod_api_url, status)
+      VALUES ('1001', 'Banco Nacional de Bolivia (BNB)', 'v1.0', $1, $2, 'ACTIVE')
       ON CONFLICT (code) 
       DO UPDATE SET 
-        encryption_key = $1,
-        test_api_url = $2,
-        prod_api_url = $3,
+        test_api_url = $1,
+        prod_api_url = $2,
         updated_at = CURRENT_TIMESTAMP
       RETURNING id
-    `, [encryptionKey, bnbApiUrl, bnbApiUrl]);
+    `, [bnbApiUrl, bnbApiUrl]);
     
     const bnbId = bnbResult.rows[0]?.id;
     console.log(`Banco BNB insertado/actualizado con ID: ${bnbId}`);
     
     // Banco BISA
     const bisaResult = await query(`
-      INSERT INTO banks (code, name, api_version, encryption_key, test_api_url, prod_api_url, status)
-      VALUES ('1003', 'Banco BISA', 'v1.0', $1, $2, $3, 'ACTIVE')
+      INSERT INTO banks (code, name, api_version, test_api_url, prod_api_url, status)
+      VALUES ('1003', 'Banco BISA', 'v1.0', $1, $2, 'ACTIVE')
       ON CONFLICT (code) 
       DO UPDATE SET 
-        encryption_key = $1,
-        test_api_url = $2,
-        prod_api_url = $3,
+        test_api_url = $1,
+        prod_api_url = $2,
         updated_at = CURRENT_TIMESTAMP
       RETURNING id
-    `, [encryptionKey, 'https://api-test.grupobisa.com/', 'https://api-test.grupobisa.com/']);
+    `, ['https://api-test.grupobisa.com/', 'https://api-test.grupobisa.com/']);
     
     const bisaId = bisaResult.rows[0]?.id;
     console.log(`Banco BISA insertado/actualizado con ID: ${bisaId}`);
@@ -76,8 +71,8 @@ export async function seedDatabase() {
     // 2. Insertar empresa de demostración
     console.log('Insertando empresa de demostración...');
     const companyResult = await query(`
-      INSERT INTO companies (name, business_id, contact_email, status)
-      VALUES ('Empresa Demo', 'DEMO-COMPANY', 'demo@example.com', 'ACTIVE')
+      INSERT INTO companies (name, business_id, type, document_id, contact_email, status)
+      VALUES ('Empresa Demo', 'DEMO-COMPANY', 'company', '1234567890', 'demo@example.com', 'ACTIVE')
       ON CONFLICT (business_id) 
       DO UPDATE SET 
         name = 'Empresa Demo',
@@ -89,8 +84,21 @@ export async function seedDatabase() {
     const companyId = companyResult.rows[0]?.id;
     console.log(`Empresa insertada/actualizada con ID: ${companyId}`);
     
-    // 3. Insertar usuario administrador
+    // 3. Insertar roles (si no existen)
+    // Los roles ya se insertan en el schema.sql
+    
+    // 4. Insertar usuario administrador
     console.log('Insertando usuario administrador...');
+    
+    // Obtener el ID del rol COMPANY_ADMIN
+    const roleResult = await query(`SELECT id FROM roles WHERE name = 'COMPANY_ADMIN'`);
+    const roleId = roleResult.rows[0]?.id;
+    
+    if (!roleId) {
+      console.log('Error: Rol COMPANY_ADMIN no encontrado');
+      return;
+    }
+    
     // Generar hash de la contraseña
     const passwordHash = await Bun.password.hash(defaultPassword, {
       algorithm: 'bcrypt',
@@ -98,67 +106,84 @@ export async function seedDatabase() {
     });
     
     const userResult = await query(`
-      INSERT INTO users (email, password, full_name, company_id, role, status)
-      VALUES ($1, $2, 'Usuario Demo', $3, 'ADMIN', 'ACTIVE')
+      INSERT INTO users (email, password, full_name, role_id, company_id, status)
+      VALUES ($1, $2, 'Usuario Demo', $3, $4, 'ACTIVE')
       ON CONFLICT (email) 
       DO UPDATE SET 
         password = $2,
         updated_at = CURRENT_TIMESTAMP
       RETURNING id
-    `, [defaultUser, passwordHash, companyId]);
+    `, [defaultUser, passwordHash, roleId, companyId]);
     
     const userId = userResult.rows[0]?.id;
     console.log(`Usuario insertado/actualizado con ID: ${userId}`);
     
-    // 4. Configurar relación empresa-banco para los tres bancos
+    // 5. Configurar relación empresa-banco para los tres bancos
     console.log('Configurando relación empresa-banco para Banco Económico...');
     await query(`
-      INSERT INTO company_bank_configs (company_id, bank_id, account_number, account_username, account_password, merchant_id, encryption_key, environment, status)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, 2, 'ACTIVE')
+      INSERT INTO company_bank (company_id, bank_id, account_number, account_type, account_name, merchant_id, additional_config, environment, status)
+      VALUES ($1, $2, $3, 1, 'Cuenta Principal', $4, $5, 2, 'ACTIVE')
       ON CONFLICT (company_id, bank_id) 
       DO UPDATE SET 
         account_number = $3,
-        account_username = $4,
-        account_password = $5,
-        merchant_id = $6,
-        encryption_key = $7,
+        merchant_id = $4,
+        additional_config = $5,
         environment = 2,
         updated_at = CURRENT_TIMESTAMP
-    `, [companyId, banecoId, banecoAccount, banecoUsername, banecoPassword, 'BANECO_MERCHANT', encryptionKey]);
+    `, [
+      companyId, 
+      banecoId, 
+      banecoAccount, 
+      'BANECO_MERCHANT',
+      JSON.stringify({
+        username: banecoUsername,
+        password: banecoPassword
+      })
+    ]);
     
     console.log('Configurando relación empresa-banco para BNB...');
     await query(`
-      INSERT INTO company_bank_configs (company_id, bank_id, account_number, account_username, account_password, merchant_id, encryption_key, environment, status)
-      VALUES ($1, $2, '10010000001', 'bnb_user', 'bnb_pass', 'BNB_MERCHANT', $3, 2, 'ACTIVE')
+      INSERT INTO company_bank (company_id, bank_id, account_number, account_type, account_name, merchant_id, additional_config, environment, status)
+      VALUES ($1, $2, '10010000001', 1, 'Cuenta Principal', 'BNB_MERCHANT', $3, 2, 'ACTIVE')
       ON CONFLICT (company_id, bank_id) 
       DO UPDATE SET 
         account_number = '10010000001',
-        account_username = 'bnb_user',
-        account_password = 'bnb_pass',
         merchant_id = 'BNB_MERCHANT',
-        encryption_key = $3,
+        additional_config = $3,
         environment = 2,
         updated_at = CURRENT_TIMESTAMP
-    `, [companyId, bnbId, encryptionKey]);
+    `, [
+      companyId, 
+      bnbId, 
+      JSON.stringify({
+        username: 'bnb_user',
+        password: 'bnb_pass'
+      })
+    ]);
     
     console.log('Configurando relación empresa-banco para BISA...');
     await query(`
-      INSERT INTO company_bank_configs (company_id, bank_id, account_number, account_username, account_password, merchant_id, encryption_key, environment, status)
-      VALUES ($1, $2, '10030000001', 'bisa_user', 'bisa_pass', 'BISA_MERCHANT', $3, 2, 'ACTIVE')
+      INSERT INTO company_bank (company_id, bank_id, account_number, account_type, account_name, merchant_id, additional_config, environment, status)
+      VALUES ($1, $2, '10030000001', 1, 'Cuenta Principal', 'BISA_MERCHANT', $3, 2, 'ACTIVE')
       ON CONFLICT (company_id, bank_id) 
       DO UPDATE SET 
         account_number = '10030000001',
-        account_username = 'bisa_user',
-        account_password = 'bisa_pass',
         merchant_id = 'BISA_MERCHANT',
-        encryption_key = $3,
+        additional_config = $3,
         environment = 2,
         updated_at = CURRENT_TIMESTAMP
-    `, [companyId, bisaId, encryptionKey]);
+    `, [
+      companyId, 
+      bisaId, 
+      JSON.stringify({
+        username: 'bisa_user',
+        password: 'bisa_pass'
+      })
+    ]);
     
     console.log('Configuración empresa-banco actualizada para los tres bancos');
     
-    // 5. Crear una API key para la empresa
+    // 6. Crear una API key para la empresa
     console.log('Creando API key para la empresa...');
     
     // Generar una API key aleatoria
@@ -166,13 +191,12 @@ export async function seedDatabase() {
     
     // Definir permisos
     const permissions = {
-      qr: {
-        generate: true,
-        cancel: true,
-        check: true
+      qr_codes: {
+        create: true,
+        read: true
       },
-      payments: {
-        list: true
+      transactions: {
+        read: true
       }
     };
     
@@ -189,19 +213,8 @@ export async function seedDatabase() {
     
     console.log(`API key generada: ${apiKey}`);
     
-    // 6. Crear tokens de autenticación de ejemplo con información de dispositivo
+    // 7. Crear tokens de autenticación de ejemplo
     console.log('Creando tokens de autenticación de ejemplo...');
-    
-    // Generar un token JWT de ejemplo (no es un JWT real, solo para demostración)
-    const demoAccessToken = generateApiKey(64);
-    const demoRefreshToken = generateApiKey(64);
-    
-    // Fechas de expiración
-    const accessTokenExpiry = new Date();
-    accessTokenExpiry.setHours(accessTokenExpiry.getHours() + 24); // 24 horas
-    
-    const refreshTokenExpiry = new Date();
-    refreshTokenExpiry.setDate(refreshTokenExpiry.getDate() + 30); // 30 días
     
     // Información de dispositivos de ejemplo
     const deviceInfos = [
@@ -222,42 +235,26 @@ export async function seedDatabase() {
       }
     ];
     
+    // Fechas de expiración
+    const accessTokenExpiry = new Date();
+    accessTokenExpiry.setHours(accessTokenExpiry.getHours() + 24); // 24 horas
+    
+    const refreshTokenExpiry = new Date();
+    refreshTokenExpiry.setDate(refreshTokenExpiry.getDate() + 30); // 30 días
+    
     // Insertar tokens de acceso para diferentes dispositivos
     for (const device of deviceInfos) {
-      const token = generateApiKey(64);
-      
+      // Crear token de acceso
       await query(`
         INSERT INTO auth_tokens (
           user_id, 
           token_type, 
           token, 
           expires_at, 
-          used_times, 
           ip_address, 
           user_agent
         ) VALUES (
-          $1, 'ACCESS_TOKEN', $2, $3, 0, $4, $5
-        )
-      `, [
-        userId,
-        token,
-        accessTokenExpiry.toISOString(),
-        device.ip,
-        `${device.userAgent} | ${device.deviceType}`
-      ]);
-      
-      // También insertar un refresh token para cada dispositivo
-      await query(`
-        INSERT INTO auth_tokens (
-          user_id, 
-          token_type, 
-          token, 
-          expires_at, 
-          used_times, 
-          ip_address, 
-          user_agent
-        ) VALUES (
-          $1, 'REFRESH_TOKEN', $2, $3, 0, $4, $5
+          $1, 'REFRESH_TOKEN', $2, $3, $4, $5
         )
       `, [
         userId,

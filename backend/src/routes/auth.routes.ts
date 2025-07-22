@@ -1,6 +1,7 @@
 import { Elysia, t } from 'elysia';
-import authService from '../services/auth.service';
+import {authService} from '../services/auth.service';
 import otpService from '../services/otp.service';
+import { ApiError } from '../utils/error';
 
 // Esquemas de validación
 const AuthRequestSchema = t.Object({
@@ -71,16 +72,14 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       return response;
     } catch (error) {
       console.log('error', error);
-      return {
-        user: {
-          responseCode: 1,
-          message: 'Error de autenticación'
-        },
-        auth: {
-          accessToken: '',
-          refreshToken: ''
-        }
-      };
+      if (error instanceof ApiError) {
+        return Response.json({
+          message: error.message
+        }, { status: error.statusCode });
+      }
+      return Response.json({
+        message: 'Error de autenticación'
+      }, { status: 500 });
     }
   }, {
     body: AuthRequestSchema,
@@ -89,32 +88,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       summary: 'Autenticar usuario y obtener token JWT'
     }
   })
-  
-  .post('/register', async ({ body }) => {
-    try {
-      const response = await authService.createUser({
-        email: body.email,
-        password: body.password,
-        fullName: body.fullName,
-        companyId: body.companyId,
-        role: 'USER' // Role por defecto
-      });
-      return response;
-    } catch (error) {
-      console.log('error', error);
-      return {
-        responseCode: 1,
-        message: 'Error al registrar usuario'
-      };
-    }
-  }, {
-    body: RegisterRequestSchema,
-    detail: {
-      tags: ['auth'],
-      summary: 'Registrar un nuevo usuario'
-    }
-  })
-  
+
   .post('/forgot-password', async ({ body, request }) => {
     try {
       // Obtener información del dispositivo

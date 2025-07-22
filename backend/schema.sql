@@ -1,14 +1,11 @@
--- Schema para sistema de pagos con QR multiempresa
--- Compatible con PostgreSQL
-
--- Eliminar tablas si existen (para recrear la base de datos)
 DROP TABLE IF EXISTS activity_logs;
-DROP TABLE IF EXISTS qr_payments;
+DROP TABLE IF EXISTS transactions;
 DROP TABLE IF EXISTS qr_codes;
-DROP TABLE IF EXISTS company_bank_configs;
+DROP TABLE IF EXISTS company_bank;
 DROP TABLE IF EXISTS api_keys;
 DROP TABLE IF EXISTS auth_tokens;
 DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS roles;
 DROP TABLE IF EXISTS companies;
 DROP TABLE IF EXISTS banks;
 
@@ -17,40 +14,52 @@ CREATE TABLE companies (
   id SERIAL PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
   business_id VARCHAR(50) UNIQUE NOT NULL,
+  type VARCHAR(20) NOT NULL CHECK (type IN ('company', 'individual')),
+  document_id VARCHAR(50) NOT NULL,
   address TEXT,
   contact_email VARCHAR(100) NOT NULL,
   contact_phone VARCHAR(20),
-  status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+  status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE', 'SUSPENDED')),
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   deleted_at TIMESTAMPTZ
 );
 
--- Crear tabla para configuración de bancos
+-- Crear tabla para bancos
 CREATE TABLE banks (
   id SERIAL PRIMARY KEY,
   code VARCHAR(20) UNIQUE NOT NULL,
   name VARCHAR(100) NOT NULL,
   api_version VARCHAR(10),
-  encryption_key TEXT,
   test_api_url TEXT,
   prod_api_url TEXT,
-  status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+  status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE', 'MAINTENANCE')),
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   deleted_at TIMESTAMPTZ
 );
 
--- Crear tabla de usuarios con relación a empresa
+-- Crear tabla de roles
+CREATE TABLE roles (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(50) NOT NULL UNIQUE,
+  description TEXT,
+  permissions JSONB NOT NULL DEFAULT '{}',
+  is_system_role BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ
+);
+
+-- Crear tabla de usuarios (simplificada)
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
   email VARCHAR(100) UNIQUE NOT NULL,
   password VARCHAR(255) NOT NULL,
   full_name VARCHAR(100),
-  company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
-  role VARCHAR(20) NOT NULL DEFAULT 'USER',
-  status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
-  external_id VARCHAR(255) UNIQUE,
+  role_id INTEGER NOT NULL REFERENCES roles(id),
+  company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE', 'PENDING')),
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   deleted_at TIMESTAMPTZ
@@ -59,11 +68,11 @@ CREATE TABLE users (
 -- Crear tabla para tokens de autenticación
 CREATE TABLE auth_tokens (
   id SERIAL PRIMARY KEY,
-  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-  token_type VARCHAR(50) NOT NULL, -- 'PASSWORD_RESET', 'REFRESH_TOKEN', etc.
-  token VARCHAR(255) NOT NULL,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_type VARCHAR(50) NOT NULL CHECK (token_type IN ('ACCESS_TOKEN','PASSWORD_RESET', 'REFRESH_TOKEN', 'EMAIL_VERIFICATION')),
+  token VARCHAR(255) NOT NULL UNIQUE,
   expires_at TIMESTAMPTZ NOT NULL,
-  used_times INTEGER DEFAULT 0,
+  used_times INTEGER DEFAULT 0 CHECK (used_times >= 0),
   ip_address VARCHAR(50),
   user_agent TEXT,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
@@ -77,106 +86,105 @@ CREATE TABLE api_keys (
   api_key VARCHAR(64) UNIQUE NOT NULL,
   description TEXT,
   company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-  permissions JSONB NOT NULL,
+  permissions JSONB NOT NULL DEFAULT '{}',
   expires_at TIMESTAMPTZ,
-  status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+  status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'REVOKED', 'EXPIRED')),
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   deleted_at TIMESTAMPTZ
 );
 
--- Crear tabla para configuración de empresa-banco
-CREATE TABLE company_bank_configs (
+-- Crear tabla para configuración empresa-banco
+CREATE TABLE company_bank (
   id SERIAL PRIMARY KEY,
   company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   bank_id INTEGER NOT NULL REFERENCES banks(id) ON DELETE CASCADE,
-  account_number VARCHAR(50),
-  account_type INTEGER NOT NULL DEFAULT 1,
-  account_name VARCHAR(50),
-  account_username VARCHAR(50),
-  account_password VARCHAR(50),
+  account_number VARCHAR(50) NOT NULL,
+  account_type INTEGER NOT NULL DEFAULT 1 CHECK (account_type BETWEEN 1 AND 5),
+  account_name VARCHAR(100),
   merchant_id VARCHAR(50),
-  encryption_key TEXT,
   additional_config JSONB DEFAULT '{}',
-  environment INTEGER NOT NULL DEFAULT 1,
-  status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+  environment INTEGER NOT NULL DEFAULT 1 CHECK (environment IN (1, 2)), -- 1=test, 2=prod
+  bank_branch VARCHAR(50),
+  status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE', 'ERROR')),
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   deleted_at TIMESTAMPTZ,
   UNIQUE(company_id, bank_id)
 );
 
--- Crear tabla para los QR generados
+-- Crear tabla para códigos QR
 CREATE TABLE qr_codes (
   id SERIAL PRIMARY KEY,
   qr_id VARCHAR(50) UNIQUE NOT NULL,
   transaction_id VARCHAR(100) NOT NULL,
   account_credit TEXT NOT NULL,
   company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-  bank_id INTEGER NOT NULL REFERENCES banks(id) ON DELETE CASCADE,
-  currency VARCHAR(3) NOT NULL,
-  amount DECIMAL(10, 2) NOT NULL,
+  company_bank_id INTEGER NOT NULL REFERENCES company_bank(id) ON DELETE CASCADE,
+  environment INTEGER NOT NULL DEFAULT 1 CHECK (environment IN (1, 2)), -- 1=test, 2=prod
+  currency VARCHAR(3) NOT NULL CHECK (char_length(currency) = 3),
+  amount DECIMAL(10, 2) NOT NULL CHECK (amount >= 0),
   description TEXT,
   due_date TIMESTAMPTZ NOT NULL,
-  single_use BOOLEAN NOT NULL,
-  modify_amount BOOLEAN NOT NULL,
-  branch_code VARCHAR(10),
-  qr_image TEXT NOT NULL,
-  status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+  single_use BOOLEAN NOT NULL DEFAULT TRUE,
+  modify_amount BOOLEAN NOT NULL DEFAULT FALSE,
+  qr_image TEXT,
+  status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'USED', 'EXPIRED', 'CANCELLED')),
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   deleted_at TIMESTAMPTZ
 );
 
--- Crear tabla para pagos de QR
-CREATE TABLE qr_payments (
+-- Crear tabla para transacciones
+CREATE TABLE transactions (
   id SERIAL PRIMARY KEY,
-  qr_id VARCHAR(50) NOT NULL,
+  qr_id VARCHAR(50) REFERENCES qr_codes(qr_id) ON DELETE SET NULL,
   company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-  bank_id INTEGER NOT NULL REFERENCES banks(id) ON DELETE CASCADE,
-  transaction_id VARCHAR(100) NOT NULL,
+  company_bank_id INTEGER NOT NULL REFERENCES company_bank(id) ON DELETE CASCADE,
+  environment INTEGER NOT NULL DEFAULT 1 CHECK (environment IN (1, 2)), -- 1=test, 2=prod
+  transaction_id VARCHAR(100) NOT NULL UNIQUE,
   payment_date TIMESTAMPTZ NOT NULL,
-  payment_time VARCHAR(10) NOT NULL,
-  currency VARCHAR(3) NOT NULL,
-  amount DECIMAL(10, 2) NOT NULL,
-  sender_bank_code VARCHAR(20) NOT NULL,
-  sender_name VARCHAR(255) NOT NULL,
-  sender_document_id VARCHAR(50) NOT NULL,
-  sender_account VARCHAR(50) NOT NULL,
+  currency VARCHAR(3) NOT NULL CHECK (char_length(currency) = 3),
+  amount DECIMAL(10, 2) NOT NULL CHECK (amount >= 0),
+  type VARCHAR(20) NOT NULL CHECK (type IN ('incoming', 'outgoing')),
+  sender_name VARCHAR(255),
+  sender_document_id VARCHAR(50),
+  sender_account VARCHAR(50),
   description TEXT,
-  branch_code VARCHAR(10),
+  metadata JSONB DEFAULT '{}',
+  status VARCHAR(20) NOT NULL DEFAULT 'completed' CHECK (status IN ('completed', 'pending', 'failed', 'cancelled')),
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  deleted_at TIMESTAMPTZ,
-  FOREIGN KEY (qr_id) REFERENCES qr_codes(qr_id) ON DELETE CASCADE
-);
-
--- Crear tabla para registro de actividad y monitoreo
-CREATE TABLE activity_logs (
-  id SERIAL PRIMARY KEY,
-  company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
-  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-  action_type VARCHAR(50) NOT NULL,
-  action_details JSONB,
-  status VARCHAR(20) NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   deleted_at TIMESTAMPTZ
 );
 
+-- Crear tabla para registro de actividad
+CREATE TABLE activity_logs (
+  id SERIAL PRIMARY KEY,
+  company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  action_type VARCHAR(50) NOT NULL,
+  action_details JSONB DEFAULT '{}',
+  status VARCHAR(20) NOT NULL CHECK (status IN ('INFO', 'ERROR', 'WARNING')),
+  ip_address INET,
+  user_agent TEXT,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ
+);
 
+-- Crear índices optimizados
+CREATE INDEX idx_qr_codes_company_status ON qr_codes(company_id, status);
+CREATE INDEX idx_qr_codes_due_date_status ON qr_codes(due_date, status) WHERE status = 'ACTIVE';
+CREATE INDEX idx_transactions_company_date ON transactions(company_id, payment_date DESC);
+CREATE INDEX idx_transactions_type_status ON transactions(type, status);
+CREATE INDEX idx_activity_logs_company_created ON activity_logs(company_id, created_at DESC);
+CREATE INDEX idx_api_keys_company_status ON api_keys(company_id, status);
+CREATE INDEX idx_users_company_role ON users(company_id, role_id);
 
--- Crear índices para mejorar rendimiento
-CREATE INDEX idx_qr_codes_company_id ON qr_codes(company_id);
-CREATE INDEX idx_qr_codes_bank_id ON qr_codes(bank_id);
-CREATE INDEX idx_qr_codes_status ON qr_codes(status);
-CREATE INDEX idx_qr_codes_due_date ON qr_codes(due_date);
-CREATE INDEX idx_qr_payments_qr_id ON qr_payments(qr_id);
-CREATE INDEX idx_qr_payments_company_id ON qr_payments(company_id);
-CREATE INDEX idx_qr_payments_payment_date ON qr_payments(payment_date);
-CREATE INDEX idx_activity_logs_company_id ON activity_logs(company_id);
-CREATE INDEX idx_activity_logs_action_type ON activity_logs(action_type);
-CREATE INDEX idx_activity_logs_status ON activity_logs(status);
-CREATE INDEX idx_api_keys_company_id ON api_keys(company_id);
-CREATE INDEX idx_users_external_id ON users(external_id);
-CREATE INDEX idx_users_email ON users(email);
-
--- Nota: Los datos iniciales ahora se insertan a través del script seed-db.ts 
+-- Insertar roles predefinidos (versión mejorada)
+INSERT INTO roles (name, description, permissions, is_system_role) VALUES
+('SUPER_ADMIN', 'Acceso total al sistema', '{"*": true}', true),
+('COMPANY_ADMIN', 'Administrador de empresa', '{"companies": {"read": true, "update": true}, "users": {"create": true, "read": true, "update": true}, "qr_codes": {"create": true, "read": true, "update": true}, "transactions": {"read": true}, "reports": {"read": true}}', true),
+('FINANCIAL_MANAGER', 'Gestor financiero', '{"transactions": {"read": true}, "qr_codes": {"read": true}, "reports": {"read": true}, "company_bank": {"read": true}}', true),
+('OPERATOR', 'Operador básico', '{"qr_codes": {"create": true, "read": true}, "transactions": {"read": true}}', true);

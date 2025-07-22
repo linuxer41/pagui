@@ -4,156 +4,143 @@
   import api from '$lib/api';
   import { auth } from '$lib/stores/auth';
   import { APP_CONFIG } from '$lib/config';
-  import { User, Lock, Loader, LogIn, RefreshCw } from '@lucide/svelte';
+  import { toasts } from '$lib/stores/toast';
+  import { page } from '$app/stores';
+  import { Key, Loader, Check, Lock } from '@lucide/svelte';
   import Button from '$lib/components/Button.svelte';
   import Input from '$lib/components/Input.svelte';
-  import { toasts } from '$lib/stores/toast';
   
-  let email = '';
+  let token = '';
   let password = '';
+  let confirmPassword = '';
   let loading = false;
   let error = '';
-  let forgotPasswordMode = false;
-  let resetEmailSent = false;
-  let resetLoading = false;
-
+  let resetSuccess = false;
+  
   // Verificar si ya está autenticado
   onMount(() => {
+    // Si está autenticado, redirigir al inicio
     if ($auth.isAuthenticated) {
       goto('/');
+      return;
+    }
+    
+    // Obtener token de la URL si existe
+    const url = new URL(window.location.href);
+    token = url.searchParams.get('token') || '';
+    
+    if (!token) {
+      error = 'Token inválido o no proporcionado';
     }
   });
-
-  async function handleLogin() {
+  
+  // Función para validar formulario
+  function validateForm(): boolean {
+    if (!token) {
+      error = 'Token inválido o no proporcionado';
+      return false;
+    }
+    
+    if (!password) {
+      error = 'Debe ingresar una contraseña';
+      return false;
+    }
+    
+    if (password !== confirmPassword) {
+      error = 'Las contraseñas no coinciden';
+      return false;
+    }
+    
+    if (password.length < 8) {
+      error = 'La contraseña debe tener al menos 8 caracteres';
+      return false;
+    }
+    
+    return true;
+  }
+  
+  // Manejar envío del formulario
+  async function handleResetPassword() {
     error = '';
+    
+    if (!validateForm()) return;
+    
     loading = true;
     
     try {
-      const response = await api.login(email, password);
+      const response = await api.resetPassword(token, password);
+      
       if (response.success) {
-        goto('/', { replaceState: true });
+        resetSuccess = true;
+        toasts.show('Contraseña cambiada con éxito', 'success');
       } else {
-        error = response.message || 'Error desconocido. Por favor intente nuevamente.';
+        error = response.message || 'Error al restablecer la contraseña';
       }
     } catch (err) {
-      console.error('Error de login:', err);
+      console.error('Error al restablecer contraseña:', err);
       error = err instanceof Error ? err.message : 'Error de conexión. Por favor intente nuevamente más tarde.';
     } finally {
       loading = false;
     }
   }
   
-  async function handleForgotPassword() {
-    if (!email) {
-      error = 'Por favor ingrese su correo electrónico';
-      return;
-    }
-    
-    error = '';
-    resetLoading = true;
-    
-    try {
-      await api.requestPasswordReset(email);
-      resetEmailSent = true;
-      toasts.show('Se han enviado instrucciones a su correo electrónico', 'success');
-    } catch (err) {
-      console.error('Error al solicitar restablecimiento:', err);
-      error = err instanceof Error ? err.message : 'Error de conexión. Por favor intente nuevamente más tarde.';
-    } finally {
-      resetLoading = false;
-    }
-  }
-  
-  function toggleForgotPassword() {
-    forgotPasswordMode = !forgotPasswordMode;
-    error = '';
-    resetEmailSent = false;
+  // Redirigir al login después de cambio exitoso
+  function goToLogin() {
+    goto('/login');
   }
 </script>
 
-<div class="login-page">
-  <div class="login-container animate-in">
+<div class="reset-page">
+  <div class="reset-container animate-in">
     <div class="logo">
       <div class="logo-icon">
         <img src="/favicon.png" alt="Logo" width="42" />
         <div class="logo-glow"></div>
       </div>
       <h1>{APP_CONFIG.appName}</h1>
-      <p class="subtitle">
-        {#if forgotPasswordMode}
-          Recuperar contraseña
-        {:else}
-          Inicia sesión para continuar
-        {/if}
-      </p>
+      <p class="subtitle">Restablecer contraseña</p>
     </div>
     
-    <div class="login-form">
-      {#if forgotPasswordMode}
-        <form on:submit|preventDefault={handleForgotPassword}>
-          <Input
-            id="email"
-            label="Email"
-            type="email"
-            bind:value={email}
-            required
-            disabled={resetLoading || resetEmailSent}
-            placeholder="Ingresa tu email"
-            icon={User}
-          />
-          
-          {#if error}
-            <div class="error-message message">
-              {error}
-            </div>
-          {/if}
-          
-          {#if resetEmailSent}
-            <div class="success-message message">
-              Revisa tu bandeja de entrada para obtener instrucciones sobre cómo restablecer tu contraseña.
-            </div>
-          {/if}
+    <div class="reset-form">
+      {#if resetSuccess}
+        <div class="success-container">
+          <div class="success-icon">
+            <Check size={48} stroke="var(--success-color)" />
+          </div>
+          <h2>¡Contraseña actualizada!</h2>
+          <p>Tu contraseña ha sido actualizada correctamente.</p>
           
           <Button 
-            type="submit" 
+            type="button" 
             variant="primary" 
             fullWidth 
-            loading={resetLoading}
-            disabled={resetEmailSent}
-            icon={resetLoading ? Loader : RefreshCw}
-            iconPosition="left"
+            on:click={goToLogin}
             size="md"
           >
-            {resetLoading ? 'Enviando...' : 'Enviar instrucciones'}
+            Ir al inicio de sesión
           </Button>
-          
-          <div class="form-footer">
-            <button type="button" class="text-link" on:click={toggleForgotPassword}>
-              Volver al inicio de sesión
-            </button>
-          </div>
-        </form>
+        </div>
       {:else}
-        <form on:submit|preventDefault={handleLogin}>
-          <Input
-            id="email"
-            label="Usuario"
-            type="text"
-            bind:value={email}
-            required
-            disabled={loading}
-            placeholder="Ingresa tu usuario"
-            icon={User}
-          />
-          
+        <form on:submit|preventDefault={handleResetPassword}>
           <Input
             id="password"
-            label="Contraseña"
+            label="Nueva contraseña"
             type="password"
             bind:value={password}
             required
-            disabled={loading}
-            placeholder="Ingresa tu contraseña"
+            disabled={loading || !token}
+            placeholder="Ingresa tu nueva contraseña"
+            icon={Key}
+          />
+          
+          <Input
+            id="confirmPassword"
+            label="Confirmar contraseña"
+            type="password"
+            bind:value={confirmPassword}
+            required
+            disabled={loading || !token}
+            placeholder="Confirma tu nueva contraseña"
             icon={Lock}
           />
           
@@ -168,23 +155,24 @@
             variant="primary" 
             fullWidth 
             loading={loading}
-            icon={loading ? Loader : LogIn}
+            disabled={!token}
+            icon={loading ? Loader : Check}
             iconPosition="left"
             size="md"
           >
-            {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
+            {loading ? 'Procesando...' : 'Restablecer contraseña'}
           </Button>
           
           <div class="form-footer">
-            <button type="button" class="text-link" on:click={toggleForgotPassword}>
-              ¿Olvidaste tu contraseña?
-            </button>
+            <a href="/login" class="text-link">
+              Volver al inicio de sesión
+            </a>
           </div>
         </form>
       {/if}
     </div>
     
-    <div class="login-footer">
+    <div class="reset-footer">
       <p>&copy; {APP_CONFIG.copyrightYear} {APP_CONFIG.appName}</p>
     </div>
   </div>
@@ -193,22 +181,20 @@
   <div class="bg-shape shape-1"></div>
   <div class="bg-shape shape-2"></div>
   <div class="bg-shape shape-3"></div>
-  <!-- Fondo abstracto, sin grid -->
 </div>
 
 <style>
-  .login-page {
+  .reset-page {
     min-height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
-    /* Fondo degradado abstracto, sin grid */
     background: linear-gradient(120deg, #e9eef8 0%, #f5f7fa 60%, #dbeafe 100%);
     position: relative;
     overflow: hidden;
   }
   
-  .login-container {
+  .reset-container {
     width: 100%;
     max-width: 360px;
     z-index: 2;
@@ -278,7 +264,18 @@
     background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
     border-radius: var(--border-radius-full);
   }
-
+  
+  .subtitle {
+    color: var(--text-secondary);
+    margin-bottom: 0;
+    font-size: 0.875rem;
+  }
+  
+  .reset-form {
+    width: 100%;
+    margin-bottom: var(--spacing-xl);
+  }
+  
   .form-footer {
     display: flex;
     justify-content: center;
@@ -294,6 +291,7 @@
     padding: 0;
     text-decoration: underline;
     transition: color 0.2s;
+    display: inline-block;
   }
   
   .text-link:hover {
@@ -314,10 +312,46 @@
     border: 1px solid var(--danger-border);
   }
   
-  .success-message {
-    background-color: var(--success-background);
+  .success-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: var(--spacing-lg);
+    text-align: center;
+  }
+  
+  .success-icon {
+    background: var(--success-background);
+    border-radius: 50%;
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: var(--spacing-md);
+    border: 2px solid var(--success-color);
+  }
+  
+  .success-container h2 {
+    font-size: 1.25rem;
+    margin-bottom: var(--spacing-sm);
     color: var(--success-color);
-    border: 1px solid var(--success-border);
+  }
+  
+  .success-container p {
+    margin-bottom: var(--spacing-lg);
+    color: var(--text-secondary);
+  }
+  
+  .reset-footer {
+    margin-top: var(--spacing-lg);
+    text-align: center;
+  }
+  
+  .reset-footer p {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    opacity: 0.8;
   }
   
   /* Formas de fondo decorativas */

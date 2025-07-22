@@ -130,7 +130,7 @@ class ApiKeyService {
           description,
           expiresAt
         },
-        'SUCCESS',
+        'INFO',
         companyId,
         userId
       );
@@ -233,7 +233,7 @@ class ApiKeyService {
           apiKeyId,
           apiKey: apiKeyCheck.rows[0].api_key
         },
-        'SUCCESS',
+        'INFO',
         companyId,
         userId
       );

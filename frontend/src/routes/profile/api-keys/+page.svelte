@@ -36,13 +36,13 @@
   ];
   
   // Estado para la nueva API key
-  let newApiKey = null;
+  let newApiKey: any = null;
   let newKeyName = "";
   let isCreating = false;
   let showNewKey = true;
   
   // Estado para confirmación de eliminación
-  let deletingKeyId = null;
+  let deletingKeyId: any = null;
   
   // Función para crear nueva API key
   function createApiKey() {
@@ -92,7 +92,7 @@
   }
   
   // Función para generar un string aleatorio
-  function generateRandomString(length) {
+  function generateRandomString(length: number) {
     const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let result = '';
     for (let i = 0; i < length; i++) {
@@ -102,7 +102,7 @@
   }
   
   // Formatear fecha
-  function formatDate(dateString) {
+  function formatDate(dateString: string) {
     try {
       const date = new Date(dateString);
       return new Intl.DateTimeFormat('es-ES', {
@@ -259,50 +259,7 @@
 </ProfilePage>
 
 <style>
-  .app-container {
-    padding: var(--spacing-md);
-    max-width: 700px;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-lg);
-    background-color: var(--background, #f2f5f9);
-    min-height: 100vh;
-  }
-  
-  .app-header {
-    display: flex;
-    align-items: center;
-    margin-bottom: var(--spacing-md);
-    padding-bottom: var(--spacing-md);
-    border-bottom: 1px solid var(--border-color);
-  }
-  
-  .app-header h1 {
-    font-size: 1.5rem;
-    font-weight: 600;
-    margin: 0;
-    text-align: center;
-    flex: 1;
-    color: var(--text-primary);
-  }
-  
-  .back-button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 8px;
-    color: var(--text-primary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-  }
-  
-  .back-button:hover {
-    background-color: var(--surface-variant, #f5f5f5);
-  }
-  
+ 
   .page-intro {
     display: flex;
     align-items: center;

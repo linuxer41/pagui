@@ -3,36 +3,41 @@ import { authMiddleware } from '../middlewares/auth.middleware';
 import transactionService from '../services/transaction.service';
 import { ApiError } from '../utils/error';
 
+const ResponseSchema = t.Object({
+  success: t.Boolean(),
+  message: t.String(),
+  data: t.Optional(t.Any())
+});
 // Rutas para transacciones
 export const transactionsRoutes = new Elysia({ prefix: '/transactions' })
   .use(authMiddleware({ type: 'all', level: 'user' }))
   
   // Obtener estadísticas de transacciones por período
   .get('/stats/:periodType/:year/:month?/:week?', async ({ params, auth }) => {
-    try {
-      if (auth?.type !== 'jwt') {
-        throw new ApiError('Se requiere autenticación de usuario para esta operación', 401);
-      }
-    
-      const companyId = auth.user!.companyId;
-      const userId = auth.user!.id;
-      const periodType = params.periodType as 'weekly' | 'monthly' | 'yearly';
-      const year = parseInt(params.year);
-      const month = params.month ? parseInt(params.month) : undefined;
-      const week = params.week ? parseInt(params.week) : undefined;
-      
-      return await transactionService.getTransactionStats(
-        companyId,
-        periodType,
-        year,
-        month,
-        week,
-        userId
-      );
-    } catch (error) {
-      console.log('error', error);
-      throw new ApiError('Error al obtener estadísticas de transacciones', 500);
+    if (auth?.type !== 'jwt') {
+      throw new ApiError('Se requiere autenticación de usuario para esta operación', 401);
     }
+  
+    const companyId = auth.user!.companyId;
+    const userId = auth.user!.id;
+    const periodType = params.periodType as 'weekly' | 'monthly' | 'yearly';
+    const year = parseInt(params.year);
+    const month = params.month ? parseInt(params.month) : undefined;
+    const week = params.week ? parseInt(params.week) : undefined;
+    
+    const data = await transactionService.getTransactionStats(
+      companyId,
+      periodType,
+      year,
+      month,
+      week,
+      userId
+    );
+    return {
+      success: true,
+      message: 'Estadísticas obtenidas exitosamente',
+      data
+    };
   }, {
     params: t.Object({
       periodType: t.Union([t.Literal('weekly'), t.Literal('monthly'), t.Literal('yearly')]),
@@ -40,6 +45,7 @@ export const transactionsRoutes = new Elysia({ prefix: '/transactions' })
       month: t.Optional(t.String()),
       week: t.Optional(t.String())
     }),
+    response: ResponseSchema,
     detail: {
       tags: ['transactions'],
       summary: 'Obtener estadísticas de transacciones por período'
@@ -49,10 +55,7 @@ export const transactionsRoutes = new Elysia({ prefix: '/transactions' })
   // Listar transacciones con filtros
   .get('/', async ({ query: queryParams, auth }) => {
     if (auth?.type !== 'jwt') {
-      return {
-        responseCode: 1,
-        message: 'Se requiere autenticación de usuario para esta operación'
-      };
+      throw new ApiError('Se requiere autenticación de usuario para esta operación', 401);
     }
     
     const companyId = auth.user!.companyId;
@@ -71,7 +74,12 @@ export const transactionsRoutes = new Elysia({ prefix: '/transactions' })
       pageSize: queryParams.pageSize !== undefined ? parseInt(queryParams.pageSize) : undefined
     };
     
-    return await transactionService.listTransactions(companyId, filters, userId);
+    const data = await transactionService.listTransactions(companyId, filters, userId);
+    return {
+      success: true,
+      message: 'Transacciones listadas exitosamente',
+      data
+    };
   }, {
     query: t.Object({
       startDate: t.Optional(t.String()),
@@ -84,6 +92,7 @@ export const transactionsRoutes = new Elysia({ prefix: '/transactions' })
       page: t.Optional(t.String()),
       pageSize: t.Optional(t.String())
     }),
+    response: ResponseSchema,
     detail: {
       tags: ['transactions'],
       summary: 'Listar transacciones con filtros'
@@ -93,16 +102,18 @@ export const transactionsRoutes = new Elysia({ prefix: '/transactions' })
   // Crear una nueva transacción
   .post('/', async ({ body, auth }) => {
     if (auth?.type !== 'jwt') {
-      return {
-        responseCode: 1,
-        message: 'Se requiere autenticación de usuario para esta operación'
-      };
+      throw new ApiError('Se requiere autenticación de usuario para esta operación', 401);
     }
     
     const companyId = auth.user!.companyId;
     const userId = auth.user!.id;
     
-    return await transactionService.createTransaction(companyId, body as any, userId);
+    const data = await transactionService.createTransaction(companyId, body as any, userId);
+    return {
+      success: true,
+      message: 'Transacción creada exitosamente',
+      data
+    };
   }, {
     body: t.Object({
       qrId: t.Optional(t.String()),
@@ -120,6 +131,7 @@ export const transactionsRoutes = new Elysia({ prefix: '/transactions' })
       metadata: t.Optional(t.Any()),
       status: t.Optional(t.String())
     }),
+    response: ResponseSchema,
     detail: {
       tags: ['transactions'],
       summary: 'Crear una nueva transacción'
@@ -129,21 +141,24 @@ export const transactionsRoutes = new Elysia({ prefix: '/transactions' })
   // Obtener detalle de una transacción específica
   .get('/:id', async ({ params, auth }) => {
     if (auth?.type !== 'jwt') {
-      return {
-        responseCode: 1,
-        message: 'Se requiere autenticación de usuario para esta operación'
-      };
+      throw new ApiError('Se requiere autenticación de usuario para esta operación', 401);
     }
     
     const companyId = auth.user!.companyId;
     const userId = auth.user!.id;
     const transactionId = params.id;
     
-    return await transactionService.getTransactionDetail(companyId, transactionId, userId);
+    const data = await transactionService.getTransactionDetail(companyId, transactionId, userId);
+    return {
+      success: true,
+      message: 'Detalle de transacción obtenido exitosamente',
+      data
+    };
   }, {
     params: t.Object({
       id: t.String()
     }),
+    response: ResponseSchema,
     detail: {
       tags: ['transactions'],
       summary: 'Obtener detalle de una transacción específica'

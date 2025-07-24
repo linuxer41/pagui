@@ -94,11 +94,10 @@
     
     try {
       const response = await api.getRecentTransactions(3);
-      if (response.responseCode === 0) {
-        wallet.transactions = response.transactions;
-      } else {
+      if (!response.success) {
         throw new Error('Error al obtener transacciones recientes');
       }
+      wallet.transactions = response.data?.transactions || [];
     } catch (error) {
       console.error('Error al cargar transacciones recientes:', error);
       transactionsError = true;
@@ -107,13 +106,6 @@
     }
   }
 
-  // Función para actualizar saldo y transacciones
-  function handleRefresh() {
-    loadRecentTransactions();
-    // Simular actualización del saldo (en producción esto vendría de la API)
-    const newBalance = wallet.balance + Math.random() * 100 - 50; // Fluctuación aleatoria de ±50
-    wallet.balance = Math.max(0, newBalance); // Asegurarse de que no sea negativo
-  }
 
   function handleGenerarQR() {
     goto('/qr');
@@ -160,12 +152,9 @@
   }
 </script>
 
-<MainPage>
+<MainPage ignoreSafeArea>
   <!-- Encabezado con saldo principal -->
-  <div class="wallet-header" in:fly={{ y: -40, duration: 500 }} out:fade={{ duration: 300 }}>
-    <button class="refresh-button" aria-label="Actualizar saldo" in:fade={{ duration: 400 }} on:click={handleRefresh}>
-      <RefreshCw size={16} />
-    </button>
+  <div class="wallet-header" in:fly={{ y: -40, duration: 500 }}>
     <div class="balance-section">
       <p class="balance-label" in:fade={{ duration: 400 }}>Saldo disponible</p>
       <div class="balance-refresh">
@@ -201,7 +190,7 @@
   <div class="section collections-section" in:fade={{ duration: 500 }}>
     <div class="section-header compact-header">
       <h2 class="compact-title">Resumen de Recaudaciones</h2>
-      <button class="view-all-button compact-view" on:click={() => goto('/resume')}>Ver detalles <ChevronRight size={16} /></button>
+      <!-- <button class="view-all-button compact-view" on:click={() => goto('/resume')}>Ver detalles <ChevronRight size={16} /></button> -->
     </div>
     <div class="collections-grid">
       <div class="collection-item" in:fly={{ y: 30, duration: 400, delay: 100 }}>
@@ -295,12 +284,6 @@
 
 <style>
   
-  /* Encabezado con saldo */
-  :global(.main-page-wrapper) {
-    padding-top: 0px !important;
-    padding-bottom: 0px !important;
-  }
-  /* HEADER MODERNO Y ELEGANTE */
   .wallet-header {
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
     padding: 1.2rem 1rem 1.2rem;

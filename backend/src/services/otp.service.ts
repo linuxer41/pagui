@@ -1,9 +1,15 @@
 import { query } from '../config/database';
 import { logActivity } from './monitor.service';
+import { ApiError } from '../utils/error';
 
 // Configuración de la API de UniMTX
 const UNIMTX_API_URL = 'https://api.unimtx.com/';
 const ACCESS_KEY_ID = process.env.UNIMTX_ACCESS_KEY_ID || 'YOUR_ACCESS_KEY_ID';
+
+interface OTPResponse {
+  requestId: string;
+  status: string;
+}
 
 class OTPService {
   /**
@@ -17,60 +23,38 @@ class OTPService {
     phoneNumber: string, 
     userId?: number, 
     companyId?: number
-  ): Promise<{
-    success: boolean;
-    message: string;
-    data?: any;
-    error?: string;
-  }> {
-    try {
-      const response = await fetch(`${UNIMTX_API_URL}?action=otp.send&accessKeyId=${ACCESS_KEY_ID}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          to: phoneNumber
-        })
-      });
+  ): Promise<OTPResponse> {
+    const response = await fetch(`${UNIMTX_API_URL}?action=otp.send&accessKeyId=${ACCESS_KEY_ID}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        to: phoneNumber
+      })
+    });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      // Guardar el intento de envío en la base de datos
-      await this.saveOTPAttempt(phoneNumber, 'SENT', userId, companyId);
-      
-      // Registrar actividad
-      if (userId && companyId) {
-        await logActivity(
-          'OTP_SENT',
-          { phoneNumber, userId },
-          'INFO',
-          companyId,
-          userId
-        );
-      }
-
-      return {
-        success: true,
-        message: 'OTP enviado exitosamente',
-        data: data
-      };
-    } catch (error) {
-      console.error('Error enviando OTP:', error);
-      
-      // Guardar el error en la base de datos
-      await this.saveOTPAttempt(phoneNumber, 'FAILED', userId, companyId, error instanceof Error ? error.message : 'Unknown error');
-      
-      return {
-        success: false,
-        message: 'Error enviando OTP',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
+    if (!response.ok) {
+      throw new ApiError(`Error al enviar OTP: ${response.status}`, response.status);
     }
+
+    const data = await response.json();
+    
+    // Guardar el intento de envío en la base de datos
+    await this.saveOTPAttempt(phoneNumber, 'SENT', userId, companyId);
+    
+    // Registrar actividad
+    if (userId && companyId) {
+      await logActivity(
+        'OTP_SENT',
+        { phoneNumber, userId },
+        'INFO',
+        companyId,
+        userId
+      );
+    }
+
+    return data;
   }
 
   /**
@@ -86,61 +70,40 @@ class OTPService {
     code: string, 
     userId?: number, 
     companyId?: number
-  ): Promise<{
-    success: boolean;
-    message: string;
-    data?: any;
-    error?: string;
-  }> {
-    try {
-      const response = await fetch(`${UNIMTX_API_URL}?action=otp.verify&accessKeyId=${ACCESS_KEY_ID}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          to: phoneNumber,
-          code: code
-        })
-      });
+  ): Promise<OTPResponse> {
+    const response = await fetch(`${UNIMTX_API_URL}?action=otp.verify&accessKeyId=${ACCESS_KEY_ID}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        to: phoneNumber,
+        code: code
+      })
+    });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      // Guardar el resultado de la verificación
-      await this.saveOTPAttempt(phoneNumber, 'VERIFIED', userId, companyId);
-      
-      // Registrar actividad exitosa
-      if (userId && companyId) {
-        await logActivity(
-          'OTP_VERIFIED',
-          { phoneNumber, userId },
-          'INFO',
-          companyId,
-          userId
-        );
-      }
-
-      return {
-        success: true,
-        message: 'OTP verificado exitosamente',
-        data: data
-      };
-    } catch (error) {
-      console.error('Error verificando OTP:', error);
-      
-      // Guardar el error en la base de datos
-      await this.saveOTPAttempt(phoneNumber, 'VERIFICATION_FAILED', userId, companyId, error instanceof Error ? error.message : 'Unknown error');
-      
-      return {
-        success: false,
-        message: 'Error verificando OTP',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
+    if (!response.ok) {
+      await this.saveOTPAttempt(phoneNumber, 'VERIFICATION_FAILED', userId, companyId, `HTTP error! status: ${response.status}`);
+      throw new ApiError(`Error al verificar OTP: ${response.status}`, response.status);
     }
+
+    const data = await response.json();
+    
+    // Guardar el resultado de la verificación
+    await this.saveOTPAttempt(phoneNumber, 'VERIFIED', userId, companyId);
+    
+    // Registrar actividad exitosa
+    if (userId && companyId) {
+      await logActivity(
+        'OTP_VERIFIED',
+        { phoneNumber, userId },
+        'INFO',
+        companyId,
+        userId
+      );
+    }
+
+    return data;
   }
 
   /**
@@ -175,6 +138,7 @@ class OTPService {
       );
     } catch (error) {
       console.error('Error guardando intento de OTP:', error);
+      // No propagamos el error para que no afecte la operación principal
     }
   }
 

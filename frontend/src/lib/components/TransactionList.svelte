@@ -123,15 +123,9 @@
     flex-wrap: nowrap;
     padding: 0.25rem;
     overflow-x: auto;
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE and Edge */
     white-space: nowrap;
   }
   
-  /* Ocultar la barra de desplazamiento para Chrome, Safari y Opera */
-  .filter-tabs::-webkit-scrollbar {
-    display: none;
-  }
   
   .filter-tab {
     padding: 0.5rem 0.75rem;

@@ -56,26 +56,29 @@ const app = new Elysia()
       qrService.checkExpiringQRs();
     }
   }))
+  .error(
+    {ApiError}
+  )
   .onError(({ code, error, set }) => {
-    console.error(`Error: ${code}`, error);
+    console.log({code});
     
     if (code === 'VALIDATION') {
       set.status = 400;
       return {
-        responseCode: 1,
+        success: false,
         message: error.message
       };
     }
     if (error instanceof ApiError) {
       set.status = error.statusCode;
       return {
-        responseCode: error.statusCode,
+        success: false,
         message: error.message
       };
     }
     set.status = 500;
     return {
-      responseCode: 1,
+      success: false,
       message: 'Internal Server Error'
     };
   });

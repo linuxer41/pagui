@@ -14,46 +14,50 @@
   // Clases CSS
   $: hasIcon = !!icon;
   $: hasError = !!error;
+  $: isActive = !!value || document?.activeElement?.id === id;
+  $: showPlaceholder = !label && placeholder;
 </script>
 
-<div class="input-field">
-  {#if label}
-    <label for={id}>{label}</label>
-  {/if}
-  
-  <div class="input-wrapper" class:has-error={hasError}>
+<div class="input-field {hasError ? 'has-error' : ''} {disabled ? 'is-disabled' : ''}">
+  <div class="input-wrapper">
     {#if hasIcon}
       <span class="input-icon">
-        <svelte:component this={icon} size={18} strokeWidth={1.75} />
+        <svelte:component this={icon} size={16} strokeWidth={2} />
       </span>
     {/if}
-    
     {#if type === 'textarea'}
       <textarea
-        {id}
-        {name}
+        id={id}
+        name={name}
         bind:value
-        {placeholder}
-        {disabled}
-        {required}
+        disabled={disabled}
+        required={required}
         class:with-icon={hasIcon}
+        class:active={isActive}
+        aria-invalid={hasError}
         {...$$restProps}
+        placeholder={showPlaceholder ? placeholder : undefined}
       ></textarea>
     {:else}
       <input
-        {id}
-        {name}
-        {type}
+        id={id}
+        name={name}
+        type={type}
         bind:value
-        {placeholder}
-        {disabled}
-        {required}
+        disabled={disabled}
+        required={required}
         class:with-icon={hasIcon}
+        class:active={isActive}
+        aria-invalid={hasError}
         {...$$restProps}
+        placeholder={showPlaceholder ? placeholder : undefined}
       />
     {/if}
+    {#if label}
+      <label for={id} class:float={(value || document?.activeElement?.id === id)} class:with-icon={hasIcon}>{label}</label>
+    {/if}
+    <span class="input-outline"></span>
   </div>
-  
   {#if hasError}
     <div class="input-error">{error}</div>
   {/if}
@@ -61,112 +65,163 @@
 
 <style>
   .input-field {
-    margin-bottom: var(--spacing-lg);
+    display: flex;
+    flex-direction: column;
+    width: 100%;
   }
-  
-  label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 500;
-    color: var(--text-primary);
-    font-size: 1rem;
-    transition: var(--hover-transition);
-  }
-  
   .input-wrapper {
     position: relative;
+    display: flex;
+    align-items: center;
+    background: var(--surface);
+    border-radius: var(--border-radius-xl);
+    box-shadow: 0 1px 2px rgba(60,60,60,0.04);
+    transition: box-shadow 0.2s;
   }
-  
   .input-icon {
     position: absolute;
-    left: 0.75rem;
+    left: 1rem;
     top: 50%;
     transform: translateY(-50%);
-    color: var(--text-secondary);
+    color: var(--text-tertiary);
+    z-index: 2;
+    pointer-events: none;
+    transition: color 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1;
-    transition: var(--hover-transition);
   }
-  
   input, textarea {
     width: 100%;
-    padding: 0.8rem 0.9rem;
+    padding: 0.5rem 1rem 0.35rem 1rem;
     font-size: 1rem;
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-md);
-    background-color: var(--surface);
-    transition: var(--hover-transition);
-    appearance: none;
-    -webkit-appearance: none;
+    border: none;
+    border-radius: var(--border-radius-xl);
+    background: transparent;
     color: var(--text-primary);
-    box-shadow: var(--shadow-sm);
+    font-family: inherit;
+    outline: none;
+    box-shadow: none;
+    transition: background 0.2s;
+    resize: none;
+    letter-spacing: -0.01em;
+    min-height: 54px;
   }
-  
   input.with-icon, textarea.with-icon {
     padding-left: 2.75rem;
   }
-  
-  input:focus, textarea:focus {
-    outline: none;
+  .input-wrapper:focus-within {
+    box-shadow: 0 2px 8px var(--primary-color, #6750a4, 0.08);
+  }
+  .input-outline {
+    position: absolute;
+    inset: 0;
+    border: 1.5px solid var(--text-tertiary);
+    border-radius: var(--border-radius-xl);
+    pointer-events: none;
+    transition: border-color 0.2s;
+    z-index: 1;
+  }
+  .input-wrapper:focus-within .input-outline {
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(58, 102, 255, 0.1);
   }
-  
-  input:focus + .input-icon, textarea:focus + .input-icon {
+  .has-error .input-outline {
+    border-color: #ff4c4c;
+  }
+  .is-disabled .input-outline {
+    border-color: var(--background);
+  }
+  label {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-tertiary);
+    font-size: 0.85rem;
+    background: transparent;
+    pointer-events: none;
+    transition: all 0.18s cubic-bezier(.4,0,.2,1);
+    z-index: 3;
+    padding: 0 0.25rem;
+    font-weight: 500;
+    line-height: 1.2;
+    height: 1.2em;
+    display: flex;
+    align-items: center;
+  }
+  label.with-icon {
+    left: 2.75rem;
+  }
+  label.float {
+    top: 0.1rem;
+    left: 1rem;
+    font-size: 0.75rem;
     color: var(--primary-color);
+    background: var(--surface);
+    transform: none;
+    line-height: 1.1;
+    height: auto;
+    align-items: flex-start;
   }
-  
+  label.float.with-icon { left: 2.75rem !important; }
+  input:focus ~ label,
+  textarea:focus ~ label,
+  label.float {
+    top: 0.1rem;
+    font-size: 0.75rem;
+    color: var(--primary-color);
+    background: var(--surface);
+    transform: none;
+    line-height: 1.1;
+    height: auto;
+    align-items: flex-start;
+  }
   input:disabled, textarea:disabled {
-    background-color: var(--surface-hover);
-    opacity: 0.7;
+    background: transparent;
+    color: var(--text-tertiary);
     cursor: not-allowed;
+    opacity: 0.7;
   }
-  
-  textarea {
-    min-height: 100px;
-    resize: vertical;
+  .is-disabled label {
+    color: var(--text-tertiary);
+    opacity: 0.7;
   }
-  
-  .has-error input, .has-error textarea {
-    border-color: var(--error-color);
-  }
-  
-  .has-error input:focus, .has-error textarea:focus {
-    box-shadow: 0 0 0 3px rgba(233, 58, 74, 0.1);
-  }
-  
-  .has-error .input-icon {
-    color: var(--error-color);
-  }
-  
   .input-error {
-    margin-top: 0.25rem;
-    color: var(--error-color);
-    font-size: 0.875rem;
+    margin-top: 0.3rem;
+    color: #ff4c4c;
+    font-size: 0.85rem;
     display: flex;
     align-items: center;
     gap: 0.25rem;
+    min-height: 1.2em;
   }
-  
-  .input-error::before {
-    content: "!";
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 14px;
-    height: 14px;
-    background-color: var(--error-color);
-    color: white;
-    border-radius: 50%;
-    font-size: 0.625rem;
-    font-weight: bold;
+  .has-error label {
+    color: #ff4c4c;
   }
-  
-  /* Ajuste para textarea con icono */
-  textarea.with-icon + .input-icon {
-    top: 1.25rem;
-    transform: none;
+  .has-error .input-icon {
+    color: #ff4c4c;
+  }
+  .has-error input,
+  .has-error textarea {
+    color: #ff4c4c;
+  }
+  textarea {
+    min-height: 64px;
+    padding-top: 0.9rem;
+    padding-bottom: 0.35rem;
+  }
+  input:-webkit-autofill,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px var(--surface) inset !important;
+    box-shadow: 0 0 0 1000px var(--surface) inset !important;
+    -webkit-text-fill-color: var(--text-primary) !important;
+    caret-color: var(--text-primary) !important;
+    transition: background-color 9999s ease-in-out 0s;
+  }
+  input:-internal-autofill-selected {
+    background-color: var(--surface) !important;
+    color: var(--text-primary) !important;
   }
 </style> 

@@ -9,6 +9,56 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 // Expiración del token en segundos (24 horas por defecto)
 const TOKEN_EXPIRY = parseInt(process.env.TOKEN_EXPIRY || '86400', 10);
 
+interface UserAuth {
+  user: {
+    userId: number;
+    companyId: number;
+    email: string;
+    fullName: string;
+    role: string;
+  };
+  company: {
+    id: number;
+    name: string;
+    businessId: string;
+    contactEmail: string;
+    status: string;
+  };
+  auth: {
+    accessToken: string;
+    refreshToken: string;
+  };
+}
+
+interface UserInfo {
+  id: number;
+  email: string;
+  fullName: string;
+  companyId: number;
+  companyName?: string;
+  role: string;
+}
+
+interface User {
+  id: number;
+  email: string;
+  fullName: string;
+  role: string;
+  status: string;
+  createdAt: string;
+}
+
+interface Token {
+  id: number;
+  tokenType: string;
+  token: string;
+  expiresAt: string;
+  usedTimes: number;
+  ipAddress?: string;
+  userAgent?: string;
+  createdAt: string;
+}
+
 class AuthService {
   private cryptoService: CryptoService;
 
@@ -18,31 +68,7 @@ class AuthService {
   }
 
   // Autenticación de usuario
-  async authenticate(email: string, password: string, ipAddress?: string, userAgent?: string): Promise<
-  {
-    message: string;
-    success: boolean;
-    data: {
-      user: {
-        userId?: number;
-        companyId?: number;
-        email?: string;
-        fullName?: string;
-        role?: string;
-      },
-      company: {
-        id: number;
-        name: string;
-        businessId: string;
-        contactEmail: string;
-        status: string;
-      },
-      auth: {
-        accessToken: string;
-        refreshToken: string;
-      }
-    }
-  }> {
+  async authenticate(email: string, password: string, ipAddress?: string, userAgent?: string): Promise<UserAuth> {
     // Buscar usuario por email
     const userQuery = await query(`
       SELECT * FROM users WHERE email = $1 AND status = 'ACTIVE' AND deleted_at IS NULL`, [email]);
@@ -117,21 +143,17 @@ class AuthService {
     };
     
     return {
-      message: 'Usuario autenticado exitosamente',
-      success: true,
-      data: {
-        user: {
-          userId: user.id,
-          companyId: user.company_id,
-          email: user.email,
-          fullName: user.full_name,
-          role: user.role,
-        },
-        company,
-        auth: {
-          accessToken,
-          refreshToken
-        }
+      user: {
+        userId: user.id,
+        companyId: user.company_id,
+        email: user.email,
+        fullName: user.full_name,
+        role: user.role,
+      },
+      company,
+      auth: {
+        accessToken,
+        refreshToken
       }
     };
   }
@@ -201,87 +223,58 @@ class AuthService {
     userId: number,
     currentPassword: string,
     newPassword: string
-  ): Promise<{
-    responseCode: number;
-    message: string;
-  }> {
-    try {
-      // Obtener usuario actual
-      const userResult = await query(
-        'SELECT id, email, password, company_id FROM users WHERE id = $1 AND deleted_at IS NULL',
-        [userId]
-      );
+  ): Promise<void> {
+    // Obtener usuario actual
+    const userResult = await query(
+      'SELECT id, email, password, company_id FROM users WHERE id = $1 AND deleted_at IS NULL',
+      [userId]
+    );
 
-      if (userResult.rowCount === 0) {
-        return {
-          responseCode: 1,
-          message: 'Usuario no encontrado'
-        };
-      }
+    if (userResult.rowCount === 0) {
+      throw new ApiError('Usuario no encontrado', 404);
+    }
 
-      const user = userResult.rows[0];
+    const user = userResult.rows[0];
 
-      // Verificar contraseña actual
-      const isValidPassword = await Bun.password.verify(currentPassword, user.password);
+    // Verificar contraseña actual
+    const isValidPassword = await Bun.password.verify(currentPassword, user.password);
 
-      if (!isValidPassword) {
-        await logActivity(
-          'PASSWORD_CHANGE_FAILED',
-          { userId, reason: 'INVALID_CURRENT_PASSWORD' },
-          'ERROR',
-          user.company_id,
-          userId
-        );
-        
-        return {
-          responseCode: 1,
-          message: 'Contraseña actual incorrecta'
-        };
-      }
-
-      // Hash de la nueva contraseña
-      const hashedPassword = await Bun.password.hash(newPassword, {
-        algorithm: 'bcrypt',
-        cost: 10
-      });
-
-      // Actualizar contraseña
-      await query(
-        'UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-        [hashedPassword, userId]
-      );
-
-      // Registrar cambio de contraseña exitoso
+    if (!isValidPassword) {
       await logActivity(
-        'PASSWORD_CHANGED',
-        { userId },
-        'INFO',
+        'PASSWORD_CHANGE_FAILED',
+        { userId, reason: 'INVALID_CURRENT_PASSWORD' },
+        'ERROR',
         user.company_id,
         userId
       );
-
-      return {
-        responseCode: 0,
-        message: 'Contraseña actualizada exitosamente'
-      };
-    } catch (error) {
-      console.error('Error cambiando contraseña:', error);
       
-      return {
-        responseCode: 1,
-        message: error instanceof Error ? error.message : 'Error cambiando contraseña'
-      };
+      throw new ApiError('Contraseña actual incorrecta', 401);
     }
+
+    // Hash de la nueva contraseña
+    const hashedPassword = await Bun.password.hash(newPassword, {
+      algorithm: 'bcrypt',
+      cost: 10
+    });
+
+    // Actualizar contraseña
+    await query(
+      'UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [hashedPassword, userId]
+    );
+
+    // Registrar cambio de contraseña exitoso
+    await logActivity(
+      'PASSWORD_CHANGED',
+      { userId },
+      'INFO',
+      user.company_id,
+      userId
+    );
   }
 
   // Solicitar restablecimiento de contraseña
-  async requestPasswordReset(email: string, ipAddress?: string, userAgent?: string): Promise<{
-    message: string;
-    success: boolean;
-    data: {
-      token?: string; // Hacemos el token opcional para el tipo
-    }
-  }> {
+  async requestPasswordReset(email: string, ipAddress?: string, userAgent?: string): Promise<{ token: string }> {
     // Verificar si el usuario existe
     const userResult = await query(
       'SELECT id, email, company_id FROM users WHERE email = $1 AND status = \'ACTIVE\' AND deleted_at IS NULL',
@@ -311,20 +304,11 @@ class AuthService {
       user.id
     );
 
-    return {
-      message: 'Si el correo existe, recibirá instrucciones para restablecer su contraseña',
-      success: true,
-      data: {
-        token: resetToken
-      }
-    };
+    return { token: resetToken };
   }
 
   // Restablecer contraseña con token
-  async resetPassword(token: string, newPassword: string, ipAddress?: string, userAgent?: string): Promise<{
-    message: string;
-    success: boolean;
-  }> {
+  async resetPassword(token: string, newPassword: string, ipAddress?: string, userAgent?: string): Promise<void> {
     // Buscar el token en la base de datos
     const tokenResult = await query(
       `SELECT auth_tokens.id, auth_tokens.user_id, auth_tokens.expires_at, auth_tokens.used_times,
@@ -381,12 +365,6 @@ class AuthService {
       tokenData.company_id,
       tokenData.user_id
     );
-
-    return {
-      message: 'Contraseña restablecida exitosamente',
-      success: true
-    };
-    
   }
 
   // Encriptar un texto
@@ -394,7 +372,7 @@ class AuthService {
     try {
       return this.cryptoService.encrypt(text, aesKey);
     } catch (error) {
-      throw new Error('Error al encriptar el texto');
+      throw new ApiError('Error al encriptar el texto', 500);
     }
   }
 
@@ -403,7 +381,7 @@ class AuthService {
     try {
       return this.cryptoService.decrypt(encryptedText, aesKey);
     } catch (error) {
-      throw new Error('Error al desencriptar el texto');
+      throw new ApiError('Error al desencriptar el texto', 500);
     }
   }
   
@@ -426,14 +404,8 @@ class AuthService {
       role: string;
     },
     creatorId?: number
-  ): Promise<{
-    id?: number;
-    email?: string;
-    fullName?: string;
-    companyId?: number;
-    role?: string;
-  }> {
-      // Verificar si el usuario ya existe
+  ): Promise<UserInfo> {
+    // Verificar si el usuario ya existe
     const existingCheck = await query(
       'SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL',
       [userData.email]
@@ -474,7 +446,7 @@ class AuthService {
     );
     
     if (userResult.rowCount === 0) {
-      throw new ApiError('Error al crear el usuario', 400);
+      throw new ApiError('Error al crear el usuario', 500);
     }
     
     const newUser = userResult.rows[0];
@@ -502,86 +474,65 @@ class AuthService {
   }
   
   // Obtener información de un usuario
-  async getUserInfo(email: string): Promise<{
-    id?: number;
-    email?: string;
-    fullName?: string;
-    companyId?: number;
-    companyName?: string;
-    role?: string;
-  }> {
-    try {
-      const result = await query(`
-        SELECT 
-          u.id, 
-          u.email, 
-          u.full_name, 
-          u.company_id, 
-          c.name as company_name,
-          r.name as role
-        FROM users u
-        INNER JOIN roles r ON u.role_id = r.id
-        INNER JOIN company_bank cb ON u.company_id = cb.company_id
-        LEFT JOIN companies c ON cb.company_id = c.id
-        WHERE u.email = $1 AND u.status = 'ACTIVE' AND u.deleted_at IS NULL
-      `, [email]);
-      
-      if (result.rowCount === 0) {
-        throw new ApiError('Usuario no encontrado', 404);
-      }
-      
-      const user = result.rows[0];
-      
-      return {
-        id: user.id,
-        email: user.email,
-        fullName: user.full_name,
-        companyId: user.company_id,
-        companyName: user.company_name,
-        role: user.role,
-      };
-    } catch (error) {
-      console.error('Error obteniendo información de usuario:', error);
-      
-      throw new ApiError(error instanceof Error ? error.message : 'Error obteniendo información de usuario', 500);
+  async getUserInfo(email: string): Promise<UserInfo> {
+    const result = await query(`
+      SELECT 
+        u.id, 
+        u.email, 
+        u.full_name, 
+        u.company_id, 
+        c.name as company_name,
+        r.name as role
+      FROM users u
+      INNER JOIN roles r ON u.role_id = r.id
+      INNER JOIN company_bank cb ON u.company_id = cb.company_id
+      LEFT JOIN companies c ON cb.company_id = c.id
+      WHERE u.email = $1 AND u.status = 'ACTIVE' AND u.deleted_at IS NULL
+    `, [email]);
+    
+    if (result.rowCount === 0) {
+      throw new ApiError('Usuario no encontrado', 404);
     }
+    
+    const user = result.rows[0];
+    
+    return {
+      id: user.id,
+      email: user.email,
+      fullName: user.full_name,
+      companyId: user.company_id,
+      companyName: user.company_name,
+      role: user.role,
+    };
   }
   
   // Listar usuarios de una empresa
-  async listUsers(companyId: number): Promise<{
-    users: any[];
-  }> {
-      const result = await query(`
-        SELECT 
-          id, 
-          email, 
-          full_name, 
-          role, 
-          status, 
-          created_at
-        FROM users
-        WHERE company_id = $1 AND deleted_at IS NULL
-        ORDER BY email
-      `, [companyId]);
-      
-      const users = result.rows.map(user => ({
-        id: user.id,
-        email: user.email,
-        fullName: user.full_name,
-        role: user.role,
-        status: user.status,
-        createdAt: user.created_at
-      }));
-      
-      return {
-        users,
-      };
+  async listUsers(companyId: number): Promise<User[]> {
+    const result = await query(`
+      SELECT 
+        id, 
+        email, 
+        full_name, 
+        role, 
+        status, 
+        created_at
+      FROM users
+      WHERE company_id = $1 AND deleted_at IS NULL
+      ORDER BY email
+    `, [companyId]);
+    
+    return result.rows.map(user => ({
+      id: user.id,
+      email: user.email,
+      fullName: user.full_name,
+      role: user.role,
+      status: user.status,
+      createdAt: user.created_at
+    }));
   }
 
   // Obtener todos los tokens de un usuario
-  async getUserTokens(userId: number): Promise<{
-    tokens: any[];
-  }> {
+  async getUserTokens(userId: number): Promise<Token[]> {
     const result = await query(`
       SELECT 
         id,
@@ -597,7 +548,7 @@ class AuthService {
       ORDER BY created_at DESC
     `, [userId]);
     
-    const tokens = result.rows.map(token => ({
+    return result.rows.map(token => ({
       id: token.id,
       tokenType: token.token_type,
       token: token.token,
@@ -607,44 +558,24 @@ class AuthService {
       userAgent: token.user_agent,
       createdAt: token.created_at
     }));
-    
-    return {
-      tokens,
-    };
   }
 
   // Revocar un token específico
-  async revokeToken(tokenId: number): Promise<{
-    message: string;
-    success: boolean;
-  }> {
-      await query(`
-        UPDATE auth_tokens 
-        SET deleted_at = CURRENT_TIMESTAMP, used_times = used_times + 1
-        WHERE id = $1
-      `, [tokenId]);
-      
-      return {
-        message: 'Token revocado exitosamente',
-        success: true
-      };
+  async revokeToken(tokenId: number): Promise<void> {
+    await query(`
+      UPDATE auth_tokens 
+      SET deleted_at = CURRENT_TIMESTAMP, used_times = used_times + 1
+      WHERE id = $1
+    `, [tokenId]);
   }
 
   // Revocar todos los tokens de un usuario (logout de todos los dispositivos)
-  async revokeAllUserTokens(userId: number): Promise<{
-    message: string;
-    success: boolean;
-  }> {
-      await query(`
-        UPDATE auth_tokens 
-        SET deleted_at = CURRENT_TIMESTAMP, used_times = used_times + 1
-        WHERE user_id = $1 AND deleted_at IS NULL
-      `, [userId]);
-      
-      return {
-        message: 'Todos los tokens revocados exitosamente',
-        success: true
-      };
+  async revokeAllUserTokens(userId: number): Promise<void> {
+    await query(`
+      UPDATE auth_tokens 
+      SET deleted_at = CURRENT_TIMESTAMP, used_times = used_times + 1
+      WHERE user_id = $1 AND deleted_at IS NULL
+    `, [userId]);
   }
 }
 

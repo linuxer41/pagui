@@ -8,6 +8,7 @@
   import { theme } from '$lib/stores/theme';
   import { onMount } from 'svelte';
   import { M3 } from "tauri-plugin-m3";
+  import { onNavigate } from '$app/navigation';
   import '../app.css';
 // Importar iconos de Lucide
   import {
@@ -60,90 +61,87 @@
   
   function handleLogout(): void {
     auth.logout();
-    goto('/login');
+    goto('/auth/login');
   }
 
   // Sidebar: usar name, si no, email
   function getUserDisplayName(user: User | null): string {
     return user?.fullName || user?.email || 'Usuario';
   }
-  
-  // Determinar si la página actual es una página secundaria
-  $: isSecondaryPage = currentPath.includes('/editar-perfil') || 
-                       currentPath.includes('/cambiar-clave') || 
-                       currentPath.split('/').length > 2;
-  
 
+onNavigate((navigation) => {
+	if (!document.startViewTransition) return;
+
+	return new Promise((resolve) => {
+		document.startViewTransition(async () => {
+			resolve();
+			await navigation.complete;
+		});
+	});
+});
 </script>
 
 
 <Toast />
 
-{#if $auth.isAuthenticated && currentPath !== '/login'}
-  {#if isMobile}
-    <!-- Layout para móvil -->
-    <div class="fullscreen-mobile">
-      <slot />
-    </div>
-  {:else}
-    <!-- Layout para escritorio -->
-    <div class="desktop-layout">
-      <!-- Sidebar -->
-      <aside class="desktop-sidebar">
-        <div class="sidebar-header">
-          <div class="logo-container">
-            <img src="/favicon.png" alt="Logo" width="30" />
-            <h2>{APP_CONFIG.appName}</h2>
-          </div>
-        </div>
-        <div class="sidebar-user">
-          {#if $auth.user}
-            <div class="user-avatar">
-              {getUserDisplayName($auth.user).charAt(0).toUpperCase()}
-            </div>
-            <div class="user-info">
-              <div class="user-name">{getUserDisplayName($auth.user)}</div>
-              <div class="user-role">{$auth.user.role || 'Usuario'}</div>
-            </div>
-          {/if}
-        </div>
-        <div class="sidebar-divider"></div>
-        <nav class="desktop-nav">
-          {#each navItems as item}
-            <button 
-              class="desktop-nav-item {currentPath === item.path ? 'active' : ''}" 
-              on:click={() => navigateTo(item.path)}
-            >
-              <span class="desktop-nav-icon">
-                <svelte:component this={item.icon} size={18} />
-              </span>
-              <span>{item.label}</span>
-            </button>
-          {/each}
-        </nav>
-        
-        <div class="sidebar-footer">
-          <button class="logout-button" on:click={handleLogout}>
-            <span class="logout-icon">
-              <LogOut size={18} />
-            </span>
-            <span>Cerrar sesión</span>
-          </button>
-        </div>
-      </aside>
-      <main class="desktop-content">
-        <slot />
-      </main>
-    </div>
-  {/if}
-{:else}
+{#if isMobile}
   <slot />
+{:else}
+  <!-- Layout para escritorio -->
+  <div class="desktop-layout">
+    <!-- Sidebar -->
+    <aside class="desktop-sidebar">
+      <div class="sidebar-header">
+        <div class="logo-container">
+          <img src="/favicon.png" alt="Logo" width="30" />
+          <h2>{APP_CONFIG.appName}</h2>
+        </div>
+      </div>
+      <div class="sidebar-user">
+        {#if $auth.user}
+          <div class="user-avatar">
+            {getUserDisplayName($auth.user).charAt(0).toUpperCase()}
+          </div>
+          <div class="user-info">
+            <div class="user-name">{getUserDisplayName($auth.user)}</div>
+            <div class="user-role">{$auth.user.role || 'Usuario'}</div>
+          </div>
+        {/if}
+      </div>
+      <div class="sidebar-divider"></div>
+      <nav class="desktop-nav">
+        {#each navItems as item}
+          <button 
+            class="desktop-nav-item {currentPath === item.path ? 'active' : ''}" 
+            on:click={() => navigateTo(item.path)}
+          >
+            <span class="desktop-nav-icon">
+              <svelte:component this={item.icon} size={18} />
+            </span>
+            <span>{item.label}</span>
+          </button>
+        {/each}
+      </nav>
+      
+      <div class="sidebar-footer">
+        <button class="logout-button" on:click={handleLogout}>
+          <span class="logout-icon">
+            <LogOut size={18} />
+          </span>
+          <span>Cerrar sesión</span>
+        </button>
+      </div>
+    </aside>
+    <main class="desktop-content">
+      <slot />
+    </main>
+  </div>
 {/if}
 
 <style>
   .desktop-layout {
     display: flex;
-    min-height: 100vh;
+    min-height: 100%;
   }
   
   .desktop-sidebar {
@@ -346,7 +344,43 @@
   .desktop-content {
     margin-left: 220px;
     width: calc(100% - 220px);
-    min-height: 100vh;
+    min-height: 100%;
     padding: var(--spacing-xl);
   }
+
+@keyframes fade-in {
+	from {
+		opacity: 0;
+	}
+}
+
+@keyframes fade-out {
+	to {
+		opacity: 0;
+	}
+}
+
+@keyframes slide-from-right {
+	from {
+		transform: translateX(300px);
+	}
+}
+
+@keyframes slide-to-left {
+	to {
+		transform: translateX(-300px);
+	}
+}
+
+:root::view-transition-old(root) {
+	animation:
+		90ms cubic-bezier(0.4, 0, 1, 1) both fade-out,
+		300ms cubic-bezier(0.4, 0, 0.2, 1) both slide-to-left;
+}
+
+:root::view-transition-new(root) {
+	animation:
+		210ms cubic-bezier(0, 0, 0.2, 1) 90ms both fade-in,
+		300ms cubic-bezier(0.4, 0, 0.2, 1) both slide-from-right;
+}
 </style> 

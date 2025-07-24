@@ -4,6 +4,8 @@
   import { goto } from '$app/navigation';
   import Button from '$lib/components/Button.svelte';
   import Input from '$lib/components/Input.svelte';
+  import api from '$lib/api';
+  import { toasts } from '$lib/stores/toast';
   import { 
     User,
     Save,
@@ -30,6 +32,18 @@
   let saveMsg = '';
   let error = '';
 
+  // Cargar los datos actuales del perfil
+  onMount(async () => {
+    try {
+      // Aquí podríamos hacer una llamada API para obtener todos los datos actualizados
+      // Por ahora usamos los del store
+      fullName = $auth.user?.fullName || '';
+      email = $auth.user?.email || '';
+    } catch (err) {
+      console.error('Error cargando datos del perfil:', err);
+    }
+  });
+
   function handleFileChange(event: Event) {
     const input = event.target as HTMLInputElement;
     if (!input.files || input.files.length === 0) return;
@@ -45,7 +59,7 @@
     reader.readAsDataURL(file);
   }
   
-  function handleSaveProfile() {
+  async function handleSaveProfile() {
     if (!fullName.trim()) {
       error = 'El nombre es obligatorio';
       return;
@@ -54,25 +68,50 @@
     error = '';
     saving = true;
     
-    // Simular guardado (aquí iría la llamada a la API real)
-    setTimeout(() => {
-      // Actualizar store de auth con el nuevo nombre
-      if ($auth.user) {
-        const updatedUser = {
-          ...$auth.user,
-          fullName: fullName
-        };
-        auth.updateUser(updatedUser);
+    try {
+      // Preparar datos para actualizar
+      const profileData = {
+        fullName,
+        phone,
+        profileImage
+      };
+      
+      // Llamar a la API para actualizar el perfil
+      const response = await api.updateProfile(profileData);
+      
+      if (response.success) {
+        // Si la API devuelve los datos actualizados del usuario, actualizar el store
+        if (response.data && response.data.user) {
+          auth.updateUser(response.data.user);
+        } else {
+          // Si no, actualizar solo los campos que sabemos que cambiaron
+          if ($auth.user) {
+            const updatedUser = {
+              ...$auth.user,
+              fullName
+            };
+            auth.updateUser(updatedUser);
+          }
+        }
+        
+        saveMsg = 'Perfil actualizado correctamente';
+        toasts.show('Perfil actualizado correctamente', 'success');
+        
+        // Limpiar después de un tiempo
+        setTimeout(() => {
+          saveMsg = '';
+        }, 3000);
+      } else {
+        error = response.message || 'Error al actualizar el perfil';
+        toasts.show(error, 'error');
       }
-      
-      saveMsg = 'Perfil actualizado correctamente';
+    } catch (err) {
+      console.error('Error actualizando perfil:', err);
+      error = err instanceof Error ? err.message : 'Error de conexión al actualizar el perfil';
+      toasts.show(error, 'error');
+    } finally {
       saving = false;
-      
-      // Limpiar mensaje después de un tiempo
-      setTimeout(() => {
-        saveMsg = '';
-      }, 3000);
-    }, 1500);
+    }
   }
 </script>
 
@@ -138,44 +177,36 @@
         
         <div class="form-fields">
           <div class="form-field">
-            <label for="fullName">Nombre completo</label>
-            <div class="input-container">
-              <User size={18} class="input-icon" />
-              <input 
-                id="fullName"
-                type="text" 
-                bind:value={fullName}
-                placeholder="Tu nombre completo"
-                required
-              />
-            </div>
+            <Input
+              id="fullName"
+              label="Nombre completo"
+              type="text"
+              bind:value={fullName}
+              placeholder="Tu nombre completo"
+              required
+              icon={User}
+            />
           </div>
-          
           <div class="form-field">
-            <label for="phone">Teléfono</label>
-            <div class="input-container">
-              <Phone size={18} class="input-icon" />
-              <input 
-                id="phone"
-                type="tel" 
-                bind:value={phone}
-                placeholder="Tu número de teléfono"
-              />
-            </div>
+            <Input
+              id="phone"
+              label="Teléfono"
+              type="tel"
+              bind:value={phone}
+              placeholder="Tu número de teléfono"
+              icon={Phone}
+            />
           </div>
-          
           <div class="form-field">
-            <label for="email">Email</label>
-            <div class="input-container disabled">
-              <Mail size={18} class="input-icon" />
-              <input 
-                id="email"
-                type="email" 
-                value={email}
-                placeholder="Tu email"
-                disabled
-              />
-            </div>
+            <Input
+              id="email"
+              label="Email"
+              type="email"
+              value={email}
+              placeholder="Tu email"
+              icon={Mail}
+              disabled
+            />
             <div class="field-note">
               El email no se puede modificar
             </div>
@@ -222,45 +253,9 @@
 </ProfilePage>
 
 <style>
-  .app-container {
-    padding: var(--spacing-md);
-    max-width: 500px;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-lg);
-  }
-  
-  .app-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    position: relative;
-    margin-bottom: var(--spacing-md);
-  }
-  
-  .app-header h1 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin: 0;
-    text-align: center;
-    flex: 1;
-    color: var(--text-primary);
-  }
-
-  .back-button {
-    background: none;
-    border: none;
-    cursor: pointer;
+  .app-container{
     padding: 0;
-    color: var(--text-primary);
   }
-  
-  .back-button:hover {
-    color: var(--text-secondary);
-  }
-  
-  
   .save-button {
     width: 40px;
     height: 40px;
@@ -422,45 +417,6 @@
     gap: 6px;
   }
   
-  .form-field label {
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-  }
-  
-  .input-container {
-    position: relative;
-    display: flex;
-    align-items: center;
-  }
-  
-  .input-icon {
-    position: absolute;
-    left: 12px;
-    color: var(--text-secondary);
-  }
-  
-  .input-container input {
-    width: 100%;
-    padding: 12px 12px 12px 40px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-lg);
-    background: var(--surface-variant);
-    color: var(--text-primary);
-    font-size: 1rem;
-    transition: border-color 0.2s, box-shadow 0.2s;
-  }
-  
-  .input-container input:focus {
-    outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgba(58, 102, 255, 0.1);
-  }
-  
-  .input-container.disabled {
-    opacity: 0.7;
-  }
-  
   .field-note {
     font-size: 0.85rem;
     color: var(--text-secondary);
@@ -516,9 +472,4 @@
     to { opacity: 1; transform: translateY(0); }
   }
   
-  @media (max-width: 600px) {
-    .app-container {
-      padding: var(--spacing-sm);
-    }
-  }
 </style> 

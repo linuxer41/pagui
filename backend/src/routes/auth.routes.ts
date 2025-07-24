@@ -3,6 +3,12 @@ import {authService} from '../services/auth.service';
 import otpService from '../services/otp.service';
 import { ApiError } from '../utils/error';
 
+const ResponseSchema = t.Object({
+  success: t.Boolean(),
+  message: t.String(),
+  data: t.Optional(t.Any())
+});
+
 // Esquemas de validación
 const AuthRequestSchema = t.Object({
   email: t.String(),
@@ -57,32 +63,23 @@ function getDeviceInfo(request: Request) {
 // Rutas de autenticación
 export const authRoutes = new Elysia({ prefix: '/auth' })
   .post('/login', async ({ body, request }) => {
-    try {
-      console.log('body', body);
-      
-      // Obtener información del dispositivo
-      const { ipAddress, userAgent } = getDeviceInfo(request);
-      
-      const response = await authService.authenticate(
-        body.email, 
-        body.password,
-        ipAddress,
-        userAgent
-      );
-      return response;
-    } catch (error) {
-      console.log('error', error);
-      if (error instanceof ApiError) {
-        return Response.json({
-          message: error.message
-        }, { status: error.statusCode });
-      }
-      return Response.json({
-        message: 'Error de autenticación'
-      }, { status: 500 });
-    }
+    // Obtener información del dispositivo
+    const { ipAddress, userAgent } = getDeviceInfo(request);
+    
+    const data = await authService.authenticate(
+      body.email, 
+      body.password,
+      ipAddress,
+      userAgent
+    );
+    return {
+      success: true,
+      message: 'Usuario autenticado exitosamente',
+      data
+    };
   }, {
     body: AuthRequestSchema,
+    response: ResponseSchema,
     detail: {
       tags: ['auth'],
       summary: 'Autenticar usuario y obtener token JWT'
@@ -90,23 +87,19 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   })
 
   .post('/forgot-password', async ({ body, request }) => {
-    try {
-      // Obtener información del dispositivo
-      const { ipAddress, userAgent } = getDeviceInfo(request);
-      
-      const response = await authService.requestPasswordReset(
-        body.email,
-        ipAddress,
-        userAgent
-      );
-      return response;
-    } catch (error) {
-      console.log('error', error);
-      return {
-        responseCode: 1,
-        message: 'Error al solicitar restablecimiento de contraseña'
-      };
-    }
+    // Obtener información del dispositivo
+    const { ipAddress, userAgent } = getDeviceInfo(request);
+    
+    const data = await authService.requestPasswordReset(
+      body.email,
+      ipAddress,
+      userAgent
+    );
+    return {
+      success: true,
+      message: 'Se ha enviado un correo para restablecer la contraseña',
+      data
+    };
   }, {
     body: ForgotPasswordSchema,
     detail: {
@@ -116,24 +109,20 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   })
   
   .post('/reset-password', async ({ body, request }) => {
-    try {
-      // Obtener información del dispositivo
-      const { ipAddress, userAgent } = getDeviceInfo(request);
-      
-      const response = await authService.resetPassword(
-        body.token, 
-        body.newPassword,
-        ipAddress,
-        userAgent
-      );
-      return response;
-    } catch (error) {
-      console.log('error', error);
-      return {
-        responseCode: 1,
-        message: 'Error al restablecer contraseña'
-      };
-    }
+    // Obtener información del dispositivo
+    const { ipAddress, userAgent } = getDeviceInfo(request);
+    
+    const data = await authService.resetPassword(
+      body.token, 
+      body.newPassword,
+      ipAddress,
+      userAgent
+    );
+    return {
+      success: true,
+      message: 'Contraseña restablecida exitosamente',
+      data
+    };
   }, {
     body: ResetPasswordSchema,
     detail: {
@@ -143,40 +132,30 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   })
   
   .post('/change-password', async ({ body, request }) => {
-    try {
-      // Obtener el token JWT del encabezado Authorization
-      const authHeader = request.headers.get('authorization');
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return {
-          responseCode: 1,
-          message: 'Usuario no autenticado'
-        };
-      }
-      
-      // Extraer el payload del JWT
-      const token = authHeader.split(' ')[1];
-      const decoded = await authService.decodeJwt(token);
-      
-      if (!decoded || !decoded.userId) {
-        return {
-          responseCode: 1,
-          message: 'Token inválido o expirado'
-        };
-      }
-      
-      const response = await authService.changePassword(
-        decoded.userId,
-        body.currentPassword,
-        body.newPassword
-      );
-      return response;
-    } catch (error) {
-      console.log('error', error);
-      return {
-        responseCode: 1,
-        message: 'Error al cambiar contraseña'
-      };
+    // Obtener el token JWT del encabezado Authorization
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new ApiError('Usuario no autenticado', 401);
     }
+    
+    // Extraer el payload del JWT
+    const token = authHeader.split(' ')[1];
+    const decoded = await authService.decodeJwt(token);
+    
+    if (!decoded || !decoded.userId) {
+      throw new ApiError('Token inválido o expirado', 401);
+    }
+    
+    const data = await authService.changePassword(
+      decoded.userId,
+      body.currentPassword,
+      body.newPassword
+    );
+    return {
+      success: true,
+      message: 'Contraseña cambiada exitosamente',
+      data
+    };
   }, {
     body: ChangePasswordSchema,
     detail: {
@@ -186,39 +165,32 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   })
   
   .post('/send-otp', async ({ body, request }) => {
-    try {
-      // Verificar intentos recientes para prevenir spam
-      const recentAttempts = await otpService.getRecentAttempts(body.phoneNumber, 5);
-      if (recentAttempts >= 3) {
-        return {
-          success: false,
-          message: 'Demasiados intentos recientes. Intente nuevamente en 5 minutos.'
-        };
-      }
-      
-      // Obtener información del usuario si está autenticado
-      let userId: number | undefined;
-      let companyId: number | undefined;
-      
-      const authHeader = request.headers.get('authorization');
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.split(' ')[1];
-        const decoded = await authService.decodeJwt(token);
-        if (decoded) {
-          userId = decoded.userId;
-          companyId = decoded.companyId;
-        }
-      }
-      
-      const response = await otpService.sendOTP(body.phoneNumber, userId, companyId);
-      return response;
-    } catch (error) {
-      console.log('error', error);
-      return {
-        success: false,
-        message: 'Error al enviar OTP'
-      };
+    // Verificar intentos recientes para prevenir spam
+    const recentAttempts = await otpService.getRecentAttempts(body.phoneNumber, 5);
+    if (recentAttempts >= 3) {
+      throw new ApiError('Demasiados intentos recientes. Intente nuevamente en 5 minutos.', 429);
     }
+    
+    // Obtener información del usuario si está autenticado
+    let userId: number | undefined;
+    let companyId: number | undefined;
+    
+    const authHeader = request.headers.get('authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      const decoded = await authService.decodeJwt(token);
+      if (decoded) {
+        userId = decoded.userId;
+        companyId = decoded.companyId;
+      }
+    }
+    
+    const data = await otpService.sendOTP(body.phoneNumber, userId, companyId);
+    return {
+      success: true,
+      message: 'Se ha enviado un código OTP al número de teléfono',
+      data
+    };
   }, {
     body: SendOTPSchema,
     detail: {
@@ -228,30 +200,26 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   })
   
   .post('/verify-otp', async ({ body, request }) => {
-    try {
-      // Obtener información del usuario si está autenticado
-      let userId: number | undefined;
-      let companyId: number | undefined;
-      
-      const authHeader = request.headers.get('authorization');
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.split(' ')[1];
-        const decoded = await authService.decodeJwt(token);
-        if (decoded) {
-          userId = decoded.userId;
-          companyId = decoded.companyId;
-        }
+    // Obtener información del usuario si está autenticado
+    let userId: number | undefined;
+    let companyId: number | undefined;
+    
+    const authHeader = request.headers.get('authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      const decoded = await authService.decodeJwt(token);
+      if (decoded) {
+        userId = decoded.userId;
+        companyId = decoded.companyId;
       }
-      
-      const response = await otpService.verifyOTP(body.phoneNumber, body.code, userId, companyId);
-      return response;
-    } catch (error) {
-      console.log('error', error);
-      return {
-        success: false,
-        message: 'Error al verificar OTP'
-      };
     }
+    
+    const data = await otpService.verifyOTP(body.phoneNumber, body.code, userId, companyId);
+    return {
+      success: true,
+      message: 'Código OTP verificado exitosamente',
+      data
+    };
   }, {
     body: VerifyOTPSchema,
     detail: {
@@ -261,40 +229,27 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   })
   
   .get('/tokens', async ({ request }) => {
-    try {
-      // Obtener el token JWT del encabezado Authorization
-      const authHeader = request.headers.get('authorization');
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return {
-          responseCode: 1,
-          message: 'Usuario no autenticado',
-          tokens: []
-        };
-      }
-      
-      // Extraer el payload del JWT
-      const token = authHeader.split(' ')[1];
-      const decoded = await authService.decodeJwt(token);
-      
-      if (!decoded || !decoded.userId) {
-        return {
-          responseCode: 1,
-          message: 'Token inválido o expirado',
-          tokens: []
-        };
-      }
-      
-      // Obtener todos los tokens del usuario
-      const response = await authService.getUserTokens(decoded.userId);
-      return response;
-    } catch (error) {
-      console.log('error', error);
-      return {
-        responseCode: 1,
-        message: 'Error al obtener tokens',
-        tokens: []
-      };
+    // Obtener el token JWT del encabezado Authorization
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new ApiError('Usuario no autenticado', 401);
     }
+    
+    // Extraer el payload del JWT
+    const token = authHeader.split(' ')[1];
+    const decoded = await authService.decodeJwt(token);
+    
+    if (!decoded || !decoded.userId) {
+      throw new ApiError('Token inválido o expirado', 401);
+    }
+    
+    // Obtener todos los tokens del usuario
+    const data = await authService.getUserTokens(decoded.userId);
+    return {
+      success: true,
+      message: 'Se han obtenido todos los tokens del usuario autenticado',
+      data
+    };
   }, {
     detail: {
       tags: ['auth'],
@@ -303,37 +258,27 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   })
   
   .post('/revoke-token/:tokenId', async ({ params, request }) => {
-    try {
-      // Obtener el token JWT del encabezado Authorization
-      const authHeader = request.headers.get('authorization');
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return {
-          responseCode: 1,
-          message: 'Usuario no autenticado'
-        };
-      }
-      
-      // Extraer el payload del JWT
-      const token = authHeader.split(' ')[1];
-      const decoded = await authService.decodeJwt(token);
-      
-      if (!decoded || !decoded.userId) {
-        return {
-          responseCode: 1,
-          message: 'Token inválido o expirado'
-        };
-      }
-      
-      // Revocar el token específico
-      const response = await authService.revokeToken(parseInt(params.tokenId));
-      return response;
-    } catch (error) {
-      console.log('error', error);
-      return {
-        responseCode: 1,
-        message: 'Error al revocar token'
-      };
+    // Obtener el token JWT del encabezado Authorization
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new ApiError('Usuario no autenticado', 401);
     }
+    
+    // Extraer el payload del JWT
+    const token = authHeader.split(' ')[1];
+    const decoded = await authService.decodeJwt(token);
+    
+    if (!decoded || !decoded.userId) {
+      throw new ApiError('Token inválido o expirado', 401);
+    }
+    
+    // Revocar el token específico
+    const data = await authService.revokeToken(parseInt(params.tokenId));
+    return {
+      success: true,
+      message: 'Token revocado exitosamente',
+      data
+    };
   }, {
     detail: {
       tags: ['auth'],
@@ -342,37 +287,27 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   })
   
   .post('/revoke-all-tokens', async ({ request }) => {
-    try {
-      // Obtener el token JWT del encabezado Authorization
-      const authHeader = request.headers.get('authorization');
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return {
-          responseCode: 1,
-          message: 'Usuario no autenticado'
-        };
-      }
-      
-      // Extraer el payload del JWT
-      const token = authHeader.split(' ')[1];
-      const decoded = await authService.decodeJwt(token);
-      
-      if (!decoded || !decoded.userId) {
-        return {
-          responseCode: 1,
-          message: 'Token inválido o expirado'
-        };
-      }
-      
-      // Revocar todos los tokens del usuario
-      const response = await authService.revokeAllUserTokens(decoded.userId);
-      return response;
-    } catch (error) {
-      console.log('error', error);
-      return {
-        responseCode: 1,
-        message: 'Error al revocar tokens'
-      };
+    // Obtener el token JWT del encabezado Authorization
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new ApiError('Usuario no autenticado', 401);
     }
+    
+    // Extraer el payload del JWT
+    const token = authHeader.split(' ')[1];
+    const decoded = await authService.decodeJwt(token);
+    
+    if (!decoded || !decoded.userId) {
+      throw new ApiError('Token inválido o expirado', 401);
+    }
+    
+    // Revocar todos los tokens del usuario
+    const data = await authService.revokeAllUserTokens(decoded.userId);
+    return {
+      success: true,
+      message: 'Todos los tokens del usuario han sido revocados',
+      data
+    };
   }, {
     detail: {
       tags: ['auth'],

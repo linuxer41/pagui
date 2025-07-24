@@ -43,7 +43,7 @@
   
   function handleLogout() {
     auth.logout();
-    goto('/login');
+    goto('/auth/login');
   }
   
   // Datos de ejemplo del usuario (normalmente vendrían de la API)
@@ -177,10 +177,15 @@
   </div>
   
   <div class="app-footer">
-    <button class="logout-button" on:click={handleLogout}>
-      <LogOut size={18} />
-      <span>Cerrar sesión</span>
-    </button>
+    <Button
+      on:click={handleLogout}
+      icon={LogOut}
+      variant="ghost"
+      fullWidth={false}
+      size="lg"
+    >
+      Cerrar sesión
+    </Button>
     
     <div class="app-version">
       <p>Versión 1.0.0</p>
@@ -442,26 +447,7 @@
     padding-top: var(--spacing-xl);
     display: flex;
     flex-direction: column;
-    align-items: center;
     gap: var(--spacing-lg);
-  }
-  
-  .logout-button {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    background: rgba(239, 68, 68, 0.1);
-    color: var(--error-color);
-    border: none;
-    padding: var(--spacing-sm) var(--spacing-lg);
-    border-radius: var(--border-radius-lg);
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-  
-  .logout-button:hover {
-    background: rgba(239, 68, 68, 0.15);
   }
   
   .app-version {

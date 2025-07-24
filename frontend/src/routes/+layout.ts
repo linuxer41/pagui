@@ -13,13 +13,14 @@ export const load = async ({ url }) => {
      const path = url.pathname;
      console.log({path});
         
-        // Si no está en la página de login y no está autenticado, redirigir a login
-    if (path !== '/login' && !get(auth).isAuthenticated) {
-        goto('/login');
-    }
+     // Permitir acceso a /auth/* y /init sin autenticación
+     // Las demás rutas requieren autenticación
+     if (!path.startsWith('/auth') && path !== '/init' && path !== '/support' && !get(auth).isAuthenticated) {
+         goto('/init');
+     }
         
-    return {
-        path
-    }
+     return {
+         path
+     }
 };
 

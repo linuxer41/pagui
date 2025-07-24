@@ -4,7 +4,13 @@ import qrService from '../services/qr.service';
 import apiKeyService from '../services/apikey.service';
 import { QRRequestSchema } from '../schemas/qr.schemas';
 import { BANECO_NotifyPaymentQRRequestSchema } from '../schemas/baneco.scheamas';
+import { ApiError } from '../utils/error';
 
+const ResponseSchema = t.Object({
+  success: t.Boolean(),
+  message: t.String(),
+  data: t.Optional(t.Any())
+});
 
 // Rutas para códigos QR
 export const qrRoutes = new Elysia({ prefix: '/qrsimple' })
@@ -26,26 +32,26 @@ export const qrRoutes = new Elysia({ prefix: '/qrsimple' })
       );
       
       if (!hasPermission) {
-        return {
-          responseCode: 1,
-          message: 'API Key no tiene permisos para generar QR'
-        };
+        throw new ApiError('API Key no tiene permisos para generar QR', 403);
       }
       companyId = auth.apiKeyInfo!.companyId;
     } else {
-      return {
-        responseCode: 1,
-        message: 'No autorizado'
-      };
+      throw new ApiError('No autorizado', 401);
     }
     
     // Obtener bankId del cuerpo o usar el predeterminado
     const bankId = body?.bankId || 1; // 1 = Banco Económico por defecto
     
     // Generar el QR
-    return await qrService.generateQR(companyId, body, userId, bankId);
+    const data = await qrService.generateQR(companyId, body, userId, bankId);
+    return {
+      success: true,
+      message: 'QR generado exitosamente',
+      data
+    };
   }, {
     body: QRRequestSchema,
+    response: ResponseSchema,
     detail: {
       tags: ['qr'],
       summary: 'Generar código QR para cobro'
@@ -68,24 +74,24 @@ export const qrRoutes = new Elysia({ prefix: '/qrsimple' })
       );
       
       if (!hasPermission) {
-        return {
-          responseCode: 1,
-          message: 'API Key no tiene permisos para cancelar QR'
-        };
+        throw new ApiError('API Key no tiene permisos para cancelar QR', 403);
       }
       companyId = auth.apiKeyInfo!.companyId;
     } else {
-      return {
-        responseCode: 1,
-        message: 'No autorizado'
-      };
+      throw new ApiError('No autorizado', 401);
     }
     
-    return await qrService.cancelQR(companyId, body.qrId, userId);
+    const data = await qrService.cancelQR(companyId, body.qrId, userId);
+    return {
+      success: true,
+      message: 'QR cancelado exitosamente',
+      data
+    };
   }, {
     body: t.Object({
       qrId: t.String()
     }),
+    response: ResponseSchema,
     detail: {
       tags: ['qr'],
       summary: 'Cancelar código QR'
@@ -108,24 +114,24 @@ export const qrRoutes = new Elysia({ prefix: '/qrsimple' })
       );
       
       if (!hasPermission) {
-        return {
-          responseCode: 1,
-          message: 'API Key no tiene permisos para verificar estado de QR'
-        };
+        throw new ApiError('API Key no tiene permisos para verificar estado de QR', 403);
       }
       companyId = auth.apiKeyInfo!.companyId;
     } else {
-      return {
-        responseCode: 1,
-        message: 'No autorizado'
-      };
+      throw new ApiError('No autorizado', 401);
     }
     
-    return await qrService.checkQRStatus(companyId, params.id, userId);
+    const data = await qrService.checkQRStatus(companyId, params.id, userId);
+    return {
+      success: true,
+      message: 'Estado del QR verificado',
+      data
+    };
   }, {
     params: t.Object({
       id: t.String()
     }),
+    response: ResponseSchema,
     detail: {
       tags: ['qr'],
       summary: 'Verificar estado de un código QR'
@@ -135,18 +141,20 @@ export const qrRoutes = new Elysia({ prefix: '/qrsimple' })
   // Listar todos los QR de una empresa con filtros
   .get('/list', async ({ query, auth }) => {
     if (auth?.type !== 'jwt') {
-      return {
-        responseCode: 1,
-        message: 'Se requiere autenticación de usuario para esta operación'
-      };
+      throw new ApiError('Se requiere autenticación de usuario para esta operación', 401);
     }
     
-    return await qrService.listQRs(auth.user!.companyId, {
+    const data = await qrService.listQRs(auth.user!.companyId, {
       status: query.status,
       startDate: query.startDate,
       endDate: query.endDate,
       bankId: query.bankId
     });
+    return {
+      success: true,
+      message: 'QR listados exitosamente',
+      data
+    };
   }, {
     query: t.Object({
       status: t.Optional(t.String()),
@@ -154,6 +162,7 @@ export const qrRoutes = new Elysia({ prefix: '/qrsimple' })
       endDate: t.Optional(t.String()),
       bankId: t.Optional(t.Numeric())
     }),
+    response: ResponseSchema,
     detail: {
       tags: ['qr'],
       summary: 'Listar códigos QR con filtros'
@@ -163,20 +172,14 @@ export const qrRoutes = new Elysia({ prefix: '/qrsimple' })
   // Simular pago de QR (solo para ambiente de desarrollo)
   .post('/simulatePayment', async ({ body, auth }) => {
     if (process.env.NODE_ENV === 'production') {
-      return {
-        responseCode: 1,
-        message: 'Esta operación solo está disponible en ambiente de desarrollo'
-      };
+      throw new ApiError('Esta operación solo está disponible en ambiente de desarrollo', 403);
     }
     
     if (auth?.type !== 'jwt') {
-      return {
-        responseCode: 1,
-        message: 'Se requiere autenticación de usuario para esta operación'
-      };
+      throw new ApiError('Se requiere autenticación de usuario para esta operación', 401);
     }
     
-    return await qrService.simulateQRPayment(
+    const data = await qrService.simulateQRPayment(
       auth.user!.companyId,
       body.qrId,
       {
@@ -186,6 +189,11 @@ export const qrRoutes = new Elysia({ prefix: '/qrsimple' })
       },
       auth.user!.id
     );
+    return {
+      success: true,
+      message: 'Pago simulado exitosamente',
+      data
+    };
   }, {
     body: t.Object({
       qrId: t.String(),
@@ -193,6 +201,7 @@ export const qrRoutes = new Elysia({ prefix: '/qrsimple' })
       senderBankCode: t.Optional(t.String()),
       senderName: t.Optional(t.String())
     }),
+    response: ResponseSchema,
     detail: {
       tags: ['qr'],
       summary: 'Simular pago de un código QR (solo para desarrollo)'

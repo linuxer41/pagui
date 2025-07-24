@@ -5,9 +5,9 @@ import { API_URL, APP_CONFIG } from './config';
 
 // Interfaz para respuestas del API
 interface ApiResponse<T = any> {
-  responseCode: number;
+  success: boolean;
   message?: string;
-  [key: string]: any;
+  data?: T;
 }
 
 // Opciones para las peticiones
@@ -74,7 +74,6 @@ export interface Transaction {
 
 // Interfaz para respuesta de listado de transacciones
 export interface TransactionsListResponse {
-  responseCode: number;
   transactions: Transaction[];
   pagination?: {
     page: number;
@@ -82,7 +81,6 @@ export interface TransactionsListResponse {
     total: number;
     totalPages: number;
   };
-  message?: string;
 }
 
 // Cliente API usando fetch nativo
@@ -113,12 +111,6 @@ class ApiClient {
     // Añadir API key si existe
     if (options.apiKey) {
       headers['X-API-Key'] = options.apiKey;
-    } else {
-      // Si no hay API key en opciones, intentar obtener del store de company
-      const companyData = get(company);
-      if (companyData && companyData.apiKey) {
-        headers['X-API-Key'] = companyData.apiKey;
-      }
     }
     
     const config: RequestInit = {
@@ -303,18 +295,8 @@ class ApiClient {
       // Intentar hacer la llamada real a la API
       return this.get<TransactionsResponse>(endpoint, options);
     } catch (error) {
-      console.error('Error obteniendo estadísticas de transacciones:', error);
-      
-      // Fallback a datos simulados si la API falla o no está implementada
-      if (periodType === 'monthly' && month !== undefined) {
-        return this.generateMockMonthlyData(year, month);
-      } else if (periodType === 'weekly' && week !== undefined) {
-        return this.generateMockWeeklyData(year, week);
-      } else if (periodType === 'yearly') {
-        return this.generateMockYearlyData(year);
-      } else {
-        throw new Error('Parámetros inválidos para obtener transacciones por período');
-      }
+      console.error('Error al obtener transacciones por periodo:', error);
+      throw error;
     }
   }
   
@@ -328,7 +310,7 @@ class ApiClient {
     maxAmount?: number;
     page?: number;
     pageSize?: number;
-  } = {}, options: RequestOptions = {}): Promise<TransactionsListResponse> {
+  } = {}, options: RequestOptions = {}): Promise<ApiResponse<TransactionsListResponse>> {
     const queryParams = new URLSearchParams();
     if (filters.startDate) queryParams.append('startDate', filters.startDate);
     if (filters.endDate) queryParams.append('endDate', filters.endDate);
@@ -342,7 +324,7 @@ class ApiClient {
     const queryString = queryParams.toString();
     const endpoint = `/transactions${queryString ? `?${queryString}` : ''}`;
     
-    return this.get<TransactionsListResponse>(endpoint, options);
+    return this.get<ApiResponse<TransactionsListResponse>>(endpoint, options);
   }
   
   // Obtener detalle de una transacción específica
@@ -351,7 +333,7 @@ class ApiClient {
   }
   
   // Obtener las transacciones más recientes
-  async getRecentTransactions(limit: number = 3, options: RequestOptions = {}): Promise<TransactionsListResponse> {
+  async getRecentTransactions(limit: number = 3, options: RequestOptions = {}): Promise<ApiResponse<TransactionsListResponse>> {
     // Usar el endpoint de listTransactions con un límite pequeño y ordenado por fecha reciente
     return this.listTransactions({
       page: 1,
@@ -359,304 +341,7 @@ class ApiClient {
     }, options);
   }
   
-  // Método privado para generar transacciones simuladas
-  private generateMockTransactions(): Transaction[] {
-    const transactions: Transaction[] = [
-      {
-        id: 'tx1',
-        type: 'incoming',
-        amount: 350.00,
-        from: 'Carlos Méndez',
-        date: new Date().toISOString(),
-        status: 'completed',
-        reference: 'PAY-12345',
-        category: 'income'
-      },
-      {
-        id: 'tx2',
-        type: 'outgoing',
-        amount: 120.50,
-        to: 'Supermercado XYZ',
-        date: new Date(Date.now() - 86400000).toISOString(), // ayer
-        status: 'completed',
-        reference: 'INV-5678',
-        category: 'groceries'
-      },
-      {
-        id: 'tx3',
-        type: 'incoming',
-        amount: 1000.00,
-        from: 'Pago Mensual',
-        date: new Date(Date.now() - 86400000 * 5).toISOString(), // hace 5 días
-        status: 'completed',
-        reference: 'SALARY-202305',
-        category: 'salary'
-      },
-      {
-        id: 'tx4',
-        type: 'incoming',
-        amount: 250.75,
-        from: 'Ana López',
-        date: new Date(Date.now() - 86400000 * 2).toISOString(), // hace 2 días
-        status: 'pending',
-        reference: 'PAY-67890',
-        category: 'services'
-      },
-      {
-        id: 'tx5',
-        type: 'outgoing',
-        amount: 75.20,
-        to: 'Farmacia',
-        date: new Date(Date.now() - 86400000 * 3).toISOString(), // hace 3 días
-        status: 'canceled',
-        reference: 'MED-1234',
-        category: 'health'
-      },
-      {
-        id: 'tx6',
-        type: 'incoming',
-        amount: 520.30,
-        from: 'Roberto Jiménez',
-        date: new Date(Date.now() - 86400000 * 1).toISOString(), // hace 1 día
-        status: 'pending',
-        reference: 'INV-9012',
-        category: 'services'
-      },
-      {
-        id: 'tx7',
-        type: 'outgoing',
-        amount: 35.80,
-        to: 'Suscripción Mensual',
-        date: new Date(Date.now() - 86400000 * 7).toISOString(), // hace 7 días
-        status: 'completed',
-        reference: 'SUB-3456',
-        category: 'entertainment'
-      },
-      {
-        id: 'tx8',
-        type: 'outgoing',
-        amount: 430.25,
-        to: 'Alquiler',
-        date: new Date(Date.now() - 86400000 * 10).toISOString(), // hace 10 días
-        status: 'completed',
-        reference: 'RENT-202305',
-        category: 'housing'
-      },
-      {
-        id: 'tx9',
-        type: 'incoming',
-        amount: 180.00,
-        from: 'Reembolso',
-        date: new Date(Date.now() - 86400000 * 6).toISOString(), // hace 6 días
-        status: 'completed',
-        reference: 'REF-7890',
-        category: 'refund'
-      },
-      {
-        id: 'tx10',
-        type: 'outgoing',
-        amount: 65.99,
-        to: 'Restaurante La Buena Mesa',
-        date: new Date(Date.now() - 86400000 * 4).toISOString(), // hace 4 días
-        status: 'completed',
-        reference: 'FOOD-1234',
-        category: 'dining'
-      },
-      {
-        id: 'tx11',
-        type: 'outgoing',
-        amount: 22.50,
-        to: 'Taxi',
-        date: new Date(Date.now() - 86400000 * 8).toISOString(), // hace 8 días
-        status: 'completed',
-        reference: 'RIDE-5678',
-        category: 'transportation'
-      },
-      {
-        id: 'tx12',
-        type: 'incoming',
-        amount: 150.00,
-        from: 'Proyecto Freelance',
-        date: new Date(Date.now() - 86400000 * 15).toISOString(), // hace 15 días
-        status: 'completed',
-        reference: 'PROJ-9012',
-        category: 'freelance'
-      }
-    ];
-    
-    return transactions;
-  }
-  
-  // ============ MÉTODOS DE SIMULACIÓN DE DATOS ============
-  
-  // Generar un monto aleatorio dentro de un rango
-  private generateRandomAmount(min: number, max: number): number {
-    return Math.round((Math.random() * (max - min) + min) * 100) / 100;
-  }
-  
-  // Formatear montos con separador de miles y decimales
-  private formatCurrency(amount: number): string {
-    return amount.toLocaleString('es-ES', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
-  }
-  
-  // Obtener nombres de los meses
-  private getMonthName(month: number): string {
-    const months = [
-      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-    ];
-    return months[month];
-  }
-  
-  // Generar datos simulados diarios para un mes específico
-  private generateMockMonthlyData(year: number, month: number): TransactionsResponse {
-    const startDate = new Date(year, month, 1);
-    const endDate = new Date(year, month + 1, 0);
-    
-    const data: TransactionDay[] = [];
-    const currentDate = new Date(startDate);
-    let totalAmount = 0;
-    let totalCount = 0;
-    
-    // Generar datos para cada día del mes
-    while (currentDate <= endDate) {
-      const amount = this.generateRandomAmount(100, 1500);
-      const count = Math.floor(Math.random() * 10) + 1;
-      
-      data.push({
-        date: new Date(currentDate),
-        amount: amount,
-        count: count,
-        formatted: {
-          date: currentDate.toISOString().split('T')[0],
-          day: currentDate.getDate(),
-          month: this.getMonthName(currentDate.getMonth()).substring(0, 3),
-          amount: this.formatCurrency(amount)
-        }
-      });
-      
-      totalAmount += amount;
-      totalCount += count;
-      
-      // Avanzar al siguiente día
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-    
-    return {
-      data,
-      summary: {
-        total: totalAmount,
-        count: totalCount,
-        period: {
-          startDate: startDate.toISOString().split('T')[0],
-          endDate: endDate.toISOString().split('T')[0],
-          type: 'monthly',
-          year,
-          month
-        }
-      },
-      responseCode: 200
-    };
-  }
-  
-  // Generar datos simulados diarios para una semana específica
-  private generateMockWeeklyData(year: number, week: number): TransactionsResponse {
-    const firstDayOfYear = new Date(year, 0, 1);
-    const startDate = new Date(firstDayOfYear);
-    startDate.setDate(firstDayOfYear.getDate() + (week - 1) * 7);
-    const endDate = new Date(startDate);
-    endDate.setDate(startDate.getDate() + 6);
-    
-    const data: TransactionDay[] = [];
-    const currentDate = new Date(startDate);
-    let totalAmount = 0;
-    let totalCount = 0;
-    
-    // Generar datos para cada día de la semana
-    while (currentDate <= endDate) {
-      const amount = this.generateRandomAmount(50, 800);
-      const count = Math.floor(Math.random() * 5) + 1;
-      
-      data.push({
-        date: new Date(currentDate),
-        amount: amount,
-        count: count,
-        formatted: {
-          date: currentDate.toISOString().split('T')[0],
-          day: currentDate.getDate(),
-          month: this.getMonthName(currentDate.getMonth()).substring(0, 3),
-          amount: this.formatCurrency(amount)
-        }
-      });
-      
-      totalAmount += amount;
-      totalCount += count;
-      
-      // Avanzar al siguiente día
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-    
-    return {
-      data,
-      summary: {
-        total: totalAmount,
-        count: totalCount,
-        period: {
-          startDate: startDate.toISOString().split('T')[0],
-          endDate: endDate.toISOString().split('T')[0],
-          type: 'weekly',
-          year,
-          week
-        }
-      },
-      responseCode: 200
-    };
-  }
-  
-  // Generar datos simulados mensuales para un año completo
-  private generateMockYearlyData(year: number): TransactionsResponse {
-    const data: TransactionMonth[] = [];
-    let totalAmount = 0;
-    let totalCount = 0;
-    
-    // Generar datos para cada mes del año
-    for (let month = 0; month < 12; month++) {
-      const amount = this.generateRandomAmount(5000, 25000);
-      const count = Math.floor(Math.random() * 30) + 10;
-      
-      data.push({
-        date: new Date(year, month, 1),
-        amount: amount,
-        count: count,
-        formatted: {
-          month: this.getMonthName(month),
-          amount: this.formatCurrency(amount)
-        }
-      });
-      
-      totalAmount += amount;
-      totalCount += count;
-    }
-    
-    return {
-      data,
-      summary: {
-        total: totalAmount,
-        count: totalCount,
-        period: {
-          startDate: new Date(year, 0, 1).toISOString().split('T')[0],
-          endDate: new Date(year, 11, 31).toISOString().split('T')[0],
-          type: 'yearly',
-          year
-        }
-      },
-      responseCode: 200
-    };
-  }
-  
+
   // ============ MÉTODOS PARA API KEYS ============
   
   // Listar API keys - GET /api/api-keys/
@@ -684,6 +369,57 @@ class ApiClient {
   // Crear usuario - POST /api/users/
   async createUser(userData: any, options: RequestOptions = {}): Promise<ApiResponse> {
     return this.post<ApiResponse>('/users', userData, options);
+  }
+  
+  // Actualizar perfil de usuario - PUT /api/users/profile
+  async updateProfile(profileData: {
+    fullName?: string,
+    phone?: string,
+    profileImage?: File | null
+  }, options: RequestOptions = {}): Promise<ApiResponse> {
+    // Si hay una imagen, necesitamos usar FormData
+    if (profileData.profileImage) {
+      const formData = new FormData();
+      if (profileData.fullName) formData.append('fullName', profileData.fullName);
+      if (profileData.phone) formData.append('phone', profileData.phone);
+      formData.append('profileImage', profileData.profileImage);
+      
+      const url = `${API_URL}/users/profile`;
+      
+      const headers: HeadersInit = {};
+      
+      // Obtener token del store de autenticación si no se proporciona en options
+      if (!options.token) {
+        const authStore = get(auth);
+        if (authStore.token) {
+          headers['Authorization'] = `Bearer ${authStore.token}`;
+        }
+      } else {
+        headers['Authorization'] = `Bearer ${options.token}`;
+      }
+      
+      try {
+        const response = await fetch(url, {
+          method: 'PUT',
+          headers,
+          body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(result.message || 'Error actualizando perfil');
+        }
+        
+        return result;
+      } catch (error) {
+        console.error('Error actualizando perfil:', error);
+        throw error;
+      }
+    } else {
+      // Si no hay imagen, podemos usar el método PUT normal
+      return this.put<ApiResponse>('/users/profile', profileData, options);
+    }
   }
   
   // ============ MÉTODOS PARA BANCOS ============

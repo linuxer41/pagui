@@ -124,14 +124,15 @@
   <div class="form-card">
     <div class="form-fields">
       <div class="form-field">
-        <label for="current-password">Contraseña actual</label>
         <div class="password-input-container">
-          <input 
+          <Input
             id="current-password"
+            label="Contraseña actual"
             type={showCurrentPassword ? 'text' : 'password'}
             bind:value={currentPassword}
-            placeholder="Ingrese su contraseña actual"
+            placeholder="Contraseña actual"
             required
+            icon={Lock}
           />
           <button 
             type="button" 
@@ -147,16 +148,16 @@
           </button>
         </div>
       </div>
-      
       <div class="form-field">
-        <label for="new-password">Nueva contraseña</label>
         <div class="password-input-container">
-          <input 
+          <Input
             id="new-password"
+            label="Nueva contraseña"
             type={showNewPassword ? 'text' : 'password'}
             bind:value={newPassword}
-            placeholder="Ingrese su nueva contraseña"
+            placeholder="Nueva contraseña"
             required
+            icon={Key}
           />
           <button 
             type="button" 
@@ -176,16 +177,16 @@
           <span>Mínimo 8 caracteres</span>
         </div>
       </div>
-      
       <div class="form-field">
-        <label for="confirm-password">Confirmar contraseña</label>
         <div class="password-input-container">
-          <input 
+          <Input
             id="confirm-password"
+            label="Confirmar nueva contraseña"
             type={showConfirmPassword ? 'text' : 'password'}
             bind:value={confirmPassword}
-            placeholder="Confirme su nueva contraseña"
+            placeholder="Confirmar contraseña"
             required
+            icon={Key}
           />
           <button 
             type="button" 
@@ -219,32 +220,6 @@
 </ProfilePage>
 
 <style>
-  .app-container {
-    padding: var(--spacing-md);
-    max-width: 500px;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-lg);
-  }
-  
-  .app-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    position: relative;
-    margin-bottom: var(--spacing-md);
-  }
-  
-  .app-header h1 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin: 0;
-    text-align: center;
-    flex: 1;
-    color: var(--text-primary);
-  }
-  
   .save-button {
     width: 40px;
     height: 40px;
@@ -333,38 +308,17 @@
     gap: 6px;
   }
   
-  .form-field label {
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-  }
-  
   .password-input-container {
     position: relative;
     display: flex;
     align-items: center;
   }
   
-  .password-input-container input {
-    width: 100%;
-    padding: 12px 40px 12px 12px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-lg);
-    background: var(--surface-variant);
-    color: var(--text-primary);
-    font-size: 1rem;
-    transition: border-color 0.2s, box-shadow 0.2s;
-  }
-  
-  .password-input-container input:focus {
-    outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgba(58, 102, 255, 0.1);
-  }
-  
   .password-toggle {
     position: absolute;
     right: 10px;
+    top: 40%;
+    transform: translateY(-50%);
     background: transparent;
     border: none;
     color: var(--text-secondary);
@@ -409,7 +363,6 @@
     background: var(--surface);
     border-radius: var(--border-radius-lg);
     padding: var(--spacing-md);
-    border-left: 3px solid var(--primary-color);
   }
   
   .security-tips h3 {
@@ -437,11 +390,5 @@
   @keyframes slideDown {
     from { opacity: 0; transform: translateY(-10px); }
     to { opacity: 1; transform: translateY(0); }
-  }
-  
-  @media (max-width: 600px) {
-    .app-container {
-      padding: var(--spacing-sm);
-    }
   }
 </style> 

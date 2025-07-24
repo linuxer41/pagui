@@ -2,12 +2,13 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import {
-    BarChart3,
-    Home,
-    QrCode,
-    Settings
+      BarChart3,
+      Home,
+      QrCode,
+      Settings
   } from '@lucide/svelte';
-
+  import MainContent from './Components/MainContent.svelte';
+  export let ignoreSafeArea = false;
   // Obtener la ruta actual
   $: currentPath = $page.url.pathname;
   
@@ -24,8 +25,10 @@
   }
 </script>
 
-<div class="main-page-wrapper">
-  <slot />
+<div class="main-page-wrapper" class:ignore-safe-area={ignoreSafeArea}>
+  <MainContent>
+    <slot />
+  </MainContent>
   
   <!-- Navegación móvil inferior (solo en páginas principales) -->
   <nav class="mobile-nav">
@@ -50,7 +53,8 @@
   padding-top: env(safe-area-inset-top);
   padding-bottom: constant(safe-area-inset-bottom);
   padding-bottom: env(safe-area-inset-bottom);
-  min-height: 100vh;
+  min-height: 100%;
+  height: 100%;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -58,6 +62,12 @@
   color: var(--text-primary);
   transition: background 0.3s, color 0.3s;
 }
+
+.main-page-wrapper.ignore-safe-area {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
 
 /* Móvil - Bottom Navigation estilo Flutter */
 .mobile-nav {
@@ -78,6 +88,7 @@
     0 -1px 3px rgba(0, 0, 0, 0.1);
   border-top: 1px solid var(--border-color);
   z-index: 100;
+  height: 70px;
   @media screen and (min-width: 768px) {
     display: none;
   }

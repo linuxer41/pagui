@@ -6,7 +6,7 @@
     .main-content {
         position: relative;
         z-index: 1;
-        height: 100%;
+        /* height: 100%; */
         min-height: 100%;
         margin: auto;
         max-width: 480px;
@@ -14,7 +14,7 @@
         @media screen and (max-width: 768px) {
             padding-top: 0;
             padding-bottom: 0;
-            margin-bottom: 70px;
+            padding-bottom: 70px;
         }
     }
 </style>

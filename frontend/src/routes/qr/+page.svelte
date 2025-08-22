@@ -1,82 +1,104 @@
 <script lang="ts">
   import api from '$lib/api';
   import Button from '$lib/components/Button.svelte';
-  import Input from '$lib/components/Input.svelte';
   import MainPage from '$lib/components/layouts/MainPage.svelte';
   import {
-      Check,
-      DollarSign,
-      FileText,
+      CheckCircle,
+      Clock,
+      Download,
       InfoIcon,
-      Plus,
+      Loader,
       QrCode,
+      RefreshCw,
       Share,
       X
   } from '@lucide/svelte';
+  import * as htmlToImage from 'html-to-image';
+  import { onMount } from 'svelte';
   
   interface QrData {
-    id?: string;
-    monto?: number;
-    amount?: number;
-    descripcion?: string;
-    description?: string;
-    qrImage?: string;
-    qrId?: string;
-    fecha?: string;
-    estado?: string;
-    status?: string;
-    transactionId?: string;
-    accountCredit?: string;
-    currency?: string;
+    id: string;
+    qrId: string;
+    amount: number;
+    description: string;
+    currency: string;
+    transactionId: string;
+    qrCode: string;
     dueDate?: string;
+    // Nuevos campos para la información del remitente
+    senderName?: string;
+    senderBank?: string;
   }
   
-  let monto = '';
-  let descripcion = '';
+  let amount = '';
+  let description = '';
   let loading = false;
   let error = '';
-  let qrGenerado = false;
+  let qrGenerated = false;
   let qrData: QrData | null = null;
   let qrImageSrc = '';
   let currency = 'BOB';
+  let amountInput: HTMLInputElement | undefined;
+  let countdown = 600; // 10 minutos en segundos
+  let countdownInterval: any;
+  let paymentStatus = 'pending'; // 'pending', 'success', 'expired'
 
   // Banco Economico hardcoded as the bank
   const BANCO_ECONOMICO_ID = 1;
 
-  let countdown = 600; // 10 minutos en segundos
-  let countdownInterval: any;
-  $: if (qrGenerado && qrData) {
-    clearInterval(countdownInterval);
-    countdown = Math.floor((new Date(qrData.dueDate!).getTime() - Date.now()) / 1000);
-    countdownInterval = setInterval(() => {
-      countdown = Math.max(0, Math.floor((new Date(qrData!.dueDate!).getTime() - Date.now()) / 1000));
-      if (countdown <= 0) clearInterval(countdownInterval);
-    }, 1000);
-  }
-  $: countdownMinutes = Math.floor(countdown / 60);
-  $: countdownSeconds = countdown % 60;
+  // Para demostración
+  const DEMO_SENDER_NAME = "Juan Pérez";
+  const DEMO_SENDER_BANK = "Banco Económico";
 
-  $: if (qrData && qrData.qrImage) {
-    qrImageSrc = `data:image/png;base64,${qrData.qrImage}`;
+  // Función para calcular el tiempo restante
+  function updateCountdown() {
+    if (!qrData || !qrData.dueDate) return;
+    
+    const now = Date.now();
+    const dueTime = new Date(qrData.dueDate).getTime();
+    countdown = Math.max(0, Math.floor((dueTime - now) / 1000));
+    
+    if (countdown <= 0) {
+      clearInterval(countdownInterval);
+      paymentStatus = 'expired';
+    }
+  }
+
+  $: if (qrGenerated && qrData && qrData.dueDate) {
+    // Limpiar cualquier intervalo existente
+    if (countdownInterval) clearInterval(countdownInterval);
+    
+    // Configurar inmediatamente el valor inicial del contador
+    updateCountdown();
+    
+    // Configurar el intervalo para actualizar cada segundo
+    countdownInterval = setInterval(updateCountdown, 1000);
+  }
+
+  $: if (qrData && qrData.qrCode) {
+    qrImageSrc = `data:image/png;base64,${qrData.qrCode}`;
   } else {
     qrImageSrc = '';
   }
-  
-  async function generarQR() {
-    if (!monto || isNaN(Number(monto)) || Number(monto) <= 0) {
+
+  $: if (countdown <= 0 && paymentStatus === 'pending') {
+    paymentStatus = 'expired';
+  }
+
+  async function generateQR() {
+    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       error = 'Por favor ingrese un monto válido';
       return;
     }
-    
-    error = '';
+
     loading = true;
-    qrGenerado = false;
+    error = '';
     
     try {
       // Preparar datos según el formato esperado por la API
       const datos = {
-        monto: Number(monto),
-        descripcion: descripcion || 'Pago QR',
+        amount: Number(amount),
+        description: description,
         bankId: BANCO_ECONOMICO_ID, // Banco Economico
         transactionId: `TX-${Date.now()}`,
         accountNumber: "12345678", // Este valor debería venir de la configuración de la empresa
@@ -91,22 +113,24 @@
       if (!response.success) {
         throw new Error(response.message || 'Error al generar QR');
       }
-      qrGenerado = true;
+      qrGenerated = true;
       qrData = {
         id: response.data.qrId || '',
         qrId: response.data.qrId || '',
-        monto: Number(monto),
-        amount: Number(monto),
-        descripcion: descripcion || 'Pago QR',
-        description: descripcion || 'Pago QR',
-        qrImage: response.data.qrImage || '',
-        fecha: new Date().toISOString(),
-        estado: 'PENDIENTE',
-        status: 'PENDIENTE',
+        amount: Number(amount),
+        description: description,
         currency: currency,
         transactionId: datos.transactionId,
-        dueDate: datos.dueDate
+        qrCode: response.data.qrImage || '',
       };
+      
+      // Iniciar countdown timer (10 minutos)
+      countdown = 600;
+      if (countdownInterval) clearInterval(countdownInterval);
+      countdownInterval = setInterval(() => {
+        countdown -= 1;
+        if (countdown <= 0) clearInterval(countdownInterval);
+      }, 1000);
     } catch (err: any) {
       error = err.message || 'Error de conexión. Por favor intente nuevamente más tarde.';
     } finally {
@@ -114,7 +138,7 @@
     }
   }
   
-  async function verificarEstado() {
+  async function checkStatus() {
     if (!qrData || !qrData.qrId) {
       error = 'No hay código QR para verificar';
       return;
@@ -125,15 +149,19 @@
     try {
       const response = await api.checkQRStatus(qrData.qrId);
       
-      if (response.responseCode === 0) {
+      if (response.success) {
         let mensaje = '';
         
-        switch (response.statusQrCode) {
+        switch (response.data.statusQrCode) {
           case 0:
             mensaje = 'El código QR está activo y pendiente de pago';
             break;
           case 1:
             mensaje = '¡El código QR ha sido pagado!';
+            paymentStatus = 'success';
+            // Simular datos del remitente (en producción vendrían de la API)
+            qrData.senderName = DEMO_SENDER_NAME;
+            qrData.senderBank = DEMO_SENDER_BANK;
             break;
           case 9:
             mensaje = 'El código QR ha sido cancelado';
@@ -154,7 +182,7 @@
     }
   }
   
-  async function cancelarQR() {
+  async function cancelQR() {
     if (!qrData || !qrData.qrId) {
       error = 'No hay código QR para cancelar';
       return;
@@ -169,9 +197,9 @@
     try {
       const response = await api.cancelQR(qrData.qrId);
       
-      if (response.responseCode === 0) {
+      if (response.success) {
         alert('Código QR cancelado exitosamente');
-        qrGenerado = false;
+        qrGenerated = false;
         qrData = null;
       } else {
         error = response.message || 'Error al cancelar el QR';
@@ -184,47 +212,102 @@
     }
   }
 
-  function descargarQR() {
-    if (!qrImageSrc || !qrData || !qrData.qrImage) return;
-    // Crear un enlace temporal y simular click para descargar
-    const link = document.createElement('a');
-    link.href = qrImageSrc;
-    link.download = `qr_${qrData.id || qrData.qrId || 'pago'}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
-
-  async function compartirQR() {
-    if (!qrImageSrc || !qrData || !qrData.qrImage) return;
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [] })) {
-      // Compartir usando la Web Share API (solo móviles modernos)
-      const byteString = atob(qrData.qrImage);
-      const ab = new ArrayBuffer(byteString.length);
-      const ia = new Uint8Array(ab);
-      for (let i = 0; i < byteString.length; i++) {
-        ia[i] = byteString.charCodeAt(i);
+  async function shareQR() {
+    const qrNode = document.getElementById('qr-export-area');
+    if (!qrNode) return;
+    
+    try {
+      // Convertir el HTML del QR a imagen usando html-to-image
+      const dataUrl = await htmlToImage.toPng(qrNode);
+      
+      // Verificar si el navegador soporta Web Share API con archivos
+      const canShareFiles = navigator.canShare && 
+                           navigator.canShare({ files: [new File([], 'test.png')] });
+      
+      if (canShareFiles) {
+        // Convertir dataUrl a blob y crear archivo para compartir
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+        const file = new File([blob], `qr_${qrData?.id || qrData?.qrId || 'pago'}.png`, { type: 'image/png' });
+        
+        try {
+          await navigator.share({
+            files: [file],
+            title: 'Código QR de pago',
+            text: `Paga escaneando este QR. Monto: ${formatAmount(qrData?.amount)} ${qrData?.currency}. Descripción: ${qrData?.description}`,
+          });
+        } catch (e) {
+          // Si el usuario cancela, no hacer nada
+          console.log('Usuario canceló el compartir');
+        }
+      } else {
+        // Fallback: intentar compartir solo con URL
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: 'Código QR de pago',
+              text: `Paga escaneando este QR. Monto: ${formatAmount(qrData?.amount)} ${qrData?.currency}. Descripción: ${qrData?.description}`,
+              url: dataUrl
+            });
+          } catch (e) {
+            console.log('Usuario canceló el compartir');
+          }
+        } else {
+          // Si no soporta Web Share API, descargar la imagen
+          const link = document.createElement('a');
+          link.download = `qr_${qrData?.id || qrData?.qrId || 'pago'}.png`;
+          link.href = dataUrl;
+          link.click();
+        }
       }
-      const blob = new Blob([ab], { type: 'image/png' });
-      const file = new File([blob], `qr_${qrData.id || qrData.qrId || 'pago'}.png`, { type: 'image/png' });
-      try {
-        await navigator.share({
-          files: [file],
-          title: 'QR de pago',
-          text: 'Escanea este QR para pagar',
-        });
-      } catch (e) {
-        // Si el usuario cancela, no hacer nada
-      }
-    } else {
-      // Si no soporta compartir, descargar
-      descargarQR();
+    } catch (error) {
+      console.error('Error al compartir QR:', error);
+      alert('Error al compartir la imagen');
     }
   }
 
   function formatAmount(amount: number | undefined) {
     if (typeof amount !== 'number') return '';
     return amount.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function formatTime(seconds: number) {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  }
+
+  onMount(() => {
+    amountInput?.focus();
+    
+    // Limpiar intervalo al desmontar el componente
+    return () => {
+      if (countdownInterval) clearInterval(countdownInterval);
+    };
+  });
+
+  async function downloadQRAsImage() {
+    const qrNode = document.getElementById('qr-export-area');
+    if (!qrNode) return;
+    
+    try {
+      // Convertir el HTML del QR a imagen usando html-to-image
+      const dataUrl = await htmlToImage.toPng(qrNode);
+      
+      // Descargar la imagen
+      const link = document.createElement('a');
+      link.download = `qr_${qrData?.id || qrData?.qrId || 'pago'}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (error) {
+      console.error('Error al descargar el QR:', error);
+    }
+  }
+
+  function getCurrencySymbol(currency: string) {
+    if (currency === 'BOB') return 'Bs.';
+    if (currency === 'USD') return '$';
+    return currency;
   }
 </script>
 
@@ -234,53 +317,132 @@
       
       {#if error}
         <div class="alert-message error">
-          <X size={16} />
+          <button class="close-button" on:click={() => error = ''}>
+            <X size={16} />
+          </button>
           <p>{error}</p>
         </div>
       {/if}
       
-      {#if qrGenerado && qrData}
+      {#if qrGenerated && qrData}
         <div class="qr-success-container">
-          <div class="waiting-payment">
-            <svg class="spinner" width="28" height="28" viewBox="0 0 50 50"><circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle></svg>
-            <span class="waiting-text">Esperando pago...</span>
-          </div>
-          <div class="countdown">
-            <span>Tiempo restante: {countdownMinutes}:{countdownSeconds < 10 ? `0${countdownSeconds}` : countdownSeconds}</span>
-          </div>
-          <div class="qr-wrapper-success">
-            <div class="branding-inside">
-              <img src="/favicon.png" alt="Pagui logo" class="logo-img" />
-              <div class="branding-texts">
-                <span class="app-name">Pagui</span>
-                <span class="app-slogan">Pagos simples, vida feliz.</span>
+          {#if paymentStatus === 'success'}
+            <div class="status-card success">
+              <div class="icon-container">
+                <CheckCircle size={64} strokeWidth={2} />
+              </div>
+              <h2 class="status-title">¡Pago completado!</h2>
+              <p class="status-message">El pago ha sido procesado exitosamente</p>
+              
+              <div class="transaction-details">
+                <div class="detail-row">
+                  <span class="detail-label">Monto:</span>
+                  <span class="detail-value">{formatAmount(qrData?.amount)} {qrData?.currency}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Descripción:</span>
+                  <span class="detail-value">{qrData?.description}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">ID Transacción:</span>
+                  <span class="detail-value">{qrData?.transactionId}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Remitente:</span>
+                  <span class="detail-value">{qrData?.senderName || 'No especificado'}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Banco:</span>
+                  <span class="detail-value">{qrData?.senderBank || 'No especificado'}</span>
+                </div>
               </div>
             </div>
-            <img src={qrImageSrc} alt="Código QR" class="qr-image" />
-            <div class="qr-info-card">
-              <div class="amount-row">
-                <span class="currency-chip">{qrData.currency}</span>
-                <span class="amount-formatted">{formatAmount(qrData.monto || qrData.amount)}</span>
-              </div>
-              <div class="description-card">{qrData.descripcion || qrData.description}</div>
-              <div class="tx-id-card">Mostrando ID de transacción: {qrData.transactionId}</div>
+            
+            <div class="action-buttons">
+              <button class="action-button success" on:click={() => window.location.reload()}>
+                <RefreshCw size={20} strokeWidth={2} />
+                <span>Nuevo Pago</span>
+              </button>
             </div>
-          </div>
-          <div class="button-row-minimal">
-            <button class="action-button share" on:click={compartirQR}>
-              <Share size={20} strokeWidth={1.5} />
-              <span class="button-label">Compartir</span>
-            </button>
-            <button class="action-button new-qr" on:click={() => {
-              qrGenerado = false;
-              qrData = null;
-              monto = '';
-              descripcion = '';
-            }}>
-              <Plus size={18} strokeWidth={1.5} />
-              <span>Reenviar</span>
-            </button>
-          </div>
+
+          {:else if paymentStatus === 'expired'}
+            <div class="status-card expired">
+              <div class="icon-container">
+                <Clock size={64} strokeWidth={2} />
+              </div>
+              <h2 class="status-title">QR Expirado</h2>
+              <p class="status-message">El código QR ha expirado, por favor genera uno nuevo</p>
+              
+              <div class="transaction-details">
+                <div class="detail-row">
+                  <span class="detail-label">Monto:</span>
+                  <span class="detail-value">{formatAmount(qrData?.amount)} {qrData?.currency}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Descripción:</span>
+                  <span class="detail-value">{qrData?.description}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">ID Transacción:</span>
+                  <span class="detail-value">{qrData?.transactionId}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="action-buttons">
+              <button class="action-button expired" on:click={() => window.location.reload()}>
+                <RefreshCw size={20} strokeWidth={2} />
+                <span>Nuevo QR</span>
+              </button>
+            </div>
+
+          {:else}
+            <div class="status-section pending">
+              <div class="status-indicator">
+                <div class="loader-container">
+                  <Loader size={32} strokeWidth={2} class="spinning-loader" />
+                </div>
+                <span>Esperando pago</span>
+              </div>
+              <div class="countdown">Expira en: {formatTime(countdown)}</div>
+            </div>
+            
+            <div class="qr-card" id="qr-export-area">
+              <div class="qr-header">
+                <div class="logo-section">
+                  <!-- <img src="/favicon.png" alt="Logo" class="logo-img" /> -->
+                  <div class="brand-info">
+                    <div class="brand-name">Pagui</div>
+                    <div class="brand-slogan">Automatiza tus cobros</div>
+                  </div>
+                </div>
+              </div>
+              <img src={qrImageSrc} alt="Código QR" class="qr-image" />
+              <div class="qr-info-card">
+                <div class="amount-row">
+                  <span class="amount-formatted">{getCurrencySymbol(qrData?.currency)} {formatAmount(qrData?.amount)}</span>
+                </div>
+                
+                <div class="description-card">{qrData?.description || 'Sin descripción'}</div>
+                <div class="tx-id-card">ID: {qrData?.transactionId}</div>
+              </div>
+            </div>
+            
+            <div class="action-buttons">
+              <button class="action-button primary" on:click={shareQR}>
+                <Share size={20} strokeWidth={2} />
+                <span>Compartir</span>
+              </button>
+              <button class="action-button secondary" on:click={downloadQRAsImage}>
+                <Download size={20} strokeWidth={2} />
+                <span>Descargar</span>
+              </button>
+              <button class="action-button secondary" on:click={checkStatus}>
+                <RefreshCw size={20} strokeWidth={2} />
+                <span>Verificar</span>
+              </button>
+            </div>
+          {/if}
         </div>
       {:else}
         <div class="form-container centered-form">
@@ -292,9 +454,9 @@
               </select>
             </div>
             <input
-              id="monto"
+              id="amount"
               type="number"
-              bind:value={monto}
+              bind:value={amount}
               placeholder="00.00"
               class="input-monto"
               required
@@ -302,9 +464,9 @@
           </div>
           <div class="form-group">
             <input
-              id="descripcion"
+              id="description"
               type="text"
-              bind:value={descripcion}
+              bind:value={description}
               placeholder="Descripción (opcional)"
               class="input-descripcion"
             />
@@ -312,9 +474,9 @@
           <Button 
             variant="primary" 
             icon={QrCode} 
-            on:click={generarQR}
+            on:click={generateQR}
             loading={loading}
-            disabled={loading || !monto}
+            disabled={loading || !amount}
             fullWidth
           >
             {loading ? 'Generando...' : 'Generar QR'}
@@ -331,7 +493,7 @@
 <style>
   .page-container {
     width: 100%;
-    height: 100%;
+    min-height: 100%;
     display: grid;
   }
   .alert-message {
@@ -359,192 +521,12 @@
     font-weight: 500;
   }
   
-  .qr-display {
-    background: var(--surface);
-    border-radius: 1rem;
-    padding: 2rem 1.5rem;
-    box-shadow: var(--card-shadow);
-    text-align: center;
-    border: 1px solid var(--border-color);
-    animation: slideUpQR 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  }
-  
-  @keyframes slideUpQR {
-    from {
-      transform: translateY(20px);
-      opacity: 0;
-    }
-    to {
-      transform: translateY(0);
-      opacity: 1;
-    }
-  }
-  
-  .qr-wrapper {
-    background: white;
-    padding: 1.5rem;
-    border-radius: 1rem;
-    display: inline-flex;
-    margin-bottom: 2rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    border: 1px solid var(--border-color);
-    position: relative;
-    overflow: hidden;
-  }
-  
-  .qr-wrapper::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, rgba(58, 102, 255, 0.05), rgba(58, 102, 255, 0.02));
-    opacity: 0;
-    transition: opacity 0.3s ease;
-  }
-  
-  .qr-wrapper:hover::before {
-    opacity: 1;
-  }
-  
   .qr-image {
-    width: 240px;
-    height: 240px;
-    position: relative;
-    z-index: 1;
-  }
-  
-  .qr-info {
-    margin-bottom: 2rem;
-  }
-  
-  .amount-container {
-    display: flex;
-    align-items: baseline;
-    justify-content: center;
-    margin-bottom: 0.75rem;
-    gap: 0.25rem;
-  }
-  
-  .currency {
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--primary-color);
-  }
-  
-  .amount {
-    font-size: 2.5rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    letter-spacing: -0.025em;
-  }
-  
-  .description {
-    font-size: 1.125rem;
-    color: var(--text-primary);
-    margin-bottom: 0.75rem;
-    font-weight: 500;
-  }
-  
-  .code-id {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    font-weight: 500;
-    background: var(--surface-variant);
-    padding: 0.25rem 0.75rem;
-    border-radius: 0.5rem;
-    display: inline-block;
-  }
-  
-  .button-row {
-    display: flex;
-    justify-content: center;
-    gap: 1rem;
-    margin-bottom: 2rem;
-  }
-  
-  .action-button {
-    border: none;
-    background: none;
-    padding: 0;
-    cursor: pointer;
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    color: var(--text-secondary);
-    gap: 0.75rem;
-    position: relative;
-    overflow: hidden;
-  }
-  
-  .action-button::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(58, 102, 255, 0.1);
+    width: 350px;
+    height: 350px;
+    margin: 0 auto;
+    display: block;
     border-radius: 0.75rem;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-  }
-  
-  .action-button:hover::before {
-    opacity: 1;
-  }
-  
-  .action-button.share {
-    color: var(--primary-color);
-  }
-  
-  .action-button:hover {
-    transform: translateY(-0.25rem);
-  }
-  
-  
-  .action-button:hover :global(svg) {
-    transform: scale(1.05);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  }
-  
-  .button-label {
-    font-size: 0.875rem;
-    font-weight: 600;
-    position: relative;
-    z-index: 1;
-  }
-  
-  .action-button.new-qr {
-    background: var(--primary-color);
-    color: white;
-    border-radius: 0.75rem;
-    width: auto;
-    height: auto;
-    padding: 0.875rem 1.5rem;
-    margin-top: 0.5rem;
-    gap: 0.5rem;
-    flex-direction: row;
-    font-weight: 600;
-    box-shadow: 0 4px 12px rgba(58, 102, 255, 0.3);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  
-  .action-button.new-qr:hover {
-    background: var(--primary-dark);
-    transform: translateY(-0.25rem);
-    box-shadow: 0 6px 16px rgba(58, 102, 255, 0.4);
-  }
-  
-  .action-button.new-qr :global(svg) {
-    background: none !important;
-    box-shadow: none !important;
-    border: none !important;
-    padding: 0 !important;
-    color: white;
   }
   
   .form-container {
@@ -553,7 +535,7 @@
     grid-template-columns: 1fr;
     gap: 1rem;
     place-content: center;
-    height: 100%;
+    min-height: 100%;
   }
   
   @keyframes slideUpForm {
@@ -571,15 +553,6 @@
     margin-bottom: 1.5rem;
   }
   
-  .form-group label {
-    display: block;
-    margin-bottom: 0.75rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    font-size: 1rem;
-    letter-spacing: -0.01em;
-  }
-
   .info-box {
     display: flex;
     align-items: flex-start;
@@ -597,7 +570,6 @@
   
   .info-box p {
     margin: 0;
-    line-height: 1.5;
     font-size: 0.875rem;
     font-weight: 500;
   }
@@ -608,6 +580,7 @@
     margin-top: 0.125rem;
   }
 
+  /* Estilos para el formulario */
   .centered-form {
     display: flex;
     flex-direction: column;
@@ -674,7 +647,6 @@
     width: 100%;
     max-width: 320px;
     font-size: 0.9rem;
-    font-style: italic;
     border: none;
     outline: none;
     background: none;
@@ -689,271 +661,287 @@
     color: var(--text-secondary);
     opacity: 1;
     font-size: 0.9rem;
-    font-style: italic;
     text-align: center;
   }
+  
+  /* Contenedor para estados de éxito/error */
   .qr-success-container {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     width: 100%;
-    padding: 2.5rem 0 1.5rem 0;
-    background: var(--surface);
-    max-height: 100vh;
-    overflow-y: auto;
   }
-  .branding {
+  
+  /* Estado pendiente */
+  .status-section.pending {
     display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 1.5rem;
-  }
-  .logo-placeholder {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: #3a66ff;
-    display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    margin-bottom: 1rem;
   }
-  .app-name {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #3a66ff;
-    letter-spacing: -0.01em;
-  }
-  .waiting-payment {
+  
+  .status-indicator {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.5rem;
+  }
+  
+  .loader-container {
     margin-bottom: 0.5rem;
   }
-  .spinner {
-    animation: spin 1s linear infinite;
+  
+  .spinning-loader {
+    animation: spin 1.5s linear infinite;
   }
+  
   @keyframes spin {
-    100% { transform: rotate(360deg); }
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
   }
-  .spinner .path {
-    stroke: #3a66ff;
-    stroke-linecap: round;
-  }
-  .waiting-text {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--primary-color);
-  }
+  
   .countdown {
     font-size: 1rem;
-    color: var(--text-secondary);
-    margin-bottom: 1.5rem;
     font-weight: 500;
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
+    background: var(--surface-variant);
+    padding: 0.5rem 1rem;
+    border-radius: 1rem;
   }
-  .qr-wrapper-success {
-    background: #fff !important;
-    color: #111 !important;
-    padding: 1rem 1.2rem 1.2rem 1.2rem;
+  
+  /* Estilos nuevos para cards de éxito y error */
+  .status-card {
+    width: 100%;
+    max-width: 400px;
+    padding: 2rem;
     border-radius: 1rem;
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin-bottom: 1.2rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.07);
-    border: 1px solid #e5e5e5;
-    position: relative;
-    overflow: hidden;
-    max-width: 340px;
-  }
-  .qr-wrapper-success * {
-    color: #111 !important;
-  }
-  .branding-inside {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.7rem;
-    margin-bottom: 0.5rem;
-    width: 100%;
-  }
-  .branding-texts {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-  }
-  .app-name {
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: #3a66ff !important;
-    letter-spacing: -0.01em;
-    line-height: 1.1;
-  }
-  .app-slogan {
-    font-size: 0.92rem;
-    color: #888 !important;
-    font-weight: 500;
-    margin-top: 0.1rem;
-    line-height: 1.1;
-    text-align: left;
-  }
-  .logo-img {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    object-fit: cover;
-    background: #fff;
-    box-shadow: 0 1px 4px rgba(58,102,255,0.07);
-  }
-  .qr-info-success {
     margin-bottom: 2rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
     text-align: center;
   }
-  .qr-info-success .amount-container {
+  
+  .status-card.success {
+    background: linear-gradient(to bottom, rgba(52, 199, 89, 0.1), rgba(52, 199, 89, 0.05));
+    border: 1px solid rgba(52, 199, 89, 0.2);
+  }
+  
+  .status-card.expired {
+    background: linear-gradient(to bottom, rgba(255, 152, 0, 0.1), rgba(255, 152, 0, 0.05));
+    border: 1px solid rgba(255, 152, 0, 0.2);
+  }
+  
+  .icon-container {
+    margin-bottom: 1.5rem;
+  }
+  
+  .status-card.success .icon-container :global(svg) {
+    color: #34c759;
+  }
+  
+  .status-card.expired .icon-container :global(svg) {
+    color: #ff9800;
+  }
+  
+  .status-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem 0;
+  }
+  
+  .status-card.success .status-title {
+    color: #34c759;
+  }
+  
+  .status-card.expired .status-title {
+    color: #ff9800;
+  }
+  
+  .status-message {
+    font-size: 1rem;
+    margin: 0 0 1.5rem 0;
+    font-weight: 500;
+  }
+  
+  /* Detalles de la transacción */
+  .transaction-details {
+    width: 100%;
+    background-color: white;
+    border-radius: 0.75rem;
+    padding: 1rem;
+    margin-top: 0.5rem;
+  }
+  
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  }
+  
+  .detail-row:last-child {
+    border-bottom: none;
+  }
+  
+  .detail-label {
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+  
+  .detail-value {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  /* Botones de acción */
+  .action-buttons {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .action-button {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+    min-width: 90px;
+    justify-content: center;
+  }
+
+  .action-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .action-button.primary {
+    background: linear-gradient(135deg, #3a66ff, #5b7cfa);
+    color: white;
+  }
+
+  .action-button.primary:hover {
+    background: linear-gradient(135deg, #2952cc, #4a6af5);
+  }
+
+  .action-button.secondary {
+    background: white;
+    color: #3a66ff;
+    border: 1px solid #e0e0e0;
+  }
+
+  .action-button.secondary:hover {
+    background: #f8f9ff;
+    border-color: #3a66ff;
+  }
+
+  .action-button.success {
+    background: linear-gradient(135deg, #34c759, #2ecc71);
+    color: white;
+  }
+
+  .action-button.success:hover {
+    background: linear-gradient(135deg, #2ecc71, #34c759);
+  }
+
+  .action-button.expired {
+    background: linear-gradient(135deg, #ff9800, #ff5722);
+    color: white;
+  }
+
+  .action-button.expired:hover {
+    background: linear-gradient(135deg, #ff5722, #ff9800);
+  }
+
+  /* QR card styles */
+  .qr-card {
+    background: white;
+    border-radius: 1rem;
+    padding: 0.5rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    max-width: 450px;
+    margin: 0 auto;
+  }
+
+  .qr-info-card {
+    text-align: center;
+    padding: 0;
+    margin: 0;
+  }
+
+  .amount-row {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 0.75rem;
     gap: 0.5rem;
   }
-  .qr-info-success .currency {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: #e8f0fe;
-    color: #3a66ff !important;
-    font-size: 0.95rem;
-    font-weight: 600;
-    border-radius: 999px;
-    padding: 0.15rem 0.75rem;
-    margin-right: 0.25rem;
-    box-shadow: 0 1px 4px rgba(58,102,255,0.07);
-    letter-spacing: 0.01em;
-  }
-  .qr-info-success .amount {
-    font-size: 2.1rem;
+
+  .amount-formatted {
+    font-size: 0.9rem;
     font-weight: 700;
-    color: var(--text-primary);
-    letter-spacing: -0.025em;
+    color: #1a1a1a;
   }
-  .qr-info-success .description {
-    font-size: 1.125rem;
-    color: var(--text-primary);
-    margin-bottom: 0.75rem;
-    font-weight: 500;
+
+  .description-card {
+    font-size: 0.85rem;
+    color: #444;
   }
-  .qr-info-success .code-id {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    font-weight: 500;
-    background: var(--surface-variant);
-    padding: 0.25rem 0.75rem;
-    border-radius: 0.5rem;
-    display: inline-block;
+
+  .tx-id-card {
+    font-size: 0.65rem;
+    color: #666;
+    font-weight: 400;
   }
-  .button-row-minimal {
+
+  .logo-section {
     display: flex;
-    justify-content: center;
-    gap: 0.75rem;
-    margin-bottom: 0.5rem;
-  }
-  .button-row-minimal .action-button {
-    border: none;
-    background: #e8f0fe;
-    padding: 0.25rem 0.75rem;
-    cursor: pointer;
-    display: inline-flex;
-    flex-direction: row;
     align-items: center;
     justify-content: center;
-    color: #3a66ff;
-    gap: 0.4rem;
-    font-weight: 600;
-    font-size: 0.98rem;
-    border-radius: 999px;
-    transition: background 0.2s, color 0.2s;
-    min-height: 32px;
-    min-width: 0;
-    box-shadow: 0 1px 4px rgba(58,102,255,0.07);
+    padding: 0 0.5rem;
+    gap: 0.25rem;
   }
-  .button-row-minimal .action-button:hover {
-    background: #d2e3fc;
-    color: #174ea6;
+
+  .logo-img {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    object-fit: cover;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   }
-  .button-row-minimal .action-button :global(svg) {
-    background: none;
-    box-shadow: none;
-    border-radius: 0;
-    padding: 0;
-    margin-right: 0.2rem;
-    width: 18px;
-    height: 18px;
-    color: inherit;
-  }
-  .button-row-minimal .action-button:hover :global(svg) {
-    transform: scale(1.07);
-    box-shadow: 0 4px 12px rgba(58, 102, 255, 0.13);
-  }
-  .qr-info-card {
-    width: 100%;
+
+  .brand-info {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    margin-top: 0.7rem;
-    gap: 0.3rem;
   }
-  .amount-row {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    margin-bottom: 0.1rem;
+
+  .brand-name {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--primary-color);
   }
-  .currency-chip {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: #e8f0fe;
-    color: #3a66ff !important;
-    font-size: 0.88rem;
-    font-weight: 600;
-    border-radius: 999px;
-    padding: 0.12rem 0.6rem;
-    box-shadow: 0 1px 4px rgba(58,102,255,0.07);
-    letter-spacing: 0.01em;
-  }
-  .amount-formatted {
-    font-size: 1.15rem;
-    font-weight: 600;
-    color: #111 !important;
-    letter-spacing: -0.025em;
-  }
-  .description-card {
-    font-size: 1.18rem;
-    color: #444 !important;
-    text-align: center;
+
+  .brand-slogan {
+    font-size: 0.65rem;
+    color: var(--text-secondary);
     font-weight: 400;
-    margin-bottom: 0.2rem;
-    margin-top: 0.2rem;
-    max-width: 95%;
-    line-height: 1.5;
-    padding: 0.3rem 0.1rem 0.5rem 0.1rem;
-  }
-  .tx-id-card {
-    font-size: 0.92rem;
-    color: #888 !important;
-    font-weight: 400;
-    margin-top: 0.1rem;
-    text-align: center;
-  }
-  .code-id-card {
-    font-size: 0.85rem;
-    color: var(--text-tertiary, #8a8a8a);
-    font-weight: 500;
-    background: var(--surface-variant);
-    padding: 0.18rem 0.7rem;
-    border-radius: 0.5rem;
-    display: inline-block;
-    margin-top: 0.1rem;
   }
 </style> 

@@ -1,0 +1,109 @@
+:root {
+  /* Colores principales - Paleta moderna para fintech */
+  --primary: 59, 130, 246; /* Azul moderno */
+  --primary-dark: 37, 99, 235;
+  --primary-light: 147, 197, 253;
+  
+  /* Colores secundarios */
+  --secondary: 16, 185, 129; /* Verde para éxito/pagos */
+  --secondary-dark: 5, 150, 105;
+  --secondary-light: 110, 231, 183;
+  
+  /* Colores de acento */
+  --accent: 245, 158, 11; /* Naranja para llamadas a la acción */
+  --accent-dark: 217, 119, 6;
+  --accent-light: 253, 224, 71;
+  
+  /* Colores adicionales modernos */
+  --purple: 139, 92, 246; /* Púrpura moderno */
+  --purple-dark: 124, 58, 237;
+  --purple-light: 196, 181, 253;
+  
+  --pink: 236, 72, 153; /* Rosa moderno */
+  --pink-dark: 219, 39, 119;
+  --pink-light: 251, 207, 232;
+  
+  --cyan: 6, 182, 212; /* Cian moderno */
+  --cyan-dark: 8, 145, 178;
+  --cyan-light: 165, 243, 252;
+  
+  --emerald: 16, 185, 129; /* Esmeralda */
+  --emerald-dark: 5, 150, 105;
+  --emerald-light: 110, 231, 183;
+  
+  /* Colores neutros */
+  --white: 255, 255, 255;
+  --black: 0, 0, 0;
+  --gray-50: 249, 250, 251;
+  --gray-100: 243, 244, 246;
+  --gray-200: 229, 231, 235;
+  --gray-300: 209, 213, 219;
+  --gray-400: 156, 163, 175;
+  --gray-500: 107, 114, 128;
+  --gray-600: 75, 85, 99;
+  --gray-700: 55, 65, 81;
+  --gray-800: 31, 41, 55;
+  --gray-900: 17, 24, 39;
+  
+  /* Colores de estado */
+  --success: 34, 197, 94;
+  --warning: 245, 158, 11;
+  --error: 239, 68, 68;
+  --info: 59, 130, 246;
+  
+  /* Espaciado básico */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space: 1rem;
+  --space-md: 1.5rem;
+  --space-lg: 2rem;
+  --space-xl: 3rem;
+  --space-2xl: 4rem;
+  --space-3xl: 6rem;
+  
+  /* Bordes redondeados básicos */
+  --radius-sm: 0.25rem;
+  --radius: 0.5rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-full: 9999px;
+  
+  /* Sombras básicas */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  
+  /* Transiciones básicas */
+  --transition: 250ms ease-in-out;
+  --transition-fast: 150ms ease-in-out;
+  
+  /* Z-index básicos */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal: 1050;
+  
+  /* Gradientes */
+  --gradient-primary: linear-gradient(135deg, rgb(var(--primary)) 0%, rgb(var(--primary-dark)) 100%);
+  --gradient-secondary: linear-gradient(135deg, rgb(var(--secondary)) 0%, rgb(var(--secondary-dark)) 100%);
+  --gradient-accent: linear-gradient(135deg, rgb(var(--accent)) 0%, rgb(var(--accent-dark)) 100%);
+  --gradient-purple: linear-gradient(135deg, rgb(var(--purple)) 0%, rgb(var(--purple-dark)) 100%);
+  --gradient-pink: linear-gradient(135deg, rgb(var(--pink)) 0%, rgb(var(--pink-dark)) 100%);
+  --gradient-cyan: linear-gradient(135deg, rgb(var(--cyan)) 0%, rgb(var(--cyan-dark)) 100%);
+  --gradient-hero: linear-gradient(135deg, rgb(var(--primary)) 0%, rgb(var(--secondary)) 100%);
+  --gradient-multi: linear-gradient(135deg, rgb(var(--primary)) 0%, rgb(var(--purple)) 50%, rgb(var(--pink)) 100%);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  color: rgb(var(--gray-900));
+  overflow-x: hidden;
+}

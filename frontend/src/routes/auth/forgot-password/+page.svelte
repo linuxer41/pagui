@@ -45,7 +45,7 @@
     </p>
   </span>
   <div class="login-form" in:fly={{ y: 24, duration: 400, delay: 300 }}>
-    <form on:submit|preventDefault={handleForgotPassword}>
+    <form on:submit|preventDefault={handleForgotPassword} style="display: flex; flex-direction: column; gap: var(--spacing-md)">
       <Input
         id="email"
         label="Email"
@@ -85,4 +85,74 @@
       </div>
     </form>
   </div>
-</AuthLayout> 
+</AuthLayout>
+
+<style>
+  .subtitle {
+    color: var(--text-secondary);
+    font-size: 1rem;
+    margin-top: var(--spacing-xs);
+    font-weight: 500;
+  }
+  
+  .login-form {
+    width: 100%;
+    margin-bottom: var(--spacing-lg);
+  }
+  
+  .form-footer {
+    display: flex;
+    justify-content: center;
+    margin-top: var(--spacing-lg);
+  }
+  
+  .error-message {
+    background-color: var(--error-bg);
+    color: var(--error-color);
+    margin: var(--spacing-md) 0;
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius-lg);
+    text-align: left;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    border: none;
+    box-shadow: var(--shadow-sm);
+  }
+  
+  .success-message {
+    background-color: var(--success-bg);
+    color: var(--success-color);
+    margin: var(--spacing-md) 0;
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius-lg);
+    text-align: left;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    border: none;
+    box-shadow: var(--shadow-sm);
+  }
+  
+  .text-link {
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    text-decoration: none;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: var(--border-radius-md);
+  }
+  
+  .text-link:hover {
+    background-color: rgba(58, 102, 255, 0.05);
+    color: var(--primary-color);
+  }
+  
+  .text-link:active {
+    background-color: rgba(58, 102, 255, 0.1);
+  }
+</style>

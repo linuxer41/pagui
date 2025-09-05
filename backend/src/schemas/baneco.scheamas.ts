@@ -6,7 +6,7 @@ import { Type as t } from '@sinclair/typebox'
 export const BANECO_PaymentQRSchema = t.Object({
   qrId: t.String({ description: 'Identificador único del QR' }),
   transactionId: t.String({ description: 'Número de transacción del banco' }),
-  paymentDate: t.String({ format: 'date-time', description: 'Fecha del pago' }),
+  paymentDate: t.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$', description: 'Fecha del pago' }),
   paymentTime: t.String({ pattern: '^\\d{2}:\\d{2}:\\d{2}$', description: 'Hora del pago (formato HH:mm:ss)' }),
   currency: t.Union([
     t.Literal('BOB'),

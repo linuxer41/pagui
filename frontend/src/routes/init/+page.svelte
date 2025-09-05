@@ -12,7 +12,6 @@
   } from '@lucide/svelte';
   import { onMount } from 'svelte';
   import { fade, fly } from 'svelte/transition';
-  import BlankLayout from '$lib/components/layouts/BlankLayout.svelte';
   
   // Lista de características del producto con descripciones más detalladas
   const features = [
@@ -40,46 +39,10 @@
   
   // Posición actual del carrusel de características
   let currentFeature = 0;
-  let touchStartX = 0;
-  let touchEndX = 0;
-  let autoRotateInterval: ReturnType<typeof setInterval>;
-
-  // Avanzar o retroceder en el carrusel de características
-  function changeFeature(direction: 'next' | 'prev'): void {
-    if (direction === 'next') {
-      currentFeature = (currentFeature + 1) % features.length;
-    } else {
-      currentFeature = (currentFeature - 1 + features.length) % features.length;
-    }
-  }
-
-  // Manejar eventos táctiles para el carrusel
-  function handleTouchStart(e: TouchEvent): void {
-    touchStartX = e.touches[0].clientX;
-    // Pausar rotación automática al interactuar
-    clearInterval(autoRotateInterval);
-  }
-
-  function handleTouchEnd(e: TouchEvent): void {
-    touchEndX = e.changedTouches[0].clientX;
-    if (touchStartX - touchEndX > 50) {
-      changeFeature('next');
-    } else if (touchEndX - touchStartX > 50) {
-      changeFeature('prev');
-    }
-    // Reanudar rotación automática después de interacción
-    startAutoRotate();
-  }
   
-  // Función para iniciar rotación automática
-  function startAutoRotate(): void {
-    // Limpiar intervalo existente si hay uno
-    if (autoRotateInterval) clearInterval(autoRotateInterval);
-    
-    // Crear nuevo intervalo
-    autoRotateInterval = setInterval(() => {
-      changeFeature('next');
-    }, 4000); // Cambiar cada 4 segundos
+  // Cambiar manualmente el carrusel
+  function selectFeature(index: number): void {
+    currentFeature = index;
   }
   
   // Estado para la barra de progreso de inicio
@@ -94,15 +57,21 @@
         clearInterval(interval);
         setTimeout(() => {
           splashComplete = true;
-          // Iniciar rotación automática cuando se complete la carga
-          startAutoRotate();
         }, 200);
       }
     }, 20);
+
+    // intervalo para cambiar el carrusel de características
+    const intervalFeature = setInterval(() => {
+      currentFeature++;
+      if (currentFeature >= features.length) {
+        currentFeature = 0;
+      }
+    }, 3000);
     
     return () => {
       clearInterval(interval);
-      clearInterval(autoRotateInterval);
+      clearInterval(intervalFeature);
     };
   });
   
@@ -127,55 +96,51 @@
   <meta name="theme-color" content="#3A66FF" />
 </svelte:head>
 
-<BlankLayout title={APP_CONFIG.appName} showBack={false}>
-  {#if !splashComplete}
-    <!-- Splash Screen -->
-    <div class="splash-screen">
-      <div class="splash-logo">
-        <img src="/favicon.png" alt="Logo" width="80" />
-      </div>
-      <h1 class="app-name">{APP_CONFIG.appName}</h1>
-      <div class="progress-container">
-        <div class="progress-bar" style="width: {progress}%"></div>
-      </div>
+{#if !splashComplete}
+  <!-- Splash Screen -->
+  <div class="splash-screen">
+    <div class="splash-logo">
+      <img src="/favicon.png" alt="Logo" width="80" />
     </div>
-  {:else}
-    <!-- App Onboarding UI -->
-    <div class="mobile-app">
-      <!-- Carrusel de características -->
-      <div 
-        class="feature-carousel" 
-        on:touchstart={handleTouchStart}
-        on:touchend={handleTouchEnd}
-        in:fly={{ y: 32, duration: 500, delay: 80 }}
-      >
-        <div class="carousel-track" style="transform: translateX(-{currentFeature * 100}%)">
-          {#each features as feature, i}
-            <div class="carousel-item" class:active={i === currentFeature}
-              in:fly={{ y: 24, duration: 400, delay: 120 + i * 80 }}
-            >
+    <h1 class="app-name">{APP_CONFIG.appName}</h1>
+    <div class="progress-container">
+      <div class="progress-bar" style="width: {progress}%"></div>
+    </div>
+  </div>
+{:else}
+  <!-- App Onboarding UI -->
+  <div class="mobile-app">
+      <!-- Carrusel de características (simplificado) -->
+      <div class="feature-carousel">
+        <!-- Muestra solo la característica actual -->
+        {#each features as feature, i}
+          {#if i === currentFeature}
+            <div class="carousel-item active" in:fly={{ x: 100, duration: 500, delay: 80 }}>
               <div class="feature-icon">
                 <svelte:component this={feature.icon} size={32} />
               </div>
               <h2>{feature.title}</h2>
               <p>{feature.description}</p>
             </div>
-          {/each}
-        </div>
+          {/if}
+        {/each}
+        
         <!-- Indicadores de paginación -->
-        <div class="carousel-indicators"
-          in:fly={{ y: 16, duration: 400, delay: 400 }}
-        >
+        <div class="carousel-indicators" in:fly={{ y: 16, duration: 400, delay: 400 }}>
           {#each features as _, i}
-            <div 
+            <button 
+              type="button"
               class="indicator" 
               class:active={i === currentFeature}
-              on:click={() => {
-                currentFeature = i;
-                clearInterval(autoRotateInterval);
-                startAutoRotate();
+              on:click={() => selectFeature(i)}
+              on:keydown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  selectFeature(i);
+                }
               }}
-            ></div>
+              aria-label={`Ver característica ${i + 1}`}
+              role="tab"
+            ></button>
           {/each}
         </div>
       </div>
@@ -205,7 +170,6 @@
       </div>
     </div>
   {/if}
-</BlankLayout>
 
 <style>
 
@@ -222,6 +186,10 @@
     align-items: center;
     justify-content: center;
     z-index: 1000;
+    max-width: 480px;
+    margin: 0 auto;
+    left: 50%;
+    transform: translateX(-50%);
   }
   
   .splash-logo {
@@ -264,42 +232,38 @@
     background-color: var(--background);
     overflow: hidden;
     animation: fadeIn 0.3s ease-out;
+    max-width: 480px;
+    margin: 0 auto;
+    left: 50%;
+    transform: translateX(-50%);
   }
   
-  /* Carrusel de características */
+  /* Carrusel de características (simplificado) */
   .feature-carousel {
     flex: 1;
-    overflow: hidden;
     position: relative;
     padding: var(--spacing-lg) var(--spacing-md);
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
     align-items: center;
     justify-content: center;
-  }
-  
-  .carousel-track {
-    display: flex;
-    width: 100%;
-    height: 70%;
-    transition: transform 0.3s ease-out;
+    place-items: center;
+    grid-template-areas:
+      "feature-icon"
+      "feature-title"
+      "feature-description";
   }
   
   .carousel-item {
-    min-width: 100%;
     padding: 0 var(--spacing-md);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     text-align: center;
-    opacity: 0.5;
-    transition: opacity 0.3s ease;
-    flex-shrink: 0;
-  }
-  
-  .carousel-item.active {
-    opacity: 1;
+    width: 100%;
+    height: auto;
   }
   
   .carousel-item h2 {
@@ -426,8 +390,6 @@
       padding: var(--spacing-md);
     }
     
-    .primary-button, .secondary-button {
-      height: 48px;
-    }
+
   }
 </style> 

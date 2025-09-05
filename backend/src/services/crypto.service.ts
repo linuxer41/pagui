@@ -63,6 +63,6 @@ export class CryptoService {
 }
 
 // Instancia con clave predeterminada para retrocompatibilidad
-const cryptoService = new CryptoService(process.env.CRYPTO_KEY || 'default-encryption-key');
+const cryptoService = new CryptoService(process.env.ENCRYPTION_KEY || 'default-encryption-key');
 
 export default cryptoService; 

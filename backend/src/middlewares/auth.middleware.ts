@@ -29,9 +29,10 @@ export interface ApiKeyInfo {
 interface JWTAuthData {
   type: 'jwt';
   user: {
+    parentUserId: number;
+    bankCredentialId: number;
     id: number;
     email: string;
-    companyId: number;
     role: string;
   };
 }
@@ -39,8 +40,10 @@ interface JWTAuthData {
 interface APIKeyAuthData {
   type: 'apikey';
   apiKeyInfo: {
-    companyId: number;
+    userId: number;
+    bankCredentialId: number;
     permissions: Record<string, any>;
+    apiKey: string;
   };
 }
 
@@ -56,15 +59,14 @@ async function verifyTokenInDatabase(token: string): Promise<boolean> {
   try {
     // Buscar el token en la base de datos
     const result = await query(`
-      SELECT id, user_id, expires_at, used_times
+      SELECT id, user_id, used_times
       FROM auth_tokens
       WHERE token = $1
       AND token_type = 'ACCESS_TOKEN'
       AND deleted_at IS NULL
-      AND expires_at > NOW()
     `, [token]);
 
-    // Si no existe el token o ha expirado
+    // Si no existe el token
     if (result.rowCount === 0) {
       return false;
     }
@@ -95,7 +97,7 @@ export function authMiddleware<T extends 'jwt' | 'apikey' | 'all'>(
     { auth: AuthData };
 
   return new Elysia({ name: 'auth' })
-    .derive(async (context): Promise<ReturnType> => {
+    .derive({as: 'scoped'}, async (context): Promise<ReturnType> => {
       try {
         // Get device information
         const ipAddress = context.request.headers.get('x-forwarded-for') || 
@@ -113,14 +115,13 @@ export function authMiddleware<T extends 'jwt' | 'apikey' | 'all'>(
           const token = authHeader.substring(7); // Remove 'Bearer ' prefix
           
           try {
-            // Verify JWT signature
-            const decodedToken = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as any;
-            
+            // Verify JWT signature and check if token is revoked
+            const decodedToken = await authService.verifyToken(token);
             // Verify if token exists in database
             const isValidInDb = await verifyTokenInDatabase(token);
             
             if (!isValidInDb) {
-              throw new ApiError('Token no encontrado en la base de datos o ha expirado', 401);
+              throw new ApiError('Token no encontrado en la base de datos', 401);
             }
             
             // Get user information
@@ -144,11 +145,9 @@ export function authMiddleware<T extends 'jwt' | 'apikey' | 'all'>(
                 ipAddress,
                 userAgent
               },
-              'INFO',
-              userInfo.companyId,
+              'info',
               userInfo.id
             );
-            
             // Return authentication data (JWT)
             return {
               auth: {
@@ -156,7 +155,8 @@ export function authMiddleware<T extends 'jwt' | 'apikey' | 'all'>(
                 user: {
                   id: userInfo.id,
                   email: userInfo.email!,
-                  companyId: userInfo.companyId!,
+                  parentUserId: userInfo.parentUserId!,
+                  bankCredentialId: userInfo.bankCredentialId!,
                   role: userInfo.role!
                 }
               }
@@ -179,7 +179,7 @@ export function authMiddleware<T extends 'jwt' | 'apikey' | 'all'>(
           // Verify API key
           const verification = await apiKeyService.verifyApiKey(apiKey);
           
-          if (verification.isValid && verification.companyId && verification.permissions) {
+          if (verification.isValid && verification.userId && verification.permissions) {
             // If admin level required, verify admin permissions in the API key
             if (options.level === 'admin' && !verification.permissions.qr_generate) {
               throw new ApiError('Se requieren permisos de administrador', 403);
@@ -194,8 +194,8 @@ export function authMiddleware<T extends 'jwt' | 'apikey' | 'all'>(
                 ipAddress,
                 userAgent
               },
-              'INFO',
-              verification.companyId
+              'info',
+              verification.userId
             );
             
             // Return authentication data (API key)
@@ -203,8 +203,10 @@ export function authMiddleware<T extends 'jwt' | 'apikey' | 'all'>(
               auth: {
                 type: 'apikey',
                 apiKeyInfo: {
-                  companyId: verification.companyId,
-                  permissions: verification.permissions
+                  userId: verification.userId,
+                  bankCredentialId: verification.bankCredentialId,
+                  permissions: verification.permissions,
+                  apiKey: apiKey // Incluir la API key original
                 }
               }
             } as unknown as ReturnType;

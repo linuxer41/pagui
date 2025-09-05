@@ -1,583 +1,516 @@
 import { query } from '../config/database';
-import jwt from 'jsonwebtoken';
-import { CryptoService } from './crypto.service';
-import { logActivity } from './monitor.service';
-import crypto from 'crypto';
+import { userService } from './user.service';
 import { ApiError } from '../utils/error';
-// Secreto para JWT
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-// Expiración del token en segundos (24 horas por defecto)
-const TOKEN_EXPIRY = parseInt(process.env.TOKEN_EXPIRY || '86400', 10);
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import { logActivity } from './monitor.service';
+import accountService from './account.service';
 
-interface UserAuth {
-  user: {
-    userId: number;
-    companyId: number;
-    email: string;
-    fullName: string;
-    role: string;
-  };
-  company: {
-    id: number;
-    name: string;
-    businessId: string;
-    contactEmail: string;
-    status: string;
-  };
-  auth: {
-    accessToken: string;
-    refreshToken: string;
-  };
-}
-
-interface UserInfo {
+export interface UserAuth {
   id: number;
   email: string;
   fullName: string;
-  companyId: number;
-  companyName?: string;
-  role: string;
-}
-
-interface User {
-  id: number;
-  email: string;
-  fullName: string;
-  role: string;
+  roleName: string;
   status: string;
-  createdAt: string;
+  accounts: Array<{
+    id: number;
+    accountNumber: string;
+    accountType: 'current' | 'savings' | 'business';
+    currency: string;
+    balance: number;
+    availableBalance: number;
+    status: 'active' | 'suspended' | 'closed';
+    isPrimary: boolean;
+  }>;
 }
 
-interface Token {
+export interface UserInfo {
   id: number;
-  tokenType: string;
-  token: string;
-  expiresAt: string;
-  usedTimes: number;
-  ipAddress?: string;
-  userAgent?: string;
-  createdAt: string;
+  email: string;
+  fullName: string;
+  businessId?: string;
+  entityType: 'company' | 'individual';
+  identificationType: string;
+  identificationNumber: string;
+  phoneNumber?: string;
+  phoneExtension?: string;
+  address?: string;
+  roleId: number;
+  roleName: string;
+  isPrimaryUser: boolean;
+  parentUserId?: number;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface User {
+  id: number;
+  email: string;
+  fullName: string;
+  businessId?: string;
+  entityType: 'company' | 'individual';
+  identificationType: string;
+  identificationNumber: string;
+  phoneNumber?: string;
+  phoneExtension?: string;
+  address?: string;
+  roleId: number;
+  roleName: string;
+  isPrimaryUser: boolean;
+  parentUserId?: number;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateUserData {
+  email: string;
+  password: string;
+  fullName: string;
+  businessId?: string;
+  entityType: 'company' | 'individual';
+  identificationType: string;
+  identificationNumber: string;
+  phoneNumber?: string;
+  phoneExtension?: string;
+  address?: string;
+  roleId: number;
+  isPrimaryUser?: boolean;
+  parentUserId?: number;
+}
+
+export interface UpdateUserData {
+  fullName?: string;
+  phoneNumber?: string;
+  phoneExtension?: string;
+  address?: string;
+  status?: string;
+}
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface RefreshTokenData {
+  refreshToken: string;
 }
 
 class AuthService {
-  private cryptoService: CryptoService;
-
-  constructor() {
-    // Inicializar el servicio de criptografía
-    this.cryptoService = new CryptoService(process.env.CRYPTO_KEY || 'default-encryption-key');
-  }
-
-  // Autenticación de usuario
-  async authenticate(email: string, password: string, ipAddress?: string, userAgent?: string): Promise<UserAuth> {
-    // Buscar usuario por email
-    const userQuery = await query(`
-      SELECT * FROM users WHERE email = $1 AND status = 'ACTIVE' AND deleted_at IS NULL`, [email]);
-    if (userQuery.rowCount === 0) {
-      throw new ApiError('Usuario no encontrado', 404);
-    }
-    const user = userQuery.rows[0];
-    // Verificar contraseña
-    const valid = await Bun.password.verify(password, user.password);
-    if (!valid) {
-      throw new ApiError('Contraseña incorrecta', 401);
-    }
-    // Generar tokens JWT reales
-    const accessToken = jwt.sign(
-      {
-        userId: user.id,
-        companyId: user.company_id,
-        email: user.email,
-        role: user.role
-      },
-      JWT_SECRET,
-      { expiresIn: TOKEN_EXPIRY }
-    );
-    const refreshToken = jwt.sign(
-      {
-        userId: user.id,
-        companyId: user.company_id,
-        email: user.email,
-        role: user.role
-      },
-      JWT_SECRET,
-      { expiresIn: '30d' }
-    );
-
-    // Guardar el access token en la base de datos
-    await this.saveAuthToken(user.id, accessToken, 'ACCESS_TOKEN', `${TOKEN_EXPIRY}s`, ipAddress, userAgent);
-    
-    // Guardar el refresh token en la base de datos
-    await this.saveAuthToken(user.id, refreshToken, 'REFRESH_TOKEN', '30d', ipAddress, userAgent);
-    
-    // Registrar actividad de login exitoso
-    await logActivity(
-      'USER_LOGIN',
-      { 
-        userId: user.id, 
-        email: user.email,
-        ipAddress,
-        userAgent
-      },
-      'INFO',
-      user.company_id,
-      user.id
-    );
-
-    // Obtener información de la empresa
-    const companyQuery = await query(`
-      SELECT id, name, business_id, contact_email, status 
-      FROM companies 
-      WHERE id = $1 AND status = 'ACTIVE' AND deleted_at IS NULL
-    `, [user.company_id]);
-    
-    if (companyQuery.rowCount === 0) {
-      throw new ApiError('Empresa no encontrada', 404);
-    }
-
-    const company = {
-      id: companyQuery.rows[0].id,
-      name: companyQuery.rows[0].name,
-      businessId: companyQuery.rows[0].business_id,
-      contactEmail: companyQuery.rows[0].contact_email,
-      status: companyQuery.rows[0].status
-    };
-    
-    return {
-      user: {
-        userId: user.id,
-        companyId: user.company_id,
-        email: user.email,
-        fullName: user.full_name,
-        role: user.role,
-      },
-      company,
-      auth: {
+  
+  // Autenticar usuario
+  async authenticate(credentials: LoginCredentials): Promise<{ user: UserAuth; accessToken: string; refreshToken: string }> {
+    try {
+      // Buscar usuario por email
+      const user = await userService.getUserByEmail(credentials.email);
+      
+      if (!user) {
+        throw new ApiError('Credenciales inválidas', 401);
+      }
+      
+      if (user.status !== 'active') {
+        throw new ApiError('Usuario inactivo o suspendido', 401);
+      }
+      
+      // Verificar contraseña - necesitamos obtener la contraseña hasheada
+      const userWithPassword = await query(`
+        SELECT password FROM users WHERE id = $1
+      `, [user.id]);
+      
+      if (userWithPassword.rowCount === 0) {
+        throw new ApiError('Error interno del sistema', 500);
+      }
+      
+      const isValidPassword = await bcrypt.compare(credentials.password, userWithPassword.rows[0].password);
+      
+      if (!isValidPassword) {
+        throw new ApiError('Credenciales inválidas', 401);
+      }
+      
+      // Obtener cuentas del usuario
+      const userAccounts = await accountService.getUserAccounts(user.id);
+      
+      // Generar tokens
+      const { token: accessToken, expiresIn } = this.generateAccessToken(user);
+      const { token: refreshToken, expiresIn: refreshExpiresIn } = this.generateRefreshToken(user.id);
+      
+      // Guardar access token
+      await this.saveAccessToken(user.id, accessToken, expiresIn);
+      
+      // Guardar refresh token
+      await this.saveRefreshToken(user.id, refreshToken, refreshExpiresIn);
+      
+      // Registrar actividad de login
+      await logActivity(
+        'USER_LOGIN',
+        {
+          userId: user.id,
+          email: user.email,
+          ip: 'unknown' // Se puede obtener del request
+        },
+        'info',
+        user.id
+      );
+      
+      return {
+        user: {
+          id: user.id,
+          email: user.email,
+          fullName: user.fullName,
+          roleName: user.roleName,
+          status: user.status,
+          accounts: userAccounts.map(account => ({
+            id: account.id,
+            accountNumber: account.accountNumber,
+            accountType: account.accountType,
+            currency: account.currency,
+            balance: account.balance,
+            availableBalance: account.availableBalance,
+            status: account.status,
+            isPrimary: account.isPrimary
+          }))
+        },
         accessToken,
         refreshToken
-      }
+      };
+      
+    } catch (error) {
+      throw error;
+    }
+  }
+  
+  // Generar token de acceso
+  private generateAccessToken(user: User): { token: string, expiresIn: string } {
+    const payload = {
+      userId: user.id,
+      email: user.email,
+      roleName: user.roleName,
+      isPrimaryUser: user.isPrimaryUser,
+      parentUserId: user.parentUserId,
+      entityType: user.entityType,
+      businessId: user.businessId
+    };
+    
+    const secret = process.env.JWT_SECRET || 'your-secret-key';
+    const expiresIn = process.env.JWT_EXPIRES_IN || '24h';
+    
+    return {
+      token: jwt.sign(payload, secret, { expiresIn: expiresIn as any }),
+      expiresIn: expiresIn
     };
   }
-
-  // Guardar token de autenticación
-  private async saveAuthToken(
-    userId: number,
-    token: string,
-    tokenType: string,
-    expiresIn: string,
-    ipAddress?: string,
-    userAgent?: string
-  ): Promise<void> {
-    // Calcular la fecha de expiración
-    const expiryDate = new Date();
-    const unit = expiresIn.charAt(expiresIn.length - 1);
-    const value = parseInt(expiresIn.slice(0, -1), 10);
-
-    if (unit === 'd') {
-      expiryDate.setDate(expiryDate.getDate() + value);
-    } else if (unit === 'h') {
-      expiryDate.setHours(expiryDate.getHours() + value);
-    } else if (unit === 'm') {
-      expiryDate.setMinutes(expiryDate.getMinutes() + value);
-    } else {
-      // Si no se reconoce la unidad, asumimos segundos
-      expiryDate.setSeconds(expiryDate.getSeconds() + parseInt(expiresIn, 10));
+  
+  // Generar refresh token
+  private generateRefreshToken(userId: number): { token: string, expiresIn: string } {
+    const payload = { userId, type: 'refresh' };
+    const secret = process.env.JWT_REFRESH_SECRET || 'your-refresh-secret-key';
+    const expiresIn = '30d';
+    
+    return {
+      token: jwt.sign(payload, secret, { expiresIn: expiresIn as any }),
+      expiresIn: expiresIn
+    };
+  }
+  
+  // Guardar access token
+  private async saveAccessToken(userId: number, token: string, expiresIn: string): Promise<void> {
+    try {
+      console.log('💾 Guardando access token para usuario:', userId);
+      
+      // Insertar el nuevo token directamente
+      console.log('➕ Insertando nuevo token...');
+      const insertResult = await query(`
+        INSERT INTO auth_tokens (user_id, token_type, token)
+        VALUES ($1, 'ACCESS_TOKEN', $2)
+        RETURNING id
+      `, [userId, token]);
+      console.log('✅ Token insertado con ID:', insertResult.rows[0]?.id);
+      
+    } catch (error) {
+      console.error('❌ Error al guardar access token:', error);
+      // No re-lanzar el error para evitar que falle el login
+      console.log('⚠️ Continuando sin guardar access token...');
     }
-
-    // Extraer información del dispositivo del user-agent
-    let deviceInfo = 'Unknown Device';
-    if (userAgent) {
-      if (userAgent.includes('iPhone') || userAgent.includes('iPad')) {
-        deviceInfo = 'iOS Device';
-      } else if (userAgent.includes('Android')) {
-        deviceInfo = 'Android Device';
-      } else if (userAgent.includes('Windows')) {
-        deviceInfo = 'Windows Device';
-      } else if (userAgent.includes('Mac OS')) {
-        deviceInfo = 'Mac Device';
-      } else if (userAgent.includes('Linux')) {
-        deviceInfo = 'Linux Device';
-      }
-    }
-
-    // Insertar en la tabla auth_tokens
-    await query(`
-      INSERT INTO auth_tokens 
-      (user_id, token_type, token, expires_at, ip_address, user_agent) 
-      VALUES ($1, $2, $3, $4, $5, $6)`,
-      [userId, tokenType, token, expiryDate, ipAddress || null, userAgent ? `${userAgent} | ${deviceInfo}` : null]
-    );
   }
 
-  // Verificar validez de un token
-  async verifyToken(token: string): Promise<boolean> {
+  // Guardar refresh token
+  private async saveRefreshToken(userId: number, token: string, expiresIn: string): Promise<void> {
     try {
-      jwt.verify(token, JWT_SECRET);
-      return true;
+      await query(`
+        INSERT INTO auth_tokens (user_id, token_type, token)
+        VALUES ($1, 'REFRESH_TOKEN', $2)
+        ON CONFLICT (user_id, token_type) 
+        DO UPDATE SET token = $2, updated_at = CURRENT_TIMESTAMP
+      `, [userId, token]);
+      
+    } catch (error) {
+      console.error('Error al guardar refresh token:', error);
+    }
+  }
+  
+  // Verificar refresh token
+  async verifyRefreshToken(refreshToken: string): Promise<{ user: UserAuth; accessToken: string; newRefreshToken: string }> {
+    try {
+      const secret = process.env.JWT_REFRESH_SECRET || 'your-refresh-secret-key';
+      const decoded = jwt.verify(refreshToken, secret) as any;
+      
+      if (decoded.type !== 'refresh') {
+        throw new ApiError('Token inválido', 401);
+      }
+      
+      // Verificar que el token existe en la base de datos
+      const tokenResult = await query(`
+        SELECT user_id FROM auth_tokens 
+        WHERE token = $1 AND token_type = 'REFRESH_TOKEN'
+      `, [refreshToken]);
+      
+      if (tokenResult.rowCount === 0) {
+        throw new ApiError('Token expirado o inválido', 401);
+      }
+      
+      const userId = decoded.userId;
+      const user = await userService.getUserById(userId);
+      
+      if (!user || user.status !== 'active') {
+        throw new ApiError('Usuario no encontrado o inactivo', 401);
+      }
+      
+      // Generar nuevos tokens
+      const { token: accessToken } = this.generateAccessToken(user);
+      const { token: newRefreshToken, expiresIn: newRefreshExpiresIn } = this.generateRefreshToken(userId);
+      
+      // Actualizar refresh token
+      await this.saveRefreshToken(userId, newRefreshToken, newRefreshExpiresIn);
+      
+      // Revocar token anterior
+      await this.revokeRefreshToken(refreshToken);
+      
+      return {
+        user: {
+          id: user.id,
+          email: user.email,
+          fullName: user.fullName,
+          roleName: user.roleName,
+          status: user.status,
+          accounts: []
+        },
+        accessToken,
+        newRefreshToken
+      };
+      
+    } catch (error) {
+      throw error;
+    }
+  }
+  
+  // Revocar refresh token
+  async revokeRefreshToken(token: string): Promise<void> {
+    try {
+      await query(`
+        DELETE FROM auth_tokens 
+        WHERE token = $1 AND token_type = 'REFRESH_TOKEN'
+      `, [token]);
+      
+    } catch (error) {
+      console.error('Error al revocar refresh token:', error);
+    }
+  }
+
+  // Revocar access token
+  async revokeAccessToken(token: string): Promise<void> {
+    try {
+      await query(`
+        DELETE FROM auth_tokens 
+        WHERE token = $1 AND token_type = 'ACCESS_TOKEN'
+      `, [token]);
+      
+    } catch (error) {
+      console.error('Error al revocar access token:', error);
+    }
+  }
+
+  // Revocar todos los tokens de un usuario
+  async revokeAllUserTokens(userId: number): Promise<void> {
+    try {
+      await query(`
+        DELETE FROM auth_tokens 
+        WHERE user_id = $1
+      `, [userId]);
+      
+    } catch (error) {
+      console.error('Error al revocar tokens del usuario:', error);
+    }
+  }
+  
+  // Limpiar tokens expirados ya no es necesario
+  // Los tokens JWT se verifican automáticamente por expiración
+  async cleanupExpiredTokens(): Promise<void> {
+    try {
+      // Solo limpiar tokens que puedan estar en estado inconsistente
+      // Los tokens expirados se manejan automáticamente por JWT
+      console.log('ℹ️ Limpieza de tokens no requerida - JWT maneja expiración automáticamente');
+      
+    } catch (error) {
+      console.error('Error en limpieza de tokens:', error);
+    }
+  }
+  
+  // Crear usuario
+  async createUser(userData: CreateUserData): Promise<User> {
+    try {
+      return await userService.createUser(userData);
+    } catch (error) {
+      throw error;
+    }
+  }
+  
+  // Obtener usuario por ID
+  async getUserById(userId: number): Promise<User | null> {
+    try {
+      return await userService.getUserById(userId);
+    } catch (error) {
+      throw error;
+    }
+  }
+  
+  // Obtener usuarios por empresa (usuario principal)
+  async getUsersByCompany(primaryUserId: number): Promise<User[]> {
+    try {
+      const primaryUser = await userService.getUserById(primaryUserId);
+      
+      if (!primaryUser || !primaryUser.isPrimaryUser) {
+        throw new ApiError('Usuario no es principal de empresa', 400);
+      }
+      
+      const employees = await userService.getEmployeeUsers(primaryUserId);
+      return [primaryUser, ...employees];
+      
+    } catch (error) {
+      throw error;
+    }
+  }
+  
+  // Actualizar usuario
+  async updateUser(userId: number, updateData: UpdateUserData): Promise<User> {
+    try {
+      return await userService.updateUser(userId, updateData);
+    } catch (error) {
+      throw error;
+    }
+  }
+  
+  // Cambiar contraseña de usuario
+  async changeUserPassword(userId: number, newPassword: string): Promise<boolean> {
+    try {
+      return await userService.changeUserPassword(userId, newPassword);
+    } catch (error) {
+      throw error;
+    }
+  }
+  
+  // Eliminar usuario
+  async deleteUser(userId: number): Promise<boolean> {
+    try {
+      return await userService.deleteUser(userId);
+    } catch (error) {
+      throw error;
+    }
+  }
+  
+  // Verificar si puede crear empleados
+  async canCreateEmployees(userId: number): Promise<boolean> {
+    try {
+      return await userService.canCreateEmployees(userId);
     } catch (error) {
       return false;
     }
   }
-
-  // Cambiar contraseña
-  async changePassword(
-    userId: number,
-    currentPassword: string,
-    newPassword: string
-  ): Promise<void> {
-    // Obtener usuario actual
-    const userResult = await query(
-      'SELECT id, email, password, company_id FROM users WHERE id = $1 AND deleted_at IS NULL',
-      [userId]
-    );
-
-    if (userResult.rowCount === 0) {
-      throw new ApiError('Usuario no encontrado', 404);
+  
+  // Obtener empleados
+  async getEmployeeUsers(primaryUserId: number): Promise<User[]> {
+    try {
+      return await userService.getEmployeeUsers(primaryUserId);
+    } catch (error) {
+      throw error;
     }
-
-    const user = userResult.rows[0];
-
-    // Verificar contraseña actual
-    const isValidPassword = await Bun.password.verify(currentPassword, user.password);
-
-    if (!isValidPassword) {
-      await logActivity(
-        'PASSWORD_CHANGE_FAILED',
-        { userId, reason: 'INVALID_CURRENT_PASSWORD' },
-        'ERROR',
-        user.company_id,
-        userId
-      );
+  }
+  
+  // Verificar token JWT
+  async verifyToken(token: string): Promise<any> {
+    try {
+      const secret = process.env.JWT_SECRET || 'your-secret-key';
+      const decoded = jwt.verify(token, secret);
       
-      throw new ApiError('Contraseña actual incorrecta', 401);
-    }
-
-    // Hash de la nueva contraseña
-    const hashedPassword = await Bun.password.hash(newPassword, {
-      algorithm: 'bcrypt',
-      cost: 10
-    });
-
-    // Actualizar contraseña
-    await query(
-      'UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-      [hashedPassword, userId]
-    );
-
-    // Registrar cambio de contraseña exitoso
-    await logActivity(
-      'PASSWORD_CHANGED',
-      { userId },
-      'INFO',
-      user.company_id,
-      userId
-    );
-  }
-
-  // Solicitar restablecimiento de contraseña
-  async requestPasswordReset(email: string, ipAddress?: string, userAgent?: string): Promise<{ token: string }> {
-    // Verificar si el usuario existe
-    const userResult = await query(
-      'SELECT id, email, company_id FROM users WHERE email = $1 AND status = \'ACTIVE\' AND deleted_at IS NULL',
-      [email]
-    );
-
-    if (userResult.rowCount === 0) {
-      // No revelamos si el usuario existe o no por seguridad
-      throw new ApiError('Si el correo existe, recibirá instrucciones para restablecer su contraseña', 404);
-    }
-
-    const user = userResult.rows[0];
-    
-    // Generar token aleatorio
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    
-    // Guardar token en la base de datos
-    await this.saveAuthToken(user.id, resetToken, 'PASSWORD_RESET', '24h', ipAddress, userAgent);
-    
-    // Aquí se enviaría un correo electrónico con el token
-    // Por ahora solo registramos el evento
-    await logActivity(
-      'PASSWORD_RESET_REQUESTED',
-      { userId: user.id, email: user.email, ipAddress, userAgent },
-      'INFO',
-      user.company_id,
-      user.id
-    );
-
-    return { token: resetToken };
-  }
-
-  // Restablecer contraseña con token
-  async resetPassword(token: string, newPassword: string, ipAddress?: string, userAgent?: string): Promise<void> {
-    // Buscar el token en la base de datos
-    const tokenResult = await query(
-      `SELECT auth_tokens.id, auth_tokens.user_id, auth_tokens.expires_at, auth_tokens.used_times,
-              users.email, users.company_id
-        FROM auth_tokens 
-        JOIN users ON auth_tokens.user_id = users.id
-        WHERE auth_tokens.token = $1 
-        AND auth_tokens.token_type = 'PASSWORD_RESET'
-        AND auth_tokens.deleted_at IS NULL
-        AND users.status = 'ACTIVE'
-        AND users.deleted_at IS NULL`,
-      [token]
-    );
-
-    if (tokenResult.rowCount === 0) {
-      throw new ApiError('Token inválido o expirado', 400);
-    }
-
-    const tokenData = tokenResult.rows[0];
-
-    // Verificar si el token ya fue usado
-    if (tokenData.used_times > 0) {
-      throw new ApiError('Este token ya ha sido utilizado', 400);
-    }
-
-    // Verificar si el token ha expirado
-    if (new Date(tokenData.expires_at) < new Date()) {
-      throw new ApiError('El token ha expirado', 400);
-    }
-
-    // Hash de la nueva contraseña
-    const hashedPassword = await Bun.password.hash(newPassword, {
-      algorithm: 'bcrypt',
-      cost: 10
-    });
-
-    // Actualizar contraseña
-    await query(
-      'UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-      [hashedPassword, tokenData.user_id]
-    );
-
-    // Incrementar el contador de usos del token
-    await query(
-      'UPDATE auth_tokens SET used_times = used_times + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
-      [tokenData.id]
-    );
-
-    // Registrar cambio de contraseña exitoso
-    await logActivity(
-      'PASSWORD_RESET_COMPLETED',
-      { userId: tokenData.user_id, ipAddress, userAgent },
-      'INFO',
-      tokenData.company_id,
-      tokenData.user_id
-    );
-  }
-
-  // Encriptar un texto
-  encryptText(text: string, aesKey: string): string {
-    try {
-      return this.cryptoService.encrypt(text, aesKey);
+      // Verificar que el token no esté revocado en la base de datos
+      if (!(await this.isTokenRevoked(token))) {
+        return decoded;
+      }
+      
+      throw new ApiError('Token revocado', 401);
     } catch (error) {
-      throw new ApiError('Error al encriptar el texto', 500);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError('Token inválido o expirado', 401);
     }
   }
 
-  // Desencriptar un texto
-  decryptText(encryptedText: string, aesKey: string): string {
+  // Verificar si un token está revocado (eliminado de la base de datos)
+  private async isTokenRevoked(token: string): Promise<boolean> {
     try {
-      return this.cryptoService.decrypt(encryptedText, aesKey);
+      const result = await query(`
+        SELECT id FROM auth_tokens 
+        WHERE token = $1
+      `, [token]);
+      
+      return result.rowCount === 0;
     } catch (error) {
-      throw new ApiError('Error al desencriptar el texto', 500);
+      console.error('Error verificando revocación de token:', error);
+      return true; // Si hay error, considerar como revocado por seguridad
     }
   }
-  
-  // Decodificar token JWT
-  decodeJwt(token: string): any {
+
+  // Obtener información del usuario por email (para el middleware)
+  async getUserInfo(email: string): Promise<{
+    id: number;
+    email: string;
+    parentUserId: number;
+    role: string;
+    bankCredentialId: number;
+  } | null> {
     try {
-      return jwt.verify(token, JWT_SECRET);
+      const user = await userService.getUserByEmail(email);
+      
+      if (!user) {
+        return null;
+      }
+
+      // Para usuarios individuales, usar su propio ID como companyId
+      // Para usuarios de empresa, usar su businessId o ID
+      let parentUserId = user.id; // Por defecto, usar su propio ID
+      
+      if (user.entityType === 'company') {
+        // Si es una empresa, usar su ID como companyId
+        parentUserId = user.id;
+      } else if (user.parentUserId) {
+        // Si es un empleado, usar el ID de su empresa padre
+        parentUserId = user.parentUserId;
+      }
+
+      return {
+        id: user.id,
+        email: user.email,
+        parentUserId: parentUserId,
+        role: user.roleName,
+        bankCredentialId: user.bankCredentialId || 0
+      };
     } catch (error) {
-      throw new ApiError('Token inválido', 400);
+      console.error('Error obteniendo información del usuario:', error);
+      return null;
     }
-  }
-  
-  // Crear un nuevo usuario
-  async createUser(
-    userData: {
-      email: string;
-      password: string;
-      fullName: string;
-      companyId: number;
-      role: string;
-    },
-    creatorId?: number
-  ): Promise<UserInfo> {
-    // Verificar si el usuario ya existe
-    const existingCheck = await query(
-      'SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL',
-      [userData.email]
-    );
-    
-    if (existingCheck.rowCount && existingCheck.rowCount > 0) {
-      throw new ApiError(`El usuario ${userData.email} ya existe`, 400);
-    }
-    
-    // Verificar que la empresa exista
-    const companyCheck = await query(
-      'SELECT id FROM companies WHERE id = $1 AND deleted_at IS NULL',
-      [userData.companyId]
-    );
-    
-    if (companyCheck.rowCount === 0) {
-      throw new ApiError('La empresa especificada no existe', 400);
-    }
-    
-    // Hash de la contraseña
-    const hashedPassword = await Bun.password.hash(userData.password, {
-      algorithm: 'bcrypt',
-      cost: 10
-    });
-    
-    // Insertar nuevo usuario
-    const userResult = await query(
-      `INSERT INTO users (
-        email, password, full_name, company_id, role
-      ) VALUES ($1, $2, $3, $4, $5) RETURNING id, email`,
-      [
-        userData.email,
-        hashedPassword,
-        userData.fullName,
-        userData.companyId,
-        userData.role
-      ]
-    );
-    
-    if (userResult.rowCount === 0) {
-      throw new ApiError('Error al crear el usuario', 500);
-    }
-    
-    const newUser = userResult.rows[0];
-    
-    // Registrar la creación del usuario
-    await logActivity(
-      'USER_CREATED',
-      { 
-        userId: newUser.id, 
-        email: newUser.email,
-        createdBy: creatorId || null
-      },
-      'INFO',
-      userData.companyId,
-      creatorId
-    );
-    
-    return {
-      id: newUser.id,
-      email: newUser.email,
-      fullName: userData.fullName,
-      companyId: userData.companyId,
-      role: userData.role
-    };
-  }
-  
-  // Obtener información de un usuario
-  async getUserInfo(email: string): Promise<UserInfo> {
-    const result = await query(`
-      SELECT 
-        u.id, 
-        u.email, 
-        u.full_name, 
-        u.company_id, 
-        c.name as company_name,
-        r.name as role
-      FROM users u
-      INNER JOIN roles r ON u.role_id = r.id
-      INNER JOIN company_bank cb ON u.company_id = cb.company_id
-      LEFT JOIN companies c ON cb.company_id = c.id
-      WHERE u.email = $1 AND u.status = 'ACTIVE' AND u.deleted_at IS NULL
-    `, [email]);
-    
-    if (result.rowCount === 0) {
-      throw new ApiError('Usuario no encontrado', 404);
-    }
-    
-    const user = result.rows[0];
-    
-    return {
-      id: user.id,
-      email: user.email,
-      fullName: user.full_name,
-      companyId: user.company_id,
-      companyName: user.company_name,
-      role: user.role,
-    };
-  }
-  
-  // Listar usuarios de una empresa
-  async listUsers(companyId: number): Promise<User[]> {
-    const result = await query(`
-      SELECT 
-        id, 
-        email, 
-        full_name, 
-        role, 
-        status, 
-        created_at
-      FROM users
-      WHERE company_id = $1 AND deleted_at IS NULL
-      ORDER BY email
-    `, [companyId]);
-    
-    return result.rows.map(user => ({
-      id: user.id,
-      email: user.email,
-      fullName: user.full_name,
-      role: user.role,
-      status: user.status,
-      createdAt: user.created_at
-    }));
-  }
-
-  // Obtener todos los tokens de un usuario
-  async getUserTokens(userId: number): Promise<Token[]> {
-    const result = await query(`
-      SELECT 
-        id,
-        token_type,
-        token,
-        expires_at,
-        used_times,
-        ip_address,
-        user_agent,
-        created_at
-      FROM auth_tokens
-      WHERE user_id = $1 AND deleted_at IS NULL
-      ORDER BY created_at DESC
-    `, [userId]);
-    
-    return result.rows.map(token => ({
-      id: token.id,
-      tokenType: token.token_type,
-      token: token.token,
-      expiresAt: token.expires_at,
-      usedTimes: token.used_times,
-      ipAddress: token.ip_address,
-      userAgent: token.user_agent,
-      createdAt: token.created_at
-    }));
-  }
-
-  // Revocar un token específico
-  async revokeToken(tokenId: number): Promise<void> {
-    await query(`
-      UPDATE auth_tokens 
-      SET deleted_at = CURRENT_TIMESTAMP, used_times = used_times + 1
-      WHERE id = $1
-    `, [tokenId]);
-  }
-
-  // Revocar todos los tokens de un usuario (logout de todos los dispositivos)
-  async revokeAllUserTokens(userId: number): Promise<void> {
-    await query(`
-      UPDATE auth_tokens 
-      SET deleted_at = CURRENT_TIMESTAMP, used_times = used_times + 1
-      WHERE user_id = $1 AND deleted_at IS NULL
-    `, [userId]);
   }
 }
 
-const authService = new AuthService();
-export {authService};
+export const authService = new AuthService();
+export default authService;

@@ -51,6 +51,11 @@ async function migrateDB(reset: boolean = false) {
       // read schema.sql
       const schema = readFileSync('schema.sql', 'utf8');
       await pool.query(schema);
+    } else {
+      // Forzar actualización del esquema para aplicar los nuevos estados
+      console.log('🔄 Actualizando esquema existente...');
+      const schema = readFileSync('schema.sql', 'utf8');
+      await pool.query(schema);
     }
 
     console.log('✅ Base de datos inicializada correctamente');

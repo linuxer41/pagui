@@ -37,9 +37,13 @@ export class BanecoApi {
   async encryptText(text: string, aesKey?: string): Promise<string> {
     const key = aesKey || this.aesKey;
     const url = `${this.apiBaseUrl}api/authentication/encrypt?text=${encodeURIComponent(text)}&aesKey=${key}`;
+    // const url = `${this.apiBaseUrl}api/authentication/encrypt?text=${text}&aesKey=${key}`;
     console.log({url});
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: {'Content-Type': 'application/json'}
+      });
  
       if (!res.ok) {
         throw new Error(`Error al encriptar texto: ${await res.text() || 'Error desconocido'}`);
@@ -60,16 +64,19 @@ export class BanecoApi {
    */
   async getToken(username: string, passwordPlain: string): Promise<Static<typeof BANECO_AuthResponseSchema>["token"]> {
     try {
-      // const encryptedPassword = await this.encryptText(passwordPlain);
-      const encryptedPassword = 'zJDKXV7e4eGwVsMaoko3X26URZsqOnS8+GrN7IpMACo=';
+      const encryptedPassword = await this.encryptText(passwordPlain);
+      // const encryptedPassword = 'zJDKXV7e4eGwVsMaoko3X26URZsqOnS8+GrN7IpMACo=';
+      console.log({encryptedPassword, username, passwordPlain });
       const url = `${this.apiBaseUrl}api/authentication/authenticate`;
-      
+      console.log({url});
+      console.log({body: JSON.stringify({ userName: username.replace("A",""), password: encryptedPassword })});
       
       const res = await fetch(url, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ userName: username, password: encryptedPassword })
       });
+      console.log({res});
       if (!res.ok) {
         throw new Error(`Error de autenticación: ${await res.text() || 'Error desconocido'}`);
       }
@@ -111,8 +118,9 @@ export class BanecoApi {
     } = {}
   ): Promise<Static<typeof BANECO_QRGenerateResponseSchema>> {
     try {
-      // const encryptedAccount = await this.encryptText(accountNumber);
-      const encryptedAccount = 'BOKX0peo3gNrcyilUO5PhycenJ8Q9enImYSXtJL0ukg=';
+      const encryptedAccount = await this.encryptText(accountNumber);
+      console.log({encryptedAccount, accountNumber });
+      // const encryptedAccount = 'BOKX0peo3gNrcyilUO5PhycenJ8Q9enImYSXtJL0ukg=';
       const payload: Static<typeof BANECO_QRGenerateRequestSchema> = {
         transactionId,
         accountCredit: encryptedAccount,

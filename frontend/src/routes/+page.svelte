@@ -1,27 +1,22 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import type { Transaction } from '$lib/api';
   import api from '$lib/api';
-  import MainPage from '$lib/components/layouts/MainPage.svelte';
-  import { auth } from '$lib/stores/auth';
   import {
       ArrowDownLeft,
       ArrowUpRight,
-      BarChart3,
       Calendar,
       CalendarDays,
       ChevronRight,
+      ClipboardList,
       Clock,
-      Plus,
       QrCode,
-      RefreshCw,
-      Send,
-      Wallet
+      RefreshCw
   } from '@lucide/svelte';
   import { onMount } from 'svelte';
-  import { fade, fly, scale } from 'svelte/transition';
-  import { tweened } from 'svelte/motion';
   import { cubicOut } from 'svelte/easing';
-  import type { Transaction } from '$lib/api';
+  import { tweened } from 'svelte/motion';
+  import { fade, fly, scale } from 'svelte/transition';
 
   // Variables para estadísticas y datos de la billetera
   let stats = {
@@ -150,17 +145,35 @@
   $: if (wallet.balance !== $animatedBalance) {
     animatedBalance.set(wallet.balance);
   }
+
 </script>
 
-<MainPage ignoreSafeArea>
-  <!-- Encabezado con saldo principal -->
-  <div class="wallet-header" in:fly={{ y: -40, duration: 500 }}>
-    <div class="balance-section">
-      <p class="balance-label" in:fade={{ duration: 400 }}>Saldo disponible</p>
-      <div class="balance-refresh">
-        <h1 class="balance-amount" in:scale={{ duration: 500, start: 0.8 }}>
+<!-- Estructura básica de la página principal -->
+<div class="unified-layout safe-area-top">
+  <!-- Header principal fijo con saldo y opciones -->
+  <header class="main-header">
+    <div class="header-top">
+      <div class="logo-container">
+        <img src="/favicon.png" alt="Logo" width="30" />
+        <h2>Pagui</h2>
+      </div>
+      
+      <div class="header-actions">
+        <button class="header-action-button" on:click={() => goto('/profile')}>
+          <div class="user-avatar">
+            P
+          </div>
+        </button>
+      </div>
+    </div>
+    
+    <!-- Saldo disponible en el header -->
+    <div class="header-balance" in:fly={{ y: -20, duration: 500 }}>
+      <div class="balance-content">
+        <p class="balance-label" in:fade={{ duration: 400 }}>Saldo disponible</p>
+        <h1 class="balance-amount" in:scale={{ duration: 500, start: 0.9 }}>
           <span class="currency-symbol">{wallet.currency}</span>
-          <span in:scale={{ duration: 600, easing: cubicOut }}>
+          <span class="balance-value" in:scale={{ duration: 600, easing: cubicOut }}>
             {#if $animatedBalance !== undefined}
               {formatCurrency($animatedBalance)}
             {:else}
@@ -170,22 +183,27 @@
         </h1>
       </div>
     </div>
-    <!-- Acciones rápidas tipo barra moderna -->
-    <div class="quick-actions" in:fly={{ y: 30, duration: 500, delay: 100 }}>
-      <button class="action-bar-button" on:click={handleGenerarQR} in:scale={{ duration: 400, delay: 100 }}>
-        <span class="action-icon"><QrCode size={16} /></span>
-        Cobrar
+    
+    <!-- Acciones principales -->
+    <div class="header-actions-bar">
+      <button class="header-action-pill" on:click={handleGenerarQR}>
+        <span class="action-icon">
+          <QrCode size={18} strokeWidth={2} />
+        </span>
+        <span>Cobrar</span>
       </button>
-      <button class="action-bar-button" in:scale={{ duration: 400, delay: 200 }}>
-        <span class="action-icon"><Send size={16} /></span>
-        Enviar
-      </button>
-      <button class="action-bar-button" on:click={handleVerPagos} in:scale={{ duration: 400, delay: 300 }}>
-        <span class="action-icon"><BarChart3 size={16} /></span>
-        Historial
+      
+      <button class="header-action-pill" on:click={handleVerPagos}>
+        <span class="action-icon">
+          <ClipboardList size={18} strokeWidth={2} />
+        </span>
+        <span>Historial</span>
       </button>
     </div>
-  </div>
+  </header>
+
+  <!-- Contenido principal -->
+  <div class="main-content">
   <!-- Sección de Resumen de Recaudaciones -->
   <div class="section collections-section" in:fade={{ duration: 500 }}>
     <div class="section-header compact-header">
@@ -280,51 +298,150 @@
       {/if}
     </div>
   </div>
-</MainPage>
+  </div>
+</div>
 
 <style>
+  /* Estilos para la estructura básica */
+  .unified-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    height: 100dvh;
+    width: 100%;
+    background-color: var(--background);
+  }
   
-  .wallet-header {
-    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
-    padding: 1.2rem 1rem 1.2rem;
-    color: white;
-    margin-bottom: 1.5rem;
-    padding-top: max(1.2rem, calc(constant(safe-area-inset-top) + 1.2rem));
-    padding-top: max(1.2rem, calc(env(safe-area-inset-top) + 1.2rem));
+  /* Header principal fijo con saldo */
+  .main-header {
+    display: flex;
+    flex-direction: column;
+    padding: 0.75rem 1rem 0.5rem;
+    background-color: var(--background);
+    z-index: 100;
     position: sticky;
     top: 0;
-    z-index: 100;
-    border-radius: 0 0 1.2rem 1.2rem;
-    box-shadow: 0 6px 32px 0 rgba(58,102,255,0.10);
-    overflow: visible;
-    min-height: 120px;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 1.2rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
   }
-  .balance-section {
-    text-align: center;
-    margin-bottom: 0.5rem;
+  
+  .header-top {
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+  }
+  
+  .logo-container {
+    display: flex;
     align-items: center;
     gap: 0.5rem;
   }
-  .balance-label {
-    font-size: 0.8rem;
-    opacity: 0.8;
-    margin: 0 0 0.25rem;
-    font-weight: 500;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    color: white;
+  
+  .logo-container h2 {
+    font-size: 1rem;
+    margin: 0;
+    color: var(--text-primary);
+    font-weight: 600;
+    letter-spacing: -0.01em;
   }
-  .balance-refresh {
+  
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  
+  .header-action-button {
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+  
+  .user-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: var(--border-radius-full);
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+    color: white;
     display: flex;
     align-items: center;
     justify-content: center;
+    font-weight: 600;
+    font-size: 0.9rem;
+    box-shadow: 0 2px 6px rgba(58, 102, 255, 0.2);
   }
+  
+  /* Saldo en el header */
+  .header-balance {
+    text-align: center;
+    margin-bottom: 0.75rem;
+  }
+  
+  /* Barra de acciones */
+  .header-actions-bar {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin: 0.75rem 0 0.5rem;
+  }
+  
+  .header-action-pill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem;
+    background: var(--primary-color);
+    border: none;
+    border-radius: var(--border-radius-lg);
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 600;
+    gap: 0.5rem;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    min-width: 110px;
+    box-shadow: 0 2px 8px rgba(58, 102, 255, 0.2);
+  }
+  
+  .header-action-pill:hover {
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(58, 102, 255, 0.3);
+  }
+  
+  .header-action-pill:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 4px rgba(58, 102, 255, 0.2);
+  }
+  
+  /* Contenido principal */
+  .main-content {
+    flex: 1;
+    width: 100%;
+    margin: auto;
+    max-width: 480px;
+    overflow-y: auto;
+    padding: 0.75rem 0.75rem 1.5rem;
+  }
+  
+  /* Estilos para el balance en el header */
+  .balance-content {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .balance-label {
+    font-size: 0.75rem;
+    margin: 0 0 0.25rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+  
   .balance-amount {
     font-size: 1.75rem;
     font-weight: 700;
@@ -334,100 +451,41 @@
     display: flex;
     align-items: baseline;
     gap: 0.3rem;
-    color: white;
   }
+  
+  .balance-value {
+    color: var(--primary-color);
+  }
+  
   .currency-symbol {
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 500;
     margin-right: 0.1rem;
-    opacity: 0.7;
-    color: white;
+    color: var(--text-secondary);
   }
-  .refresh-button {
-    background: rgba(255, 255, 255, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    width: 2.2rem;
-    height: 2.2rem;
-    border-radius: 0.5rem;
+  
+  .action-icon {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
-    cursor: pointer;
-    in: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    padding: 0;
-    backdrop-filter: blur(8px);
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    z-index: 5;
-  }
-  .refresh-button:hover {
-    background: rgba(255, 255, 255, 0.22);
-    transform: rotate(180deg) scale(1.05);
-    border-color: rgba(255, 255, 255, 0.28);
-  }
-
-  /* ACCIONES RÁPIDAS REDISEÑADAS */
-  .quick-actions {
-    display: flex;
-    flex-direction: row;
-    gap: 0.4rem;
-    justify-content: center;
-    margin-top: 0.2rem;
-  }
-  .action-bar-button {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    background: rgba(255,255,255,0.09);
-    border: 1px solid rgba(255,255,255,0.12);
-    color: white;
-    font-weight: 500;
-    font-size: 0.8rem;
-    border-radius: 1.2rem;
-    padding: 0.4rem 0.7rem;
-    cursor: pointer;
-    in: all 0.25s ease;
-    box-shadow: 0 2px 6px 0 rgba(0,0,0,0.05);
-    outline: none;
-    backdrop-filter: blur(8px);
-    letter-spacing: 0.02em;
-  }
-  .action-bar-button:hover {
-    background: linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.12));
-    color: white;
-    border-color: rgba(255,255,255,0.25);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px 0 rgba(0,0,0,0.08);
-  }
-  .action-bar-button:active {
-    transform: translateY(1px);
-    box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1);
-  }
-  .action-bar-button .action-icon {
-    margin-bottom: 0;
-    margin-right: 0.15rem;
-    background: none;
-    border: none;
-    width: 1.2rem;
-    height: 1.2rem;
-    color: inherit;
-    box-shadow: none;
-    padding: 0;
-    opacity: 0.9;
+    margin-right: 0.25rem;
   }
 
   /* Sección de recaudaciones */
   .collections-section, .transactions-section {
-    margin-bottom: 2rem;
+    margin-bottom: 2.5rem;
+  }
+  
+  /* Sección */
+  .section {
+    padding-top: 0.5rem;
   }
   
   .section-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1.25rem;
+    margin: 1rem 0 1.5rem;
     padding: 0 1rem;
     height: 2rem; /* Altura fija para mejor alineación */
   }
@@ -465,13 +523,14 @@
     background: var(--surface);
     border-radius: 1rem;
     padding: 1.25rem 1rem;
-    in: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: var(--card-shadow);
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
     border: 1px solid var(--border-color);
+    margin-bottom: 0.25rem;
   }
   
   .collection-item:hover {
@@ -545,15 +604,20 @@
   
   .collection-trend {
     font-size: 0.75rem;
-    font-weight: 500;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    display: inline-block;
   }
   
   .collection-trend.positive {
     color: var(--success-color);
+    background: rgba(0, 202, 141, 0.1);
   }
   
   .collection-trend.negative {
     color: var(--error-color);
+    background: rgba(233, 58, 74, 0.1);
   }
   
   /* Transacciones */
@@ -568,12 +632,13 @@
     display: flex;
     align-items: center;
     gap: 1rem;
-    padding: 1rem;
+    padding: 1.2rem;
     background: var(--surface);
     border-radius: 0.75rem;
-    in: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: var(--card-shadow);
     border: 1px solid var(--border-color);
+    margin-bottom: 0.5rem;
   }
   
   .transaction-item:hover {
@@ -621,14 +686,18 @@
   .transaction-amount {
     font-weight: 600;
     font-size: 0.875rem;
+    padding: 0.375rem 0.5rem;
+    border-radius: 0.375rem;
   }
   
   .transaction-amount.income {
     color: var(--success-color);
+    background: rgba(0, 202, 141, 0.1);
   }
   
   .transaction-amount.expense {
     color: var(--error-color);
+    background: rgba(233, 58, 74, 0.1);
   }
   
   /* Compactar header y botones para evitar wrap */

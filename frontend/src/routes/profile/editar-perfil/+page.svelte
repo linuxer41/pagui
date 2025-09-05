@@ -3,9 +3,10 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import Button from '$lib/components/Button.svelte';
-  import Input from '$lib/components/Input.svelte';
+
   import api from '$lib/api';
   import { toasts } from '$lib/stores/toast';
+  import RouteLayout from '$lib/components/layouts/RouteLayout.svelte';
   import { 
     User,
     Save,
@@ -17,9 +18,7 @@
     Check,
     ArrowLeft,
     Code
-
   } from '@lucide/svelte';
-  import ProfilePage from '$lib/components/layouts/ProfilePage.svelte';
 
   // Datos del usuario
   let fullName = $auth.user?.fullName || '';
@@ -115,8 +114,8 @@
   }
 </script>
 
-<ProfilePage title="Editar perfil">
-  <div slot="actions">
+<RouteLayout title="Editar perfil">
+  <svelte:fragment slot="right">
     <button 
       class="save-button" 
       on:click={handleSaveProfile}
@@ -129,7 +128,7 @@
         <Check size={20} />
       {/if}
     </button>
-  </div>
+  </svelte:fragment>
   <div class="app-container">
     
     {#if error}
@@ -177,36 +176,51 @@
         
         <div class="form-fields">
           <div class="form-field">
-            <Input
-              id="fullName"
-              label="Nombre completo"
-              type="text"
-              bind:value={fullName}
-              placeholder="Tu nombre completo"
-              required
-              icon={User}
-            />
+            <label for="fullName" class="custom-label">Nombre completo</label>
+            <div class="custom-input-container">
+              <div class="custom-input-icon">
+                <User size={18} />
+              </div>
+              <input
+                id="fullName"
+                type="text"
+                bind:value={fullName}
+                placeholder="Tu nombre completo"
+                required
+                class="custom-input"
+              />
+            </div>
           </div>
           <div class="form-field">
-            <Input
-              id="phone"
-              label="Teléfono"
-              type="tel"
-              bind:value={phone}
-              placeholder="Tu número de teléfono"
-              icon={Phone}
-            />
+            <label for="phone" class="custom-label">Teléfono</label>
+            <div class="custom-input-container">
+              <div class="custom-input-icon">
+                <Phone size={18} />
+              </div>
+              <input
+                id="phone"
+                type="tel"
+                bind:value={phone}
+                placeholder="Tu número de teléfono"
+                class="custom-input"
+              />
+            </div>
           </div>
           <div class="form-field">
-            <Input
-              id="email"
-              label="Email"
-              type="email"
-              value={email}
-              placeholder="Tu email"
-              icon={Mail}
-              disabled
-            />
+            <label for="email" class="custom-label">Email</label>
+            <div class="custom-input-container">
+              <div class="custom-input-icon">
+                <Mail size={18} />
+              </div>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                placeholder="Tu email"
+                class="custom-input"
+                disabled
+              />
+            </div>
             <div class="field-note">
               El email no se puede modificar
             </div>
@@ -214,43 +228,10 @@
         </div>
       </div>
       
-      <!-- Seguridad -->
-      <div class="form-card">
-        <div class="form-card-header">
-          <h2>Seguridad</h2>
-        </div>
-        
-        <div class="action-button" on:click={() => goto('/profile/cambiar-clave')}>
-          <div class="action-button-icon">
-            <Key size={18} />
-          </div>
-          <div class="action-button-text">
-            <span>Cambiar contraseña</span>
-          </div>
-          <div class="action-button-arrow">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M9 18l6-6-6-6"></path>
-            </svg>
-          </div>
-        </div>
-        
-        <div class="action-button" on:click={() => goto('/profile/api-keys')}>
-          <div class="action-button-icon api-key-icon">
-            <Code size={18} />
-          </div>
-          <div class="action-button-text">
-            <span>Gestión de API Keys</span>
-          </div>
-          <div class="action-button-arrow">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M9 18l6-6-6-6"></path>
-            </svg>
-          </div>
-        </div>
-      </div>
+
     </div>
   </div>
-</ProfilePage>
+</RouteLayout>
 
 <style>
   .app-container{
@@ -422,46 +403,63 @@
     color: var(--text-secondary);
     margin-top: 4px;
   }
-  
-  .action-button {
+
+  /* Estilos para inputs personalizados */
+  .custom-label {
+    display: block;
+    font-size: 0.95rem;
+    font-weight: 500;
+    margin-bottom: 6px;
+    color: var(--text-primary);
+    font-family: 'Quenia', var(--font-family);
+  }
+
+  .custom-input-container {
+    position: relative;
     display: flex;
     align-items: center;
-    padding: var(--spacing-md);
-    cursor: pointer;
-    transition: background 0.2s;
+    background: var(--input-background);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    transition: all 0.2s ease;
   }
-  
-  .action-button:hover {
-    background: var(--surface-variant);
+
+  .custom-input-container:focus-within {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb), 0.1);
   }
-  
-  .action-button-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: rgba(245, 158, 11, 0.1);
-    color: #f59e0b;
+
+  .custom-input-icon {
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-right: var(--spacing-md);
-  }
-  
-  .action-button-text {
-    flex: 1;
-    font-weight: 500;
-    color: var(--text-primary);
-  }
-  
-  .action-button-arrow {
+    padding: 0 10px 0 12px;
     color: var(--text-secondary);
+  }
+
+  .custom-input {
+    flex: 1;
+    height: 48px;
+    padding: 0 16px 0 4px;
+    border: none;
+    background: transparent;
+    font-size: 1rem;
+    color: var(--text-primary);
+    outline: none;
+    width: 100%;
+  }
+
+  .custom-input::placeholder {
+    color: var(--text-tertiary);
     opacity: 0.7;
   }
-  
-  .action-button-icon.api-key-icon {
-    background: rgba(16, 185, 129, 0.1);
-    color: #10b981;
+
+  .custom-input:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
   }
+  
+
   
   @keyframes spin {
     to { transform: rotate(360deg); }

@@ -116,7 +116,7 @@
     </div>
   {:else}
     <form on:submit|preventDefault={handleSubmit} class="register-form" in:fly={{ y: 24, duration: 400, delay: 200 }}>
-      <div class="form-body" in:fly={{ y: 16, duration: 400, delay: 250 }}>
+      <div class="form-body" in:fly={{ y: 16, duration: 400, delay: 250 }} style="display: flex; flex-direction: column; gap: var(--spacing-md)">
         {#if submitError}
           <div class="error-message">
             <AlertCircle size={18} />
@@ -222,14 +222,14 @@
   .register-form {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-lg);
   }
   
   .form-group {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    margin-bottom: 0;
+    gap: 8px;
+    margin-bottom: var(--spacing-sm);
   }
   
     

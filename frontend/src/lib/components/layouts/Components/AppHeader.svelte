@@ -1,13 +1,31 @@
 <script lang="ts">
     import { ArrowLeft } from '@lucide/svelte';
+    import { goto } from '$app/navigation';
     export let title: string;
     export let showBack: boolean = true;
+    
+    function goBack() {
+        // Usar window.history.go(-1) que es más confiable
+        try {
+          window.history.back();
+            // if (window.history.length > 1) {
+                // window.history.go(-1);
+            // } else {
+            //     // Si no hay historial, ir a la página principal
+            //     goto('/');
+            // }
+        } catch (error) {
+            // Si falla, ir a la página principal
+            console.error('Error al navegar hacia atrás:', error);
+            // goto('/');
+        }
+    }
 </script>
 
 <header class="app-header">
     <div class="header-content">
       {#if showBack}
-        <button class="back-btn" on:click={() => window.history.back()} aria-label="Volver">
+        <button class="back-btn" on:click={goBack} aria-label="Volver">
           <ArrowLeft size={18} />
         </button>
       {/if}

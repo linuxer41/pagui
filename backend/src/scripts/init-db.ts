@@ -1,6 +1,5 @@
 import { migrateDB, testConnection } from '../config/database';
 import { seedDatabase } from './seed-db';
-import migrateTransactions from './migrate-transactions';
 import { readFileSync } from 'fs';
 import path from 'path';
 import { pool } from '../config/database';
@@ -37,10 +36,6 @@ async function initializeDatabase() {
       } finally {
         client.release();
       }
-      
-      // Ejecutar la migración de datos
-      console.log('🔄 Migrando datos existentes a la nueva estructura...');
-      await migrateTransactions();
     } else {
       // Inicializar la base de datos con el esquema original
       console.log('🔄 Usando el esquema original...');
@@ -61,7 +56,7 @@ async function initializeDatabase() {
 }
 
 // Ejecutar la inicialización si este script se ejecuta directamente
-if (require.main === module) {
+if (import.meta.main) {
   initializeDatabase()
     .then(() => {
       console.log('🎉 Proceso de inicialización finalizado.');

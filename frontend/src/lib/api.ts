@@ -3,7 +3,7 @@ import { company } from './stores/company';
 import { get } from 'svelte/store';
 import { API_URL, APP_CONFIG } from './config';
 
-// Interfaz para respuestas del API
+// Interfaz para respuestas del API (nueva estructura)
 interface ApiResponse<T = any> {
   success: boolean;
   message?: string;
@@ -83,7 +83,7 @@ export interface TransactionsListResponse {
   };
 }
 
-// Cliente API usando fetch nativo
+// Cliente API usando fetch nativo (actualizado para nueva API)
 class ApiClient {
   // Método genérico para realizar peticiones
   private async request<T>(
@@ -116,7 +116,6 @@ class ApiClient {
     const config: RequestInit = {
       method,
       headers,
-      // credentials: 'include',
     };
     
     // Añadir body si hay datos y no es GET
@@ -126,7 +125,7 @@ class ApiClient {
     
     try {
       const response = await fetch(url, config);
-      console.log(response);
+      console.log('API Response:', response);
       
       // Verificar si la respuesta es JSON
       const contentType = response.headers.get('content-type');
@@ -172,33 +171,33 @@ class ApiClient {
     return this.request<T>(endpoint, 'DELETE', data, options);
   }
   
-  // ============ MÉTODOS DE AUTENTICACIÓN ============
+  // ============ MÉTODOS DE AUTENTICACIÓN (ACTUALIZADOS) ============
   
-  // Login - POST /api/authentication/authenticate
+  // Login - POST /auth/login (nuevo endpoint)
   async login(email: string, password: string): Promise<ApiResponse> {
     const response = await this.post<ApiResponse>('/auth/login', { email, password });
 
     // Si la autenticación es exitosa, guardar en el store
     if (response.success && response.data) {
-      const { user, auth: authData, company: companyData } = response.data;
+      const { user, accessToken, refreshToken } = response.data;
       
       // Guardar información de usuario y tokens
-      if (user && authData && authData.accessToken) {
-        auth.login(authData.accessToken, user, authData.refreshToken);
+      if (user && accessToken) {
+        auth.login(accessToken, user, refreshToken);
       }
       
-      // Guardar información de la empresa
-      if (companyData) {
-        company.setCompany(companyData);
+      // Guardar información de la empresa si existe
+      if (response.data.company) {
+        company.setCompany(response.data.company);
       }
     }
 
     return response;
   }
   
-  // Cambiar contraseña - POST /api/users/change-password
+  // Cambiar contraseña - POST /auth/change-password (nuevo endpoint)
   async changePassword(currentPassword: string, newPassword: string, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>('/users/change-password', { currentPassword, newPassword }, options);
+    return this.post<ApiResponse>('/auth/change-password', { currentPassword, newPassword }, options);
   }
   
   // Solicitar restablecimiento de contraseña
@@ -216,9 +215,13 @@ class ApiClient {
     auth.logout();
   }
   
-  // ============ MÉTODOS PARA QR ============
+  // ============ MÉTODOS PARA QR (ACTUALIZADOS) ============
+
+  async getQR(qrId: string, options: RequestOptions = {}): Promise<ApiResponse> {
+    return this.get<ApiResponse>(`/qr/${qrId}`, options);
+  }
   
-  // Generar QR - POST /api/qrsimple/generateQR
+  // Generar QR - POST /qr/generate (mantiene endpoint)
   async generateQR(qrData: any, options: RequestOptions = {}): Promise<ApiResponse> {
     const apiData: any = {
       transactionId: qrData.transactionId || new Date().getTime().toString(),
@@ -230,20 +233,20 @@ class ApiClient {
     if (typeof qrData.singleUse !== 'undefined') apiData.singleUse = qrData.singleUse;
     if (typeof qrData.modifyAmount !== 'undefined') apiData.modifyAmount = qrData.modifyAmount;
 
-    return this.post<ApiResponse>('/qrsimple/generateQR', apiData, options);
+    return this.post<ApiResponse>('/qr/generate', apiData, options);
   }
   
-  // Cancelar QR - DELETE /api/qrsimple/cancelQR
+  // Cancelar QR - DELETE /qr/cancelQR (mantiene endpoint)
   async cancelQR(qrId: string, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.delete<ApiResponse>('/qrsimple/cancelQR', { qrId }, options);
+    return this.delete<ApiResponse>('/qr/cancelQR', { qrId }, options);
   }
   
-  // Verificar estado QR - GET /api/qrsimple/v2/statusQR/{id}
+  // Verificar estado QR - GET /qr/{id}/status (mantiene endpoint)
   async checkQRStatus(qrId: string, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>(`/qrsimple/v2/statusQR/${qrId}`, options);
+    return this.get<ApiResponse>(`/qr/${qrId}/status`, options);
   }
   
-  // Listar QRs - GET /api/qrsimple/list
+  // Listar QRs - GET /qr/list (mantiene endpoint)
   async listQRs(filters: any = {}, options: RequestOptions = {}): Promise<ApiResponse> {
     const queryParams = new URLSearchParams();
     
@@ -253,7 +256,7 @@ class ApiClient {
     if (filters.bankId) queryParams.append('bankId', filters.bankId.toString());
     
     const queryString = queryParams.toString();
-    const endpoint = `/qrsimple/list${queryString ? `?${queryString}` : ''}`;
+    const endpoint = `/qr/list${queryString ? `?${queryString}` : ''}`;
     
     return this.get<ApiResponse>(endpoint, options);
   }
@@ -265,20 +268,20 @@ class ApiClient {
     return this.listQRs(pagoFilters, options);
   }
   
-  // Obtener QRs pagados en una fecha - GET /api/qrsimple/v2/paidQR/{fecha}
+  // Obtener QRs pagados en una fecha - GET /qr/v2/paidQR/{fecha} (mantiene endpoint)
   async getPaidQRsByDate(date: string, bankId?: number, options: RequestOptions = {}): Promise<ApiResponse> {
-    const endpoint = `/qrsimple/v2/paidQR/${date}${bankId ? `?bankId=${bankId}` : ''}`;
+    const endpoint = `/qr/v2/paidQR/${date}${bankId ? `?bankId=${bankId}` : ''}`;
     return this.get<ApiResponse>(endpoint, options);
   }
   
-  // Simular pago (solo para desarrollo) - POST /api/qrsimple/simulatePayment
+  // Simular pago (solo para desarrollo) - POST /qr/simulatePayment (mantiene endpoint)
   async simulatePayment(qrId: string, amount?: number, options: RequestOptions = {}): Promise<ApiResponse> {
     const data: any = { qrId };
     if (amount !== undefined) data.amount = amount;
-    return this.post<ApiResponse>('/qrsimple/simulatePayment', data, options);
+    return this.post<ApiResponse>('/qr/simulatePayment', data, options);
   }
   
-  // ============ MÉTODOS PARA TRANSACCIONES Y REPORTES ============
+  // ============ MÉTODOS PARA TRANSACCIONES Y REPORTES (ACTUALIZADOS) ============
   
   // Obtener transacciones por periodo (para pantalla de resumen)
   async getTransactionsByPeriod(
@@ -342,36 +345,36 @@ class ApiClient {
   }
   
 
-  // ============ MÉTODOS PARA API KEYS ============
+  // ============ MÉTODOS PARA API KEYS (ACTUALIZADOS) ============
   
-  // Listar API keys - GET /api/api-keys/
+  // Listar API keys - GET /apikeys (nuevo endpoint)
   async listApiKeys(options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>('/api-keys', options);
+    return this.get<ApiResponse>('/apikeys', options);
   }
   
-  // Generar API key - POST /api/api-keys/
+  // Generar API key - POST /apikeys (nuevo endpoint)
   async generateApiKey(data: any, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>('/api-keys', data, options);
+    return this.post<ApiResponse>('/apikeys', data, options);
   }
   
-  // Revocar API key - DELETE /api/api-keys/{id}
+  // Revocar API key - DELETE /apikeys/{id} (nuevo endpoint)
   async revokeApiKey(id: number, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.delete<ApiResponse>(`/api-keys/${id}`, undefined, options);
+    return this.delete<ApiResponse>(`/apikeys/${id}`, undefined, options);
   }
   
-  // ============ MÉTODOS PARA USUARIOS ============
+  // ============ MÉTODOS PARA USUARIOS (ACTUALIZADOS) ============
   
-  // Listar usuarios - GET /api/users/
+  // Listar usuarios - GET /users/ (nuevo endpoint)
   async listUsers(options: RequestOptions = {}): Promise<ApiResponse> {
     return this.get<ApiResponse>('/users', options);
   }
   
-  // Crear usuario - POST /api/users/
+  // Crear usuario - POST /users/ (nuevo endpoint)
   async createUser(userData: any, options: RequestOptions = {}): Promise<ApiResponse> {
     return this.post<ApiResponse>('/users', userData, options);
   }
   
-  // Actualizar perfil de usuario - PUT /api/users/profile
+  // Actualizar perfil de usuario - PUT /users/profile (nuevo endpoint)
   async updateProfile(profileData: {
     fullName?: string,
     phone?: string,
@@ -422,11 +425,28 @@ class ApiClient {
     }
   }
   
-  // ============ MÉTODOS PARA BANCOS ============
+  // ============ MÉTODOS PARA BANCOS (ACTUALIZADOS) ============
   
-  // Listar bancos - GET /api/admin/banks/
+  // Listar bancos - GET /admin/banks/ (mantiene endpoint)
   async listBanks(options: RequestOptions = {}): Promise<ApiResponse> {
     return this.get<ApiResponse>('/admin/banks', options);
+  }
+
+  // ============ MÉTODOS PARA HEALTH CHECK ============
+  
+  // Verificar estado del servidor - GET / (nuevo endpoint)
+  async checkServerHealth(): Promise<ApiResponse> {
+    return this.get<ApiResponse>('/', {});
+  }
+  
+  // Verificar estado del sistema - GET /health (nuevo endpoint)
+  async checkSystemHealth(): Promise<ApiResponse> {
+    return this.get<ApiResponse>('/health', {});
+  }
+  
+  // Verificar estado de la API - GET /health/api (nuevo endpoint)
+  async checkApiHealth(): Promise<ApiResponse> {
+    return this.get<ApiResponse>('/health/api', {});
   }
 }
 

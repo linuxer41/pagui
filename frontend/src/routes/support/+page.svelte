@@ -1,25 +1,37 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { MessageCircle, Send } from '@lucide/svelte';
-  import BlankLayout from '$lib/components/layouts/BlankLayout.svelte';
+  import RouteLayout from '$lib/components/layouts/RouteLayout.svelte';
 
   // Preguntas frecuentes
   const faqs = [
     {
-      question: '¿Cómo puedo crear una cuenta?',
-      answer: 'Haz clic en “Solicitar cuenta ahora” y completa el formulario. Nuestro equipo te contactará.'
+      question: '¿Cómo genero un código QR para cobros?',
+      answer: 'Ve a la sección "Código QR" desde el menú principal, ingresa el monto y descripción, y haz clic en "Generar QR". El código se creará con un tiempo de expiración configurable.'
     },
     {
-      question: '¿Cómo recupero mi contraseña?',
-      answer: 'En la pantalla de inicio de sesión, haz clic en “¿Olvidaste tu contraseña?” y sigue los pasos.'
+      question: '¿Puedo modificar el monto después de generar el QR?',
+      answer: 'Sí, al generar el QR puedes activar la opción "Permitir modificar monto" para que los pagadores puedan ajustar el valor antes de realizar el pago.'
     },
     {
-      question: '¿Dónde puedo ver mis transacciones?',
-      answer: 'Accede a la sección “Transacciones” desde el menú principal para ver el historial.'
+      question: '¿Cómo veo el estado de mis pagos QR?',
+      answer: 'En la página principal verás estadísticas en tiempo real: pendientes, pagados y cancelados. También puedes ver el historial completo en "Transacciones".'
     },
     {
-      question: '¿Cómo contacto al soporte?',
-      answer: 'Puedes escribirnos en este chat o enviarnos un correo a soporte@pagui.com.'
+      question: '¿Qué son las API Keys y para qué sirven?',
+      answer: 'Las API Keys te permiten integrar Pagui con tu sistema o aplicación externa. Puedes crearlas desde tu perfil y usarlas para automatizar operaciones.'
+    },
+    {
+      question: '¿Cuánto tiempo dura un código QR?',
+      answer: 'Por defecto, los códigos QR expiran en 15 minutos, pero puedes configurar una fecha de vencimiento personalizada al generarlos.'
+    },
+    {
+      question: '¿Cómo cambio mi contraseña?',
+      answer: 'Ve a tu perfil y selecciona "Cambiar contraseña". Ingresa tu contraseña actual y la nueva contraseña para actualizarla.'
+    },
+    {
+      question: '¿Puedo ver el historial de mis transacciones?',
+      answer: 'Sí, accede a "Transacciones" desde el menú para ver todo tu historial de pagos y cobros, con filtros por fecha y estado.'
     }
   ];
 
@@ -72,12 +84,10 @@
   <title>Soporte y Ayuda | Pagui</title>
 </svelte:head>
 
-<BlankLayout title="Soporte y Ayuda" showBack={true}>
+<RouteLayout title="Soporte">
 <div class="support-page">
-  <h1><MessageCircle size={24} /> Soporte y Ayuda</h1>
-
   <section class="faq-section">
-    <h2>Preguntas frecuentes</h2>
+    <h2><MessageCircle size={20} /> Preguntas frecuentes</h2>
     <ul>
       {#each faqs as faq}
         <li>
@@ -91,7 +101,7 @@
   </section>
 
   <section class="chat-section">
-    <h2>Chat en línea</h2>
+    <h2><Send size={20} /> Chat en línea</h2>
     <div class="chat-container" bind:this={chatContainer}>
       {#each chatMessages as msg}
         <div class="chat-message {msg.from}">
@@ -113,7 +123,7 @@
     </div>
   </section>
 </div>
-</BlankLayout>
+</RouteLayout>
 
 <style>
   .support-page {
@@ -124,17 +134,12 @@
     flex-direction: column;
     gap: var(--spacing-xl);
   }
-  .support-page h1 {
+  .faq-section h2, .chat-section h2 {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-    font-size: 1.4rem;
-    font-weight: 700;
-    margin-bottom: var(--spacing-md);
-  }
-  .faq-section h2, .chat-section h2 {
     font-size: 1.1rem;
-    margin-bottom: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
     color: var(--primary-color);
     font-weight: 600;
   }

@@ -66,12 +66,11 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     // Obtener información del dispositivo
     const { ipAddress, userAgent } = getDeviceInfo(request);
     
-    const data = await authService.authenticate(
-      body.email, 
-      body.password,
-      ipAddress,
-      userAgent
-    );
+    const data = await authService.authenticate({
+      email: body.email,
+      password: body.password
+    });
+    
     return {
       success: true,
       message: 'Usuario autenticado exitosamente',

@@ -12,10 +12,11 @@ interface ApiKeyResponse {
   apiKey?: string;
   description?: string;
   permissions?: ApiKeyPermissions;
-  companyId?: number;
+  userId?: number;
   expiresAt?: string | null;
   status?: string;
   createdAt?: string;
+  updatedAt?: string;
   responseCode: number;
   message: string;
 }
@@ -25,14 +26,22 @@ class ApiKeyService {
   // Verificar si una API key es válida
   async verifyApiKey(apiKey: string): Promise<{
     isValid: boolean;
-    companyId?: number;
+    userId?: number;
+    bankCredentialId?: number;
     permissions?: ApiKeyPermissions;
   }> {
     try {
       const result = await query(`
-        SELECT id, company_id, permissions, expires_at, status
-        FROM api_keys
-        WHERE api_key = $1
+        SELECT 
+          ak.id, 
+          ak.user_id as "userId", 
+          ak.permissions, 
+          ak.expires_at as "expiresAt", 
+          ak.status,
+          u.third_bank_credential_id as "bankCredentialId"
+        FROM api_keys ak
+        INNER JOIN users u ON ak.user_id = u.id
+        WHERE ak.api_key = $1 AND ak.deleted_at IS NULL
       `, [apiKey]);
       
       if (result.rowCount === 0) {
@@ -42,16 +51,16 @@ class ApiKeyService {
       const apiKeyData = result.rows[0];
       
       // Verificar que la API key esté activa
-      if (apiKeyData.status !== 'ACTIVE') {
+      if (apiKeyData.status !== 'active') {
         return { isValid: false };
       }
       
       // Verificar que no haya expirado
-      if (apiKeyData.expires_at && new Date() > new Date(apiKeyData.expires_at)) {
+      if (apiKeyData.expiresAt && new Date() > new Date(apiKeyData.expiresAt)) {
         // Marcar como expirada en la base de datos
         await query(`
           UPDATE api_keys
-          SET status = 'EXPIRED'
+          SET status = 'EXPIRED', updated_at = CURRENT_TIMESTAMP
           WHERE id = $1
         `, [apiKeyData.id]);
         
@@ -61,7 +70,8 @@ class ApiKeyService {
       // API key válida
       return {
         isValid: true,
-        companyId: apiKeyData.company_id,
+        userId: apiKeyData.userId,
+        bankCredentialId: apiKeyData.bankCredentialId,
         permissions: apiKeyData.permissions
       };
     } catch (error) {
@@ -83,20 +93,20 @@ class ApiKeyService {
   
   // Generar una nueva API key
   async generateApiKey(
-    companyId: number,
+    userId: number,
     description: string,
     permissions: ApiKeyPermissions,
     expiresAt?: string | null,
-    userId?: number
+    createdByUserId?: number
   ): Promise<ApiKeyResponse> {
     try {
-      // Verificar que la empresa exista
-      const companyCheck = await query('SELECT id FROM companies WHERE id = $1', [companyId]);
+      // Verificar que el usuario exista
+      const userCheck = await query('SELECT id FROM users WHERE id = $1 AND deleted_at IS NULL', [userId]);
       
-      if (companyCheck.rowCount === 0) {
+      if (userCheck.rowCount === 0) {
         return {
           responseCode: 1,
-          message: 'Empresa no encontrada'
+          message: 'Usuario no encontrado'
         };
       }
       
@@ -108,16 +118,19 @@ class ApiKeyService {
         INSERT INTO api_keys (
           api_key, 
           description, 
-          company_id, 
+          user_id, 
+          created_by_user_id,
           permissions, 
-          expires_at
+          expires_at,
+          status
         ) 
-        VALUES ($1, $2, $3, $4, $5)
+        VALUES ($1, $2, $3, $4, $5, $6, 'active')
         RETURNING id, created_at
       `, [
         apiKey,
         description,
-        companyId,
+        userId,
+        createdByUserId || userId,
         JSON.stringify(permissions),
         expiresAt ? new Date(expiresAt) : null
       ]);
@@ -130,8 +143,7 @@ class ApiKeyService {
           description,
           expiresAt
         },
-        'INFO',
-        companyId,
+        'info',
         userId
       );
       
@@ -140,9 +152,9 @@ class ApiKeyService {
         apiKey,
         description,
         permissions,
-        companyId,
+        userId,
         expiresAt,
-        status: 'ACTIVE',
+        status: 'active',
         createdAt: result.rows[0].created_at,
         responseCode: 0,
         message: 'API key generada exitosamente'
@@ -157,8 +169,8 @@ class ApiKeyService {
     }
   }
   
-  // Listar API keys de una empresa
-  async listApiKeys(companyId: number): Promise<{
+  // Listar API keys de un usuario
+  async listApiKeys(userId: number): Promise<{
     apiKeys: any[];
     responseCode: number;
     message: string;
@@ -174,9 +186,10 @@ class ApiKeyService {
           status, 
           created_at
         FROM api_keys
-        WHERE company_id = $1
+        WHERE user_id = $1 AND deleted_at IS NULL
+        AND status = 'active'
         ORDER BY created_at DESC
-      `, [companyId]);
+      `, [userId]);
       
       return {
         apiKeys: result.rows.map(row => ({
@@ -203,19 +216,19 @@ class ApiKeyService {
   }
   
   // Revocar API key
-  async revokeApiKey(apiKeyId: number, companyId: number, userId?: number): Promise<ApiKeyResponse> {
+  async revokeApiKey(apiKeyId: number, userId: number, revokedByUserId?: number): Promise<ApiKeyResponse> {
     try {
-      // Verificar que la API key pertenezca a la empresa
+      // Verificar que la API key pertenezca al usuario
       const apiKeyCheck = await query(`
         SELECT id, api_key
         FROM api_keys
-        WHERE id = $1 AND company_id = $2
-      `, [apiKeyId, companyId]);
+        WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
+      `, [apiKeyId, userId]);
       
       if (apiKeyCheck.rowCount === 0) {
         return {
           responseCode: 1,
-          message: 'API key no encontrada o no pertenece a su empresa'
+          message: 'API key no encontrada o no pertenece al usuario'
         };
       }
       
@@ -233,8 +246,7 @@ class ApiKeyService {
           apiKeyId,
           apiKey: apiKeyCheck.rows[0].api_key
         },
-        'INFO',
-        companyId,
+        'info',
         userId
       );
       

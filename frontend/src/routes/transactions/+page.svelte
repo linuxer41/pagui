@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import api from '$lib/api';
-  import MainPage from '$lib/components/layouts/MainPage.svelte';
+  import RouteLayout from '$lib/components/layouts/RouteLayout.svelte';
   import TransactionList from '$lib/components/TransactionList.svelte';
   import { auth } from '$lib/stores/auth';
   import { onMount } from 'svelte';
@@ -57,11 +57,8 @@
   });
 </script>
 
-<MainPage>
+<RouteLayout title="Historial">
   <div class="transactions-page" in:fade={{ duration: 300 }}>
-    <div class="page-header">
-      <h1>Historial de transacciones</h1>
-    </div>
     
     {#if isLoading}
       <div class="loading-container">
@@ -85,7 +82,7 @@
       <TransactionList {transactions} {currency} />
     {/if}
   </div>
-</MainPage>
+</RouteLayout>
 
 <style>
   .transactions-page {
@@ -95,17 +92,7 @@
     padding-bottom: 2rem;
   }
   
-  .page-header {
-    padding: 0.5rem 1rem 1rem;
-    border-bottom: 1px solid var(--border-color);
-  }
-  
-  h1 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin: 0;
-    color: var(--text-primary);
-  }
+  /* Eliminado el header porque ahora usamos RouteLayout */
   
   .page-description {
     font-size: 0.9rem;

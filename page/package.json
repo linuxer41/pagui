@@ -38,6 +38,7 @@
 		"vitest-browser-svelte": "^0.1.0"
 	},
 	"dependencies": {
+		"html2canvas": "^1.4.1",
 		"svelte-feather-icons": "^4.2.0"
 	}
 }

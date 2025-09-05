@@ -1,39 +1,10 @@
 <script>
   import '../../lib/theme.css';
   
-  // Datos mockeados del backend
-  const empresas = [
-    {
-      id: 'empresa-a',
-      nombre: 'Restaurante El Buen Sabor',
-      logo: '🍽️',
-      descripcion: 'Restaurante de comida tradicional boliviana',
-      color: 'rgb(var(--emerald))',
-      gradiente: 'var(--gradient-emerald)',
-      categoria: 'Restaurante',
-      ubicacion: 'La Paz, Bolivia'
-    },
-    {
-      id: 'empresa-b',
-      nombre: 'Farmacia Salud Total',
-      logo: '💊',
-      descripcion: 'Farmacia y productos de salud',
-      color: 'rgb(var(--primary))',
-      gradiente: 'var(--gradient-primary)',
-      categoria: 'Farmacia',
-      ubicacion: 'Cochabamba, Bolivia'
-    },
-    {
-      id: 'empresa-c',
-      nombre: 'Taller Mecánico Rápido',
-      logo: '🔧',
-      descripcion: 'Servicios automotrices y mantenimiento',
-      color: 'rgb(var(--accent))',
-      gradiente: 'var(--gradient-accent)',
-      categoria: 'Automotriz',
-      ubicacion: 'Santa Cruz, Bolivia'
-    }
-  ];
+  export let data;
+  
+  // Usar las empresas del servidor
+  const { empresas } = data;
 </script>
 
 <svelte:head>
@@ -55,35 +26,45 @@
 <main class="main-content">
   <div class="container">
     <div class="empresas-grid">
-      {#each empresas as empresa}
-        <a href="/recaudaciones/{empresa.id}" class="empresa-card">
-          <div class="empresa-header">
-            <div class="empresa-logo" style="background: {empresa.color}">
-              <span class="logo-icon">{empresa.logo}</span>
-            </div>
-            <div class="empresa-info">
-              <h3 class="empresa-nombre">{empresa.nombre}</h3>
-              <p class="empresa-descripcion">{empresa.descripcion}</p>
-            </div>
-          </div>
-          
-          <div class="empresa-details">
-            <div class="detail-item">
-              <span class="detail-label">Categoría:</span>
-              <span class="detail-value">{empresa.categoria}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Ubicación:</span>
-              <span class="detail-value">{empresa.ubicacion}</span>
-            </div>
-          </div>
-          
-          <div class="empresa-action">
-            <span class="action-text">Buscar Cuenta</span>
-            <span class="action-icon">→</span>
-          </div>
-        </a>
-      {/each}
+      {#if empresas.length > 0}
+        {#each empresas as empresa}
+          {#if empresa}
+            <a href="/recaudaciones/{empresa.id}" class="empresa-card">
+              <div class="empresa-header">
+                <div class="empresa-logo" style="background: {empresa.color}">
+                  <span class="logo-icon">{empresa.logo}</span>
+                </div>
+                <div class="empresa-info">
+                  <h3 class="empresa-nombre">{empresa.nombre}</h3>
+                  <p class="empresa-descripcion">{empresa.descripcion}</p>
+                </div>
+              </div>
+              
+              <div class="empresa-details">
+                <div class="detail-item">
+                  <span class="detail-label">Categoría:</span>
+                  <span class="detail-value">{empresa.categoria}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Ubicación:</span>
+                  <span class="detail-value">{empresa.ubicacion}</span>
+                </div>
+              </div>
+              
+              <div class="empresa-action">
+                <span class="action-text">Buscar Cuenta</span>
+                <span class="action-icon">→</span>
+              </div>
+            </a>
+          {/if}
+        {/each}
+      {:else}
+        <div class="no-empresas">
+          <div class="no-empresas-icon">🏢</div>
+          <h3>No hay empresas disponibles</h3>
+          <p>Por el momento no hay empresas configuradas en el sistema.</p>
+        </div>
+      {/if}
     </div>
     
     <!-- Información adicional -->
@@ -322,6 +303,30 @@
   
   .step-card p {
     color: rgb(var(--gray-600));
+    line-height: 1.6;
+  }
+
+  /* No empresas */
+  .no-empresas {
+    text-align: center;
+    padding: var(--space-3xl) 0;
+    color: rgb(var(--gray-600));
+  }
+
+  .no-empresas-icon {
+    font-size: 4rem;
+    margin-bottom: var(--space);
+  }
+
+  .no-empresas h3 {
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin-bottom: var(--space-xs);
+    color: rgb(var(--gray-900));
+  }
+
+  .no-empresas p {
+    font-size: 1rem;
     line-height: 1.6;
   }
   

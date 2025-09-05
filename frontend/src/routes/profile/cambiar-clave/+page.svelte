@@ -4,6 +4,7 @@
   import { goto } from '$app/navigation';
   import Button from '$lib/components/Button.svelte';
   import Input from '$lib/components/Input.svelte';
+  import RouteLayout from '$lib/components/layouts/RouteLayout.svelte';
   import { 
     Key,
     Save,
@@ -12,7 +13,6 @@
     Check,
     Lock
   } from '@lucide/svelte';
-  import ProfilePage from '$lib/components/layouts/ProfilePage.svelte';
 
   let currentPassword = '';
   let newPassword = '';
@@ -87,7 +87,7 @@
   }
 </script>
 
-<ProfilePage title="Cambiar clave">
+<RouteLayout title="Cambiar clave">
   <div slot="actions">
     <button 
       class="save-button" 
@@ -217,7 +217,7 @@
       <li>Evita información personal fácil de adivinar</li>
     </ul>
   </div>
-</ProfilePage>
+</RouteLayout>
 
 <style>
   .save-button {

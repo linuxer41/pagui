@@ -1,5 +1,5 @@
 <script lang="ts">
-  import ProfilePage from '$lib/components/layouts/ProfilePage.svelte';
+  import RouteLayout from '$lib/components/layouts/RouteLayout.svelte';
   import {
     Calendar,
     CalendarDays,
@@ -177,7 +177,7 @@
   });
 </script>
 
-<ProfilePage title="Detalle de Recaudaciones">
+<RouteLayout title="Recaudaciones">
   <div slot="sub-header">
     <div class="transactions-header" in:fly={{ y: -30, duration: 400 }}>
       <div class="period-selector-container" in:fade={{ duration: 400, delay: 100 }}>
@@ -319,7 +319,7 @@
       </div>
     {/if}
   {/if}
-</ProfilePage>
+</RouteLayout>
 
 <style>
   .transactions-header {

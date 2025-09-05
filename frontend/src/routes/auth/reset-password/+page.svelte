@@ -115,7 +115,7 @@
         </Button>
       </div>
     {:else}
-      <form on:submit|preventDefault={handleResetPassword}>
+      <form on:submit|preventDefault={handleResetPassword} style="display: flex; flex-direction: column; gap: var(--spacing-md)">
         <Input
           id="password"
           label="Nueva contraseña"
@@ -154,9 +154,9 @@
           {loading ? 'Procesando...' : 'Restablecer contraseña'}
         </Button>
         <div class="form-footer">
-          <a href="/auth/login" class="text-link">
+          <button type="button" class="primary-button login-button" on:click={goToLogin}>
             Volver al inicio de sesión
-          </a>
+          </button>
         </div>
       </form>
     {/if}
@@ -182,27 +182,34 @@
     margin-top: var(--spacing-lg);
   }
   
-  .text-link {
-    background: none;
+  .primary-button {
+    width: 100%;
+    height: 48px;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
     border: none;
-    color: var(--primary-color);
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+    color: white;
+    box-shadow: 0 4px 10px rgba(58, 102, 255, 0.2);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s ease;
+    letter-spacing: -0.01em;
+    font-family: inherit;
     cursor: pointer;
-    font-size: 0.875rem;
-    font-weight: 500;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    text-decoration: none;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    border-radius: var(--border-radius-md);
-    display: inline-block;
   }
   
-  .text-link:hover {
-    background-color: rgba(58, 102, 255, 0.05);
-    color: var(--primary-color);
+  .primary-button:active {
+    transform: scale(0.98);
   }
   
-  .text-link:active {
-    background-color: rgba(58, 102, 255, 0.1);
+  .login-button {
+    margin-top: var(--spacing-sm);
   }
   
   .message {

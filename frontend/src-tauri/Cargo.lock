@@ -1035,6 +1035,7 @@ dependencies = [
  "tauri-plugin-deep-link",
  "tauri-plugin-m3",
  "tauri-plugin-opener",
+ "tauri-plugin-safe-area-insets",
  "tauri-plugin-single-instance",
 ]
 
@@ -3744,9 +3745,9 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-m3"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aef6e00ea70d666d576d4e1650a37004f7b2c62430b90334fc2835b049062cab"
+checksum = "eeac0af6bfde596e60db4d1a6757817a84d497982d441f450a83e3de1e08d542"
 dependencies = [
  "serde",
  "tauri",
@@ -3774,6 +3775,18 @@ dependencies = [
  "url",
  "windows",
  "zbus",
+]
+
+[[package]]
+name = "tauri-plugin-safe-area-insets"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "653b425316a0e9563995286eb5b0fa44490583486b7a0925859b33ec5be07f0e"
+dependencies = [
+ "serde",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.12",
 ]
 
 [[package]]

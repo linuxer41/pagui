@@ -1,222 +1,142 @@
-import { pool, query } from '../config/database';
+import { query } from '../config/database';
+import { userService } from '../services/user.service';
 
 export async function seedDatabase() {
   try {
-    console.log('Poblando la base de datos con datos iniciales...');
+    console.log('🌱 Iniciando seed de la base de datos...');
     
-    // Obtener variables de entorno
-    const banecoApiUrl = 'https://apimktdesa.baneco.com.bo/ApiGateway/';
-    const banecoUsername = '1649710';
-    const banecoPassword = '1234';
-    const banecoAccount = '1041070599';
-
-    const defaultUser = 'admin@example.com';
-    const defaultPassword = '1234';
-
-    const bnbApiUrl = 'https://api-sandbox.bnb.com.bo/';
+    // 0. Ejecutar migraciones necesarias
+    console.log('🔄 Ejecutando migraciones...');
+    const { migrateAddApiBaseUrl } = await import('./migrate-add-api-base-url');
+    await migrateAddApiBaseUrl();
     
-    console.log('Usando configuración:');
-    console.log(`- URL API Banco Económico: ${banecoApiUrl}`);
-    console.log(`- Usuario: ${banecoUsername}`);
-    console.log(`- Cuenta: ${banecoAccount}`);
+    // 1. Insertar roles predefinidos
+    console.log('Insertando roles predefinidos...');
     
-    // 1. Insertar bancos
-    console.log('Insertando datos de los bancos...');
-    
-    // Banco Económico
-    const banecoResult = await query(`
-      INSERT INTO banks (code, name, api_version, test_api_url, prod_api_url, status)
-      VALUES ('1016', 'Banco Económico', 'v1.3', $1, $2, 'ACTIVE')
-      ON CONFLICT (code) 
-      DO UPDATE SET 
-        test_api_url = $1,
-        prod_api_url = $2,
-        updated_at = CURRENT_TIMESTAMP
-      RETURNING id
-    `, ['https://apimktdesa.baneco.com.bo/ApiGateway/', 'https://apimktdesa.baneco.com.bo/ApiGateway/']);
-    
-    const banecoId = banecoResult.rows[0]?.id;
-    console.log(`Banco Económico insertado/actualizado con ID: ${banecoId}`);
-    
-    // Banco BNB
-    const bnbResult = await query(`
-      INSERT INTO banks (code, name, api_version, test_api_url, prod_api_url, status)
-      VALUES ('1001', 'Banco Nacional de Bolivia (BNB)', 'v1.0', $1, $2, 'ACTIVE')
-      ON CONFLICT (code) 
-      DO UPDATE SET 
-        test_api_url = $1,
-        prod_api_url = $2,
-        updated_at = CURRENT_TIMESTAMP
-      RETURNING id
-    `, [bnbApiUrl, bnbApiUrl]);
-    
-    const bnbId = bnbResult.rows[0]?.id;
-    console.log(`Banco BNB insertado/actualizado con ID: ${bnbId}`);
-    
-    // Banco BISA
-    const bisaResult = await query(`
-      INSERT INTO banks (code, name, api_version, test_api_url, prod_api_url, status)
-      VALUES ('1003', 'Banco BISA', 'v1.0', $1, $2, 'ACTIVE')
-      ON CONFLICT (code) 
-      DO UPDATE SET 
-        test_api_url = $1,
-        prod_api_url = $2,
-        updated_at = CURRENT_TIMESTAMP
-      RETURNING id
-    `, ['https://api-test.grupobisa.com/', 'https://api-test.grupobisa.com/']);
-    
-    const bisaId = bisaResult.rows[0]?.id;
-    console.log(`Banco BISA insertado/actualizado con ID: ${bisaId}`);
-    
-    // 2. Insertar empresa de demostración
-    console.log('Insertando empresa de demostración...');
-    const companyResult = await query(`
-      INSERT INTO companies (name, business_id, type, document_id, contact_email, status)
-      VALUES ('Empresa Demo', 'DEMO-COMPANY', 'company', '1234567890', 'demo@example.com', 'ACTIVE')
-      ON CONFLICT (business_id) 
-      DO UPDATE SET 
-        name = 'Empresa Demo',
-        contact_email = 'demo@example.com',
-        updated_at = CURRENT_TIMESTAMP
+    const superAdminRole = await query(`
+      INSERT INTO roles (name, description, permissions, is_system_role)
+      VALUES ('SUPER_ADMIN', 'Acceso total al sistema', '{"*": true}', true)
+      ON CONFLICT (name) DO UPDATE SET 
+        description = 'Acceso total al sistema',
+        permissions = '{"*": true}'
       RETURNING id
     `);
     
-    const companyId = companyResult.rows[0]?.id;
-    console.log(`Empresa insertada/actualizada con ID: ${companyId}`);
-    
-    // 3. Insertar roles (si no existen)
-    // Los roles ya se insertan en el schema.sql
-    
-    // 4. Insertar usuario administrador
-    console.log('Insertando usuario administrador...');
-    
-    // Obtener el ID del rol COMPANY_ADMIN
-    const roleResult = await query(`SELECT id FROM roles WHERE name = 'COMPANY_ADMIN'`);
-    const roleId = roleResult.rows[0]?.id;
-    
-    if (!roleId) {
-      console.log('Error: Rol COMPANY_ADMIN no encontrado');
-      return;
-    }
-    
-    // Generar hash de la contraseña
-    const passwordHash = await Bun.password.hash(defaultPassword, {
-      algorithm: 'bcrypt',
-      cost: 10
-    });
-    
-    const userResult = await query(`
-      INSERT INTO users (email, password, full_name, role_id, company_id, status)
-      VALUES ($1, $2, 'Usuario Demo', $3, $4, 'ACTIVE')
-      ON CONFLICT (email) 
-      DO UPDATE SET 
-        password = $2,
-        updated_at = CURRENT_TIMESTAMP
+    const companyAdminRole = await query(`
+      INSERT INTO roles (name, description, permissions, is_system_role)
+      VALUES ('COMPANY_ADMIN', 'Administrador de empresa', '{"users": {"create": true, "read": true, "update": true}, "qr_codes": {"create": true, "read": true, "update": true}, "transactions": {"read": true}, "reports": {"read": true}, "third_bank_credentials": {"read": true, "update": true}}', true)
+      ON CONFLICT (name) DO UPDATE SET 
+        description = 'Administrador de empresa',
+        permissions = '{"users": {"create": true, "read": true, "update": true}, "qr_codes": {"create": true, "read": true, "update": true}, "transactions": {"read": true}, "reports": {"read": true}, "third_bank_credentials": {"read": true, "update": true}}'
       RETURNING id
-    `, [defaultUser, passwordHash, roleId, companyId]);
+    `);
     
-    const userId = userResult.rows[0]?.id;
-    console.log(`Usuario insertado/actualizado con ID: ${userId}`);
+    const employeeRole = await query(`
+      INSERT INTO roles (name, description, permissions, is_system_role)
+      VALUES ('EMPLOYEE', 'Empleado con acceso limitado', '{"qr_codes": {"read": true}, "transactions": {"read": true}}', true)
+      ON CONFLICT (name) DO UPDATE SET 
+        description = 'Empleado con acceso limitado',
+        permissions = '{"qr_codes": {"read": true}, "transactions": {"read": true}}'
+      RETURNING id
+    `);
     
-    // 5. Configurar relación empresa-banco para los tres bancos
-    console.log('Configurando relación empresa-banco para Banco Económico...');
-    await query(`
-      INSERT INTO company_bank (company_id, bank_id, account_number, account_type, account_name, merchant_id, additional_config, environment, status)
-      VALUES ($1, $2, $3, 1, 'Cuenta Principal', $4, $5, 2, 'ACTIVE')
-      ON CONFLICT (company_id, bank_id) 
-      DO UPDATE SET 
-        account_number = $3,
-        merchant_id = $4,
-        additional_config = $5,
-        environment = 2,
-        updated_at = CURRENT_TIMESTAMP
-    `, [
-      companyId, 
-      banecoId, 
-      banecoAccount, 
-      'BANECO_MERCHANT',
-      JSON.stringify({
-        username: banecoUsername,
-        password: banecoPassword
-      })
-    ]);
+    console.log('Roles insertados exitosamente');
     
-    console.log('Configurando relación empresa-banco para BNB...');
-    await query(`
-      INSERT INTO company_bank (company_id, bank_id, account_number, account_type, account_name, merchant_id, additional_config, environment, status)
-      VALUES ($1, $2, '10010000001', 1, 'Cuenta Principal', 'BNB_MERCHANT', $3, 2, 'ACTIVE')
-      ON CONFLICT (company_id, bank_id) 
-      DO UPDATE SET 
-        account_number = '10010000001',
-        merchant_id = 'BNB_MERCHANT',
-        additional_config = $3,
-        environment = 2,
-        updated_at = CURRENT_TIMESTAMP
-    `, [
-      companyId, 
-      bnbId, 
-      JSON.stringify({
-        username: 'bnb_user',
-        password: 'bnb_pass'
-      })
-    ]);
+    // 2. Inicializar credenciales bancarias del sistema
+    console.log('Inicializando credenciales bancarias del sistema...');
     
-    console.log('Configurando relación empresa-banco para BISA...');
-    await query(`
-      INSERT INTO company_bank (company_id, bank_id, account_number, account_type, account_name, merchant_id, additional_config, environment, status)
-      VALUES ($1, $2, '10030000001', 1, 'Cuenta Principal', 'BISA_MERCHANT', $3, 2, 'ACTIVE')
-      ON CONFLICT (company_id, bank_id) 
-      DO UPDATE SET 
-        account_number = '10030000001',
-        merchant_id = 'BISA_MERCHANT',
-        additional_config = $3,
-        environment = 2,
-        updated_at = CURRENT_TIMESTAMP
-    `, [
-      companyId, 
-      bisaId, 
-      JSON.stringify({
-        username: 'bisa_user',
-        password: 'bisa_pass'
-      })
-    ]);
+    // Usar el script de setup de Baneco que ya maneja la eliminación de credenciales existentes
+    const { setupBanecoCredentials } = await import('./setup-bankeco-credentials');
+    const { testCredential, prodCredential } = await setupBanecoCredentials();
     
-    console.log('Configuración empresa-banco actualizada para los tres bancos');
+    console.log('Credenciales bancarias configuradas exitosamente');
     
-    // 6. Crear una API key para la empresa
-    console.log('Creando API key para la empresa...');
+    // 3. Crear usuario SUPER_ADMIN
+    console.log('Creando usuario SUPER_ADMIN...');
     
-    // Generar una API key aleatoria
-    const apiKey = generateApiKey();
-    
-    // Definir permisos
-    const permissions = {
-      qr_codes: {
-        create: true,
-        read: true
-      },
-      transactions: {
-        read: true
-      }
+    const superAdminData = {
+      email: 'admin@pagui.com',
+      password: 'admin123',
+      fullName: 'Administrador del Sistema',
+      entityType: 'individual' as const,
+      identificationType: 'CI',
+      identificationNumber: '12345678',
+      phoneNumber: '76543210',
+      phoneExtension: '123',
+      roleId: superAdminRole.rows[0].id,
+      isPrimaryUser: true,
+      bankCredentialId: prodCredential.id // Usar credenciales de producción por defecto
     };
     
-    // Fecha de expiración (1 año)
+    const superAdmin = await userService.createUser(superAdminData);
+    console.log(`Usuario SUPER_ADMIN creado con ID: ${superAdmin.id}`);
+    
+    // 4. Crear empresa de ejemplo
+    console.log('Creando empresa de ejemplo...');
+    
+    const companyData = {
+      email: 'empresa@example.com',
+      password: 'empresa123',
+      fullName: 'Empresa Demo S.A.',
+      businessId: 'EMP001',
+      entityType: 'company' as const,
+      identificationType: 'CI',
+      identificationNumber: '87654321',
+      phoneNumber: '65432109',
+      phoneExtension: '456',
+      address: 'Av. Principal #123, La Paz',
+      roleId: companyAdminRole.rows[0].id,
+      isPrimaryUser: true,
+      bankCredentialId: prodCredential.id // Usar credenciales de producción por defecto
+    };
+    
+    const company = await userService.createUser(companyData);
+    console.log(`Empresa creada con ID: ${company.id}`);
+    
+    // 5. Crear empleado de ejemplo
+    console.log('Creando empleado de ejemplo...');
+    
+    const employeeData = {
+      email: 'empleado@example.com',
+      password: 'empleado123',
+      fullName: 'Empleado Demo',
+      entityType: 'individual' as const,
+      identificationType: 'CI',
+      identificationNumber: '11111111',
+      phoneNumber: '55555555',
+      phoneExtension: '789',
+      roleId: employeeRole.rows[0].id,
+      isPrimaryUser: false,
+      parentUserId: company.id,
+      bankCredentialId: testCredential.id // Usar credenciales de prueba por defecto
+    };
+    
+    const employee = await userService.createUser(employeeData);
+    console.log(`Empleado creado con ID: ${employee.id}`);
+    
+    // 6. Crear API key para la empresa
+    console.log('Creando API key...');
+    
+    const apiKey = generateApiKey();
+    const permissions = {
+      qr_codes: { create: true, read: true },
+      transactions: { read: true }
+    };
+    
     const expiresAt = new Date();
     expiresAt.setFullYear(expiresAt.getFullYear() + 1);
     
     await query(`
-      INSERT INTO api_keys (api_key, description, company_id, permissions, expires_at, status)
-      VALUES ($1, 'API Key de demostración', $2, $3, $4, 'ACTIVE')
-      ON CONFLICT (api_key) 
-      DO NOTHING
-    `, [apiKey, companyId, JSON.stringify(permissions), expiresAt.toISOString()]);
+      INSERT INTO api_keys (api_key, description, user_id, created_by_user_id, permissions, expires_at, status)
+      VALUES ($1, 'API Key de demostración', $2, $3, $4, $5, 'active')
+      ON CONFLICT (api_key) DO NOTHING
+    `, [apiKey, company.id, company.id, JSON.stringify(permissions), expiresAt.toISOString()]);
     
     console.log(`API key generada: ${apiKey}`);
     
     // 7. Crear tokens de autenticación de ejemplo
-    console.log('Creando tokens de autenticación de ejemplo...');
+    console.log('Creando tokens de autenticación...');
     
-    // Información de dispositivos de ejemplo
     const deviceInfos = [
       {
         ip: '192.168.1.100',
@@ -227,72 +147,64 @@ export async function seedDatabase() {
         ip: '192.168.1.101',
         userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1',
         deviceType: 'Mobile - iOS'
-      },
-      {
-        ip: '192.168.1.102',
-        userAgent: 'Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36',
-        deviceType: 'Mobile - Android'
       }
     ];
     
-    // Fechas de expiración
-    const accessTokenExpiry = new Date();
-    accessTokenExpiry.setHours(accessTokenExpiry.getHours() + 24); // 24 horas
-    
-    const refreshTokenExpiry = new Date();
-    refreshTokenExpiry.setDate(refreshTokenExpiry.getDate() + 30); // 30 días
-    
-    // Insertar tokens de acceso para diferentes dispositivos
     for (const device of deviceInfos) {
-      // Crear token de acceso
       await query(`
         INSERT INTO auth_tokens (
-          user_id, 
-          token_type, 
-          token, 
-          expires_at, 
-          ip_address, 
-          user_agent
-        ) VALUES (
-          $1, 'REFRESH_TOKEN', $2, $3, $4, $5
-        )
+          user_id, token_type, token, expires_at, ip_address, user_agent
+        ) VALUES ($1, 'REFRESH_TOKEN', $2, $3, $4, $5)
+        ON CONFLICT (token) DO NOTHING
       `, [
-        userId,
-        generateApiKey(64),
-        refreshTokenExpiry.toISOString(),
+        company.id,
+        generateApiKey(),
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 días
         device.ip,
-        `${device.userAgent} | ${device.deviceType}`
+        device.userAgent
       ]);
     }
     
-    console.log('Tokens de autenticación creados para diferentes dispositivos');
+    console.log('✅ Seed de la base de datos completado exitosamente');
     
-    console.log('Base de datos poblada correctamente.');
+    // Resumen de lo creado
+    console.log('\n📊 Resumen del seed:');
+    console.log(`- Roles: ${(superAdminRole.rowCount || 0) + (companyAdminRole.rowCount || 0) + (employeeRole.rowCount || 0)}`);
+    console.log(`- Usuarios: 3 (SUPER_ADMIN, Empresa, Empleado)`);
+    console.log(`- Credenciales bancarias: 2 (Test + Producción)`);
+    console.log(`- API Keys: 1`);
+    console.log(`- Tokens de autenticación: 2`);
+    
+    // Mostrar información de las credenciales bancarias
+    console.log('\n🏦 Credenciales Bancarias:');
+    console.log(`- Test (ID: ${testCredential.id}): ${testCredential.accountNumber} - ${testCredential.username}`);
+    console.log(`- Producción (ID: ${prodCredential.id}): ${prodCredential.accountNumber} - ${prodCredential.username}`);
     
   } catch (error) {
-    console.error('Error al poblar la base de datos:', error);
-  } finally {
-    // Cerrar la conexión a la base de datos
-    // await pool.end();  // Eliminamos esta línea que cierra la conexión
+    console.error('❌ Error durante el seed:', error);
+    throw error;
   }
 }
 
-// Función para generar una API key aleatoria
-function generateApiKey(length = 32): string {
+// Función para generar API keys aleatorias
+function generateApiKey(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let result = '';
-  const randomValues = new Uint8Array(length);
-  crypto.getRandomValues(randomValues);
-  
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(randomValues[i] % chars.length);
+  for (let i = 0; i < 32; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
-  
   return result;
 }
 
-// Ejecutar la función principal
+// Ejecutar seed si se llama directamente
 if (require.main === module) {
-  seedDatabase();
+  seedDatabase()
+    .then(() => {
+      console.log('Seed completado');
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error('Error en seed:', error);
+      process.exit(1);
+    });
 }
-// seedDatabase();

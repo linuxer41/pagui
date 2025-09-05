@@ -1,21 +1,33 @@
-import { Elysia } from 'elysia';
-
+import { Router } from 'express';
 import authRoutes from './auth.routes';
+import healthRoutes from './health.routes';
 import qrRoutes from './qr.routes';
-import apiKeyRoutes from './apikeys.routes';
-import userRoutes from './admin/users.routes';
-import companiesRoutes from './admin/companies.routes';
-import banksRoutes from './admin/banks.routes';
+import transactionRoutes from './transactions.routes';
+import apikeyRoutes from './apikey.routes';
+import adminRoutes from './admin/users.routes';
+import publicRoutes from './public.routes';
 import hooksRoutes from './hooks.route';
-import transactionsRoutes from './transactions.routes';
+import accountRoutes from './accounts.routes';
 
-// Agrupar todas las rutas
-export const routes = new Elysia({ prefix: '/api' })
-  .use(authRoutes)
-  .use(qrRoutes)
-  .use(apiKeyRoutes)
-  .use(userRoutes)
-  .use(companiesRoutes)
-  .use(banksRoutes)
-  .use(hooksRoutes)
-  .use(transactionsRoutes)
+const router = Router();
+
+// Rutas públicas (sin autenticación)
+router.use('/public', publicRoutes);
+router.use('/hooks', hooksRoutes);
+
+// Rutas de autenticación
+router.use('/auth', authRoutes);
+
+// Rutas de salud del sistema
+router.use('/health', healthRoutes);
+
+// Rutas protegidas (requieren autenticación)
+router.use('/qr', qrRoutes);
+router.use('/transactions', transactionRoutes);
+router.use('/apikey', apikeyRoutes);
+router.use('/accounts', accountRoutes);
+
+// Rutas de administración
+router.use('/admin', adminRoutes);
+
+export default router;

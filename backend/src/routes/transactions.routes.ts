@@ -13,13 +13,9 @@ export const transactionsRoutes = new Elysia({ prefix: '/transactions' })
   .use(authMiddleware({ type: 'all', level: 'user' }))
   
   // Obtener estadísticas de transacciones por período
-  .get('/stats/:periodType/:year/:month?/:week?', async ({ params, auth }) => {
-    if (auth?.type !== 'jwt') {
-      throw new ApiError('Se requiere autenticación de usuario para esta operación', 401);
-    }
-  
-    const companyId = auth.user!.companyId;
-    const userId = auth.user!.id;
+  .get('/stats/:periodType/:year/:month?/:week?', async ({ params, auth }) => {  
+    const companyId = auth.type === 'jwt' ? auth.user!.companyId : auth.apiKeyInfo!.companyId;
+    const userId = auth.type === 'jwt' ? auth.user!.id : undefined;
     const periodType = params.periodType as 'weekly' | 'monthly' | 'yearly';
     const year = parseInt(params.year);
     const month = params.month ? parseInt(params.month) : undefined;
@@ -54,12 +50,9 @@ export const transactionsRoutes = new Elysia({ prefix: '/transactions' })
   
   // Listar transacciones con filtros
   .get('/', async ({ query: queryParams, auth }) => {
-    if (auth?.type !== 'jwt') {
-      throw new ApiError('Se requiere autenticación de usuario para esta operación', 401);
-    }
-    
-    const companyId = auth.user!.companyId;
-    const userId = auth.user!.id;
+
+    const companyId = auth.type === 'jwt' ? auth.user!.companyId : auth.apiKeyInfo!.companyId;
+    const userId = auth.type === 'jwt' ? auth.user!.id : undefined;
     
     // Convertir parámetros de consulta
     const filters = {
@@ -101,12 +94,9 @@ export const transactionsRoutes = new Elysia({ prefix: '/transactions' })
   
   // Crear una nueva transacción
   .post('/', async ({ body, auth }) => {
-    if (auth?.type !== 'jwt') {
-      throw new ApiError('Se requiere autenticación de usuario para esta operación', 401);
-    }
-    
-    const companyId = auth.user!.companyId;
-    const userId = auth.user!.id;
+
+    const companyId = auth.type === 'jwt' ? auth.user!.companyId : auth.apiKeyInfo!.companyId;
+    const userId = auth.type === 'jwt' ? auth.user!.id : undefined;
     
     const data = await transactionService.createTransaction(companyId, body as any, userId);
     return {
@@ -140,12 +130,9 @@ export const transactionsRoutes = new Elysia({ prefix: '/transactions' })
   
   // Obtener detalle de una transacción específica
   .get('/:id', async ({ params, auth }) => {
-    if (auth?.type !== 'jwt') {
-      throw new ApiError('Se requiere autenticación de usuario para esta operación', 401);
-    }
-    
-    const companyId = auth.user!.companyId;
-    const userId = auth.user!.id;
+
+    const companyId = auth.type === 'jwt' ? auth.user!.companyId : auth.apiKeyInfo!.companyId;
+    const userId = auth.type === 'jwt' ? auth.user!.id : undefined;
     const transactionId = params.id;
     
     const data = await transactionService.getTransactionDetail(companyId, transactionId, userId);

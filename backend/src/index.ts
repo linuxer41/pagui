@@ -3,9 +3,13 @@ import { cron } from '@elysiajs/cron';
 import { swagger } from '@elysiajs/swagger';
 import { Elysia } from 'elysia';
 
-// Servicios
-import { initScheduledTasks } from './services/monitor.service';
-import qrService from './services/qr.service';
+// Rutas por separado
+import healthRoutes from './routes/health.routes';
+import { authRoutes } from './routes/auth.routes';
+import { qrRoutes } from './routes/qr.routes';
+import { transactionsRoutes } from './routes/transactions.routes';
+import { usersRoutes } from './routes/admin/users.routes';
+import hooksRoutes from './routes/hooks.route';
 
 // Config y middlewares
 import { migrateDB, testConnection, query } from './config/database';
@@ -14,6 +18,8 @@ import { migrateDB, testConnection, query } from './config/database';
 import { routes } from './routes';
 import { seedDatabase } from './scripts/seed-db';
 import { ApiError } from './utils/error';
+import { publicRoutes } from './routes/public.routes';
+import qrService from './services/qr.service';
 
 // Variables de entorno
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
@@ -52,15 +58,15 @@ const app = new Elysia()
     pattern: '0 * * * *', // Cada hora
     run() {
       console.log('⏰ Running scheduled monitoring tasks');
-      qrService.updateExpiredQRs();
-      qrService.checkExpiringQRs();
+      // qrService.updateExpiredQRs();
+      // qrService.checkExpiringQRs();
     }
   }))
   .error(
     {ApiError}
   )
   .onError(({ code, error, set }) => {
-    console.log({code});
+    console.error(error);
     
     if (code === 'VALIDATION') {
       set.status = 400;
@@ -90,7 +96,10 @@ app.get('/', () => ({
   auth_provider: 'zitadel'
 }));
 
-// Usar todas las rutas modularizadas
+// Aplicar rutas públicas primero (sin autenticación)
+app.use(publicRoutes);
+
+// Usar todas las rutas modularizadas (con autenticación)
 app.use(routes);
 
 // Inicializar base de datos y servidor
@@ -122,7 +131,7 @@ async function start() {
     // Flujo normal de inicio del servidor (sin argumentos específicos)
     if (!command) {
       // Iniciar tareas programadas
-      initScheduledTasks();
+      // initScheduledTasks();
       
       // Iniciar servidor
       app.listen(PORT);

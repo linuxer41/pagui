@@ -5,7 +5,7 @@ export const QRRequestSchema = t.Object({
     amount: t.Number(),
     description: t.Optional(t.String()),
     bankId: t.Optional(t.Number({default: 1})),
-    dueDate: t.Optional(t.String()),
+    dueDate: t.String(), // Campo obligatorio para la base de datos
     singleUse: t.Optional(t.Boolean({default: false})),
     modifyAmount: t.Optional(t.Boolean({default: false})),
   })

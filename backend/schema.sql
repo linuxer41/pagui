@@ -1,5 +1,9 @@
--- Restructuración completa del sistema bancario
--- Eliminar todas las tablas existentes
+-- ========================================
+-- SCHEMA DEL SISTEMA DE PAGOS CON QR
+-- ========================================
+
+-- Eliminar todas las tablas existentes (en orden de dependencias)
+DROP TABLE IF EXISTS payment_sync_status CASCADE;
 DROP TABLE IF EXISTS account_movements CASCADE;
 DROP TABLE IF EXISTS user_accounts CASCADE;
 DROP TABLE IF EXISTS accounts CASCADE;
@@ -10,7 +14,11 @@ DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS roles CASCADE;
 DROP TABLE IF EXISTS third_bank_credentials CASCADE;
 
--- Crear tabla de roles simplificada
+-- ========================================
+-- 1. TABLAS DE CONFIGURACIÓN Y ROLES
+-- ========================================
+
+-- Crear tabla de roles
 CREATE TABLE roles (
   id SERIAL PRIMARY KEY,
   name VARCHAR(50) NOT NULL UNIQUE,
@@ -20,7 +28,7 @@ CREATE TABLE roles (
   deleted_at TIMESTAMPTZ
 );
 
--- Crear tabla de usuarios simplificada
+-- Crear tabla de usuarios
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
   email VARCHAR(100) UNIQUE NOT NULL,
@@ -34,6 +42,10 @@ CREATE TABLE users (
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   deleted_at TIMESTAMPTZ
 );
+
+-- ========================================
+-- 2. TABLAS DE CREDENCIALES BANCARIAS
+-- ========================================
 
 -- Crear tabla para credenciales bancarias
 CREATE TABLE third_bank_credentials (
@@ -51,7 +63,11 @@ CREATE TABLE third_bank_credentials (
   deleted_at TIMESTAMPTZ
 );
 
--- Crear tabla de cuentas bancarias (PIEZA CENTRAL)
+-- ========================================
+-- 3. TABLAS DE CUENTAS BANCARIAS
+-- ========================================
+
+-- Crear tabla de cuentas bancarias
 CREATE TABLE accounts (
   id SERIAL PRIMARY KEY,
   account_number VARCHAR(50) UNIQUE NOT NULL,
@@ -78,7 +94,11 @@ CREATE TABLE user_accounts (
   UNIQUE(user_id, account_id)
 );
 
--- Crear tabla de movimientos de cuenta (expandida para manejar todos los tipos de transacciones)
+-- ========================================
+-- 4. TABLAS DE MOVIMIENTOS Y TRANSACCIONES
+-- ========================================
+
+-- Crear tabla de movimientos de cuenta
 CREATE TABLE account_movements (
   id SERIAL PRIMARY KEY,
   account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -104,6 +124,10 @@ CREATE TABLE account_movements (
   deleted_at TIMESTAMPTZ
 );
 
+-- ========================================
+-- 5. TABLAS DE CÓDIGOS QR
+-- ========================================
+
 -- Crear tabla de códigos QR
 CREATE TABLE qr_codes (
   id SERIAL PRIMARY KEY,
@@ -123,6 +147,26 @@ CREATE TABLE qr_codes (
   deleted_at TIMESTAMPTZ
 );
 
+-- ========================================
+-- 6. TABLAS DE SINCRONIZACIÓN DE PAGOS
+-- ========================================
+
+-- Crear tabla para rastrear estado de sincronización de pagos
+CREATE TABLE payment_sync_status (
+  id SERIAL PRIMARY KEY,
+  qr_id VARCHAR(50) NOT NULL UNIQUE,
+  last_checked TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  next_check TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP + INTERVAL '2 minutes',
+  check_count INTEGER NOT NULL DEFAULT 0,
+  success BOOLEAN NOT NULL DEFAULT true,
+  final_status VARCHAR(20) DEFAULT NULL,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ========================================
+-- 7. TABLAS DE AUTENTICACIÓN Y API
+-- ========================================
 
 -- Crear tabla de tokens de autenticación
 CREATE TABLE auth_tokens (
@@ -146,22 +190,41 @@ CREATE TABLE api_keys (
   deleted_at TIMESTAMPTZ
 );
 
--- Crear índices
+-- ========================================
+-- 8. ÍNDICES PARA OPTIMIZACIÓN
+-- ========================================
+
+-- Índices de usuarios
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_role ON users(role_id);
+
+-- Índices de cuentas
 CREATE INDEX idx_accounts_number ON accounts(account_number);
 CREATE INDEX idx_accounts_status ON accounts(status);
 CREATE INDEX idx_user_accounts_user ON user_accounts(user_id);
 CREATE INDEX idx_user_accounts_account ON user_accounts(account_id);
+
+-- Índices de movimientos
 CREATE INDEX idx_account_movements_account ON account_movements(account_id);
 CREATE INDEX idx_account_movements_type ON account_movements(movement_type);
 CREATE INDEX idx_account_movements_qr ON account_movements(qr_id);
 CREATE INDEX idx_account_movements_reference ON account_movements(reference_id, reference_type);
 CREATE INDEX idx_account_movements_status ON account_movements(status);
+
+-- Índices de QR codes
 CREATE INDEX idx_qr_codes_account ON qr_codes(account_id);
 CREATE INDEX idx_qr_codes_third_bank_credential ON qr_codes(third_bank_credential_id);
 
--- Crear función para calcular balance de cuenta
+-- Índices de sincronización
+CREATE INDEX idx_payment_sync_qr_id ON payment_sync_status(qr_id);
+CREATE INDEX idx_payment_sync_next_check ON payment_sync_status(next_check);
+CREATE INDEX idx_payment_sync_last_checked ON payment_sync_status(last_checked);
+
+-- ========================================
+-- 9. FUNCIONES DE NEGOCIO
+-- ========================================
+
+-- Función para calcular balance de cuenta
 CREATE OR REPLACE FUNCTION calculate_account_balance(account_id_param INTEGER)
 RETURNS DECIMAL(15, 2) AS $$
 DECLARE
@@ -181,7 +244,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Crear función para actualizar balance automáticamente
+-- Función para actualizar balance automáticamente
 CREATE OR REPLACE FUNCTION update_account_balance()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -196,8 +259,27 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Crear trigger para movimientos de cuenta
+-- Función para actualizar updated_at automáticamente en payment_sync_status
+CREATE OR REPLACE FUNCTION update_payment_sync_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- ========================================
+-- 10. TRIGGERS
+-- ========================================
+
+-- Trigger para actualizar balance de cuenta automáticamente
 CREATE TRIGGER trigger_update_account_balance
 AFTER INSERT OR UPDATE OR DELETE ON account_movements
 FOR EACH ROW
 EXECUTE FUNCTION update_account_balance();
+
+-- Trigger para actualizar updated_at en payment_sync_status
+CREATE TRIGGER trigger_update_payment_sync_updated_at
+  BEFORE UPDATE ON payment_sync_status
+  FOR EACH ROW
+  EXECUTE FUNCTION update_payment_sync_updated_at();

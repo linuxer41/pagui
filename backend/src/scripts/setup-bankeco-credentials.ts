@@ -56,15 +56,36 @@ export async function setupBanecoCredentials() {
     console.log(`   Cuenta: ${prodCredential.accountNumber}`);
     console.log(`   Entorno: Producción (${prodCredential.environment})`);
     
+    // Crear credenciales de IATHINGS (Tercero)
+    console.log('🏢 Creando credenciales de IATHINGS...');
+    
+    const iathingsCredential = await bankCredentialsService.create({
+      accountNumber: '5021979319',
+      accountName: 'IATHINGS BANECO',
+      merchantId: 'IATHINGS_MERCHANT',
+      username: 'A100874750',
+      password: 'Anarkia41?', // Misma contraseña de producción
+      encryptionKey: 'AEA5CA5D649B47D0A16B95CB28C4DC1B', // Clave AES de IATHINGS
+      environment: 'prod', // Producción
+      apiBaseUrl: 'https://apimkt.baneco.com.bo/ApiGateway/'
+    });
+    
+    console.log(`✅ Credenciales de IATHINGS creadas con ID: ${iathingsCredential.id}`);
+    console.log(`   Usuario: ${iathingsCredential.username}`);
+    console.log(`   Cuenta: ${iathingsCredential.accountNumber}`);
+    console.log(`   Entorno: Producción (${iathingsCredential.environment})`);
+    
     console.log('\n🎯 Configuración completada:');
     console.log(`   - Credenciales de PRUEBA: ${testCredential.id}`);
     console.log(`   - Credenciales de PRODUCCIÓN: ${prodCredential.id}`);
+    console.log(`   - Credenciales de IATHINGS: ${iathingsCredential.id}`);
     console.log(`   - URL de Test: https://apimktdesa.baneco.com.bo/ApiGateway/`);
     console.log(`   - URL de Producción: https://apimkt.baneco.com.bo/ApiGateway/`);
     
     return {
       testCredential,
-      prodCredential
+      prodCredential,
+      iathingsCredential
     };
     
   } catch (error) {

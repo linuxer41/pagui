@@ -18,13 +18,6 @@
   import { tweened } from 'svelte/motion';
   import { fade, fly, scale } from 'svelte/transition';
 
-  // Variables para estadísticas y datos de la billetera
-  let stats = {
-    pendientes: 0,
-    pagados: 0,
-    cancelados: 0,
-    total: 0
-  };
   
   // Datos de la billetera
   let wallet = {
@@ -105,9 +98,8 @@
     monthly: 0
   };
   
-  let loadingStats = false;
-  
   let loading = true;
+  let loadingStats = false;
   let currentAccount: any = null;
   let allAccounts: any[] = [];
   let selectedAccountId: string = '';
@@ -119,32 +111,6 @@
     getAccounts();
     
     try {
-      // Cargar estadísticas de QR
-      const today = new Date().toISOString().split('T')[0];
-      const lastMonth = new Date();
-      lastMonth.setMonth(lastMonth.getMonth() - 1);
-      const lastMonthStr = lastMonth.toISOString().split('T')[0];
-      
-      const filters = {
-        startDate: lastMonthStr,
-        endDate: today
-      };
-      
-      // Cargar todos los QR
-      const response = await api.listQRs(filters);
-      
-      if (response.success && response.data) {
-        const qrList = response.data.qrList || response.data;
-        if (Array.isArray(qrList)) {
-          stats.total = qrList.length;
-          
-          // Contar por estado
-          stats.pendientes = qrList.filter((qr: any) => qr.status === 'PENDIENTE').length;
-          stats.pagados = qrList.filter((qr: any) => qr.status === 'PAGADO').length;
-          stats.cancelados = qrList.filter((qr: any) => qr.status === 'CANCELADO').length;
-        }
-      }
-      
       // Cargar estadísticas de la cuenta (incluye movimientos recientes)
       await loadAccountStats();
       
@@ -234,43 +200,68 @@
       </div>
     </div>
     
-    <!-- Wallet Info - Integrated in Header -->
-    <div class="wallet-info" in:fly={{ y: -20, duration: 500 }}>
-      <div class="wallet-balance">
-        <span class="balance-currency">{getCurrencySymbol(wallet.currency)}</span>
-        <span class="balance-amount" in:scale={{ duration: 600, easing: cubicOut }}>
-          {#if $animatedBalance !== undefined}
-            {formatCurrency($animatedBalance)}
-          {:else}
-            {formatCurrency(wallet.balance)}
-          {/if}
-        </span>
+    {#if loading}
+      <!-- Loading Placeholders -->
+      <div class="loading-placeholders">
+        <!-- Wallet Placeholder -->
+        <div class="wallet-placeholder">
+          <div class="placeholder-skeleton balance-skeleton"></div>
+          <div class="placeholder-skeleton account-skeleton"></div>
+        </div>
+        
+        <!-- Stats Placeholders -->
+        <div class="stats-placeholders">
+          <div class="placeholder-skeleton stat-skeleton"></div>
+          <div class="placeholder-skeleton stat-skeleton"></div>
+          <div class="placeholder-skeleton stat-skeleton"></div>
+        </div>
+        
+        <!-- Movements Placeholder -->
+        <div class="movements-placeholder">
+          <div class="placeholder-skeleton movement-skeleton"></div>
+          <div class="placeholder-skeleton movement-skeleton"></div>
+          <div class="placeholder-skeleton movement-skeleton"></div>
+        </div>
       </div>
-      {#if currentAccount}
-        <div class="wallet-account" in:fade={{ duration: 400, delay: 200 }}>
-          {currentAccount.accountNumber}
+    {:else}
+      <!-- Wallet Info - Integrated in Header -->
+      <div class="wallet-info" in:fly={{ y: -20, duration: 500 }}>
+        <div class="wallet-balance">
+          <span class="balance-currency">{getCurrencySymbol(wallet.currency)}</span>
+          <span class="balance-amount" in:scale={{ duration: 600, easing: cubicOut }}>
+            {#if $animatedBalance !== undefined}
+              {formatCurrency($animatedBalance)}
+            {:else}
+              {formatCurrency(wallet.balance)}
+            {/if}
+          </span>
         </div>
-      {/if}
-    </div>
-
-    <!-- Tabs de cuentas (solo si hay más de una cuenta) -->
-    {#if allAccounts.length > 1}
-      <div class="account-tabs" in:fly={{ y: 20, duration: 400, delay: 300 }}>
-        <div class="tabs-container">
-          {#each allAccounts as account (account.id)}
-            <button 
-              class="account-tab {selectedAccountId === account.id ? 'active' : ''}"
-              on:click={() => switchAccount(account.id)}
-            >
-              <div class="tab-content">
-                <span class="tab-currency">{getCurrencySymbol(account.currency)}</span>
-                <span class="tab-number">{account.accountNumber.slice(-4)}</span>
-              </div>
-            </button>
-          {/each}
-        </div>
+        {#if currentAccount}
+          <div class="wallet-account" in:fade={{ duration: 400, delay: 200 }}>
+            {currentAccount.accountNumber}
+          </div>
+        {/if}
       </div>
     {/if}
+
+      <!-- Tabs de cuentas (solo si hay más de una cuenta) -->
+      {#if allAccounts.length > 1}
+        <div class="account-tabs" in:fly={{ y: 20, duration: 400, delay: 300 }}>
+          <div class="tabs-container">
+            {#each allAccounts as account (account.id)}
+              <button 
+                class="account-tab {selectedAccountId === account.id ? 'active' : ''}"
+                on:click={() => switchAccount(account.id)}
+              >
+                <div class="tab-content">
+                  <span class="tab-currency">{getCurrencySymbol(account.currency)}</span>
+                  <span class="tab-number">{account.accountNumber.slice(-4)}</span>
+                </div>
+              </button>
+            {/each}
+          </div>
+        </div>
+      {/if}
     
     <!-- Acciones principales -->
     <div class="header-actions-bar">
@@ -292,8 +283,9 @@
 
   <!-- Contenido principal -->
   <div class="main-content">
-  <!-- Sección de Resumen de Recaudaciones -->
-  <div class="section collections-section" in:fade={{ duration: 500 }}>
+    {#if !loading}
+      <!-- Sección de Resumen de Recaudaciones -->
+      <div class="section collections-section" in:fade={{ duration: 500 }}>
     <div class="section-header compact-header">
       <h2 class="compact-title">Resumen de Recaudaciones</h2>
       <!-- <button class="view-all-button compact-view" on:click={() => goto('/resume')}>Ver detalles <ChevronRight size={16} /></button> -->
@@ -377,6 +369,7 @@
       {/if}
     </div>
   </div>
+    {/if}
   </div>
 </div>
 
@@ -941,5 +934,101 @@
   
   @keyframes spin {
     to { transform: rotate(360deg); }
+  }
+  
+  /* Loading Placeholders */
+  .loading-placeholders {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding: 1rem;
+  }
+  
+  .wallet-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .stats-placeholders {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem;
+  }
+  
+  .movements-placeholder {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .placeholder-skeleton {
+    background: var(--border-color);
+    border-radius: var(--border-radius);
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .placeholder-skeleton::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.1),
+      transparent
+    );
+    animation: shimmer 1.5s infinite;
+  }
+  
+  .balance-skeleton {
+    width: 120px;
+    height: 24px;
+  }
+  
+  .account-skeleton {
+    width: 100px;
+    height: 16px;
+  }
+  
+  .stat-skeleton {
+    height: 80px;
+    border-radius: var(--border-radius-lg);
+  }
+  
+  .movement-skeleton {
+    height: 60px;
+    border-radius: var(--border-radius-md);
+  }
+  
+  @keyframes shimmer {
+    0% { left: -100%; }
+    100% { left: 100%; }
+  }
+  
+  /* Responsive placeholders */
+  @media (max-width: 768px) {
+    .loading-placeholders {
+      gap: 1rem;
+      padding: 0.75rem;
+    }
+    
+    .stats-placeholders {
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 0.75rem;
+    }
+    
+    .stat-skeleton {
+      height: 70px;
+    }
+    
+    .movement-skeleton {
+      height: 50px;
+    }
   }
 </style>

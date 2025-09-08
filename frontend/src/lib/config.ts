@@ -1,7 +1,7 @@
 // Configuración global de la aplicación
 
 // API URL - Se obtiene de las variables de entorno o se usa un valor por defecto
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 // Configuración de la aplicación
 export const APP_CONFIG = {

@@ -8,7 +8,6 @@ import { auth } from "$lib/stores/auth";
 // See: https://v2.tauri.app/start/frontend/sveltekit/ for more info
 export const prerender = true;
 export const ssr = false;
-
 export const load = async ({ url }) => {
      const path = url.pathname;
      console.log({path});
@@ -23,4 +22,5 @@ export const load = async ({ url }) => {
          path
      }
 };
+
 

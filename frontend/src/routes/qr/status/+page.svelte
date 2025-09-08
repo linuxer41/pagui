@@ -1,7 +1,7 @@
 <script lang="ts">
   import api, { type QRStatusResponse, type QRPaymentsResponse } from '$lib/api';
   import { goto } from '$app/navigation';
-  import { page } from '$app/stores';
+  import { page } from '$app/state';
   import RouteLayout from '$lib/components/layouts/RouteLayout.svelte';
   import Modal from '$lib/components/Modal.svelte';
   import {
@@ -13,10 +13,7 @@
       QrCode
   } from '@lucide/svelte';
   import { onMount, onDestroy } from 'svelte';
-  // html-to-image se cargará dinámicamente
 
-  export let data: any;
-  
   interface QrStatus {
     qrId: string;
     transactionId: string;
@@ -66,7 +63,7 @@
 
   onMount(() => {
     // Obtener el ID del QR desde la URL
-    const qrIdFromUrl = $page.url.searchParams.get('id');
+    const qrIdFromUrl = page.url.searchParams.get('id');
     
     if (!qrIdFromUrl) {
       error = 'ID del QR no encontrado en la URL';

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import type { Transaction } from '$lib/api';
   import api from '$lib/api';
+  import { auth } from '$lib/stores/auth';
   import {
       ArrowDownLeft,
       ArrowUpRight,
@@ -28,24 +28,95 @@
   
   // Datos de la billetera
   let wallet = {
-    balance: 2450.75,
-    currency: 'USD',
-    transactions: [] as Transaction[]
+    balance: 0,
+    currency: 'BOB'
   };
+  
+  // Función para obtener las cuentas del usuario
+  function getAccounts() {
+    allAccounts = $auth.accounts || [];
+    const primaryAccount = allAccounts.find(account => account.isPrimary) || allAccounts[0];
+    if (primaryAccount) {
+      currentAccount = primaryAccount;
+      selectedAccountId = primaryAccount.id;
+    }
+  }
+
+  // Función para cambiar de cuenta
+  async function switchAccount(accountId: string) {
+    const account = allAccounts.find(acc => acc.id === accountId);
+    if (account) {
+      selectedAccountId = accountId;
+      currentAccount = account;
+      
+      // Cargar estadísticas de la nueva cuenta (incluye toda la info de la cuenta)
+      await loadAccountStats();
+    }
+  }
+
+
+  // Función para cargar estadísticas de la cuenta (incluye toda la info de la cuenta)
+  async function loadAccountStats() {
+    if (!currentAccount) return;
+    
+    loadingStats = true;
+    try {
+      const response = await api.getAccountStats(currentAccount.id);
+      if (response.success && response.data) {
+        const stats = response.data;
+        
+        // Actualizar información de la cuenta
+        if (stats.account) {
+          currentAccount = stats.account;
+          wallet.balance = parseFloat(stats.account.availableBalance);
+          wallet.currency = stats.account.currency;
+        }
+        
+        // Actualizar estadísticas de recaudación
+        collections.daily = stats.today?.amount || 0;
+        collections.weekly = stats.thisWeek?.amount || 0;
+        collections.monthly = stats.thisMonth?.amount || 0;
+        
+        growthPercentages.daily = stats.today?.growthPercentage || 0;
+        growthPercentages.weekly = stats.thisWeek?.growthPercentage || 0;
+        growthPercentages.monthly = stats.thisMonth?.growthPercentage || 0;
+        
+        // Cargar movimientos recientes desde las estadísticas
+        accountMovements = stats.recentMovements || [];
+      }
+    } catch (error) {
+      console.error('Error al cargar estadísticas de cuenta:', error);
+    } finally {
+      loadingStats = false;
+    }
+  }
   
   // Datos de recaudaciones por periodo
   let collections = {
-    daily: 450.25,
-    weekly: 2750.80,
-    monthly: 8420.35
+    daily: 0,
+    weekly: 0,
+    monthly: 0
   };
   
+  // Porcentajes de crecimiento
+  let growthPercentages = {
+    daily: 0,
+    weekly: 0,
+    monthly: 0
+  };
+  
+  let loadingStats = false;
+  
   let loading = true;
-  let loadingTransactions = true;
-  let transactionsError = false;
+  let currentAccount: any = null;
+  let allAccounts: any[] = [];
+  let selectedAccountId: string = '';
+  let accountMovements: any[] = [];
 
   // Verificar autenticación y cargar datos
   onMount(async () => {
+    // Cargar cuentas del usuario
+    getAccounts();
     
     try {
       // Cargar estadísticas de QR
@@ -62,18 +133,20 @@
       // Cargar todos los QR
       const response = await api.listQRs(filters);
       
-      if (response.responseCode === 0 && response.qrList) {
-        const qrList = response.qrList;
-        stats.total = qrList.length;
-        
-        // Contar por estado
-        stats.pendientes = qrList.filter((qr: any) => qr.status === 'PENDIENTE').length;
-        stats.pagados = qrList.filter((qr: any) => qr.status === 'PAGADO').length;
-        stats.cancelados = qrList.filter((qr: any) => qr.status === 'CANCELADO').length;
+      if (response.success && response.data) {
+        const qrList = response.data.qrList || response.data;
+        if (Array.isArray(qrList)) {
+          stats.total = qrList.length;
+          
+          // Contar por estado
+          stats.pendientes = qrList.filter((qr: any) => qr.status === 'PENDIENTE').length;
+          stats.pagados = qrList.filter((qr: any) => qr.status === 'PAGADO').length;
+          stats.cancelados = qrList.filter((qr: any) => qr.status === 'CANCELADO').length;
+        }
       }
       
-      // Cargar transacciones recientes
-      await loadRecentTransactions();
+      // Cargar estadísticas de la cuenta (incluye movimientos recientes)
+      await loadAccountStats();
       
     } catch (err) {
       console.error('Error al cargar estadísticas:', err);
@@ -82,28 +155,10 @@
     }
   });
 
-  // Función para cargar las transacciones recientes
-  async function loadRecentTransactions() {
-    loadingTransactions = true;
-    transactionsError = false;
-    
-    try {
-      const response = await api.getRecentTransactions(3);
-      if (!response.success) {
-        throw new Error('Error al obtener transacciones recientes');
-      }
-      wallet.transactions = response.data?.transactions || [];
-    } catch (error) {
-      console.error('Error al cargar transacciones recientes:', error);
-      transactionsError = true;
-    } finally {
-      loadingTransactions = false;
-    }
-  }
 
 
   function handleGenerarQR() {
-    goto('/qr');
+    goto('/qr/generate');
   }
 
   function handleVerPagos() {
@@ -139,6 +194,18 @@
     });
   }
 
+  // Función para obtener el símbolo de moneda
+  function getCurrencySymbol(currency: string): string {
+    switch (currency.toUpperCase()) {
+      case 'BOB':
+        return 'Bs.';
+      case 'USD':
+        return '$';
+      default:
+        return currency;
+    }
+  }
+
   // Animación para el saldo (balance)
   let animatedBalance = tweened(wallet.balance, { duration: 800, easing: cubicOut });
 
@@ -167,22 +234,43 @@
       </div>
     </div>
     
-    <!-- Saldo disponible en el header -->
-    <div class="header-balance" in:fly={{ y: -20, duration: 500 }}>
-      <div class="balance-content">
-        <p class="balance-label" in:fade={{ duration: 400 }}>Saldo disponible</p>
-        <h1 class="balance-amount" in:scale={{ duration: 500, start: 0.9 }}>
-          <span class="currency-symbol">{wallet.currency}</span>
-          <span class="balance-value" in:scale={{ duration: 600, easing: cubicOut }}>
-            {#if $animatedBalance !== undefined}
-              {formatCurrency($animatedBalance)}
-            {:else}
-              {formatCurrency(wallet.balance)}
-            {/if}
-          </span>
-        </h1>
+    <!-- Wallet Info - Integrated in Header -->
+    <div class="wallet-info" in:fly={{ y: -20, duration: 500 }}>
+      <div class="wallet-balance">
+        <span class="balance-currency">{getCurrencySymbol(wallet.currency)}</span>
+        <span class="balance-amount" in:scale={{ duration: 600, easing: cubicOut }}>
+          {#if $animatedBalance !== undefined}
+            {formatCurrency($animatedBalance)}
+          {:else}
+            {formatCurrency(wallet.balance)}
+          {/if}
+        </span>
       </div>
+      {#if currentAccount}
+        <div class="wallet-account" in:fade={{ duration: 400, delay: 200 }}>
+          {currentAccount.accountNumber}
+        </div>
+      {/if}
     </div>
+
+    <!-- Tabs de cuentas (solo si hay más de una cuenta) -->
+    {#if allAccounts.length > 1}
+      <div class="account-tabs" in:fly={{ y: 20, duration: 400, delay: 300 }}>
+        <div class="tabs-container">
+          {#each allAccounts as account (account.id)}
+            <button 
+              class="account-tab {selectedAccountId === account.id ? 'active' : ''}"
+              on:click={() => switchAccount(account.id)}
+            >
+              <div class="tab-content">
+                <span class="tab-currency">{getCurrencySymbol(account.currency)}</span>
+                <span class="tab-number">{account.accountNumber.slice(-4)}</span>
+              </div>
+            </button>
+          {/each}
+        </div>
+      </div>
+    {/if}
     
     <!-- Acciones principales -->
     <div class="header-actions-bar">
@@ -221,7 +309,7 @@
             <span class="currency-symbol">{wallet.currency}</span>
             <span in:scale={{ duration: 600, easing: cubicOut }}>{formatCurrency(collections.daily)}</span>
           </div>
-          <div class="collection-trend positive">+12.5%</div>
+          <div class="collection-trend positive">+{growthPercentages.daily.toFixed(1)}%</div>
         </div>
       </div>
       <div class="collection-item" in:fly={{ y: 30, duration: 400, delay: 200 }}>
@@ -234,7 +322,7 @@
             <span class="currency-symbol">{wallet.currency}</span>
             <span in:scale={{ duration: 600, easing: cubicOut }}>{formatCurrency(collections.weekly)}</span>
           </div>
-          <div class="collection-trend positive">+8.2%</div>
+          <div class="collection-trend positive">+{growthPercentages.weekly.toFixed(1)}%</div>
         </div>
       </div>
       <div class="collection-item" in:fly={{ y: 30, duration: 400, delay: 300 }}>
@@ -247,51 +335,42 @@
             <span class="currency-symbol">{wallet.currency}</span>
             <span in:scale={{ duration: 600, easing: cubicOut }}>{formatCurrency(collections.monthly)}</span>
           </div>
-          <div class="collection-trend positive">+15.8%</div>
+          <div class="collection-trend positive">+{growthPercentages.monthly.toFixed(1)}%</div>
         </div>
       </div>
     </div>
   </div>
-  <!-- Transacciones recientes -->
+  <!-- Movimientos de cuenta recientes -->
   <div class="section transactions-section" in:fade={{ duration: 500, delay: 100 }}>
     <div class="section-header compact-header">
-      <h2 class="compact-title">Transacciones recientes</h2>
+      <h2 class="compact-title">Movimientos recientes</h2>
       <button class="view-all-button compact-view" on:click={() => goto('/transactions')}>Ver todas <ChevronRight size={16} /></button>
     </div>
     <div class="transactions-list">
-      {#if loadingTransactions}
+      {#if loadingStats}
         <div class="loading-transactions">
           <div class="loading-spinner mini"></div>
-          <span>Cargando transacciones...</span>
+          <span>Cargando movimientos...</span>
         </div>
-      {:else if transactionsError}
-        <div class="error-message">
-          <p>Error al cargar transacciones.</p>
-          <button class="retry-button small" on:click={loadRecentTransactions}>
-            <RefreshCw size={12} />
-            Reintentar
-          </button>
-        </div>
-      {:else if wallet.transactions.length === 0}
+      {:else if accountMovements.length === 0}
         <div class="empty-transactions">
-          <p>No hay transacciones recientes</p>
+          <p>No hay movimientos recientes</p>
         </div>
       {:else}
-        {#each wallet.transactions as tx, i (tx.id)}
+        {#each accountMovements.slice(0, 5) as movement, i (movement.id)}
           <div class="transaction-item" in:fly={{ y: 20, duration: 400, delay: 100 + i * 80 }}>
-            <div class="transaction-icon {tx.type === 'incoming' ? 'incoming' : 'outgoing'}">
-              {#if tx.type === 'incoming'}
-                <ArrowDownLeft size={18} />
-              {:else}
-                <ArrowUpRight size={18} />
-              {/if}
+            <div class="transaction-icon incoming">
+              <ArrowDownLeft size={18} />
             </div>
             <div class="transaction-details">
-              <div class="transaction-title" style="font-size:0.85rem;">{tx.type === 'incoming' ? (tx.from || 'Ingreso') : (tx.to || 'Pago')}</div>
-              <div class="transaction-date">{formatDate(tx.date)}</div>
+              <div class="transaction-title" style="font-size:0.85rem;">{movement.description || 'Movimiento de cuenta'}</div>
+              <div class="transaction-date">{formatDate(movement.createdAt)}</div>
+              {#if movement.reference}
+                <div class="transaction-reference" style="font-size:0.75rem; color: var(--text-secondary);">Ref: {movement.reference}</div>
+              {/if}
             </div>
-            <div class="transaction-amount {tx.type === 'incoming' ? 'income' : 'expense'}">
-              {tx.type === 'incoming' ? '+' : '-'} {wallet.currency} <span in:scale={{ duration: 500 }}>{formatCurrency(tx.amount)}</span>
+            <div class="transaction-amount income">
+              + {getCurrencySymbol(wallet.currency)} <span in:scale={{ duration: 500 }}>{formatCurrency(movement.amount)}</span>
             </div>
           </div>
         {/each}
@@ -372,10 +451,13 @@
     box-shadow: 0 2px 6px rgba(58, 102, 255, 0.2);
   }
   
-  /* Saldo en el header */
-  .header-balance {
-    text-align: center;
-    margin-bottom: 0.75rem;
+  /* Wallet Info - Integrated in Header */
+  .wallet-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    margin-bottom: 1rem;
   }
   
   /* Barra de acciones */
@@ -426,42 +508,140 @@
   }
   
   /* Estilos para el balance en el header */
-  .balance-content {
-    text-align: center;
+  
+  /* Wallet Balance - Minimalist */
+  .wallet-balance {
     display: flex;
-    flex-direction: column;
-    align-items: center;
+    align-items: baseline;
+    gap: 0.25rem;
   }
   
-  .balance-label {
-    font-size: 0.75rem;
-    margin: 0 0 0.25rem;
-    font-weight: 500;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-    color: var(--text-secondary);
+  .balance-currency {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    opacity: 0.8;
   }
   
   .balance-amount {
-    font-size: 1.75rem;
+    font-size: 1.4rem;
     font-weight: 700;
-    margin: 0;
     line-height: 1;
-    letter-spacing: -0.025em;
-    display: flex;
-    align-items: baseline;
-    gap: 0.3rem;
+    color: var(--text-primary);
   }
   
-  .balance-value {
-    color: var(--primary-color);
+
+
+  /* Wallet Account - Minimalist */
+  .wallet-account {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+    letter-spacing: 0.05em;
+    opacity: 0.7;
+  }
+  
+  /* Responsive Wallet Styles */
+  @media (max-width: 768px) {
+    .wallet-info {
+      gap: 0.2rem;
+      margin-bottom: 0.75rem;
+    }
+    
+    .balance-amount {
+      font-size: 1.2rem;
+    }
+    
+    .balance-currency {
+      font-size: 0.9rem;
+    }
+    
+    .wallet-account {
+      font-size: 0.75rem;
+    }
+  }
+
+  /* Tabs de cuentas */
+  .account-tabs {
+    margin-top: var(--spacing-md);
+    padding: 0 var(--spacing-lg);
+  }
+
+  .tabs-container {
+    display: flex;
+    gap: var(--spacing-sm);
+    overflow-x: auto;
+    padding-bottom: var(--spacing-xs);
+  }
+
+  .account-tab {
+    background: var(--background-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 80px;
+    flex-shrink: 0;
+  }
+
+  .account-tab:hover {
+    background: var(--background-primary);
+    border-color: var(--primary-color);
+  }
+
+  .account-tab.active {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+  }
+
+  .tab-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .tab-currency {
+    font-size: 0.7rem;
+    font-weight: 600;
+    opacity: 0.8;
+  }
+
+  .tab-number {
+    font-size: 0.8rem;
+    font-weight: 700;
+    font-family: monospace;
+  }
+
+  /* Responsive para tabs */
+  @media (max-width: 768px) {
+    .account-tabs {
+      padding: 0 var(--spacing-sm);
+    }
+    
+    .account-tab {
+      min-width: 70px;
+      padding: var(--spacing-xs) var(--spacing-sm);
+    }
+    
+    .tab-currency {
+      font-size: 0.65rem;
+    }
+    
+    .tab-number {
+      font-size: 0.75rem;
+    }
   }
   
   .currency-symbol {
-    font-size: 1rem;
-    font-weight: 500;
-    margin-right: 0.1rem;
-    color: var(--text-secondary);
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    opacity: 0.9;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   }
   
   .action-icon {
@@ -615,10 +795,6 @@
     background: rgba(0, 202, 141, 0.1);
   }
   
-  .collection-trend.negative {
-    color: var(--error-color);
-    background: rgba(233, 58, 74, 0.1);
-  }
   
   /* Transacciones */
   .transactions-list {
@@ -662,10 +838,6 @@
     color: var(--success-color);
   }
   
-  .transaction-icon.outgoing {
-    background: rgba(233, 58, 74, 0.1);
-    color: var(--error-color);
-  }
   
   .transaction-details {
     flex: 1;
@@ -695,10 +867,6 @@
     background: rgba(0, 202, 141, 0.1);
   }
   
-  .transaction-amount.expense {
-    color: var(--error-color);
-    background: rgba(233, 58, 74, 0.1);
-  }
   
   /* Compactar header y botones para evitar wrap */
   .compact-header {
@@ -763,41 +931,6 @@
     animation: spin 1s linear infinite;
   }
   
-  .error-message {
-    text-align: center;
-    padding: 1rem;
-    color: var(--error-color);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.75rem;
-  }
-  
-  .error-message p {
-    margin: 0;
-    font-size: 0.9rem;
-  }
-  
-  .retry-button.small {
-    background: var(--surface);
-    color: var(--primary-color);
-    border: 1px solid var(--border-color);
-    padding: 0.4rem 0.8rem;
-    border-radius: 0.5rem;
-    font-weight: 500;
-    font-size: 0.8rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    transition: all 0.2s ease;
-  }
-  
-  .retry-button.small:hover {
-    background: var(--surface-hover);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-sm);
-  }
   
   .empty-transactions {
     text-align: center;

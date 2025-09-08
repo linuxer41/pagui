@@ -72,6 +72,40 @@ export interface Transaction {
   metadata?: Record<string, any>;
 }
 
+// Interfaz para la respuesta de QR generado
+export interface QRGeneratedResponse {
+  qrId: string;
+  qrImage: string;
+  transactionId: string;
+  amount: number;
+  currency: string;
+  dueDate: string;
+  singleUse: boolean;
+  modifyAmount: boolean;
+  status: string;
+}
+
+// Interfaz para la respuesta de detalles del QR (GET /qr/:id)
+export interface QRStatusResponse {
+  qrId: string;
+  qrImage: string;
+  transactionId: string;
+  amount: number;
+  currency: string;
+  description: string;
+  dueDate: string;
+  singleUse: boolean;
+  modifyAmount: boolean;
+  status: 'active' | 'paid' | 'expired' | 'cancelled';
+  payments: any[]; // Siempre vacío en el endpoint de detalles
+}
+
+// Interfaz para la respuesta de pagos del QR (GET /qr/:id/payments)
+export interface QRPaymentsResponse {
+  qrId: string;
+  payments: any[];
+}
+
 // Interfaz para respuesta de listado de transacciones
 export interface TransactionsListResponse {
   transactions: Transaction[];
@@ -81,6 +115,68 @@ export interface TransactionsListResponse {
     total: number;
     totalPages: number;
   };
+}
+
+// Interfaces para cuentas y movimientos
+export interface Account {
+  id: string;
+  accountNumber: string;
+  accountType: string;
+  currency: string;
+  balance: number;
+  availableBalance: number;
+  thirdBankCredentialId?: number;
+  userEmail: string;
+  userFullName: string;
+  userPhone?: string;
+  userAddress?: string;
+}
+
+export interface AccountMovement {
+  id: string;
+  accountId: string;
+  transactionId: string;
+  amount: number;
+  currency: string;
+  type: 'credit' | 'debit';
+  description: string;
+  date: string;
+  balance: number;
+  reference?: string;
+}
+
+export interface AccountStats {
+  account: {
+    id: number;
+    accountNumber: string;
+    accountType: string;
+    currency: string;
+    balance: number;
+    availableBalance: number;
+    status: string;
+  };
+  today: {
+    amount: number;
+    growthPercentage: number;
+  };
+  thisWeek: {
+    amount: number;
+    growthPercentage: number;
+  };
+  thisMonth: {
+    amount: number;
+    growthPercentage: number;
+  };
+  recentMovements: {
+    id: number;
+    accountId: number;
+    movementType: string;
+    amount: number;
+    description: string;
+    reference: string;
+    createdAt: string;
+    updatedAt: string;
+  }[];
 }
 
 // Cliente API usando fetch nativo (actualizado para nueva API)
@@ -134,6 +230,32 @@ class ApiClient {
         
         // Verificar si hay error en la respuesta
         if (!response.ok) {
+          // Si es error 401 (no autorizado), intentar renovar token
+          if (response.status === 401 && !options.token) {
+            const refreshed = await this.refreshToken();
+            if (refreshed) {
+              // Reintentar la petición con el nuevo token
+              const newHeaders = { ...headers };
+              const authStore = get(auth);
+              if (authStore.token) {
+                newHeaders['Authorization'] = `Bearer ${authStore.token}`;
+              }
+              const retryConfig = { ...config, headers: newHeaders };
+              const retryResponse = await fetch(url, retryConfig);
+              const retryResult = await retryResponse.json();
+              
+              if (!retryResponse.ok) {
+                throw new Error(retryResult.message || 'Error en la petición');
+              }
+              
+              return retryResult as T;
+            } else {
+              // Si no se pudo renovar, hacer logout
+              auth.logout();
+              throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.');
+            }
+          }
+          
           throw new Error(result.message || 'Error en la petición');
         }
         
@@ -179,11 +301,16 @@ class ApiClient {
 
     // Si la autenticación es exitosa, guardar en el store
     if (response.success && response.data) {
-      const { user, accessToken, refreshToken } = response.data;
+      const { user, auth: authData, accounts } = response.data;
       
-      // Guardar información de usuario y tokens
-      if (user && accessToken) {
-        auth.login(accessToken, user, refreshToken);
+      // Guardar información de usuario, tokens y cuentas
+      if (user && authData?.accessToken) {
+        auth.login(
+          authData.accessToken, 
+          user, 
+          authData.refreshToken, 
+          accounts || []
+        );
       }
       
       // Guardar información de la empresa si existe
@@ -210,6 +337,39 @@ class ApiClient {
     return this.post<ApiResponse>('/auth/reset-password', { token, newPassword });
   }
 
+  // Método para renovar token
+  async refreshToken(): Promise<boolean> {
+    try {
+      const authStore = get(auth);
+      if (!authStore.refreshToken) {
+        return false;
+      }
+
+      const response = await this.post<ApiResponse>('/auth/refresh', {
+        refreshToken: authStore.refreshToken
+      });
+
+      if (response.success && response.data) {
+        const { user, auth: authData, accounts } = response.data;
+        
+        if (user && authData?.accessToken) {
+          auth.login(
+            authData.accessToken, 
+            user, 
+            authData.refreshToken, 
+            accounts || []
+          );
+          return true;
+        }
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error renovando token:', error);
+      return false;
+    }
+  }
+
   // Método para cerrar sesión (solo en el cliente)
   logout() {
     auth.logout();
@@ -222,7 +382,7 @@ class ApiClient {
   }
   
   // Generar QR - POST /qr/generate (mantiene endpoint)
-  async generateQR(qrData: any, options: RequestOptions = {}): Promise<ApiResponse> {
+  async generateQR(qrData: any, options: RequestOptions = {}): Promise<ApiResponse<QRGeneratedResponse>> {
     const apiData: any = {
       transactionId: qrData.transactionId || new Date().getTime().toString(),
       amount: qrData.amount ?? Number(qrData.monto),
@@ -233,7 +393,7 @@ class ApiClient {
     if (typeof qrData.singleUse !== 'undefined') apiData.singleUse = qrData.singleUse;
     if (typeof qrData.modifyAmount !== 'undefined') apiData.modifyAmount = qrData.modifyAmount;
 
-    return this.post<ApiResponse>('/qr/generate', apiData, options);
+    return this.post<ApiResponse<QRGeneratedResponse>>('/qr/generate', apiData, options);
   }
   
   // Cancelar QR - DELETE /qr/cancelQR (mantiene endpoint)
@@ -241,9 +401,19 @@ class ApiClient {
     return this.delete<ApiResponse>('/qr/cancelQR', { qrId }, options);
   }
   
-  // Verificar estado QR - GET /qr/{id}/status (mantiene endpoint)
-  async checkQRStatus(qrId: string, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>(`/qr/${qrId}/status`, options);
+  // Obtener detalles del QR - GET /qr/{id} (nuevo endpoint separado)
+  async getQRDetails(qrId: string, options: RequestOptions = {}): Promise<ApiResponse<QRStatusResponse>> {
+    return this.get<ApiResponse<QRStatusResponse>>(`/qr/${qrId}`, options);
+  }
+
+  // Obtener pagos del QR - GET /qr/{id}/payments (nuevo endpoint separado)
+  async getQRPayments(qrId: string, options: RequestOptions = {}): Promise<ApiResponse<QRPaymentsResponse>> {
+    return this.get<ApiResponse<QRPaymentsResponse>>(`/qr/${qrId}/payments`, options);
+  }
+
+  // Verificar estado QR - GET /qr/{id}/status (mantiene endpoint para compatibilidad)
+  async checkQRStatus(qrId: string, options: RequestOptions = {}): Promise<ApiResponse<QRStatusResponse>> {
+    return this.get<ApiResponse<QRStatusResponse>>(`/qr/${qrId}/status`, options);
   }
   
   // Listar QRs - GET /qr/list (mantiene endpoint)
@@ -447,6 +617,26 @@ class ApiClient {
   // Verificar estado de la API - GET /health/api (nuevo endpoint)
   async checkApiHealth(): Promise<ApiResponse> {
     return this.get<ApiResponse>('/health/api', {});
+  }
+
+  // Métodos para cuentas
+  async getAccounts(options: RequestOptions = {}): Promise<ApiResponse> {
+    return this.get<ApiResponse>('/accounts/', options);
+  }
+
+  async getAccount(accountId: string, options: RequestOptions = {}): Promise<ApiResponse> {
+    return this.get<ApiResponse>(`/accounts/${accountId}`, options);
+  }
+
+  async getAccountMovements(accountId: string, page: number = 1, pageSize: number = 20, options: RequestOptions = {}): Promise<ApiResponse> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('page', page.toString());
+    queryParams.append('pageSize', pageSize.toString());
+    return this.get<ApiResponse>(`/accounts/${accountId}/movements?${queryParams.toString()}`, options);
+  }
+
+  async getAccountStats(accountId: string, options: RequestOptions = {}): Promise<ApiResponse> {
+    return this.get<ApiResponse>(`/accounts/${accountId}/stats`, options);
   }
 }
 

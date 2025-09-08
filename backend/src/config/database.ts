@@ -9,7 +9,7 @@ const pool = new Pool({
   connectionString: databaseUrl,
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 10000,
 });
 
 // Verificar conexión a la base de datos

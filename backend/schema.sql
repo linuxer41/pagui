@@ -3,8 +3,6 @@
 DROP TABLE IF EXISTS account_movements CASCADE;
 DROP TABLE IF EXISTS user_accounts CASCADE;
 DROP TABLE IF EXISTS accounts CASCADE;
-DROP TABLE IF EXISTS activity_logs CASCADE;
-DROP TABLE IF EXISTS transactions CASCADE;
 DROP TABLE IF EXISTS qr_codes CASCADE;
 DROP TABLE IF EXISTS api_keys CASCADE;
 DROP TABLE IF EXISTS auth_tokens CASCADE;
@@ -18,7 +16,8 @@ CREATE TABLE roles (
   name VARCHAR(50) NOT NULL UNIQUE,
   description TEXT,
   permissions JSONB NOT NULL DEFAULT '{}',
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ
 );
 
 -- Crear tabla de usuarios simplificada
@@ -32,7 +31,8 @@ CREATE TABLE users (
   role_id INTEGER NOT NULL REFERENCES roles(id),
   status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ
 );
 
 -- Crear tabla para credenciales bancarias
@@ -47,7 +47,8 @@ CREATE TABLE third_bank_credentials (
   environment VARCHAR(10) NOT NULL DEFAULT 'test' CHECK (environment IN ('test', 'prod')),
   api_base_url VARCHAR(255) NOT NULL,
   status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ
 );
 
 -- Crear tabla de cuentas bancarias (PIEZA CENTRAL)
@@ -61,7 +62,8 @@ CREATE TABLE accounts (
   status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'closed')),
   third_bank_credential_id INTEGER NOT NULL REFERENCES third_bank_credentials(id),
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ
 );
 
 -- Crear tabla de relación usuarios-cuentas
@@ -72,21 +74,34 @@ CREATE TABLE user_accounts (
   role VARCHAR(20) NOT NULL DEFAULT 'owner' CHECK (role IN ('owner', 'co-owner', 'viewer')),
   is_primary BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ,
   UNIQUE(user_id, account_id)
 );
 
--- Crear tabla de movimientos de cuenta
+-- Crear tabla de movimientos de cuenta (expandida para manejar todos los tipos de transacciones)
 CREATE TABLE account_movements (
   id SERIAL PRIMARY KEY,
   account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-  movement_type VARCHAR(20) NOT NULL CHECK (movement_type IN ('deposit', 'withdrawal', 'transfer_in', 'transfer_out', 'qr_payment')),
+  movement_type VARCHAR(20) NOT NULL CHECK (movement_type IN (
+    'deposit', 'withdrawal', 'transfer_in', 'transfer_out', 
+    'qr_payment', 'fee', 'interest', 'refund', 'adjustment'
+  )),
   amount DECIMAL(15, 2) NOT NULL,
   balance_before DECIMAL(15, 2) NOT NULL,
   balance_after DECIMAL(15, 2) NOT NULL,
   description TEXT,
+  
+  -- Campos específicos para QR payments
+  qr_id VARCHAR(50),
+  sender_name VARCHAR(255),
+  
+  -- Campos genéricos para referencias
   reference_id VARCHAR(100),
   reference_type VARCHAR(50),
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  status VARCHAR(20) NOT NULL DEFAULT 'completed' CHECK (status IN ('pending', 'completed', 'failed', 'cancelled')),
+  
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ
 );
 
 -- Crear tabla de códigos QR
@@ -95,26 +110,19 @@ CREATE TABLE qr_codes (
   qr_id VARCHAR(50) UNIQUE NOT NULL,
   transaction_id VARCHAR(100) NOT NULL,
   account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  third_bank_credential_id INTEGER REFERENCES third_bank_credentials(id) ON DELETE SET NULL,
   amount DECIMAL(10, 2) NOT NULL,
+  currency VARCHAR(3) NOT NULL DEFAULT 'BOB' CHECK (currency IN ('BOB', 'USD')),
   description TEXT,
   due_date TIMESTAMPTZ NOT NULL,
-  status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'used', 'expired')),
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  qr_image TEXT, -- Imagen del QR en base64
+  single_use BOOLEAN NOT NULL DEFAULT true,
+  modify_amount BOOLEAN NOT NULL DEFAULT false,
+  status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'used', 'expired', 'cancelled')),
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ
 );
 
--- Crear tabla de transacciones
-CREATE TABLE transactions (
-  id SERIAL PRIMARY KEY,
-  qr_id VARCHAR(50) REFERENCES qr_codes(qr_id) ON DELETE SET NULL,
-  account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-  transaction_id VARCHAR(100) NOT NULL UNIQUE,
-  amount DECIMAL(10, 2) NOT NULL,
-  type VARCHAR(20) NOT NULL CHECK (type IN ('incoming', 'outgoing')),
-  sender_name VARCHAR(255),
-  description TEXT,
-  status VARCHAR(20) NOT NULL DEFAULT 'completed',
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
 
 -- Crear tabla de tokens de autenticación
 CREATE TABLE auth_tokens (
@@ -123,7 +131,8 @@ CREATE TABLE auth_tokens (
   token VARCHAR(512) NOT NULL UNIQUE,
   token_type VARCHAR(20) NOT NULL DEFAULT 'access',
   expires_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ
 );
 
 -- Crear tabla de API keys
@@ -133,7 +142,8 @@ CREATE TABLE api_keys (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   description TEXT,
   status VARCHAR(20) NOT NULL DEFAULT 'active',
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ
 );
 
 -- Crear índices
@@ -145,8 +155,11 @@ CREATE INDEX idx_user_accounts_user ON user_accounts(user_id);
 CREATE INDEX idx_user_accounts_account ON user_accounts(account_id);
 CREATE INDEX idx_account_movements_account ON account_movements(account_id);
 CREATE INDEX idx_account_movements_type ON account_movements(movement_type);
+CREATE INDEX idx_account_movements_qr ON account_movements(qr_id);
+CREATE INDEX idx_account_movements_reference ON account_movements(reference_id, reference_type);
+CREATE INDEX idx_account_movements_status ON account_movements(status);
 CREATE INDEX idx_qr_codes_account ON qr_codes(account_id);
-CREATE INDEX idx_transactions_account ON transactions(account_id);
+CREATE INDEX idx_qr_codes_third_bank_credential ON qr_codes(third_bank_credential_id);
 
 -- Crear función para calcular balance de cuenta
 CREATE OR REPLACE FUNCTION calculate_account_balance(account_id_param INTEGER)
@@ -188,18 +201,3 @@ CREATE TRIGGER trigger_update_account_balance
 AFTER INSERT OR UPDATE OR DELETE ON account_movements
 FOR EACH ROW
 EXECUTE FUNCTION update_account_balance();
-
--- Insertar roles básicos
-INSERT INTO roles (name, description, permissions) VALUES
-('admin', 'Administrador del sistema', '{"all": true}'),
-('user', 'Usuario estándar', '{"basic": true}'),
-('manager', 'Gerente', '{"management": true}');
-
--- Insertar credenciales bancarias de prueba
-INSERT INTO third_bank_credentials (
-  account_number, account_name, merchant_id, username, password, 
-  encryption_key, environment, api_base_url, status
-) VALUES (
-  '1234567890', 'Cuenta Test Banco', 'TEST_MERCHANT', 'test_user', 'test_pass',
-  'test_key', 'test', 'https://api-test.banco.com', 'active'
-);

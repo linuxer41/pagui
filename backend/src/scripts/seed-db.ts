@@ -5,38 +5,33 @@ export async function seedDatabase() {
   try {
     console.log('🌱 Iniciando seed de la base de datos...');
     
-    // 0. Ejecutar migraciones necesarias
-    console.log('🔄 Ejecutando migraciones...');
-    const { migrateAddApiBaseUrl } = await import('./migrate-add-api-base-url');
-    await migrateAddApiBaseUrl();
-    
-    // 1. Insertar roles predefinidos
+    // 1. Insertar roles predefinidos (simplificados según el esquema actual)
     console.log('Insertando roles predefinidos...');
     
     const superAdminRole = await query(`
-      INSERT INTO roles (name, description, permissions, is_system_role)
-      VALUES ('SUPER_ADMIN', 'Acceso total al sistema', '{"*": true}', true)
+      INSERT INTO roles (name, description, permissions)
+      VALUES ('admin', 'Administrador del sistema', '{"all": true}')
       ON CONFLICT (name) DO UPDATE SET 
-        description = 'Acceso total al sistema',
-        permissions = '{"*": true}'
+        description = 'Administrador del sistema',
+        permissions = '{"all": true}'
       RETURNING id
     `);
     
-    const companyAdminRole = await query(`
-      INSERT INTO roles (name, description, permissions, is_system_role)
-      VALUES ('COMPANY_ADMIN', 'Administrador de empresa', '{"users": {"create": true, "read": true, "update": true}, "qr_codes": {"create": true, "read": true, "update": true}, "transactions": {"read": true}, "reports": {"read": true}, "third_bank_credentials": {"read": true, "update": true}}', true)
+    const userRole = await query(`
+      INSERT INTO roles (name, description, permissions)
+      VALUES ('user', 'Usuario estándar', '{"basic": true}')
       ON CONFLICT (name) DO UPDATE SET 
-        description = 'Administrador de empresa',
-        permissions = '{"users": {"create": true, "read": true, "update": true}, "qr_codes": {"create": true, "read": true, "update": true}, "transactions": {"read": true}, "reports": {"read": true}, "third_bank_credentials": {"read": true, "update": true}}'
+        description = 'Usuario estándar',
+        permissions = '{"basic": true}'
       RETURNING id
     `);
     
-    const employeeRole = await query(`
-      INSERT INTO roles (name, description, permissions, is_system_role)
-      VALUES ('EMPLOYEE', 'Empleado con acceso limitado', '{"qr_codes": {"read": true}, "transactions": {"read": true}}', true)
+    const managerRole = await query(`
+      INSERT INTO roles (name, description, permissions)
+      VALUES ('manager', 'Gerente', '{"management": true}')
       ON CONFLICT (name) DO UPDATE SET 
-        description = 'Empleado con acceso limitado',
-        permissions = '{"qr_codes": {"read": true}, "transactions": {"read": true}}'
+        description = 'Gerente',
+        permissions = '{"management": true}'
       RETURNING id
     `);
     
@@ -51,126 +46,144 @@ export async function seedDatabase() {
     
     console.log('Credenciales bancarias configuradas exitosamente');
     
-    // 3. Crear usuario SUPER_ADMIN
-    console.log('Creando usuario SUPER_ADMIN...');
+    // 3. Crear usuario administrador
+    console.log('Creando usuario administrador...');
     
-    const superAdminData = {
+    const adminData = {
       email: 'admin@pagui.com',
       password: 'admin123',
       fullName: 'Administrador del Sistema',
-      entityType: 'individual' as const,
-      identificationType: 'CI',
-      identificationNumber: '12345678',
-      phoneNumber: '76543210',
-      phoneExtension: '123',
-      roleId: superAdminRole.rows[0].id,
-      isPrimaryUser: true,
-      bankCredentialId: prodCredential.id // Usar credenciales de producción por defecto
+      phone: '76543210',
+      address: 'La Paz, Bolivia',
+      roleId: superAdminRole.rows[0].id
     };
     
-    const superAdmin = await userService.createUser(superAdminData);
-    console.log(`Usuario SUPER_ADMIN creado con ID: ${superAdmin.id}`);
+    const admin = await userService.createUser(adminData);
+    console.log(`Usuario administrador creado con ID: ${admin.id}`);
     
-    // 4. Crear empresa de ejemplo
-    console.log('Creando empresa de ejemplo...');
+    // 4. Crear usuario de ejemplo
+    console.log('Creando usuario de ejemplo...');
     
-    const companyData = {
-      email: 'empresa@example.com',
-      password: 'empresa123',
-      fullName: 'Empresa Demo S.A.',
-      businessId: 'EMP001',
-      entityType: 'company' as const,
-      identificationType: 'CI',
-      identificationNumber: '87654321',
-      phoneNumber: '65432109',
-      phoneExtension: '456',
-      address: 'Av. Principal #123, La Paz',
-      roleId: companyAdminRole.rows[0].id,
-      isPrimaryUser: true,
-      bankCredentialId: prodCredential.id // Usar credenciales de producción por defecto
+    const userData = {
+      email: 'usuario@example.com',
+      password: 'usuario123',
+      fullName: 'Usuario Demo',
+      phone: '65432109',
+      address: 'Santa Cruz, Bolivia',
+      roleId: userRole.rows[0].id
     };
     
-    const company = await userService.createUser(companyData);
-    console.log(`Empresa creada con ID: ${company.id}`);
+    const user = await userService.createUser(userData);
+    console.log(`Usuario creado con ID: ${user.id}`);
     
-    // 5. Crear empleado de ejemplo
-    console.log('Creando empleado de ejemplo...');
+    // 5. Crear usuario gerente
+    console.log('Creando usuario gerente...');
     
-    const employeeData = {
-      email: 'empleado@example.com',
-      password: 'empleado123',
-      fullName: 'Empleado Demo',
-      entityType: 'individual' as const,
-      identificationType: 'CI',
-      identificationNumber: '11111111',
-      phoneNumber: '55555555',
-      phoneExtension: '789',
-      roleId: employeeRole.rows[0].id,
-      isPrimaryUser: false,
-      parentUserId: company.id,
-      bankCredentialId: testCredential.id // Usar credenciales de prueba por defecto
+    const managerData = {
+      email: 'gerente@example.com',
+      password: 'gerente123',
+      fullName: 'Gerente Demo',
+      phone: '55555555',
+      address: 'Cochabamba, Bolivia',
+      roleId: managerRole.rows[0].id
     };
     
-    const employee = await userService.createUser(employeeData);
-    console.log(`Empleado creado con ID: ${employee.id}`);
+    const manager = await userService.createUser(managerData);
+    console.log(`Gerente creado con ID: ${manager.id}`);
     
-    // 6. Crear API key para la empresa
+    // 6. Crear cuentas bancarias para los usuarios
+    console.log('Creando cuentas bancarias...');
+    
+    // Cuenta para el administrador
+    const adminAccount = await query(`
+      INSERT INTO accounts (account_number, account_type, currency, balance, available_balance, third_bank_credential_id)
+      VALUES ($1, 'business', 'BOB', 10000.00, 10000.00, $2)
+      RETURNING id
+    `, ['ADM001', prodCredential.id]);
+    
+    // Cuenta para el usuario
+    const userAccount = await query(`
+      INSERT INTO accounts (account_number, account_type, currency, balance, available_balance, third_bank_credential_id)
+      VALUES ($1, 'current', 'BOB', 5000.00, 5000.00, $2)
+      RETURNING id
+    `, ['USR001', testCredential.id]);
+    
+    // Cuenta para el gerente
+    const managerAccount = await query(`
+      INSERT INTO accounts (account_number, account_type, currency, balance, available_balance, third_bank_credential_id)
+      VALUES ($1, 'business', 'BOB', 7500.00, 7500.00, $2)
+      RETURNING id
+    `, ['MGR001', prodCredential.id]);
+    
+    console.log('Cuentas bancarias creadas exitosamente');
+    
+    // 7. Crear relaciones usuario-cuenta
+    console.log('Creando relaciones usuario-cuenta...');
+    
+    await query(`
+      INSERT INTO user_accounts (user_id, account_id, role, is_primary)
+      VALUES ($1, $2, 'owner', true)
+    `, [admin.id, adminAccount.rows[0].id]);
+    
+    await query(`
+      INSERT INTO user_accounts (user_id, account_id, role, is_primary)
+      VALUES ($1, $2, 'owner', true)
+    `, [user.id, userAccount.rows[0].id]);
+    
+    await query(`
+      INSERT INTO user_accounts (user_id, account_id, role, is_primary)
+      VALUES ($1, $2, 'owner', true)
+    `, [manager.id, managerAccount.rows[0].id]);
+    
+    console.log('Relaciones usuario-cuenta creadas exitosamente');
+    
+    // 8. Crear API key para el usuario
     console.log('Creando API key...');
     
     const apiKey = generateApiKey();
-    const permissions = {
-      qr_codes: { create: true, read: true },
-      transactions: { read: true }
-    };
-    
-    const expiresAt = new Date();
-    expiresAt.setFullYear(expiresAt.getFullYear() + 1);
     
     await query(`
-      INSERT INTO api_keys (api_key, description, user_id, created_by_user_id, permissions, expires_at, status)
-      VALUES ($1, 'API Key de demostración', $2, $3, $4, $5, 'active')
+      INSERT INTO api_keys (api_key, user_id, description, status)
+      VALUES ($1, $2, 'API Key de demostración', 'active')
       ON CONFLICT (api_key) DO NOTHING
-    `, [apiKey, company.id, company.id, JSON.stringify(permissions), expiresAt.toISOString()]);
+    `, [apiKey, user.id]);
     
     console.log(`API key generada: ${apiKey}`);
     
-    // 7. Crear tokens de autenticación de ejemplo
+    // 9. Crear tokens de autenticación de ejemplo
     console.log('Creando tokens de autenticación...');
     
-    const deviceInfos = [
+    const tokens = [
       {
-        ip: '192.168.1.100',
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        deviceType: 'Desktop - Windows'
+        userId: admin.id,
+        token: generateApiKey(),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 días
       },
       {
-        ip: '192.168.1.101',
-        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1',
-        deviceType: 'Mobile - iOS'
+        userId: user.id,
+        token: generateApiKey(),
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 días
       }
     ];
     
-    for (const device of deviceInfos) {
+    for (const tokenData of tokens) {
       await query(`
-        INSERT INTO auth_tokens (
-          user_id, token_type, token, expires_at, ip_address, user_agent
-        ) VALUES ($1, 'REFRESH_TOKEN', $2, $3, $4, $5)
+        INSERT INTO auth_tokens (user_id, token, expires_at)
+        VALUES ($1, $2, $3)
         ON CONFLICT (token) DO NOTHING
-      `, [
-        company.id,
-        generateApiKey(),
-        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 días
-        device.ip,
-        device.userAgent
-      ]);
+      `, [tokenData.userId, tokenData.token, tokenData.expiresAt.toISOString()]);
     }
+    
+    console.log('Tokens de autenticación creados exitosamente');
     
     console.log('✅ Seed de la base de datos completado exitosamente');
     
     // Resumen de lo creado
     console.log('\n📊 Resumen del seed:');
-    console.log(`- Roles: ${(superAdminRole.rowCount || 0) + (companyAdminRole.rowCount || 0) + (employeeRole.rowCount || 0)}`);
-    console.log(`- Usuarios: 3 (SUPER_ADMIN, Empresa, Empleado)`);
+    console.log(`- Roles: 3 (admin, user, manager)`);
+    console.log(`- Usuarios: 3 (Administrador, Usuario, Gerente)`);
+    console.log(`- Cuentas bancarias: 3`);
+    console.log(`- Relaciones usuario-cuenta: 3`);
     console.log(`- Credenciales bancarias: 2 (Test + Producción)`);
     console.log(`- API Keys: 1`);
     console.log(`- Tokens de autenticación: 2`);
@@ -179,6 +192,12 @@ export async function seedDatabase() {
     console.log('\n🏦 Credenciales Bancarias:');
     console.log(`- Test (ID: ${testCredential.id}): ${testCredential.accountNumber} - ${testCredential.username}`);
     console.log(`- Producción (ID: ${prodCredential.id}): ${prodCredential.accountNumber} - ${prodCredential.username}`);
+    
+    // Mostrar información de las cuentas
+    console.log('\n💰 Cuentas Bancarias:');
+    console.log(`- Administrador: ${adminAccount.rows[0].id} (ADM001) - BOB 10,000.00`);
+    console.log(`- Usuario: ${userAccount.rows[0].id} (USR001) - BOB 5,000.00`);
+    console.log(`- Gerente: ${managerAccount.rows[0].id} (MGR001) - BOB 7,500.00`);
     
   } catch (error) {
     console.error('❌ Error durante el seed:', error);

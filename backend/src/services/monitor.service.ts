@@ -2,25 +2,6 @@ import { query } from '../config/database';
 import { CronJob } from 'cron';
 import { qrService } from './qr.service';
 
-type ActivityStatus = 'info' | 'error' | 'warning';
-
-// Función para registrar actividad en el sistema
-export async function logActivity(
-  actionType: string,
-  actionDetails: any,
-  status: ActivityStatus,
-  userId?: number
-): Promise<void> {
-  try {
-    await query(
-      'INSERT INTO activity_logs (user_id, action_type, action_details, status) VALUES ($1, $2, $3, $4)',
-      [userId || null, actionType, actionDetails, status]
-    );
-  } catch (error) {
-    console.error('Error logging activity:', error);
-  }
-}
-
 // Función para obtener estadísticas de uso del sistema
 export async function getSystemStats(userId?: number): Promise<{
   activeQrCount: number;
@@ -44,32 +25,17 @@ export async function getSystemStats(userId?: number): Promise<{
       GROUP BY status
     `, userParams);
     
-    // Obtener montos totales por moneda
+    // Obtener montos totales por moneda (usando account_movements)
     const amountResult = await query(`
-      SELECT currency, SUM(amount) as total
-      FROM transactions
+      SELECT 'BOB' as currency, SUM(amount) as total
+      FROM account_movements am
+      JOIN user_accounts ua ON am.account_id = ua.account_id
       WHERE 1=1 ${userFilter}
-      GROUP BY currency
     `, userParams);
     
-    // Obtener recuento de errores recientes
-    const errorResult = await query(`
-      SELECT COUNT(*) as count
-      FROM activity_logs
-      WHERE (status = 'error' OR status = 'FAILED')
-      AND created_at > NOW() - INTERVAL '24 hours'
-      ${userFilter ? 'AND user_id = $1' : ''}
-    `, userParams);
-    
-    // Obtener últimos errores
-    const lastErrorsResult = await query(`
-      SELECT action_type, action_details, created_at
-      FROM activity_logs
-      WHERE (status = 'error' OR status = 'FAILED')
-      ${userFilter ? 'AND user_id = $1' : ''}
-      ORDER BY created_at DESC
-      LIMIT 5
-    `, userParams);
+    // Error tracking removed - activity_logs table no longer exists
+    const errorCount = 0;
+    const lastErrors: any[] = [];
     
     // Procesar resultados
     const statusCounts: Record<string, number> = {
@@ -95,8 +61,8 @@ export async function getSystemStats(userId?: number): Promise<{
       expiredQrCount: statusCounts['expired'] || 0,
       cancelledQrCount: statusCounts['cancelled'] || 0,
       totalAmount,
-      errorCount: parseInt(errorResult.rows[0]?.count || '0'),
-      lastErrors: lastErrorsResult.rows
+      errorCount,
+      lastErrors
     };
   } catch (error) {
     console.error('Error getting system stats:', error);
@@ -185,23 +151,7 @@ export function initScheduledTasks() {
     await qrService.updateExpiredQRs();
   }, null, true);
   
-  // Limpiar registros antiguos (una vez por día a las 3 AM)
-  new CronJob('0 3 * * *', async () => {
-    try {
-      console.log('🧹 Cleaning old activity logs');
-      
-      // Eliminar registros de actividad con más de 30 días
-      const result = await query(`
-        DELETE FROM activity_logs
-        WHERE created_at < NOW() - INTERVAL '30 days'
-        RETURNING id
-      `);
-      
-      console.log(`🧹 Deleted ${result.rowCount} old activity logs`);
-    } catch (error) {
-      console.error('Error cleaning activity logs:', error);
-    }
-  }, null, true);
+  // Activity logs cleanup removed - activity_logs table no longer exists
   
   console.log('⏰ Scheduled tasks initialized');
 } 

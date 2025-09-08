@@ -2,17 +2,15 @@ import api from "$lib/api";
 
 export async function load({ url }) {
     const qrId = url.searchParams.get('id');
-    // if (!qrId) {
-    //     return {
-    //         status: 400,
-    //         error: 'QR ID is required'
-    //     };
-    // }
-    // const qrData = await api.getQR(qrId!);
     
-    return { qrId };
+    // No retornamos error si no hay ID, lo manejamos en el componente
+    // para permitir múltiples fuentes de datos (URL, localStorage, etc.)
+    
+    return { 
+        qrId: qrId || null 
+    };
 }
 
 export const ssr = false;
 
-export const prerender = true;
+export const prerender = false;

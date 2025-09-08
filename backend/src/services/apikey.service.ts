@@ -1,5 +1,4 @@
 import { query, generateApiKey } from '../config/database';
-import { logActivity } from './monitor.service';
 
 interface ApiKeyPermissions {
   qr_generate: boolean;
@@ -136,16 +135,7 @@ class ApiKeyService {
       ]);
       
       // Registrar actividad
-      await logActivity(
-        'API_KEY_GENERATED',
-        {
-          apiKeyId: result.rows[0].id,
-          description,
-          expiresAt
-        },
-        'info',
-        userId
-      );
+      // Activity logging removed
       
       return {
         id: result.rows[0].id,
@@ -240,15 +230,7 @@ class ApiKeyService {
       `, [apiKeyId]);
       
       // Registrar actividad
-      await logActivity(
-        'API_KEY_REVOKED',
-        {
-          apiKeyId,
-          apiKey: apiKeyCheck.rows[0].api_key
-        },
-        'info',
-        userId
-      );
+      // Activity logging removed
       
       return {
         id: apiKeyId,

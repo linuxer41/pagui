@@ -24,7 +24,7 @@ describe("Cuentas Bancarias", () => {
     
     const loginResult = await loginResponse.json();
     userId = loginResult.data.user.id;
-    accountId = loginResult.data.user.accounts[0].id;
+    accountId = loginResult.data.accounts[0].id;
   });
 
   it("debería obtener todas las cuentas del usuario autenticado", async () => {

@@ -1,6 +1,5 @@
 import { query } from '../config/database';
 import { CompanyBankInput, CompanyBankResponse } from '../schemas/company-bank.schemas';
-import { logActivity } from './monitor.service';
 import { ApiError } from '../utils/error';
 
 interface BankData {
@@ -58,18 +57,7 @@ class BankService {
       
       const bankId = result.rows[0].id;
       
-      // Registrar actividad
-      await logActivity(
-        'BANK_CREATED',
-        {
-          bankId,
-          code: bankData.code,
-          name: bankData.name
-        },
-        'info',
-        companyId,
-        userId
-      );
+      // Activity logging removed
       
       return {
         id: bankId,
@@ -171,16 +159,7 @@ class BankService {
       const updatedBank = result.rows[0];
       
       // Registrar actividad
-      await logActivity(
-        'BANK_UPDATED',
-        {
-          bankId,
-          updatedFields: Object.keys(bankData)
-        },
-        'info',
-        companyId,
-        userId
-      );
+      // Activity logging removed
       
       return {
         id: updatedBank.id,
@@ -315,17 +294,7 @@ class BankService {
       `, [bankId]);
       
       // Registrar actividad
-      await logActivity(
-        'BANK_DEACTIVATED',
-        {
-          bankId,
-          bankCode: bankCheck.rows[0].code,
-          bankName: bankCheck.rows[0].name
-        },
-        'info',
-        companyId,
-        userId
-      );
+      // Activity logging removed
       
       return {
         id: bankId,
@@ -442,19 +411,7 @@ class BankService {
       }
       
       // Registrar actividad
-      await logActivity(
-        isNew ? 'COMPANY_BANK_REGISTERED' : 'COMPANY_BANK_UPDATED',
-        {
-          companyId,
-          bankId: bankData.bankId,
-          bankName,
-          accountNumber: bankData.accountNumber,
-          environment: bankData.environment || 1
-        },
-        'info',
-        companyId,
-        userId
-      );
+      // Activity logging removed
       
       return {
         id: companyBankId,
@@ -510,18 +467,7 @@ class BankService {
       `, [configId]);
       
       // Registrar actividad
-      await logActivity(
-        'COMPANY_BANK_DELETED',
-        {
-          companyId,
-          bankId,
-          bankName,
-          environment
-        },
-        'info',
-        companyId,
-        userId
-      );
+      // Activity logging removed
       
       return {
         id: configId,

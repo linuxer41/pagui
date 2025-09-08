@@ -3,7 +3,6 @@ import { userService } from './user.service';
 import { ApiError } from '../utils/error';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { logActivity } from './monitor.service';
 import accountService from './account.service';
 
 export interface UserAuth {
@@ -142,16 +141,7 @@ class AuthService {
       await this.saveRefreshToken(user.id, refreshToken, refreshExpiresIn);
       
       // Registrar actividad de login
-      await logActivity(
-        'USER_LOGIN',
-        {
-          userId: user.id,
-          email: user.email,
-          ip: 'unknown' // Se puede obtener del request
-        },
-        'info',
-        user.id
-      );
+      // Activity logging removed
       
       return {
         user: {
@@ -159,20 +149,25 @@ class AuthService {
           email: user.email,
           fullName: user.fullName,
           roleName: user.roleName,
-          status: user.status,
-          accounts: userAccounts.map(account => ({
-            id: account.id,
-            accountNumber: account.accountNumber,
-            accountType: account.accountType,
-            currency: account.currency,
-            balance: account.balance,
-            availableBalance: account.availableBalance,
-            status: account.status,
-            isPrimary: account.isPrimary
-          }))
+          status: user.status
         },
-        accessToken,
-        refreshToken
+        auth: {
+          accessToken,
+          refreshToken,
+          expiresIn,
+          refreshExpiresIn
+        },
+        accounts: userAccounts.map(account => ({
+          id: account.id,
+          accountNumber: account.accountNumber,
+          accountType: account.accountType,
+          currency: account.currency,
+          balance: account.balance,
+          availableBalance: account.availableBalance,
+          status: account.status,
+          isPrimary: account.isPrimary,
+          userRole: account.userRole
+        }))
       };
       
     } catch (error) {
@@ -240,8 +235,6 @@ class AuthService {
       await query(`
         INSERT INTO auth_tokens (user_id, token_type, token)
         VALUES ($1, 'REFRESH_TOKEN', $2)
-        ON CONFLICT (user_id, token_type) 
-        DO UPDATE SET token = $2, updated_at = CURRENT_TIMESTAMP
       `, [userId, token]);
       
     } catch (error) {

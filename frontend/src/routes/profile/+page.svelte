@@ -1,29 +1,19 @@
 <script lang="ts">
-  import { auth } from '$lib/stores/auth';
-  import { theme } from '$lib/stores/theme';
-  import { lang } from '$lib/stores/lang';
-  import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import Button from '$lib/components/Button.svelte';
   import RouteLayout from '$lib/components/layouts/RouteLayout.svelte';
-  import { 
-    Sun, 
-    Moon, 
-    Globe, 
-    Key, 
-    CreditCard, 
-    UserCog, 
-    Shield, 
-    Bell,
-    User,
-    Mail,
-    Phone,
-    Calendar,
-    Edit,
-    ChevronRight,
-    Settings,
-    LogOut,
-    Code
+  import { auth } from '$lib/stores/auth';
+  import { theme } from '$lib/stores/theme';
+  import {
+      ChevronRight,
+      Code,
+      CreditCard,
+      Globe,
+      Key,
+      LogOut,
+      Moon,
+      Sun,
+      User
   } from '@lucide/svelte';
 
   // Idiomas disponibles
@@ -43,12 +33,13 @@
     goto('/auth/login');
   }
   
-  // Datos de ejemplo del usuario (normalmente vendrían de la API)
+  // Datos del usuario desde el store
   const userProfile = {
     name: $auth.user?.fullName || 'Usuario',
     email: $auth.user?.email || 'usuario@ejemplo.com',
     phone: '+591 77712345',
-    role: $auth.user?.role || 'Usuario',
+    role: $auth.user?.roleName || 'Usuario',
+    status: $auth.user?.status || 'active',
     lastLogin: new Date().toISOString(),
     memberSince: '2023-01-15T10:30:00',
     avatarUrl: null as string | null
@@ -98,7 +89,7 @@
 <RouteLayout title="Mi Cuenta">
   <div class="profile-card">
     <div class="profile-info-container">
-      <div class="profile-avatar" on:click={openImageUpload}>
+      <button class="profile-avatar" on:click={openImageUpload} type="button" aria-label="Cambiar foto de perfil">
         <div class="avatar-inner">
           {#if userProfile.avatarUrl}
             <img src={userProfile.avatarUrl} alt="Avatar de {userProfile.name}" />
@@ -109,7 +100,7 @@
         <div class="avatar-upload-overlay">
           <span class="upload-icon">📷</span>
         </div>
-      </div>
+      </button>
       
       <div class="profile-info">
         <h1 class="profile-name">{userProfile.name}</h1>
@@ -130,6 +121,20 @@
       <div class="action-card-content">
         <h3>Información personal</h3>
         <p>Ver y editar detalles de tu cuenta</p>
+      </div>
+      <div class="action-card-arrow">
+        <ChevronRight size={18} />
+      </div>
+    </button>
+    
+    <!-- Mis Cuentas -->
+    <button class="action-card" on:click={() => goto('/profile/cuentas')} aria-label="Ver mis cuentas">
+      <div class="action-card-icon payment">
+        <CreditCard size={20} />
+      </div>
+      <div class="action-card-content">
+        <h3>Mis Cuentas</h3>
+        <p>Ver saldos y detalles de tus cuentas</p>
       </div>
       <div class="action-card-arrow">
         <ChevronRight size={18} />

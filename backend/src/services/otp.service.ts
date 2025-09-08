@@ -1,5 +1,4 @@
 import { query } from '../config/database';
-import { logActivity } from './monitor.service';
 import { ApiError } from '../utils/error';
 
 // Configuración de la API de UniMTX
@@ -43,15 +42,7 @@ class OTPService {
     // Guardar el intento de envío en la base de datos
     await this.saveOTPAttempt(phoneNumber, 'SENT', userId, companyId);
     
-    // Registrar actividad
-    if (userId && companyId) {
-      await logActivity(
-        'OTP_SENT',
-        { phoneNumber, userId },
-        'info',
-        userId
-      );
-    }
+    // Activity logging removed
 
     return data;
   }
@@ -91,15 +82,7 @@ class OTPService {
     // Guardar el resultado de la verificación
     await this.saveOTPAttempt(phoneNumber, 'VERIFIED', userId, companyId);
     
-    // Registrar actividad exitosa
-    if (userId && companyId) {
-      await logActivity(
-        'OTP_VERIFIED',
-        { phoneNumber, userId },
-        'info',
-        userId
-      );
-    }
+    // Activity logging removed
 
     return data;
   }
@@ -122,14 +105,13 @@ class OTPService {
     try {
       await query(`
         INSERT INTO auth_tokens 
-        (user_id, token_type, token, expires_at, used_times, ip_address, user_agent) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        (user_id, token_type, token, expires_at, ip_address, user_agent) 
+        VALUES ($1, $2, $3, $4, $5, $6)`,
         [
           userId || null,
           `OTP_${status}`,
           phoneNumber, // Usamos el número de teléfono como token
           new Date(Date.now() + 10 * 60 * 1000), // Expira en 10 minutos
-          status === 'VERIFIED' ? 1 : 0, // Si es una verificación exitosa, marcamos como usado
           null,
           errorMessage || null
         ]

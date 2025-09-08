@@ -1,5 +1,4 @@
 import { query } from '../config/database';
-import { logActivity } from './monitor.service';
 import { ApiError } from '../utils/error';
 import bcrypt from 'bcrypt';
 
@@ -7,18 +6,10 @@ export interface User {
   id: number;
   email: string;
   fullName: string;
-  businessId?: string;
-  entityType: 'company' | 'individual';
-  identificationType: string;
-  identificationNumber: string;
-  phoneNumber?: string;
-  phoneExtension?: string;
+  phone?: string;
   address?: string;
   roleId: number;
   roleName: string;
-  isPrimaryUser: boolean;
-  parentUserId?: number;
-  bankCredentialId?: number;
   status: string;
   createdAt: Date;
   updatedAt: Date;
@@ -28,23 +19,14 @@ export interface CreateUserData {
   email: string;
   password: string;
   fullName: string;
-  businessId?: string;
-  entityType: 'company' | 'individual';
-  identificationType: string;
-  identificationNumber: string;
-  phoneNumber?: string;
-  phoneExtension?: string;
+  phone?: string;
   address?: string;
   roleId: number;
-  isPrimaryUser?: boolean;
-  parentUserId?: number;
-  bankCredentialId?: number;
 }
 
 export interface UpdateUserData {
   fullName?: string;
-  phoneNumber?: string;
-  phoneExtension?: string;
+  phone?: string;
   address?: string;
   status?: string;
 }
@@ -54,9 +36,7 @@ export interface UserFilters {
   limit?: number;
   search?: string;
   status?: string;
-  entityType?: string;
   roleId?: number;
-  isPrimaryUser?: boolean;
 }
 
 export interface UserListResponse {
@@ -83,52 +63,23 @@ class UserService {
         throw new ApiError('El email ya está registrado', 400);
       }
       
-      // Validar que la identificación no exista
-      const existingId = await query(`
-        SELECT id FROM users WHERE identification_type = $1 AND identification_number = $2 AND deleted_at IS NULL
-      `, [userData.identificationType, userData.identificationNumber]);
-      
-      if (existingId.rowCount && existingId.rowCount > 0) {
-        throw new ApiError('La identificación ya está registrada', 400);
-      }
-      
-      // Validar business_id único si es empresa
-      if (userData.entityType === 'company' && userData.businessId) {
-        const existingBusiness = await query(`
-          SELECT id FROM users WHERE business_id = $1 AND deleted_at IS NULL
-        `, [userData.businessId]);
-        
-        if (existingBusiness.rowCount && existingBusiness.rowCount > 0) {
-          throw new ApiError('El business ID ya está registrado', 400);
-        }
-      }
-      
+      // Validaciones simplificadas para el esquema actual
       // Encriptar contraseña
       const hashedPassword = await bcrypt.hash(userData.password, 10);
       
       // Insertar usuario
       const result = await query(`
         INSERT INTO users (
-          email, password, full_name, business_id, entity_type, identification_type, 
-          identification_number, phone_number, phone_extension, address, role_id, 
-          is_primary_user, parent_user_id, third_bank_credential_id, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'active')
+          email, password, full_name, phone, address, role_id, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, 'active')
         RETURNING id
       `, [
         userData.email,
         hashedPassword,
         userData.fullName,
-        userData.businessId,
-        userData.entityType,
-        userData.identificationType,
-        userData.identificationNumber,
-        userData.phoneNumber,
-        userData.phoneExtension,
+        userData.phone,
         userData.address,
-        userData.roleId,
-        userData.isPrimaryUser || false,
-        userData.parentUserId,
-        userData.bankCredentialId
+        userData.roleId
       ]);
       
       const userId = result.rows[0].id;
@@ -140,17 +91,7 @@ class UserService {
         throw new ApiError('Error al crear usuario', 500);
       }
       
-      // Registrar actividad
-      await logActivity(
-        'USER_CREATED',
-        {
-          userId: user.id,
-          email: user.email,
-          entityType: user.entityType
-        },
-        'info',
-        user.id
-      );
+      // Activity logging removed
       
       return user;
       
@@ -164,12 +105,8 @@ class UserService {
     try {
       const result = await query(`
         SELECT 
-          u.id, u.email, u.full_name as "fullName", u.business_id as "businessId",
-          u.entity_type as "entityType", u.identification_type as "identificationType",
-          u.identification_number as "identificationNumber", u.phone_number as "phoneNumber",
-          u.phone_extension as "phoneExtension", u.address, u.role_id as "roleId",
-          u.is_primary_user as "isPrimaryUser", u.parent_user_id as "parentUserId",
-          u.third_bank_credential_id as "bankCredentialId", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt",
+          u.id, u.email, u.full_name as "fullName", u.phone, u.address, 
+          u.role_id as "roleId", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt",
           r.name as "roleName"
         FROM users u
         JOIN roles r ON u.role_id = r.id
@@ -192,12 +129,8 @@ class UserService {
     try {
       const result = await query(`
         SELECT 
-          u.id, u.email, u.full_name as "fullName", u.business_id as "businessId",
-          u.entity_type as "entityType", u.identification_type as "identificationType",
-          u.identification_number as "identificationNumber", u.phone_number as "phoneNumber",
-          u.phone_extension as "phoneExtension", u.address, u.role_id as "roleId",
-          u.is_primary_user as "isPrimaryUser", u.parent_user_id as "parentUserId",
-          u.third_bank_credential_id as "bankCredentialId", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt",
+          u.id, u.email, u.full_name as "fullName", u.phone, u.address, 
+          u.role_id as "roleId", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt",
           r.name as "roleName"
         FROM users u
         JOIN roles r ON u.role_id = r.id
@@ -238,22 +171,10 @@ class UserService {
         params.push(filters.status);
       }
       
-      if (filters.entityType) {
-        paramCount++;
-        whereClause += ` AND u.entity_type = $${paramCount}`;
-        params.push(filters.entityType);
-      }
-      
       if (filters.roleId) {
         paramCount++;
         whereClause += ` AND u.role_id = $${paramCount}`;
         params.push(filters.roleId);
-      }
-      
-      if (filters.isPrimaryUser !== undefined) {
-        paramCount++;
-        whereClause += ` AND u.is_primary_user = $${paramCount}`;
-        params.push(filters.isPrimaryUser);
       }
       
       // Obtener total de registros
@@ -268,12 +189,8 @@ class UserService {
       // Obtener usuarios
       const usersResult = await query(`
         SELECT 
-          u.id, u.email, u.full_name as "fullName", u.business_id as "businessId",
-          u.entity_type as "entityType", u.identification_type as "identificationType",
-          u.identification_number as "identificationNumber", u.phone_number as "phoneNumber",
-          u.phone_extension as "phoneExtension", u.address, u.role_id as "roleId",
-          u.is_primary_user as "isPrimaryUser", u.parent_user_id as "parentUserId",
-          u.third_bank_credential_id as "bankCredentialId", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt",
+          u.id, u.email, u.full_name as "fullName", u.phone, u.address, 
+          u.role_id as "roleId", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt",
           r.name as "roleName"
         FROM users u
         JOIN roles r ON u.role_id = r.id
@@ -299,29 +216,10 @@ class UserService {
     }
   }
   
-  // Obtener empleados de un usuario principal
+  // Obtener empleados de un usuario principal (simplificado - no implementado en esquema actual)
   async getEmployeeUsers(primaryUserId: number): Promise<User[]> {
-    try {
-      const result = await query(`
-        SELECT 
-          u.id, u.email, u.full_name as "fullName", u.business_id as "businessId",
-          u.entity_type as "entityType", u.identification_type as "identificationType",
-          u.identification_number as "identificationNumber", u.phone_number as "phoneNumber",
-          u.phone_extension as "phoneExtension", u.address, u.role_id as "roleId",
-          u.is_primary_user as "isPrimaryUser", u.parent_user_id as "parentUserId",
-          u.status, u.created_at as "createdAt", u.updated_at as "updatedAt",
-          r.name as "roleName"
-        FROM users u
-        JOIN roles r ON u.role_id = r.id
-        WHERE u.parent_user_id = $1 AND u.deleted_at IS NULL
-        ORDER BY u.created_at ASC
-      `, [primaryUserId]);
-      
-      return result.rows as User[];
-      
-    } catch (error) {
-      throw error;
-    }
+    // En el esquema simplificado no hay funcionalidad de empleados
+    return [];
   }
   
   // Actualizar usuario
@@ -344,16 +242,10 @@ class UserService {
         params.push(updateData.fullName);
       }
       
-      if (updateData.phoneNumber !== undefined) {
+      if (updateData.phone !== undefined) {
         paramCount++;
-        updateFields.push(`phone_number = $${paramCount}`);
-        params.push(updateData.phoneNumber);
-      }
-      
-      if (updateData.phoneExtension !== undefined) {
-        paramCount++;
-        updateFields.push(`phone_extension = $${paramCount}`);
-        params.push(updateData.phoneExtension);
+        updateFields.push(`phone = $${paramCount}`);
+        params.push(updateData.phone);
       }
       
       if (updateData.address !== undefined) {
@@ -394,15 +286,7 @@ class UserService {
       }
       
       // Registrar actividad
-      await logActivity(
-        'USER_UPDATED',
-        {
-          userId: user.id,
-          updatedFields: Object.keys(updateData)
-        },
-        'info',
-        user.id
-      );
+      // Activity logging removed
       
       return updatedUser;
       
@@ -434,14 +318,7 @@ class UserService {
       }
       
       // Registrar actividad
-      await logActivity(
-        'USER_PASSWORD_CHANGED',
-        {
-          userId: user.id
-        },
-        'info',
-        user.id
-      );
+      // Activity logging removed
       
       return true;
       
@@ -459,16 +336,6 @@ class UserService {
         throw new ApiError('Usuario no encontrado', 404);
       }
       
-      // Verificar que no tenga empleados activos
-      if (user.isPrimaryUser) {
-        const employees = await this.getEmployeeUsers(userId);
-        const activeEmployees = employees.filter(emp => emp.status === 'active');
-        
-        if (activeEmployees.length > 0) {
-          throw new ApiError('No se puede eliminar un usuario principal con empleados activos', 400);
-        }
-      }
-      
       const result = await query(`
         UPDATE users 
         SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
@@ -480,15 +347,7 @@ class UserService {
       }
       
       // Registrar actividad
-      await logActivity(
-        'USER_DELETED',
-        {
-          userId: user.id,
-          email: user.email
-        },
-        'info',
-        user.id
-      );
+      // Activity logging removed
       
       return true;
       
@@ -537,10 +396,11 @@ class UserService {
       
       stats.totalQRCodes = parseInt(qrResult.rows[0].total);
       
-      // Contar transacciones
+      // Contar movimientos de cuenta (transacciones)
       const transResult = await query(`
-        SELECT COUNT(*) as total FROM transactions 
-        WHERE user_id = $1 AND deleted_at IS NULL
+        SELECT COUNT(*) as total FROM account_movements am
+        JOIN user_accounts ua ON am.account_id = ua.account_id
+        WHERE ua.user_id = $1 AND am.deleted_at IS NULL
       `, [userId]);
       
       stats.totalTransactions = parseInt(transResult.rows[0].total);

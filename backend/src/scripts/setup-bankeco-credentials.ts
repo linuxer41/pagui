@@ -21,17 +21,15 @@ export async function setupBanecoCredentials() {
     // Crear credenciales de PRUEBA (Test)
     console.log('📝 Creando credenciales de PRUEBA...');
     
-         const testCredential = await bankCredentialsService.create({
+      const testCredential = await bankCredentialsService.create({
        accountNumber: '1041070599',
-       accountType: 1,
        accountName: 'Cuenta Test Banco Económico',
        merchantId: 'BANECO_TEST_MERCHANT',
        username: '1649710',
        password: '1234',
        encryptionKey: '6F09E3167E1D40829207B01041A65B12', // Clave AES del banco (NO encriptada)
-       environment: 1, // 1 = test
-       apiBaseUrl: 'https://apimktdesa.baneco.com.bo/ApiGateway/',
-       bankBranch: 'La Paz'
+       environment: 'test', // 'test' = test
+       apiBaseUrl: 'https://apimktdesa.baneco.com.bo/ApiGateway/'
      });
     
     console.log(`✅ Credenciales de PRUEBA creadas con ID: ${testCredential.id}`);
@@ -44,15 +42,13 @@ export async function setupBanecoCredentials() {
     
          const prodCredential = await bankCredentialsService.create({
        accountNumber: '5021531650',
-       accountType: 1,
        accountName: 'Cuenta Producción Banco Económico',
        merchantId: 'BANECO_PROD_MERCHANT',
        username: 'A96661050',
        password: 'Anarkia41?',
        encryptionKey: '320A7492A2334CDDADD8230D251B917C', // Clave AES del banco (NO encriptada)
-       environment: 2, // 2 = producción
-       apiBaseUrl: 'https://apimkt.baneco.com.bo/ApiGateway/',
-       bankBranch: 'La Paz'
+       environment: 'prod', // 'prod' = producción
+       apiBaseUrl: 'https://apimkt.baneco.com.bo/ApiGateway/'
      });
     
     console.log(`✅ Credenciales de PRODUCCIÓN creadas con ID: ${prodCredential.id}`);

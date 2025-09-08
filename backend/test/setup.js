@@ -49,8 +49,8 @@ export class TestUtils {
 
         const result = await response.json();
         
-        if (result.success && result.data && result.data.accessToken) {
-          const token = result.data.accessToken;
+        if (result.success && result.data && result.data.auth && result.data.auth.accessToken) {
+          const token = result.data.auth.accessToken;
           this.authTokens.set(testName, token);
           console.log(`✅ Token obtenido para ${testName} en intento ${attempt}`);
           return token;

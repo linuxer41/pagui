@@ -1,17 +1,12 @@
 <script lang="ts">
-  import { auth } from '$lib/stores/auth';
-  import { onMount } from 'svelte';
-  import { goto } from '$app/navigation';
-  import Button from '$lib/components/Button.svelte';
   import Input from '$lib/components/Input.svelte';
   import RouteLayout from '$lib/components/layouts/RouteLayout.svelte';
-  import { 
-    Key,
-    Save,
-    Eye,
-    EyeOff,
-    Check,
-    Lock
+  import {
+      Check,
+      Eye,
+      EyeOff,
+      Key,
+      Lock
   } from '@lucide/svelte';
 
   let currentPassword = '';

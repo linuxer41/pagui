@@ -4,17 +4,43 @@ import { company } from './company';
 
 // Interfaces
 export interface User {
-  userId?: number;
-  companyId?: number;
-  email?: string;
-  fullName?: string;  // Campo para nombre completo (anteriormente name)
-  role?: string;
+  id: number;
+  email: string;
+  fullName: string;
+  roleName: string;
+  status: string;
+}
+
+export interface Account {
+  id: number;
+  accountNumber: string;
+  accountType: string;
+  currency: string;
+  balance: string;
+  availableBalance: string;
+  status: string;
+  isPrimary: boolean;
+  userRole: string;
+}
+
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: string;
+  refreshExpiresIn: string;
+}
+
+export interface LoginResponse {
+  user: User;
+  auth: AuthTokens;
+  accounts: Account[];
 }
 
 interface AuthState {
   token: string | null;
   refreshToken?: string | null;
   user: User | null;
+  accounts: Account[];
   isAuthenticated: boolean;
 }
 
@@ -24,11 +50,14 @@ function getInitialState(): AuthState {
     try {
       const token = localStorage.getItem('token');
       const userStr = localStorage.getItem('user');
+      const accountsStr = localStorage.getItem('accounts');
       const user = userStr ? JSON.parse(userStr) : null;
+      const accounts = accountsStr ? JSON.parse(accountsStr) : [];
       
       return {
         token,
         user,
+        accounts,
         isAuthenticated: !!token && !!user
       };
     } catch (e) {
@@ -39,6 +68,7 @@ function getInitialState(): AuthState {
   return {
     token: null,
     user: null,
+    accounts: [],
     isAuthenticated: false
   };
 }
@@ -52,11 +82,12 @@ function createAuthStore() {
     subscribe,
     
     // Método para iniciar sesión
-    login: (token: string, user: User, refreshToken?: string) => {
+    login: (token: string, user: User, refreshToken?: string, accounts: Account[] = []) => {
       // Guardar en localStorage
       if (browser) {
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('accounts', JSON.stringify(accounts));
         if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
       }
       
@@ -65,6 +96,7 @@ function createAuthStore() {
         token,
         refreshToken: refreshToken || null,
         user,
+        accounts,
         isAuthenticated: true
       });
     },
@@ -75,6 +107,7 @@ function createAuthStore() {
       if (browser) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        localStorage.removeItem('accounts');
         localStorage.removeItem('refreshToken');
       }
       
@@ -86,6 +119,7 @@ function createAuthStore() {
         token: null,
         refreshToken: null,
         user: null,
+        accounts: [],
         isAuthenticated: false
       });
     },
@@ -114,6 +148,25 @@ function createAuthStore() {
           token
         };
       });
+    },
+    
+    // Método para actualizar las cuentas
+    updateAccounts: (accounts: Account[]) => {
+      update(state => {
+        if (browser) {
+          localStorage.setItem('accounts', JSON.stringify(accounts));
+        }
+        return {
+          ...state,
+          accounts
+        };
+      });
+    },
+    
+    // Método para obtener la cuenta primaria
+    getPrimaryAccount: () => {
+      const state = getInitialState();
+      return state.accounts.find(account => account.isPrimary) || state.accounts[0] || null;
     }
   };
 }

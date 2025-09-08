@@ -4,22 +4,14 @@ import { swagger } from '@elysiajs/swagger';
 import { Elysia } from 'elysia';
 
 // Rutas por separado
-import healthRoutes from './routes/health.routes';
-import { authRoutes } from './routes/auth.routes';
-import { qrRoutes } from './routes/qr.routes';
-import { transactionsRoutes } from './routes/transactions.routes';
-import { usersRoutes } from './routes/admin/users.routes';
-import hooksRoutes from './routes/hooks.route';
 
 // Config y middlewares
-import { migrateDB, testConnection, query } from './config/database';
+import { migrateDB, testConnection } from './config/database';
 
 // Rutas
 import { routes } from './routes';
 import { seedDatabase } from './scripts/seed-db';
 import { ApiError } from './utils/error';
-import { publicRoutes } from './routes/public.routes';
-import qrService from './services/qr.service';
 
 // Variables de entorno
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
@@ -42,7 +34,6 @@ const app = new Elysia()
         { name: 'companies', description: 'Endpoints para gestión de empresas' },
         { name: 'banks', description: 'Endpoints para gestión de bancos' },
         { name: 'api-keys', description: 'Endpoints para gestión de API keys' },
-        { name: 'transactions', description: 'Endpoints para gestión de transacciones' }
       ]
       
     },
@@ -66,7 +57,11 @@ const app = new Elysia()
     {ApiError}
   )
   .onError(({ code, error, set }) => {
-    console.error(error);
+    console.error('🚨 Error capturado:', {
+      code,
+      message: error.message,
+      stack: error.stack
+    });
     
     if (code === 'VALIDATION') {
       set.status = 400;
@@ -85,7 +80,8 @@ const app = new Elysia()
     set.status = 500;
     return {
       success: false,
-      message: 'Internal Server Error'
+      message: 'Internal Server Error',
+      details: error.message
     };
   });
 
@@ -93,13 +89,11 @@ const app = new Elysia()
 app.get('/', () => ({
   status: 'online',
   timestamp: new Date().toISOString(),
-  auth_provider: 'zitadel'
+  uptime: process.uptime(),
+  environment: process.env.NODE_ENV || 'development'
 }));
 
-// Aplicar rutas públicas primero (sin autenticación)
-app.use(publicRoutes);
-
-// Usar todas las rutas modularizadas (con autenticación)
+// Usar todas las rutas modularizadas
 app.use(routes);
 
 // Inicializar base de datos y servidor

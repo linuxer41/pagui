@@ -3,7 +3,6 @@ import { BanecoApi } from '../banks';
 import { pool, query } from '../config/database';
 import { BANECO_NotifyPaymentQRRequestSchema, BANECO_NotifyPaymentQRResponseSchema } from '../schemas/baneco.scheamas';
 import { QRRequest } from '../schemas/qr.schemas';
-import { logActivity } from './monitor.service';
 import { ApiError } from '../utils/error';
 import { bankCredentialsService, BankCredentialsService } from './bank-credentials.service';
 
@@ -23,19 +22,6 @@ interface PaymentRequest {
   branchCode?: string;
 }
 
-interface QRResponse {
-  qrId?: string;
-  qrImage?: string;
-  transactionId?: string;
-  amount?: number;
-  currency?: string;
-  description?: string;
-  dueDate?: string;
-  singleUse?: boolean;
-  modifyAmount?: boolean;
-  status?: string;
-  payments?: any[]; // Array de payments de Baneco
-}
 
 interface PaymentQR {
   qrId: string;
@@ -59,6 +45,7 @@ interface QRFilters {
 
 interface QRListItem {
   qrId: string;
+  qrImage: string;
   transactionId: string;
   createdAt: string;
   dueDate: string;
@@ -80,15 +67,56 @@ interface QRListResponse {
 
 class QrService {
 
-  async generate(
-    userId: number,
-    qrData: QRRequest,
-  ): Promise<QRResponse> {
-    const currency = 'BOB';
+  async getByQrId(qrId: string): Promise<QRListItem> {
+    const qrQuery = await query(`
+      SELECT 
+        q.qr_id as "qrId",
+        q.qr_image as "qrImage",
+        q.transaction_id as "transactionId",
+        q.created_at as "createdAt",
+        q.due_date as "dueDate",
+        q.amount,
+        q.currency,
+        q.status,
+        q.description,
+        q.single_use as "singleUse",
+        q.modify_amount as "modifyAmount"
+      FROM qr_codes q
+      WHERE q.qr_id = $1 AND q.deleted_at IS NULL
+    `, [qrId]);
+    if (qrQuery.rowCount === 0) {
+      throw new ApiError('QR no encontrado', 404);
+    }
+    const qr = qrQuery.rows[0];
     
-    // Obtener configuración bancaria específica del usuario
-    const config = await bankCredentialsService.getByUserId(userId);
+    return {
+      qrId: qr.qrId,
+      qrImage: qr.qrImage,
+      transactionId: qr.transactionId,
+      createdAt: qr.createdAt,
+      dueDate: qr.dueDate,
+      currency: qr.currency,
+      amount: parseFloat(qr.amount),
+      status: qr.status,
+      description: qr.description,
+      singleUse: qr.singleUse,
+      modifyAmount: qr.modifyAmount,
+      payments: []
+    };
+  }
 
+  async generate(
+    accountId: number,
+    qrData: QRRequest,
+    bankCredentialId: number
+  ): Promise<QRListItem> {
+    const currency = 'BOB';
+
+
+    console.log('bankCredentialId',bankCredentialId);
+    
+    // Obtener configuración bancaria específica
+    const config = await bankCredentialsService.getById(bankCredentialId);
     // Crear cliente API de Banco Económico usando la URL de la configuración
     const banecoApi = new BanecoApi(config.apiBaseUrl, config.encryptionKey);
     const client = await pool.connect();
@@ -122,79 +150,42 @@ class QrService {
       // Guardar QR en la base de datos
       const qrResult = await query(`
         INSERT INTO qr_codes (
-          qr_id, transaction_id, account_credit, user_id, third_bank_credential_id,
-          environment, currency, amount, description, due_date, single_use, modify_amount, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'active')
+          qr_id, transaction_id, account_id, third_bank_credential_id,
+          amount, currency, description, due_date, qr_image, 
+          single_use, modify_amount, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'active')
         RETURNING id
       `, [
         qrResponse.qrId,
         qrData.transactionId,
-        config.accountNumber,
-        userId,
+        accountId,
         config.id,
-        config.environment,
-        currency,
         qrData.amount,
+        currency,
         qrData.description || '',
         qrData.dueDate,
+        qrResponse.qrImage,
         qrData.singleUse !== false,
         qrData.modifyAmount || false
       ]);
-
-      const qrId = qrResult.rows[0].id;
-
-      // Registrar actividad
-      await logActivity(
-        'QR_GENERATED',
-        {
-          qrId: qrResponse.qrId,
-          transactionId: qrData.transactionId,
-          amount: qrData.amount,
-          currency: currency,
-          userId
-        },
-        'info',
-        userId
-      );
-
-      return {
-        qrId: qrResponse.qrId,
-        qrImage: qrResponse.qrImage,
-        transactionId: qrData.transactionId,
-        amount: qrData.amount,
-        currency: currency,
-        description: qrData.description,
-        dueDate: qrData.dueDate,
-        singleUse: qrData.singleUse !== false,
-        modifyAmount: qrData.modifyAmount || false,
-        status: 'active'
-      };
+      return await this.getByQrId(qrResponse.qrId);
 
     } catch (error) {
-      await logActivity(
-        'QR_GENERATE_ERROR',
-        {
-          userId,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          qrData
-        },
-        'error',
-        userId
-      );
+      // Activity logging removed
       throw new ApiError('Error al generar QR: ' + (error instanceof Error ? error.message : 'Unknown error'), 401);
     }
   }
 
   async getQRList(
-    userId: number,
+    accountId: number,
     filters: QRFilters = {},
     page: number = 1,
     limit: number = 20
   ): Promise<QRListResponse> {
     const offset = (page - 1) * limit;
     
-    let whereClause = 'WHERE q.user_id = $1 AND q.deleted_at IS NULL';
-    const params: any[] = [userId];
+    let whereClause = 'WHERE q.account_id = $1 AND q.deleted_at IS NULL';
+    const params: any[] = [accountId];
     let paramCount = 1;
 
     if (filters.status) {
@@ -231,10 +222,11 @@ class QrService {
           q.transaction_id as "transactionId",
           q.created_at as "createdAt",
           q.due_date as "dueDate",
-          q.currency,
           q.amount,
+          q.currency,
           q.status,
           q.description,
+          q.qr_image as "qrImage",
           q.single_use as "singleUse",
           q.modify_amount as "modifyAmount"
         FROM qr_codes q
@@ -252,6 +244,7 @@ class QrService {
       amount: parseFloat(row.amount),
       status: row.status,
       description: row.description,
+      qrImage: row.qrImage,
       singleUse: row.singleUse,
       modifyAmount: row.modifyAmount,
       payments: []
@@ -261,33 +254,30 @@ class QrService {
     for (const qr of qrList) {
       const paymentsQuery = await query(`
         SELECT 
-          t.transaction_id as "transactionId",
-          t.payment_date as "paymentDate",
-          t.currency,
-          t.amount,
-          t.sender_name as "senderName",
-          t.sender_document_id as "senderDocumentId",
-          t.sender_account as "senderAccount",
-          t.description,
-          t.metadata
-        FROM transactions t
-        WHERE t.qr_id = $1 AND t.deleted_at IS NULL
-        ORDER BY t.payment_date DESC
+          am.reference_id as "transactionId",
+          am.created_at as "paymentDate",
+          'BOB' as currency,
+          am.amount,
+          am.sender_name as "senderName",
+          am.description,
+          am.reference_type as "referenceType"
+        FROM account_movements am
+        WHERE am.qr_id = $1 AND am.deleted_at IS NULL AND am.movement_type = 'qr_payment'
+        ORDER BY am.created_at DESC
       `, [qr.qrId]);
 
       qr.payments = paymentsQuery.rows.map(payment => {
-        const metadata = payment.metadata ? JSON.parse(payment.metadata) : {};
         return {
           qrId: qr.qrId,
           transactionId: payment.transactionId,
           paymentDate: payment.paymentDate,
-          paymentTime: metadata.payment_time || '',
+          paymentTime: '', // No tenemos este campo en account_movements
           currency: payment.currency,
           amount: parseFloat(payment.amount),
-          senderBankCode: metadata.sender_bank_code || '',
+          senderBankCode: '', // No tenemos este campo en account_movements
           senderName: payment.senderName || '',
-          senderDocumentId: payment.senderDocumentId || '',
-          senderAccount: payment.senderAccount || '',
+          senderDocumentId: '', // No tenemos este campo en account_movements
+          senderAccount: '', // No tenemos este campo en account_movements
           description: payment.description
         };
       });
@@ -343,15 +333,14 @@ class QrService {
           q.transaction_id as "transactionId",
           q.created_at as "createdAt",
           q.due_date as "dueDate",
-          q.currency,
           q.amount,
+          q.currency,
           q.status,
           q.description,
+          q.qr_image as "qrImage",
           q.single_use as "singleUse",
           q.modify_amount as "modifyAmount",
-          q.user_id as "userId",
-          q.third_bank_credential_id as "bankCredentialId",
-          q.environment
+          q.account_id as "accountId"
         FROM qr_codes q
         WHERE q.qr_id = $1 AND q.deleted_at IS NULL
       `, [qrId]);
@@ -412,39 +401,54 @@ class QrService {
         for (const banecoPayment of banecoPayments) {
           // Verificar si el pago ya existe en la base de datos
           const existingPaymentQuery = await query(`
-            SELECT id FROM transactions 
-            WHERE qr_id = $1 AND transaction_id = $2 AND deleted_at IS NULL
+            SELECT id FROM account_movements 
+            WHERE qr_id = $1 AND reference_id = $2 AND deleted_at IS NULL
           `, [qrId, banecoPayment.transactionId]);
           
           if (existingPaymentQuery.rowCount === 0) {
-            // Insertar nuevo pago
+            // Obtener la cuenta asociada al QR
+            const accountQuery = await query(`
+              SELECT a.id, a.balance 
+              FROM accounts a 
+              JOIN qr_codes q ON a.id = q.account_id 
+              WHERE q.qr_id = $1
+            `, [qrId]);
+            
+            if (accountQuery.rows.length === 0) {
+              console.log(`⚠️ getQRDetails: No se encontró cuenta para QR ${qrId}`);
+              continue;
+            }
+            
+            const account = accountQuery.rows[0];
+            const currentBalance = parseFloat(account.balance);
+            const newBalance = currentBalance + parseFloat(banecoPayment.amount);
+            
+            // Insertar nuevo movimiento de cuenta
             await query(`
-              INSERT INTO transactions (
-                qr_id, user_id, third_bank_credential_id, environment, transaction_id, payment_date, currency, amount,
-                type, sender_name, sender_document_id, sender_account, description,
-                metadata, status, created_at, updated_at
-              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+              INSERT INTO account_movements (
+                account_id, movement_type, amount, balance_before, balance_after,
+                description, qr_id, sender_name, reference_id, reference_type, status
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             `, [
+              account.id,
+              'qr_payment',
+              banecoPayment.amount,
+              currentBalance,
+              newBalance,
+              banecoPayment.description || 'Pago QR recibido',
               qrId,
-              qr.userId || qr.user_id, // user_id del QR
-              qr.bankCredentialId || qr.third_bank_credential_id, // third_bank_credential_id del QR
-              qr.environment || 1, // environment del QR o por defecto 1
-              banecoPayment.transactionId,
-              banecoPayment.paymentDate,
-              banecoPayment.currency,
-              banecoPayment.amount.toString(),
-              'incoming', // Tipo de transacción
               banecoPayment.senderName,
-              banecoPayment.senderDocumentId,
-              banecoPayment.senderAccount,
-              banecoPayment.description,
-              JSON.stringify({
-                payment_time: banecoPayment.paymentTime,
-                sender_bank_code: banecoPayment.senderBankCode,
-                branch_code: banecoPayment.branchCode
-              }),
-              'completed' // Estado de la transacción
+              banecoPayment.transactionId,
+              'qr_payment',
+              'completed'
             ]);
+            
+            // Actualizar balance de la cuenta
+            await query(`
+              UPDATE accounts 
+              SET balance = $1, available_balance = $1, updated_at = CURRENT_TIMESTAMP
+              WHERE id = $2
+            `, [newBalance, account.id]);
             
             console.log(`✅ getQRDetails: Pago ${banecoPayment.transactionId} insertado`);
           }
@@ -455,55 +459,34 @@ class QrService {
       console.log('💰 getQRDetails: Obteniendo pagos del QR...');
       const paymentsQuery = await query(`
         SELECT 
-          t.transaction_id as "transactionId",
-          t.payment_date as "paymentDate",
-          t.currency,
-          t.amount,
-          t.sender_name as "senderName",
-          t.sender_document_id as "senderDocumentId",
-          t.sender_account as "senderAccount",
-          t.description,
-          t.metadata
-        FROM transactions t
-        WHERE t.qr_id = $1 AND t.deleted_at IS NULL
-        ORDER BY t.payment_date DESC
+          am.reference_id as "transactionId",
+          am.created_at as "paymentDate",
+          'BOB' as currency,
+          am.amount,
+          am.sender_name as "senderName",
+          am.description,
+          am.reference_type as "referenceType"
+        FROM account_movements am
+        WHERE am.qr_id = $1 AND am.deleted_at IS NULL AND am.movement_type = 'qr_payment'
+        ORDER BY am.created_at DESC
       `, [qrId]);
 
       console.log(`💳 getQRDetails: Pagos encontrados: ${paymentsQuery.rowCount}`);
 
       qrItem.payments = paymentsQuery.rows.map(payment => {
-        try {
-          const metadata = payment.metadata ? JSON.parse(payment.metadata) : {};
-          return {
-            qrId: qr.qrId,
-            transactionId: payment.transactionId,
-            paymentDate: payment.paymentDate,
-            paymentTime: metadata.payment_time || '',
-            currency: payment.currency,
-            amount: parseFloat(payment.amount),
-            senderBankCode: metadata.sender_bank_code || '',
-            senderName: payment.senderName || '',
-            senderDocumentId: payment.senderDocumentId || '',
-            senderAccount: payment.senderAccount || '',
-            description: payment.description
-          };
-        } catch (parseError) {
-          console.error('❌ getQRDetails: Error parseando metadata del pago:', parseError);
-          // Retornar pago sin metadata si hay error de parsing
-          return {
-            qrId: qr.qrId,
-            transactionId: payment.transactionId,
-            paymentDate: payment.paymentDate,
-            paymentTime: '',
-            currency: payment.currency,
-            amount: parseFloat(payment.amount),
-            senderBankCode: '',
-            senderName: payment.senderName || '',
-            senderDocumentId: payment.senderDocumentId || '',
-            senderAccount: payment.senderAccount || '',
-            description: payment.description
-          };
-        }
+        return {
+          qrId: qr.qrId,
+          transactionId: payment.transactionId,
+          paymentDate: payment.paymentDate,
+          paymentTime: '', // No tenemos este campo en account_movements
+          currency: payment.currency,
+          amount: parseFloat(payment.amount),
+          senderBankCode: '', // No tenemos este campo en account_movements
+          senderName: payment.senderName || '',
+          senderDocumentId: '', // No tenemos este campo en account_movements
+          senderAccount: '', // No tenemos este campo en account_movements
+          description: payment.description
+        };
       });
 
       console.log('🎉 getQRDetails: Método completado exitosamente');
@@ -517,17 +500,16 @@ class QrService {
     }
   }
 
-  async cancelQR(qrId: string, userId: number): Promise<boolean> {
-    // Obtener el QR y verificar que pertenece al usuario
+  async cancelQR(qrId: string, accountId: number): Promise<boolean> {
+    // Obtener el QR y verificar que pertenece a la cuenta
     const qrQuery = await query(`
-      SELECT q.id, q.status, q.third_bank_credential_id, u.third_bank_credential_id as "userBankCredentialId"
+      SELECT q.id, q.status, q.account_id, q.third_bank_credential_id
       FROM qr_codes q
-      JOIN users u ON q.user_id = u.id
-      WHERE q.qr_id = $1 AND q.user_id = $2 AND q.deleted_at IS NULL
-    `, [qrId, userId]);
+      WHERE q.qr_id = $1 AND q.account_id = $2 AND q.deleted_at IS NULL
+    `, [qrId, accountId]);
 
     if (qrQuery.rowCount === 0) {
-      throw new ApiError('QR no encontrado o no pertenece a este usuario', 404);
+      throw new ApiError('QR no encontrado o no pertenece a esta cuenta', 404);
     }
 
     const qr = qrQuery.rows[0];
@@ -536,12 +518,12 @@ class QrService {
     }
 
     // Verificar que el usuario tenga third_bank_credential_id configurado
-    if (!qr.userBankCredentialId) {
+    if (!qr.third_bank_credential_id) {
       throw new ApiError('El usuario no tiene configuración bancaria asignada', 400);
     }
 
     // Obtener configuración bancaria específica del usuario
-    const config = await bankCredentialsService.getById(qr.userBankCredentialId);
+    const config = await bankCredentialsService.getById(qr.third_bank_credential_id);
     if (!config) {
       throw new ApiError('No se encontró la configuración bancaria del usuario', 400);
     }
@@ -573,50 +555,22 @@ class QrService {
       `, [qr.id]);
 
       // Registrar actividad
-      await logActivity(
-        'QR_CANCELLED',
-        {
-          qrId,
-          userId
-        },
-        'info',
-        userId
-      );
+      // Activity logging removed
 
       return true;
 
     } catch (error) {
-      await logActivity(
-        'QR_CANCEL_ERROR',
-        {
-          qrId,
-          userId,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        },
-        'error',
-        userId
-      );
+      // Activity logging removed
       throw error;
     }
   }
 
-  async checkQRStatus(qrId: string, userId: number): Promise<QRResponse> {
-    // 1. PRIMERO: Verificar si el QR existe en la base de datos
+  async getQRPayments(qrId: string, userId: number): Promise<any[]> {
+    // 1. PRIMERO: Verificar que el QR existe en la base de datos
     const qrQuery = await query(`
       SELECT 
         q.qr_id as "qrId",
-        q.transaction_id as "transactionId",
-        q.created_at as "createdAt",
-        q.due_date as "dueDate",
-        q.currency,
-        q.amount,
-        q.status,
-        q.description,
-        q.single_use as "singleUse",
-        q.modify_amount as "modifyAmount",
-        q.user_id as "userId",
-        q.third_bank_credential_id as "bankCredentialId",
-        q.environment
+        q.account_id as "accountId"
       FROM qr_codes q
       WHERE q.qr_id = $1 AND q.deleted_at IS NULL
     `, [qrId]);
@@ -627,16 +581,24 @@ class QrService {
 
     const qr = qrQuery.rows[0];
 
-    // 2. SEGUNDO: Verificar que el usuario existe y obtener su third_bank_credential_id
-    const user = await query(`
-      SELECT id, full_name, third_bank_credential_id FROM users WHERE id = $1 AND deleted_at IS NULL
+    // 2. SEGUNDO: Verificar que el usuario existe y obtener su cuenta primaria con third_bank_credential_id
+    const userAccount = await query(`
+      SELECT 
+        u.id, 
+        u.full_name,
+        a.third_bank_credential_id
+      FROM users u
+      JOIN user_accounts ua ON u.id = ua.user_id
+      JOIN accounts a ON ua.account_id = a.id
+      WHERE u.id = $1 AND u.deleted_at IS NULL AND ua.deleted_at IS NULL AND a.deleted_at IS NULL
+      AND ua.is_primary = true
     `, [userId]);
 
-    if (user.rowCount === 0) {
-      throw new ApiError('Usuario no encontrado', 404);
+    if (userAccount.rowCount === 0) {
+      throw new ApiError('Usuario no encontrado o no tiene cuenta primaria', 404);
     }
 
-    const userData = user.rows[0];
+    const userData = userAccount.rows[0];
     
     // Verificar que el usuario tenga third_bank_credential_id configurado
     if (!userData.third_bank_credential_id) {
@@ -654,14 +616,93 @@ class QrService {
       throw new ApiError('La configuración bancaria del usuario no está activa', 400);
     }
 
-    // 4. CUARTO: Crear cliente API de Banco Económico y obtener estado
+    // 4. CUARTO: Crear cliente API de Banco Económico y obtener pagos
     const banecoApi = new BanecoApi(config.apiBaseUrl, config.encryptionKey);
     
     try {
       // Obtener token de autenticación
       const token = await banecoApi.getToken(config.username, config.password);
       
-      // Verificar estado del QR en Baneco
+      // Verificar estado del QR en Baneco para obtener pagos
+      const banecoResponse = await banecoApi.getQrStatus(token, qrId);
+      
+      // Retornar solo los pagos de Baneco
+      return banecoResponse.payment || [];
+
+    } catch (error) {
+      throw new ApiError('Error al obtener pagos del QR: ' + (error instanceof Error ? error.message : 'Unknown error'), 500);
+    }
+  }
+
+  async checkQRStatus(qrId: string, userId: number): Promise<QRResponse> {
+    // 1. PRIMERO: Verificar si el QR existe en la base de datos
+    const qrQuery = await query(`
+      SELECT 
+        q.qr_id as "qrId",
+        q.transaction_id as "transactionId",
+        q.created_at as "createdAt",
+        q.due_date as "dueDate",
+        q.amount,
+        q.currency,
+        q.status,
+        q.description,
+        q.qr_image as "qrImage",
+        q.single_use as "singleUse",
+        q.modify_amount as "modifyAmount",
+        q.account_id as "accountId"
+      FROM qr_codes q
+      WHERE q.qr_id = $1 AND q.deleted_at IS NULL
+    `, [qrId]);
+
+    if (qrQuery.rowCount === 0) {
+      throw new ApiError('QR no encontrado en la base de datos', 404);
+    }
+
+    const qr = qrQuery.rows[0];
+
+    // 2. SEGUNDO: Verificar que el usuario existe y obtener su cuenta primaria con third_bank_credential_id
+    const userAccount = await query(`
+      SELECT 
+        u.id, 
+        u.full_name,
+        a.third_bank_credential_id
+      FROM users u
+      JOIN user_accounts ua ON u.id = ua.user_id
+      JOIN accounts a ON ua.account_id = a.id
+      WHERE u.id = $1 AND u.deleted_at IS NULL AND ua.deleted_at IS NULL AND a.deleted_at IS NULL
+      AND ua.is_primary = true
+    `, [userId]);
+
+    if (userAccount.rowCount === 0) {
+      throw new ApiError('Usuario no encontrado o no tiene cuenta primaria', 404);
+    }
+
+    const userData = userAccount.rows[0];
+    
+    // Verificar que el usuario tenga third_bank_credential_id configurado
+    if (!userData.third_bank_credential_id) {
+      throw new ApiError('El usuario no tiene configuración bancaria asignada', 400);
+    }
+
+    // 3. TERCERO: Obtener configuración bancaria específica del usuario
+    const config = await bankCredentialsService.getById(userData.third_bank_credential_id);
+    if (!config) {
+      throw new ApiError('No se encontró la configuración bancaria del usuario', 400);
+    }
+
+    // Verificar que la configuración esté activa
+    if (config.status !== 'active') {
+      throw new ApiError('La configuración bancaria del usuario no está activa', 400);
+    }
+
+    // 4. CUARTO: Crear cliente API de Banco Económico y obtener estado (solo para actualizar status)
+    const banecoApi = new BanecoApi(config.apiBaseUrl, config.encryptionKey);
+    
+    try {
+      // Obtener token de autenticación
+      const token = await banecoApi.getToken(config.username, config.password);
+      
+      // Verificar estado del QR en Baneco (solo para actualizar status, no para obtener pagos)
       const banecoResponse = await banecoApi.getQrStatus(token, qrId);
       
       // 5. QUINTO: Actualizar estado en base de datos si Baneco reporta cambios
@@ -684,10 +725,10 @@ class QrService {
         `, [currentStatus, qrId]);
       }
 
-      // 6. SEXTO: Retornar el mismo objeto que retorna generate, con payments de Baneco primero
+      // 6. SEXTO: Retornar solo los detalles del QR (sin pagos de Baneco)
       return {
         qrId: qr.qrId,
-        qrImage: '', // No tenemos qrImage en checkStatus, pero mantenemos la estructura
+        qrImage: qr.qrImage || '', // Usar la imagen almacenada en la base de datos
         transactionId: qr.transactionId,
         amount: parseFloat(qr.amount),
         currency: qr.currency,
@@ -696,17 +737,30 @@ class QrService {
         singleUse: qr.singleUse,
         modifyAmount: qr.modifyAmount,
         status: currentStatus,
-        payments: banecoResponse.payment || [] // Payments de Baneco primero
+        payments: [] // Sin pagos de Baneco en este endpoint
       };
 
     } catch (error) {
-      throw new ApiError('Error al verificar estado del QR: ' + (error instanceof Error ? error.message : 'Unknown error'), 500);
+      // Si hay error con Baneco, retornar los datos de la base de datos sin actualizar status
+      return {
+        qrId: qr.qrId,
+        qrImage: qr.qrImage || '',
+        transactionId: qr.transactionId,
+        amount: parseFloat(qr.amount),
+        currency: qr.currency,
+        description: qr.description,
+        dueDate: qr.dueDate,
+        singleUse: qr.singleUse,
+        modifyAmount: qr.modifyAmount,
+        status: qr.status, // Usar status de la base de datos
+        payments: []
+      };
     }
   }
 
   async banecoQRNotify(data: Static<typeof BANECO_NotifyPaymentQRRequestSchema>): Promise<void> {
-    const checkQR = await query<{id: number, status: string, transactionId: string, userId: number}>(`
-      SELECT q.id, q.status, q.transaction_id as "transactionId", q.user_id as "userId" 
+    const checkQR = await query<{id: number, status: string, transactionId: string, accountId: number}>(`
+      SELECT q.id, q.status, q.transaction_id as "transactionId", q.account_id as "accountId" 
       FROM qr_codes q
       WHERE q.qr_id = $1
     `, [data.payment.qrId]);
@@ -741,48 +795,52 @@ class QrService {
       
       // Verificar si ya existe un registro de pago para este QR
       const checkPayment = await client.query(`
-        SELECT id FROM transactions WHERE qr_id = $1
-      `, [payment.qrId]);
+        SELECT id FROM account_movements WHERE qr_id = $1 AND reference_id = $2
+      `, [payment.qrId, payment.transactionId]);
       
       if (checkPayment.rowCount === 0) {
-        // Obtener el third_bank_credential_id del QR
-        const bankQuery = await client.query(`
-          SELECT third_bank_credential_id FROM qr_codes WHERE id = $1
+        // Obtener la cuenta asociada al QR
+        const accountQuery = await client.query(`
+          SELECT a.id, a.balance 
+          FROM accounts a 
+          JOIN qr_codes q ON a.id = q.account_id 
+          WHERE q.id = $1
         `, [qrInfo.id]);
         
-        const bankCredentialId = bankQuery.rows[0]?.third_bank_credential_id;
-        
-        if (!bankCredentialId) {
-          throw new ApiError('No se encontró la configuración bancaria del QR', 500);
+        if (accountQuery.rows.length === 0) {
+          throw new ApiError('No se encontró la cuenta asociada al QR', 500);
         }
         
-                 // Insertar nuevo registro de pago en la tabla transactions
-         await client.query(`
-           INSERT INTO transactions (
-             qr_id, user_id, third_bank_credential_id, environment, transaction_id, payment_date,
-             currency, amount, type, sender_name, sender_document_id, sender_account,
-             description, metadata, status, created_at, updated_at
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-         `, [
-           payment.qrId,
-           qrInfo.userId,
-           bankCredentialId,
-           1, // environment - por defecto 1 (test), se puede obtener del QR si es necesario
-           payment.transactionId,
-           paymentDate,
-           payment.currency,
-           payment.amount,
-           'incoming', // Tipo de transacción
-           payment.senderName,
-           payment.senderDocumentId,
-           payment.senderAccount,
-           payment.description || '',
-           JSON.stringify({
-             sender_bank_code: payment.senderBankCode,
-             payment_time: payment.paymentTime
-           }),
-           'completed' // Estado de la transacción
-         ]);
+        const account = accountQuery.rows[0];
+        const currentBalance = parseFloat(account.balance);
+        const newBalance = currentBalance + parseFloat(payment.amount.toString());
+        
+        // Insertar nuevo movimiento de cuenta
+        await client.query(`
+          INSERT INTO account_movements (
+            account_id, movement_type, amount, balance_before, balance_after,
+            description, qr_id, sender_name, reference_id, reference_type, status
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `, [
+          account.id,
+          'qr_payment',
+          payment.amount.toString(),
+          currentBalance,
+          newBalance,
+          payment.description || 'Pago QR recibido',
+          payment.qrId,
+          payment.senderName,
+          payment.transactionId,
+          'qr_payment',
+          'completed'
+        ]);
+        
+        // Actualizar balance de la cuenta
+        await client.query(`
+          UPDATE accounts 
+          SET balance = $1, available_balance = $1, updated_at = CURRENT_TIMESTAMP
+          WHERE id = $2
+        `, [newBalance, account.id]);
       }
       
       await client.query('COMMIT');

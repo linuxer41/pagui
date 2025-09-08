@@ -2,7 +2,6 @@ import { Elysia, t } from 'elysia';
 import jwt from 'jsonwebtoken';
 import {authService}  from '../services/auth.service';
 import { apiKeyService } from '../services/apikey.service';
-import { logActivity } from '../services/monitor.service';
 import { query } from '../config/database';
 import { ApiError } from '../utils/error';
 
@@ -59,7 +58,7 @@ async function verifyTokenInDatabase(token: string): Promise<boolean> {
   try {
     // Buscar el token en la base de datos
     const result = await query(`
-      SELECT id, user_id, used_times
+      SELECT id, user_id
       FROM auth_tokens
       WHERE token = $1
       AND token_type = 'ACCESS_TOKEN'
@@ -70,15 +69,6 @@ async function verifyTokenInDatabase(token: string): Promise<boolean> {
     if (result.rowCount === 0) {
       return false;
     }
-
-    const tokenData = result.rows[0];
-
-    // Actualizar el contador de usos
-    await query(`
-      UPDATE auth_tokens
-      SET used_times = used_times + 1, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $1
-    `, [tokenData.id]);
 
     return true;
   } catch (error) {
@@ -132,22 +122,11 @@ export function authMiddleware<T extends 'jwt' | 'apikey' | 'all'>(
             }
             
             // Validate required access level
-            if (options.level === 'admin' && userInfo.role !== 'ADMIN' && userInfo.role !== 'SUPER_ADMIN') {
+            if (options.level === 'admin' && userInfo.role !== 'admin') {
               throw new ApiError('Se requiere rol de administrador', 403);
             }
             
-            // Log token usage
-            await logActivity(
-              'TOKEN_USED',
-              {
-                path: context.path,
-                method: context.request.method,
-                ipAddress,
-                userAgent
-              },
-              'info',
-              userInfo.id
-            );
+            // Activity logging removed
             // Return authentication data (JWT)
             return {
               auth: {
@@ -155,8 +134,6 @@ export function authMiddleware<T extends 'jwt' | 'apikey' | 'all'>(
                 user: {
                   id: userInfo.id,
                   email: userInfo.email!,
-                  parentUserId: userInfo.parentUserId!,
-                  bankCredentialId: userInfo.bankCredentialId!,
                   role: userInfo.role!
                 }
               }
@@ -185,18 +162,7 @@ export function authMiddleware<T extends 'jwt' | 'apikey' | 'all'>(
               throw new ApiError('Se requieren permisos de administrador', 403);
             }
             
-            // Log API key usage
-            await logActivity(
-              'API_KEY_USED',
-              {
-                path: context.path,
-                method: context.request.method,
-                ipAddress,
-                userAgent
-              },
-              'info',
-              verification.userId
-            );
+            // Activity logging removed
             
             // Return authentication data (API key)
             return {

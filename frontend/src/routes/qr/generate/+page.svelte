@@ -87,24 +87,26 @@
         throw new Error(response.message || 'Error al generar QR');
       }
       
-      // Guardar datos del QR en localStorage para la página de status
-      const qrDataForStatus = {
-        qrId: response.data.qrId,
-        qrImage: response.data.qrImage,
-        transactionId: response.data.transactionId,
-        amount: Number(amount),
-        currency: currency,
-        description: description.trim(),
-        dueDate: dueDate,
-        singleUse: singleUse,
-        modifyAmount: modifyAmount,
-        status: response.data.status || 'active'
-      };
-      
-      localStorage.setItem('qrDataForStatus', JSON.stringify(qrDataForStatus));
-      
-      // Redirigir a la página de estado para monitorear el pago
-      goto(`/qr/status?id=${response.data.qrId}`);
+      if (response.data) {
+        // Guardar datos del QR en localStorage para la página de status
+        const qrDataForStatus = {
+          qrId: response.data.qrId,
+          qrImage: response.data.qrImage,
+          transactionId: response.data.transactionId,
+          amount: response.data.amount,
+          currency: response.data.currency,
+          description: description.trim(),
+          dueDate: response.data.dueDate,
+          singleUse: response.data.singleUse,
+          modifyAmount: response.data.modifyAmount,
+          status: response.data.status
+        };
+        
+        localStorage.setItem('qrDataForStatus', JSON.stringify(qrDataForStatus));
+        
+        // Redirigir a la página de estado para monitorear el pago
+        goto(`/qr/status?id=${response.data.qrId}`);
+      }
     } catch (err: any) {
       error = err.message || 'Error de conexión. Por favor intente nuevamente más tarde.';
     } finally {

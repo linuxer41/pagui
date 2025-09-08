@@ -2,6 +2,7 @@ import { Elysia, t } from 'elysia';
 import { authMiddleware } from '../middlewares/auth.middleware';
 import qrService from '../services/qr.service';
 import apiKeyService from '../services/apikey.service';
+import accountService from '../services/account.service';
 import { QRRequestSchema } from '../schemas/qr.schemas';
 import { ApiError } from '../utils/error';
 
@@ -11,20 +12,16 @@ const ResponseSchema = t.Object({
   data: t.Optional(t.Any())
 });
 
-// Rutas para códigos QR
+// Rutas para códigos QR simplificadas
 export const qrRoutes = new Elysia({ prefix: '/qr' })
-  // Rutas que requieren autenticación
   .use(authMiddleware({ type: 'all', level: 'user' }))
   
-  // Generar QR - Accesible vía API key o JWT
+  // Generar QR
   .post('/generate', async ({ body, auth }) => {
-    // Obtener userId según el tipo de autenticación
     let userId: number | undefined;
-    let bankCredentialId: number | undefined;
     
     if (auth?.type === 'jwt') {
       userId = auth.user!.id; 
-      bankCredentialId = auth.user!.bankCredentialId;
     } else if (auth?.type === 'apikey') {
       const hasPermission = await apiKeyService.hasPermission(
         auth.apiKeyInfo!.apiKey, 
@@ -35,17 +32,22 @@ export const qrRoutes = new Elysia({ prefix: '/qr' })
         throw new ApiError('API Key no tiene permisos para generar QR', 403);
       }
       userId = auth.apiKeyInfo!.userId;
-      bankCredentialId = auth.apiKeyInfo!.bankCredentialId;
     } else {
       throw new ApiError('No autorizado', 401);
     }
-    
-    
-    // Generar el QR
-    if (!userId) {
-      throw new ApiError('Usuario no autenticado', 401);
+
+    // Obtener las cuentas del usuario y usar la cuenta primaria
+    const userAccounts = await accountService.getUserAccounts(userId);
+      if (userAccounts.length === 0) {
+      throw new ApiError('Usuario no tiene cuentas asociadas', 400);
     }
-    const data = await qrService.generate(userId, body, bankCredentialId); // environment = 2 (producción)
+
+    console.log('userAccounts',userAccounts);
+    
+    const primaryAccount = userAccounts.find(acc => acc.isPrimary) || userAccounts[0];
+    const accountId = primaryAccount.id;
+    
+    const data = await qrService.generate(accountId, body, primaryAccount.thirdBankCredentialId);
     return {
       success: true,
       message: 'QR generado exitosamente',
@@ -56,13 +58,170 @@ export const qrRoutes = new Elysia({ prefix: '/qr' })
     response: ResponseSchema,
     detail: {
       tags: ['qr'],
-      summary: 'Generar código QR para cobro'
+      summary: 'Generar código QR'
+    }
+  })
+  
+  // Obtener lista de QRs de una cuenta
+  .get('/list', async ({ query, auth }) => {
+    let userId: number | undefined;
+    
+    if (auth?.type === 'jwt') {
+      userId = auth.user!.id;
+    } else if (auth?.type === 'apikey') {
+      const hasPermission = await apiKeyService.hasPermission(
+        auth.apiKeyInfo!.apiKey, 
+        'qr_list'
+      );
+      
+      if (!hasPermission) {
+        throw new ApiError('API Key no tiene permisos para listar QRs', 403);
+      }
+      userId = auth.apiKeyInfo!.userId;
+    } else {
+      throw new ApiError('No autorizado', 401);
+    }
+
+    // Obtener las cuentas del usuario
+    const userAccounts = await accountService.getUserAccounts(userId);
+    if (userAccounts.length === 0) {
+      throw new ApiError('Usuario no tiene cuentas asociadas', 400);
+    }
+    
+    const primaryAccount = userAccounts.find(acc => acc.isPrimary) || userAccounts[0];
+    const accountId = primaryAccount.id;
+    
+    // Parámetros de consulta
+    const page = parseInt(query.page || '1');
+    const limit = parseInt(query.limit || '20');
+    const status = query.status;
+    const startDate = query.startDate;
+    const endDate = query.endDate;
+    
+    const filters = {
+      ...(status && { status }),
+      ...(startDate && { startDate }),
+      ...(endDate && { endDate })
+    };
+    
+    const data = await qrService.getQRList(accountId, filters, page, limit);
+    return {
+      success: true,
+      message: 'Lista de QRs obtenida exitosamente',
+      data
+    };
+  }, {
+    query: t.Object({
+      page: t.Optional(t.String()),
+      limit: t.Optional(t.String()),
+      status: t.Optional(t.String()),
+      startDate: t.Optional(t.String()),
+      endDate: t.Optional(t.String())
+    }),
+    response: ResponseSchema,
+    detail: {
+      tags: ['qr'],
+      summary: 'Obtener lista de QRs de una cuenta'
+    }
+  })
+  
+  // Obtener detalles del QR (imagen y detalles básicos)
+  .get('/:id', async ({ params, auth }) => {
+    let userId: number | undefined;
+    
+    if (auth?.type === 'jwt') {
+      userId = auth.user!.id;
+    } else if (auth?.type === 'apikey') {
+      const hasPermission = await apiKeyService.hasPermission(
+        auth.apiKeyInfo!.apiKey, 
+        'qr_status'
+      );
+      
+      if (!hasPermission) {
+        throw new ApiError('API Key no tiene permisos para verificar estado de QR', 403);
+      }
+      userId = auth.apiKeyInfo!.userId;
+    } else {
+      throw new ApiError('No autorizado', 401);
+    }
+
+    // Obtener las cuentas del usuario
+    const userAccounts = await accountService.getUserAccounts(userId);
+    if (userAccounts.length === 0) {
+      throw new ApiError('Usuario no tiene cuentas asociadas', 400);
+    }
+    
+    const primaryAccount = userAccounts.find(acc => acc.isPrimary) || userAccounts[0];
+    const accountId = primaryAccount.id;
+    
+    const data = await qrService.checkQRStatus(params.id, userId);
+    return {
+      success: true,
+      message: 'Detalles del QR obtenidos exitosamente',
+      data
+    };
+  }, {
+    params: t.Object({
+      id: t.String()
+    }),
+    response: ResponseSchema,
+    detail: {
+      tags: ['qr'],
+      summary: 'Obtener detalles del QR (imagen y información básica)'
+    }
+  })
+  
+  // Obtener pagos del QR desde Baneco
+  .get('/:id/payments', async ({ params, auth }) => {
+    let userId: number | undefined;
+    
+    if (auth?.type === 'jwt') {
+      userId = auth.user!.id;
+    } else if (auth?.type === 'apikey') {
+      const hasPermission = await apiKeyService.hasPermission(
+        auth.apiKeyInfo!.apiKey, 
+        'qr_payments'
+      );
+      
+      if (!hasPermission) {
+        throw new ApiError('API Key no tiene permisos para obtener pagos de QR', 403);
+      }
+      userId = auth.apiKeyInfo!.userId;
+    } else {
+      throw new ApiError('No autorizado', 401);
+    }
+
+    // Obtener las cuentas del usuario
+    const userAccounts = await accountService.getUserAccounts(userId);
+    if (userAccounts.length === 0) {
+      throw new ApiError('Usuario no tiene cuentas asociadas', 400);
+    }
+    
+    const primaryAccount = userAccounts.find(acc => acc.isPrimary) || userAccounts[0];
+    const accountId = primaryAccount.id;
+    
+    const payments = await qrService.getQRPayments(params.id, userId);
+    return {
+      success: true,
+      message: 'Pagos del QR obtenidos exitosamente',
+      data: {
+        qrId: params.id,
+        payments
+      }
+    };
+  }, {
+    params: t.Object({
+      id: t.String()
+    }),
+    response: ResponseSchema,
+    detail: {
+      tags: ['qr'],
+      summary: 'Obtener pagos del QR desde Baneco'
     }
   })
   
   // Cancelar QR
-  .delete('/cancelQR', async ({ body, auth }) => {
-    // Obtener userId según el tipo de autenticación
+  .delete('/:id', async ({ params, auth }) => {
     let userId: number | undefined;
     
     if (auth?.type === 'jwt') {
@@ -80,53 +239,20 @@ export const qrRoutes = new Elysia({ prefix: '/qr' })
     } else {
       throw new ApiError('No autorizado', 401);
     }
-    
-    const data = await qrService.cancelQR(body.qrId, userId!);
-    return {
-      success: true,
-      message: 'QR cancelado exitosamente',
-      data
-    };
-  }, {
-    body: t.Object({
-      qrId: t.String()
-    }),
-    response: ResponseSchema,
-    detail: {
-      tags: ['qr'],
-      summary: 'Cancelar código QR'
-    }
-  })
-  
-  // Verificar estado de QR
-  .get('/:id/status', async ({ params, auth }) => {
-    // Obtener userId según el tipo de autenticación
-    let userId: number | undefined;
-    let bankCredentialId: number | undefined;
-    
-    if (auth?.type === 'jwt') {
-      userId = auth.user!.id;
-      bankCredentialId = auth.user!.bankCredentialId;
-    } else if (auth?.type === 'apikey') {
-      const hasPermission = await apiKeyService.hasPermission(
-        auth.apiKeyInfo!.apiKey, 
-        'qr_status'
-      );
-      
-      if (!hasPermission) {
-        throw new ApiError('API Key no tiene permisos para verificar estado de QR', 403);
-      }
-      userId = auth.apiKeyInfo!.userId;
-      bankCredentialId = auth.apiKeyInfo!.bankCredentialId;
-    } else {
-      throw new ApiError('No autorizado', 401);
+
+    // Obtener las cuentas del usuario
+    const userAccounts = await accountService.getUserAccounts(userId);
+    if (userAccounts.length === 0) {
+      throw new ApiError('Usuario no tiene cuentas asociadas', 400);
     }
     
-    const data = await qrService.getQRDetails(params.id, bankCredentialId!);
+    const primaryAccount = userAccounts.find(acc => acc.isPrimary) || userAccounts[0];
+    const accountId = primaryAccount.id;
+    
+    const success = await qrService.cancelQR(params.id, accountId);
     return {
-      success: true,
-      message: 'Estado del QR verificado',
-      data
+      success,
+      message: success ? 'QR cancelado exitosamente' : 'Error al cancelar QR'
     };
   }, {
     params: t.Object({
@@ -135,81 +261,8 @@ export const qrRoutes = new Elysia({ prefix: '/qr' })
     response: ResponseSchema,
     detail: {
       tags: ['qr'],
-      summary: 'Verificar estado de un código QR'
+      summary: 'Cancelar QR'
     }
-  })
-  
-  // Listar todos los QR de una empresa con filtros
-  .get('/list', async ({ query, auth }) => {
-    // Obtener userId según el tipo de autenticación
-    let userId: number | undefined;
-    
-    if (auth?.type === 'jwt') {
-      userId = auth.user!.id;
-    } else if (auth?.type === 'apikey') {
-      const hasPermission = await apiKeyService.hasPermission(
-        auth.apiKeyInfo!.apiKey, 
-        'qr_status'
-      );
-      
-      if (!hasPermission) {
-        throw new ApiError('API Key no tiene permisos para listar QRs', 403);
-      }
-      userId = auth.apiKeyInfo!.userId;
-    } else {
-      throw new ApiError('Se requiere autenticación válida para esta operación', 401);
-    }
-    
-    const data = await qrService.getQRList(userId!, {
-      status: query.status,
-      startDate: query.startDate,
-      endDate: query.endDate
-    });
-    return {
-      success: true,
-      message: 'QR listados exitosamente',
-      data
-    };
-  }, {
-    query: t.Object({
-      status: t.Optional(t.String()),
-      startDate: t.Optional(t.String()),
-      endDate: t.Optional(t.String()),
-      bankId: t.Optional(t.Numeric())
-    }),
-    response: ResponseSchema,
-    detail: {
-      tags: ['qr'],
-      summary: 'Listar códigos QR con filtros'
-    }
-  })
-  
-  // Simular pago de QR (solo para ambiente de desarrollo) - TEMPORALMENTE DESHABILITADO
-  /*
-  .post('/simulatePayment', async ({ body, auth }) => {
-    if (process.env.NODE_ENV === 'production') {
-      throw new ApiError('Esta operación solo está disponible en ambiente de desarrollo', 403);
-    }
-    
-    if (auth?.type !== 'jwt') {
-      throw new ApiError('Se requiere autenticación de usuario para esta operación', 401);
-    }
-    
-    // TODO: Implementar simulateQRPayment en el servicio
-    throw new ApiError('Funcionalidad no implementada', 501);
-  }, {
-    body: t.Object({
-      qrId: t.String(),
-      amount: t.Optional(t.Number()),
-      senderBankCode: t.Optional(t.String()),
-      senderName: t.Optional(t.String())
-    }),
-    response: ResponseSchema,
-    detail: {
-      tags: ['qr'],
-      summary: 'Simular pago de un código QR (solo para desarrollo)'
-    }
-  })
-  */
+  });
 
-export default qrRoutes; 
+export default qrRoutes;

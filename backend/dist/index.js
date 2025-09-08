@@ -9367,5519 +9367,3934 @@ var init_database = __esm(() => {
   });
 });
 
-// node_modules/luxon/build/node/luxon.js
-var require_luxon = __commonJS((exports) => {
-  Object.defineProperty(exports, "__esModule", { value: true });
+// src/utils/error.ts
+var ApiError;
+var init_error = __esm(() => {
+  ApiError = class ApiError extends Error {
+    statusCode;
+    constructor(message, statusCode) {
+      super(message);
+      this.statusCode = statusCode;
+      this.statusCode = statusCode;
+    }
+  };
+});
 
-  class LuxonError extends Error {
+// node_modules/node-gyp-build/node-gyp-build.js
+var require_node_gyp_build = __commonJS((exports, module) => {
+  var fs = __require("fs");
+  var path = __require("path");
+  var os = __require("os");
+  var runtimeRequire = typeof __webpack_require__ === "function" ? __non_webpack_require__ : __require;
+  var vars = process.config && process.config.variables || {};
+  var prebuildsOnly = !!process.env.PREBUILDS_ONLY;
+  var abi = process.versions.modules;
+  var runtime = isElectron() ? "electron" : isNwjs() ? "node-webkit" : "node";
+  var arch = process.env.npm_config_arch || os.arch();
+  var platform = process.env.npm_config_platform || os.platform();
+  var libc = process.env.LIBC || (isAlpine(platform) ? "musl" : "glibc");
+  var armv = process.env.ARM_VERSION || (arch === "arm64" ? "8" : vars.arm_version) || "";
+  var uv = (process.versions.uv || "").split(".")[0];
+  module.exports = load;
+  function load(dir) {
+    return runtimeRequire(load.resolve(dir));
   }
-
-  class InvalidDateTimeError extends LuxonError {
-    constructor(reason) {
-      super(`Invalid DateTime: ${reason.toMessage()}`);
+  load.resolve = load.path = function(dir) {
+    dir = path.resolve(dir || ".");
+    try {
+      var name = runtimeRequire(path.join(dir, "package.json")).name.toUpperCase().replace(/-/g, "_");
+      if (process.env[name + "_PREBUILD"])
+        dir = process.env[name + "_PREBUILD"];
+    } catch (err2) {}
+    if (!prebuildsOnly) {
+      var release = getFirst(path.join(dir, "build/Release"), matchBuild);
+      if (release)
+        return release;
+      var debug2 = getFirst(path.join(dir, "build/Debug"), matchBuild);
+      if (debug2)
+        return debug2;
     }
-  }
-
-  class InvalidIntervalError extends LuxonError {
-    constructor(reason) {
-      super(`Invalid Interval: ${reason.toMessage()}`);
+    var prebuild = resolve(dir);
+    if (prebuild)
+      return prebuild;
+    var nearby = resolve(path.dirname(process.execPath));
+    if (nearby)
+      return nearby;
+    var target = [
+      "platform=" + platform,
+      "arch=" + arch,
+      "runtime=" + runtime,
+      "abi=" + abi,
+      "uv=" + uv,
+      armv ? "armv=" + armv : "",
+      "libc=" + libc,
+      "node=" + process.versions.node,
+      process.versions.electron ? "electron=" + process.versions.electron : "",
+      typeof __webpack_require__ === "function" ? "webpack=true" : ""
+    ].filter(Boolean).join(" ");
+    throw new Error("No native build was found for " + target + `
+    loaded from: ` + dir + `
+`);
+    function resolve(dir2) {
+      var tuples = readdirSync(path.join(dir2, "prebuilds")).map(parseTuple);
+      var tuple = tuples.filter(matchTuple(platform, arch)).sort(compareTuples)[0];
+      if (!tuple)
+        return;
+      var prebuilds = path.join(dir2, "prebuilds", tuple.name);
+      var parsed = readdirSync(prebuilds).map(parseTags);
+      var candidates = parsed.filter(matchTags(runtime, abi));
+      var winner = candidates.sort(compareTags(runtime))[0];
+      if (winner)
+        return path.join(prebuilds, winner.file);
     }
-  }
-
-  class InvalidDurationError extends LuxonError {
-    constructor(reason) {
-      super(`Invalid Duration: ${reason.toMessage()}`);
-    }
-  }
-
-  class ConflictingSpecificationError extends LuxonError {
-  }
-
-  class InvalidUnitError extends LuxonError {
-    constructor(unit) {
-      super(`Invalid unit ${unit}`);
-    }
-  }
-
-  class InvalidArgumentError extends LuxonError {
-  }
-
-  class ZoneIsAbstractError extends LuxonError {
-    constructor() {
-      super("Zone is an abstract class");
-    }
-  }
-  var n2 = "numeric";
-  var s = "short";
-  var l2 = "long";
-  var DATE_SHORT = {
-    year: n2,
-    month: n2,
-    day: n2
   };
-  var DATE_MED = {
-    year: n2,
-    month: s,
-    day: n2
-  };
-  var DATE_MED_WITH_WEEKDAY = {
-    year: n2,
-    month: s,
-    day: n2,
-    weekday: s
-  };
-  var DATE_FULL = {
-    year: n2,
-    month: l2,
-    day: n2
-  };
-  var DATE_HUGE = {
-    year: n2,
-    month: l2,
-    day: n2,
-    weekday: l2
-  };
-  var TIME_SIMPLE = {
-    hour: n2,
-    minute: n2
-  };
-  var TIME_WITH_SECONDS = {
-    hour: n2,
-    minute: n2,
-    second: n2
-  };
-  var TIME_WITH_SHORT_OFFSET = {
-    hour: n2,
-    minute: n2,
-    second: n2,
-    timeZoneName: s
-  };
-  var TIME_WITH_LONG_OFFSET = {
-    hour: n2,
-    minute: n2,
-    second: n2,
-    timeZoneName: l2
-  };
-  var TIME_24_SIMPLE = {
-    hour: n2,
-    minute: n2,
-    hourCycle: "h23"
-  };
-  var TIME_24_WITH_SECONDS = {
-    hour: n2,
-    minute: n2,
-    second: n2,
-    hourCycle: "h23"
-  };
-  var TIME_24_WITH_SHORT_OFFSET = {
-    hour: n2,
-    minute: n2,
-    second: n2,
-    hourCycle: "h23",
-    timeZoneName: s
-  };
-  var TIME_24_WITH_LONG_OFFSET = {
-    hour: n2,
-    minute: n2,
-    second: n2,
-    hourCycle: "h23",
-    timeZoneName: l2
-  };
-  var DATETIME_SHORT = {
-    year: n2,
-    month: n2,
-    day: n2,
-    hour: n2,
-    minute: n2
-  };
-  var DATETIME_SHORT_WITH_SECONDS = {
-    year: n2,
-    month: n2,
-    day: n2,
-    hour: n2,
-    minute: n2,
-    second: n2
-  };
-  var DATETIME_MED = {
-    year: n2,
-    month: s,
-    day: n2,
-    hour: n2,
-    minute: n2
-  };
-  var DATETIME_MED_WITH_SECONDS = {
-    year: n2,
-    month: s,
-    day: n2,
-    hour: n2,
-    minute: n2,
-    second: n2
-  };
-  var DATETIME_MED_WITH_WEEKDAY = {
-    year: n2,
-    month: s,
-    day: n2,
-    weekday: s,
-    hour: n2,
-    minute: n2
-  };
-  var DATETIME_FULL = {
-    year: n2,
-    month: l2,
-    day: n2,
-    hour: n2,
-    minute: n2,
-    timeZoneName: s
-  };
-  var DATETIME_FULL_WITH_SECONDS = {
-    year: n2,
-    month: l2,
-    day: n2,
-    hour: n2,
-    minute: n2,
-    second: n2,
-    timeZoneName: s
-  };
-  var DATETIME_HUGE = {
-    year: n2,
-    month: l2,
-    day: n2,
-    weekday: l2,
-    hour: n2,
-    minute: n2,
-    timeZoneName: l2
-  };
-  var DATETIME_HUGE_WITH_SECONDS = {
-    year: n2,
-    month: l2,
-    day: n2,
-    weekday: l2,
-    hour: n2,
-    minute: n2,
-    second: n2,
-    timeZoneName: l2
-  };
-
-  class Zone {
-    get type() {
-      throw new ZoneIsAbstractError;
-    }
-    get name() {
-      throw new ZoneIsAbstractError;
-    }
-    get ianaName() {
-      return this.name;
-    }
-    get isUniversal() {
-      throw new ZoneIsAbstractError;
-    }
-    offsetName(ts, opts) {
-      throw new ZoneIsAbstractError;
-    }
-    formatOffset(ts, format) {
-      throw new ZoneIsAbstractError;
-    }
-    offset(ts) {
-      throw new ZoneIsAbstractError;
-    }
-    equals(otherZone) {
-      throw new ZoneIsAbstractError;
-    }
-    get isValid() {
-      throw new ZoneIsAbstractError;
+  function readdirSync(dir) {
+    try {
+      return fs.readdirSync(dir);
+    } catch (err2) {
+      return [];
     }
   }
-  var singleton$1 = null;
-
-  class SystemZone extends Zone {
-    static get instance() {
-      if (singleton$1 === null) {
-        singleton$1 = new SystemZone;
+  function getFirst(dir, filter) {
+    var files = readdirSync(dir).filter(filter);
+    return files[0] && path.join(dir, files[0]);
+  }
+  function matchBuild(name) {
+    return /\.node$/.test(name);
+  }
+  function parseTuple(name) {
+    var arr = name.split("-");
+    if (arr.length !== 2)
+      return;
+    var platform2 = arr[0];
+    var architectures = arr[1].split("+");
+    if (!platform2)
+      return;
+    if (!architectures.length)
+      return;
+    if (!architectures.every(Boolean))
+      return;
+    return { name, platform: platform2, architectures };
+  }
+  function matchTuple(platform2, arch2) {
+    return function(tuple) {
+      if (tuple == null)
+        return false;
+      if (tuple.platform !== platform2)
+        return false;
+      return tuple.architectures.includes(arch2);
+    };
+  }
+  function compareTuples(a12, b) {
+    return a12.architectures.length - b.architectures.length;
+  }
+  function parseTags(file) {
+    var arr = file.split(".");
+    var extension = arr.pop();
+    var tags = { file, specificity: 0 };
+    if (extension !== "node")
+      return;
+    for (var i2 = 0;i2 < arr.length; i2++) {
+      var tag = arr[i2];
+      if (tag === "node" || tag === "electron" || tag === "node-webkit") {
+        tags.runtime = tag;
+      } else if (tag === "napi") {
+        tags.napi = true;
+      } else if (tag.slice(0, 3) === "abi") {
+        tags.abi = tag.slice(3);
+      } else if (tag.slice(0, 2) === "uv") {
+        tags.uv = tag.slice(2);
+      } else if (tag.slice(0, 4) === "armv") {
+        tags.armv = tag.slice(4);
+      } else if (tag === "glibc" || tag === "musl") {
+        tags.libc = tag;
+      } else {
+        continue;
       }
-      return singleton$1;
+      tags.specificity++;
     }
-    get type() {
-      return "system";
-    }
-    get name() {
-      return new Intl.DateTimeFormat().resolvedOptions().timeZone;
-    }
-    get isUniversal() {
-      return false;
-    }
-    offsetName(ts, {
-      format,
-      locale
-    }) {
-      return parseZoneInfo(ts, format, locale);
-    }
-    formatOffset(ts, format) {
-      return formatOffset(this.offset(ts), format);
-    }
-    offset(ts) {
-      return -new Date(ts).getTimezoneOffset();
-    }
-    equals(otherZone) {
-      return otherZone.type === "system";
-    }
-    get isValid() {
+    return tags;
+  }
+  function matchTags(runtime2, abi2) {
+    return function(tags) {
+      if (tags == null)
+        return false;
+      if (tags.runtime && tags.runtime !== runtime2 && !runtimeAgnostic(tags))
+        return false;
+      if (tags.abi && tags.abi !== abi2 && !tags.napi)
+        return false;
+      if (tags.uv && tags.uv !== uv)
+        return false;
+      if (tags.armv && tags.armv !== armv)
+        return false;
+      if (tags.libc && tags.libc !== libc)
+        return false;
       return true;
-    }
+    };
   }
-  var dtfCache = new Map;
-  function makeDTF(zoneName) {
-    let dtf = dtfCache.get(zoneName);
-    if (dtf === undefined) {
-      dtf = new Intl.DateTimeFormat("en-US", {
-        hour12: false,
-        timeZone: zoneName,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        era: "short"
-      });
-      dtfCache.set(zoneName, dtf);
-    }
-    return dtf;
+  function runtimeAgnostic(tags) {
+    return tags.runtime === "node" && tags.napi;
   }
-  var typeToPos = {
-    year: 0,
-    month: 1,
-    day: 2,
-    era: 3,
-    hour: 4,
-    minute: 5,
-    second: 6
-  };
-  function hackyOffset(dtf, date2) {
-    const formatted = dtf.format(date2).replace(/\u200E/g, ""), parsed = /(\d+)\/(\d+)\/(\d+) (AD|BC),? (\d+):(\d+):(\d+)/.exec(formatted), [, fMonth, fDay, fYear, fadOrBc, fHour, fMinute, fSecond] = parsed;
-    return [fYear, fMonth, fDay, fadOrBc, fHour, fMinute, fSecond];
-  }
-  function partsOffset(dtf, date2) {
-    const formatted = dtf.formatToParts(date2);
-    const filled = [];
-    for (let i2 = 0;i2 < formatted.length; i2++) {
-      const {
-        type,
-        value
-      } = formatted[i2];
-      const pos = typeToPos[type];
-      if (type === "era") {
-        filled[pos] = value;
-      } else if (!isUndefined(pos)) {
-        filled[pos] = parseInt(value, 10);
-      }
-    }
-    return filled;
-  }
-  var ianaZoneCache = new Map;
-
-  class IANAZone extends Zone {
-    static create(name) {
-      let zone = ianaZoneCache.get(name);
-      if (zone === undefined) {
-        ianaZoneCache.set(name, zone = new IANAZone(name));
-      }
-      return zone;
-    }
-    static resetCache() {
-      ianaZoneCache.clear();
-      dtfCache.clear();
-    }
-    static isValidSpecifier(s2) {
-      return this.isValidZone(s2);
-    }
-    static isValidZone(zone) {
-      if (!zone) {
-        return false;
-      }
-      try {
-        new Intl.DateTimeFormat("en-US", {
-          timeZone: zone
-        }).format();
-        return true;
-      } catch (e) {
-        return false;
-      }
-    }
-    constructor(name) {
-      super();
-      this.zoneName = name;
-      this.valid = IANAZone.isValidZone(name);
-    }
-    get type() {
-      return "iana";
-    }
-    get name() {
-      return this.zoneName;
-    }
-    get isUniversal() {
-      return false;
-    }
-    offsetName(ts, {
-      format,
-      locale
-    }) {
-      return parseZoneInfo(ts, format, locale, this.name);
-    }
-    formatOffset(ts, format) {
-      return formatOffset(this.offset(ts), format);
-    }
-    offset(ts) {
-      if (!this.valid)
-        return NaN;
-      const date2 = new Date(ts);
-      if (isNaN(date2))
-        return NaN;
-      const dtf = makeDTF(this.name);
-      let [year, month, day, adOrBc, hour, minute, second] = dtf.formatToParts ? partsOffset(dtf, date2) : hackyOffset(dtf, date2);
-      if (adOrBc === "BC") {
-        year = -Math.abs(year) + 1;
-      }
-      const adjustedHour = hour === 24 ? 0 : hour;
-      const asUTC = objToLocalTS({
-        year,
-        month,
-        day,
-        hour: adjustedHour,
-        minute,
-        second,
-        millisecond: 0
-      });
-      let asTS = +date2;
-      const over = asTS % 1000;
-      asTS -= over >= 0 ? over : 1000 + over;
-      return (asUTC - asTS) / (60 * 1000);
-    }
-    equals(otherZone) {
-      return otherZone.type === "iana" && otherZone.name === this.name;
-    }
-    get isValid() {
-      return this.valid;
-    }
-  }
-  var intlLFCache = {};
-  function getCachedLF(locString, opts = {}) {
-    const key = JSON.stringify([locString, opts]);
-    let dtf = intlLFCache[key];
-    if (!dtf) {
-      dtf = new Intl.ListFormat(locString, opts);
-      intlLFCache[key] = dtf;
-    }
-    return dtf;
-  }
-  var intlDTCache = new Map;
-  function getCachedDTF(locString, opts = {}) {
-    const key = JSON.stringify([locString, opts]);
-    let dtf = intlDTCache.get(key);
-    if (dtf === undefined) {
-      dtf = new Intl.DateTimeFormat(locString, opts);
-      intlDTCache.set(key, dtf);
-    }
-    return dtf;
-  }
-  var intlNumCache = new Map;
-  function getCachedINF(locString, opts = {}) {
-    const key = JSON.stringify([locString, opts]);
-    let inf = intlNumCache.get(key);
-    if (inf === undefined) {
-      inf = new Intl.NumberFormat(locString, opts);
-      intlNumCache.set(key, inf);
-    }
-    return inf;
-  }
-  var intlRelCache = new Map;
-  function getCachedRTF(locString, opts = {}) {
-    const {
-      base,
-      ...cacheKeyOpts
-    } = opts;
-    const key = JSON.stringify([locString, cacheKeyOpts]);
-    let inf = intlRelCache.get(key);
-    if (inf === undefined) {
-      inf = new Intl.RelativeTimeFormat(locString, opts);
-      intlRelCache.set(key, inf);
-    }
-    return inf;
-  }
-  var sysLocaleCache = null;
-  function systemLocale() {
-    if (sysLocaleCache) {
-      return sysLocaleCache;
-    } else {
-      sysLocaleCache = new Intl.DateTimeFormat().resolvedOptions().locale;
-      return sysLocaleCache;
-    }
-  }
-  var intlResolvedOptionsCache = new Map;
-  function getCachedIntResolvedOptions(locString) {
-    let opts = intlResolvedOptionsCache.get(locString);
-    if (opts === undefined) {
-      opts = new Intl.DateTimeFormat(locString).resolvedOptions();
-      intlResolvedOptionsCache.set(locString, opts);
-    }
-    return opts;
-  }
-  var weekInfoCache = new Map;
-  function getCachedWeekInfo(locString) {
-    let data = weekInfoCache.get(locString);
-    if (!data) {
-      const locale = new Intl.Locale(locString);
-      data = "getWeekInfo" in locale ? locale.getWeekInfo() : locale.weekInfo;
-      if (!("minimalDays" in data)) {
-        data = {
-          ...fallbackWeekSettings,
-          ...data
-        };
-      }
-      weekInfoCache.set(locString, data);
-    }
-    return data;
-  }
-  function parseLocaleString(localeStr) {
-    const xIndex = localeStr.indexOf("-x-");
-    if (xIndex !== -1) {
-      localeStr = localeStr.substring(0, xIndex);
-    }
-    const uIndex = localeStr.indexOf("-u-");
-    if (uIndex === -1) {
-      return [localeStr];
-    } else {
-      let options;
-      let selectedStr;
-      try {
-        options = getCachedDTF(localeStr).resolvedOptions();
-        selectedStr = localeStr;
-      } catch (e) {
-        const smaller = localeStr.substring(0, uIndex);
-        options = getCachedDTF(smaller).resolvedOptions();
-        selectedStr = smaller;
-      }
-      const {
-        numberingSystem,
-        calendar
-      } = options;
-      return [selectedStr, numberingSystem, calendar];
-    }
-  }
-  function intlConfigString(localeStr, numberingSystem, outputCalendar) {
-    if (outputCalendar || numberingSystem) {
-      if (!localeStr.includes("-u-")) {
-        localeStr += "-u";
-      }
-      if (outputCalendar) {
-        localeStr += `-ca-${outputCalendar}`;
-      }
-      if (numberingSystem) {
-        localeStr += `-nu-${numberingSystem}`;
-      }
-      return localeStr;
-    } else {
-      return localeStr;
-    }
-  }
-  function mapMonths(f) {
-    const ms = [];
-    for (let i2 = 1;i2 <= 12; i2++) {
-      const dt = DateTime.utc(2009, i2, 1);
-      ms.push(f(dt));
-    }
-    return ms;
-  }
-  function mapWeekdays(f) {
-    const ms = [];
-    for (let i2 = 1;i2 <= 7; i2++) {
-      const dt = DateTime.utc(2016, 11, 13 + i2);
-      ms.push(f(dt));
-    }
-    return ms;
-  }
-  function listStuff(loc, length, englishFn, intlFn) {
-    const mode = loc.listingMode();
-    if (mode === "error") {
-      return null;
-    } else if (mode === "en") {
-      return englishFn(length);
-    } else {
-      return intlFn(length);
-    }
-  }
-  function supportsFastNumbers(loc) {
-    if (loc.numberingSystem && loc.numberingSystem !== "latn") {
-      return false;
-    } else {
-      return loc.numberingSystem === "latn" || !loc.locale || loc.locale.startsWith("en") || getCachedIntResolvedOptions(loc.locale).numberingSystem === "latn";
-    }
-  }
-
-  class PolyNumberFormatter {
-    constructor(intl, forceSimple, opts) {
-      this.padTo = opts.padTo || 0;
-      this.floor = opts.floor || false;
-      const {
-        padTo,
-        floor,
-        ...otherOpts
-      } = opts;
-      if (!forceSimple || Object.keys(otherOpts).length > 0) {
-        const intlOpts = {
-          useGrouping: false,
-          ...opts
-        };
-        if (opts.padTo > 0)
-          intlOpts.minimumIntegerDigits = opts.padTo;
-        this.inf = getCachedINF(intl, intlOpts);
-      }
-    }
-    format(i2) {
-      if (this.inf) {
-        const fixed = this.floor ? Math.floor(i2) : i2;
-        return this.inf.format(fixed);
+  function compareTags(runtime2) {
+    return function(a12, b) {
+      if (a12.runtime !== b.runtime) {
+        return a12.runtime === runtime2 ? -1 : 1;
+      } else if (a12.abi !== b.abi) {
+        return a12.abi ? -1 : 1;
+      } else if (a12.specificity !== b.specificity) {
+        return a12.specificity > b.specificity ? -1 : 1;
       } else {
-        const fixed = this.floor ? Math.floor(i2) : roundTo(i2, 3);
-        return padStart(fixed, this.padTo);
+        return 0;
       }
-    }
+    };
   }
+  function isNwjs() {
+    return !!(process.versions && process.versions.nw);
+  }
+  function isElectron() {
+    if (process.versions && process.versions.electron)
+      return true;
+    if (process.env.ELECTRON_RUN_AS_NODE)
+      return true;
+    return typeof window !== "undefined" && window.process && window.process.type === "renderer";
+  }
+  function isAlpine(platform2) {
+    return platform2 === "linux" && fs.existsSync("/etc/alpine-release");
+  }
+  load.parseTags = parseTags;
+  load.matchTags = matchTags;
+  load.compareTags = compareTags;
+  load.parseTuple = parseTuple;
+  load.matchTuple = matchTuple;
+  load.compareTuples = compareTuples;
+});
 
-  class PolyDateFormatter {
-    constructor(dt, intl, opts) {
-      this.opts = opts;
-      this.originalZone = undefined;
-      let z = undefined;
-      if (this.opts.timeZone) {
-        this.dt = dt;
-      } else if (dt.zone.type === "fixed") {
-        const gmtOffset = -1 * (dt.offset / 60);
-        const offsetZ = gmtOffset >= 0 ? `Etc/GMT+${gmtOffset}` : `Etc/GMT${gmtOffset}`;
-        if (dt.offset !== 0 && IANAZone.create(offsetZ).valid) {
-          z = offsetZ;
-          this.dt = dt;
+// node_modules/node-gyp-build/index.js
+var require_node_gyp_build2 = __commonJS((exports, module) => {
+  var runtimeRequire = typeof __webpack_require__ === "function" ? __non_webpack_require__ : __require;
+  if (typeof runtimeRequire.addon === "function") {
+    module.exports = runtimeRequire.addon.bind(runtimeRequire);
+  } else {
+    module.exports = require_node_gyp_build();
+  }
+});
+
+// node_modules/bcrypt/promises.js
+var require_promises = __commonJS((exports, module) => {
+  var Promise3 = global.Promise;
+  function promise(fn, context, args) {
+    if (!Array.isArray(args)) {
+      args = Array.prototype.slice.call(args);
+    }
+    if (typeof fn !== "function") {
+      return Promise3.reject(new Error("fn must be a function"));
+    }
+    return new Promise3((resolve, reject2) => {
+      args.push((err2, data) => {
+        if (err2) {
+          reject2(err2);
         } else {
-          z = "UTC";
-          this.dt = dt.offset === 0 ? dt : dt.setZone("UTC").plus({
-            minutes: dt.offset
-          });
-          this.originalZone = dt.zone;
+          resolve(data);
         }
-      } else if (dt.zone.type === "system") {
-        this.dt = dt;
-      } else if (dt.zone.type === "iana") {
-        this.dt = dt;
-        z = dt.zone.name;
-      } else {
-        z = "UTC";
-        this.dt = dt.setZone("UTC").plus({
-          minutes: dt.offset
-        });
-        this.originalZone = dt.zone;
+      });
+      fn.apply(context, args);
+    });
+  }
+  function reject(err2) {
+    return Promise3.reject(err2);
+  }
+  function use(promise2) {
+    Promise3 = promise2;
+  }
+  module.exports = {
+    promise,
+    reject,
+    use
+  };
+});
+
+// node_modules/bcrypt/bcrypt.js
+var require_bcrypt = __commonJS((exports, module) => {
+  var __dirname = "D:\\work\\pagui\\backend\\node_modules\\bcrypt";
+  var path = __require("path");
+  var bindings = require_node_gyp_build2()(path.resolve(__dirname));
+  var crypto2 = __require("crypto");
+  var promises = require_promises();
+  function genSaltSync(rounds, minor) {
+    if (!rounds) {
+      rounds = 10;
+    } else if (typeof rounds !== "number") {
+      throw new Error("rounds must be a number");
+    }
+    if (!minor) {
+      minor = "b";
+    } else if (minor !== "b" && minor !== "a") {
+      throw new Error('minor must be either "a" or "b"');
+    }
+    return bindings.gen_salt_sync(minor, rounds, crypto2.randomBytes(16));
+  }
+  function genSalt(rounds, minor, cb) {
+    let error;
+    if (typeof arguments[0] === "function") {
+      cb = arguments[0];
+      rounds = 10;
+      minor = "b";
+    } else if (typeof arguments[1] === "function") {
+      cb = arguments[1];
+      minor = "b";
+    }
+    if (!cb) {
+      return promises.promise(genSalt, this, [rounds, minor]);
+    }
+    if (!rounds) {
+      rounds = 10;
+    } else if (typeof rounds !== "number") {
+      error = new Error("rounds must be a number");
+      return process.nextTick(function() {
+        cb(error);
+      });
+    }
+    if (!minor) {
+      minor = "b";
+    } else if (minor !== "b" && minor !== "a") {
+      error = new Error('minor must be either "a" or "b"');
+      return process.nextTick(function() {
+        cb(error);
+      });
+    }
+    crypto2.randomBytes(16, function(error2, randomBytes) {
+      if (error2) {
+        cb(error2);
+        return;
       }
-      const intlOpts = {
-        ...this.opts
+      bindings.gen_salt(minor, rounds, randomBytes, cb);
+    });
+  }
+  function hashSync(data, salt) {
+    if (data == null || salt == null) {
+      throw new Error("data and salt arguments required");
+    }
+    if (!(typeof data === "string" || data instanceof Buffer) || typeof salt !== "string" && typeof salt !== "number") {
+      throw new Error("data must be a string or Buffer and salt must either be a salt string or a number of rounds");
+    }
+    if (typeof salt === "number") {
+      salt = module.exports.genSaltSync(salt);
+    }
+    return bindings.encrypt_sync(data, salt);
+  }
+  function hash2(data, salt, cb) {
+    let error;
+    if (typeof data === "function") {
+      error = new Error("data must be a string or Buffer and salt must either be a salt string or a number of rounds");
+      return process.nextTick(function() {
+        data(error);
+      });
+    }
+    if (typeof salt === "function") {
+      error = new Error("data must be a string or Buffer and salt must either be a salt string or a number of rounds");
+      return process.nextTick(function() {
+        salt(error);
+      });
+    }
+    if (cb && typeof cb !== "function") {
+      return promises.reject(new Error("cb must be a function or null to return a Promise"));
+    }
+    if (!cb) {
+      return promises.promise(hash2, this, [data, salt]);
+    }
+    if (data == null || salt == null) {
+      error = new Error("data and salt arguments required");
+      return process.nextTick(function() {
+        cb(error);
+      });
+    }
+    if (!(typeof data === "string" || data instanceof Buffer) || typeof salt !== "string" && typeof salt !== "number") {
+      error = new Error("data must be a string or Buffer and salt must either be a salt string or a number of rounds");
+      return process.nextTick(function() {
+        cb(error);
+      });
+    }
+    if (typeof salt === "number") {
+      return module.exports.genSalt(salt, function(err2, salt2) {
+        return bindings.encrypt(data, salt2, cb);
+      });
+    }
+    return bindings.encrypt(data, salt, cb);
+  }
+  function compareSync(data, hash3) {
+    if (data == null || hash3 == null) {
+      throw new Error("data and hash arguments required");
+    }
+    if (!(typeof data === "string" || data instanceof Buffer) || typeof hash3 !== "string") {
+      throw new Error("data must be a string or Buffer and hash must be a string");
+    }
+    return bindings.compare_sync(data, hash3);
+  }
+  function compare(data, hash3, cb) {
+    let error;
+    if (typeof data === "function") {
+      error = new Error("data and hash arguments required");
+      return process.nextTick(function() {
+        data(error);
+      });
+    }
+    if (typeof hash3 === "function") {
+      error = new Error("data and hash arguments required");
+      return process.nextTick(function() {
+        hash3(error);
+      });
+    }
+    if (cb && typeof cb !== "function") {
+      return promises.reject(new Error("cb must be a function or null to return a Promise"));
+    }
+    if (!cb) {
+      return promises.promise(compare, this, [data, hash3]);
+    }
+    if (data == null || hash3 == null) {
+      error = new Error("data and hash arguments required");
+      return process.nextTick(function() {
+        cb(error);
+      });
+    }
+    if (!(typeof data === "string" || data instanceof Buffer) || typeof hash3 !== "string") {
+      error = new Error("data and hash must be strings");
+      return process.nextTick(function() {
+        cb(error);
+      });
+    }
+    return bindings.compare(data, hash3, cb);
+  }
+  function getRounds(hash3) {
+    if (hash3 == null) {
+      throw new Error("hash argument required");
+    }
+    if (typeof hash3 !== "string") {
+      throw new Error("hash must be a string");
+    }
+    return bindings.get_rounds(hash3);
+  }
+  module.exports = {
+    genSaltSync,
+    genSalt,
+    hashSync,
+    hash: hash2,
+    compareSync,
+    compare,
+    getRounds
+  };
+});
+
+// node_modules/safe-buffer/index.js
+var require_safe_buffer = __commonJS((exports, module) => {
+  /*! safe-buffer. MIT License. Feross Aboukhadijeh <https://feross.org/opensource> */
+  var buffer = __require("buffer");
+  var Buffer2 = buffer.Buffer;
+  function copyProps(src, dst) {
+    for (var key in src) {
+      dst[key] = src[key];
+    }
+  }
+  if (Buffer2.from && Buffer2.alloc && Buffer2.allocUnsafe && Buffer2.allocUnsafeSlow) {
+    module.exports = buffer;
+  } else {
+    copyProps(buffer, exports);
+    exports.Buffer = SafeBuffer;
+  }
+  function SafeBuffer(arg, encodingOrOffset, length) {
+    return Buffer2(arg, encodingOrOffset, length);
+  }
+  SafeBuffer.prototype = Object.create(Buffer2.prototype);
+  copyProps(Buffer2, SafeBuffer);
+  SafeBuffer.from = function(arg, encodingOrOffset, length) {
+    if (typeof arg === "number") {
+      throw new TypeError("Argument must not be a number");
+    }
+    return Buffer2(arg, encodingOrOffset, length);
+  };
+  SafeBuffer.alloc = function(size, fill, encoding) {
+    if (typeof size !== "number") {
+      throw new TypeError("Argument must be a number");
+    }
+    var buf = Buffer2(size);
+    if (fill !== undefined) {
+      if (typeof encoding === "string") {
+        buf.fill(fill, encoding);
+      } else {
+        buf.fill(fill);
+      }
+    } else {
+      buf.fill(0);
+    }
+    return buf;
+  };
+  SafeBuffer.allocUnsafe = function(size) {
+    if (typeof size !== "number") {
+      throw new TypeError("Argument must be a number");
+    }
+    return Buffer2(size);
+  };
+  SafeBuffer.allocUnsafeSlow = function(size) {
+    if (typeof size !== "number") {
+      throw new TypeError("Argument must be a number");
+    }
+    return buffer.SlowBuffer(size);
+  };
+});
+
+// node_modules/jws/lib/data-stream.js
+var require_data_stream = __commonJS((exports, module) => {
+  var Buffer2 = require_safe_buffer().Buffer;
+  var Stream = __require("stream");
+  var util3 = __require("util");
+  function DataStream(data) {
+    this.buffer = null;
+    this.writable = true;
+    this.readable = true;
+    if (!data) {
+      this.buffer = Buffer2.alloc(0);
+      return this;
+    }
+    if (typeof data.pipe === "function") {
+      this.buffer = Buffer2.alloc(0);
+      data.pipe(this);
+      return this;
+    }
+    if (data.length || typeof data === "object") {
+      this.buffer = data;
+      this.writable = false;
+      process.nextTick(function() {
+        this.emit("end", data);
+        this.readable = false;
+        this.emit("close");
+      }.bind(this));
+      return this;
+    }
+    throw new TypeError("Unexpected data type (" + typeof data + ")");
+  }
+  util3.inherits(DataStream, Stream);
+  DataStream.prototype.write = function write(data) {
+    this.buffer = Buffer2.concat([this.buffer, Buffer2.from(data)]);
+    this.emit("data", data);
+  };
+  DataStream.prototype.end = function end(data) {
+    if (data)
+      this.write(data);
+    this.emit("end", data);
+    this.emit("close");
+    this.writable = false;
+    this.readable = false;
+  };
+  module.exports = DataStream;
+});
+
+// node_modules/ecdsa-sig-formatter/src/param-bytes-for-alg.js
+var require_param_bytes_for_alg = __commonJS((exports, module) => {
+  function getParamSize(keySize) {
+    var result = (keySize / 8 | 0) + (keySize % 8 === 0 ? 0 : 1);
+    return result;
+  }
+  var paramBytesForAlg = {
+    ES256: getParamSize(256),
+    ES384: getParamSize(384),
+    ES512: getParamSize(521)
+  };
+  function getParamBytesForAlg(alg) {
+    var paramBytes = paramBytesForAlg[alg];
+    if (paramBytes) {
+      return paramBytes;
+    }
+    throw new Error('Unknown algorithm "' + alg + '"');
+  }
+  module.exports = getParamBytesForAlg;
+});
+
+// node_modules/ecdsa-sig-formatter/src/ecdsa-sig-formatter.js
+var require_ecdsa_sig_formatter = __commonJS((exports, module) => {
+  var Buffer2 = require_safe_buffer().Buffer;
+  var getParamBytesForAlg = require_param_bytes_for_alg();
+  var MAX_OCTET = 128;
+  var CLASS_UNIVERSAL = 0;
+  var PRIMITIVE_BIT = 32;
+  var TAG_SEQ = 16;
+  var TAG_INT = 2;
+  var ENCODED_TAG_SEQ = TAG_SEQ | PRIMITIVE_BIT | CLASS_UNIVERSAL << 6;
+  var ENCODED_TAG_INT = TAG_INT | CLASS_UNIVERSAL << 6;
+  function base64Url(base64) {
+    return base64.replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  }
+  function signatureAsBuffer(signature) {
+    if (Buffer2.isBuffer(signature)) {
+      return signature;
+    } else if (typeof signature === "string") {
+      return Buffer2.from(signature, "base64");
+    }
+    throw new TypeError("ECDSA signature must be a Base64 string or a Buffer");
+  }
+  function derToJose(signature, alg) {
+    signature = signatureAsBuffer(signature);
+    var paramBytes = getParamBytesForAlg(alg);
+    var maxEncodedParamLength = paramBytes + 1;
+    var inputLength = signature.length;
+    var offset = 0;
+    if (signature[offset++] !== ENCODED_TAG_SEQ) {
+      throw new Error('Could not find expected "seq"');
+    }
+    var seqLength = signature[offset++];
+    if (seqLength === (MAX_OCTET | 1)) {
+      seqLength = signature[offset++];
+    }
+    if (inputLength - offset < seqLength) {
+      throw new Error('"seq" specified length of "' + seqLength + '", only "' + (inputLength - offset) + '" remaining');
+    }
+    if (signature[offset++] !== ENCODED_TAG_INT) {
+      throw new Error('Could not find expected "int" for "r"');
+    }
+    var rLength = signature[offset++];
+    if (inputLength - offset - 2 < rLength) {
+      throw new Error('"r" specified length of "' + rLength + '", only "' + (inputLength - offset - 2) + '" available');
+    }
+    if (maxEncodedParamLength < rLength) {
+      throw new Error('"r" specified length of "' + rLength + '", max of "' + maxEncodedParamLength + '" is acceptable');
+    }
+    var rOffset = offset;
+    offset += rLength;
+    if (signature[offset++] !== ENCODED_TAG_INT) {
+      throw new Error('Could not find expected "int" for "s"');
+    }
+    var sLength = signature[offset++];
+    if (inputLength - offset !== sLength) {
+      throw new Error('"s" specified length of "' + sLength + '", expected "' + (inputLength - offset) + '"');
+    }
+    if (maxEncodedParamLength < sLength) {
+      throw new Error('"s" specified length of "' + sLength + '", max of "' + maxEncodedParamLength + '" is acceptable');
+    }
+    var sOffset = offset;
+    offset += sLength;
+    if (offset !== inputLength) {
+      throw new Error('Expected to consume entire buffer, but "' + (inputLength - offset) + '" bytes remain');
+    }
+    var rPadding = paramBytes - rLength, sPadding = paramBytes - sLength;
+    var dst = Buffer2.allocUnsafe(rPadding + rLength + sPadding + sLength);
+    for (offset = 0;offset < rPadding; ++offset) {
+      dst[offset] = 0;
+    }
+    signature.copy(dst, offset, rOffset + Math.max(-rPadding, 0), rOffset + rLength);
+    offset = paramBytes;
+    for (var o = offset;offset < o + sPadding; ++offset) {
+      dst[offset] = 0;
+    }
+    signature.copy(dst, offset, sOffset + Math.max(-sPadding, 0), sOffset + sLength);
+    dst = dst.toString("base64");
+    dst = base64Url(dst);
+    return dst;
+  }
+  function countPadding(buf, start, stop) {
+    var padding = 0;
+    while (start + padding < stop && buf[start + padding] === 0) {
+      ++padding;
+    }
+    var needsSign = buf[start + padding] >= MAX_OCTET;
+    if (needsSign) {
+      --padding;
+    }
+    return padding;
+  }
+  function joseToDer(signature, alg) {
+    signature = signatureAsBuffer(signature);
+    var paramBytes = getParamBytesForAlg(alg);
+    var signatureBytes = signature.length;
+    if (signatureBytes !== paramBytes * 2) {
+      throw new TypeError('"' + alg + '" signatures must be "' + paramBytes * 2 + '" bytes, saw "' + signatureBytes + '"');
+    }
+    var rPadding = countPadding(signature, 0, paramBytes);
+    var sPadding = countPadding(signature, paramBytes, signature.length);
+    var rLength = paramBytes - rPadding;
+    var sLength = paramBytes - sPadding;
+    var rsBytes = 1 + 1 + rLength + 1 + 1 + sLength;
+    var shortLength = rsBytes < MAX_OCTET;
+    var dst = Buffer2.allocUnsafe((shortLength ? 2 : 3) + rsBytes);
+    var offset = 0;
+    dst[offset++] = ENCODED_TAG_SEQ;
+    if (shortLength) {
+      dst[offset++] = rsBytes;
+    } else {
+      dst[offset++] = MAX_OCTET | 1;
+      dst[offset++] = rsBytes & 255;
+    }
+    dst[offset++] = ENCODED_TAG_INT;
+    dst[offset++] = rLength;
+    if (rPadding < 0) {
+      dst[offset++] = 0;
+      offset += signature.copy(dst, offset, 0, paramBytes);
+    } else {
+      offset += signature.copy(dst, offset, rPadding, paramBytes);
+    }
+    dst[offset++] = ENCODED_TAG_INT;
+    dst[offset++] = sLength;
+    if (sPadding < 0) {
+      dst[offset++] = 0;
+      signature.copy(dst, offset, paramBytes);
+    } else {
+      signature.copy(dst, offset, paramBytes + sPadding);
+    }
+    return dst;
+  }
+  module.exports = {
+    derToJose,
+    joseToDer
+  };
+});
+
+// node_modules/buffer-equal-constant-time/index.js
+var require_buffer_equal_constant_time = __commonJS((exports, module) => {
+  var Buffer2 = __require("buffer").Buffer;
+  var SlowBuffer = __require("buffer").SlowBuffer;
+  module.exports = bufferEq;
+  function bufferEq(a12, b) {
+    if (!Buffer2.isBuffer(a12) || !Buffer2.isBuffer(b)) {
+      return false;
+    }
+    if (a12.length !== b.length) {
+      return false;
+    }
+    var c = 0;
+    for (var i2 = 0;i2 < a12.length; i2++) {
+      c |= a12[i2] ^ b[i2];
+    }
+    return c === 0;
+  }
+  bufferEq.install = function() {
+    Buffer2.prototype.equal = SlowBuffer.prototype.equal = function equal(that) {
+      return bufferEq(this, that);
+    };
+  };
+  var origBufEqual = Buffer2.prototype.equal;
+  var origSlowBufEqual = SlowBuffer.prototype.equal;
+  bufferEq.restore = function() {
+    Buffer2.prototype.equal = origBufEqual;
+    SlowBuffer.prototype.equal = origSlowBufEqual;
+  };
+});
+
+// node_modules/jwa/index.js
+var require_jwa = __commonJS((exports, module) => {
+  var Buffer2 = require_safe_buffer().Buffer;
+  var crypto2 = __require("crypto");
+  var formatEcdsa = require_ecdsa_sig_formatter();
+  var util3 = __require("util");
+  var MSG_INVALID_ALGORITHM = `"%s" is not a valid algorithm.
+  Supported algorithms are:
+  "HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "PS256", "PS384", "PS512", "ES256", "ES384", "ES512" and "none".`;
+  var MSG_INVALID_SECRET = "secret must be a string or buffer";
+  var MSG_INVALID_VERIFIER_KEY = "key must be a string or a buffer";
+  var MSG_INVALID_SIGNER_KEY = "key must be a string, a buffer or an object";
+  var supportsKeyObjects = typeof crypto2.createPublicKey === "function";
+  if (supportsKeyObjects) {
+    MSG_INVALID_VERIFIER_KEY += " or a KeyObject";
+    MSG_INVALID_SECRET += "or a KeyObject";
+  }
+  function checkIsPublicKey(key) {
+    if (Buffer2.isBuffer(key)) {
+      return;
+    }
+    if (typeof key === "string") {
+      return;
+    }
+    if (!supportsKeyObjects) {
+      throw typeError(MSG_INVALID_VERIFIER_KEY);
+    }
+    if (typeof key !== "object") {
+      throw typeError(MSG_INVALID_VERIFIER_KEY);
+    }
+    if (typeof key.type !== "string") {
+      throw typeError(MSG_INVALID_VERIFIER_KEY);
+    }
+    if (typeof key.asymmetricKeyType !== "string") {
+      throw typeError(MSG_INVALID_VERIFIER_KEY);
+    }
+    if (typeof key.export !== "function") {
+      throw typeError(MSG_INVALID_VERIFIER_KEY);
+    }
+  }
+  function checkIsPrivateKey(key) {
+    if (Buffer2.isBuffer(key)) {
+      return;
+    }
+    if (typeof key === "string") {
+      return;
+    }
+    if (typeof key === "object") {
+      return;
+    }
+    throw typeError(MSG_INVALID_SIGNER_KEY);
+  }
+  function checkIsSecretKey(key) {
+    if (Buffer2.isBuffer(key)) {
+      return;
+    }
+    if (typeof key === "string") {
+      return key;
+    }
+    if (!supportsKeyObjects) {
+      throw typeError(MSG_INVALID_SECRET);
+    }
+    if (typeof key !== "object") {
+      throw typeError(MSG_INVALID_SECRET);
+    }
+    if (key.type !== "secret") {
+      throw typeError(MSG_INVALID_SECRET);
+    }
+    if (typeof key.export !== "function") {
+      throw typeError(MSG_INVALID_SECRET);
+    }
+  }
+  function fromBase64(base64) {
+    return base64.replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  }
+  function toBase64(base64url) {
+    base64url = base64url.toString();
+    var padding = 4 - base64url.length % 4;
+    if (padding !== 4) {
+      for (var i2 = 0;i2 < padding; ++i2) {
+        base64url += "=";
+      }
+    }
+    return base64url.replace(/\-/g, "+").replace(/_/g, "/");
+  }
+  function typeError(template) {
+    var args = [].slice.call(arguments, 1);
+    var errMsg = util3.format.bind(util3, template).apply(null, args);
+    return new TypeError(errMsg);
+  }
+  function bufferOrString(obj) {
+    return Buffer2.isBuffer(obj) || typeof obj === "string";
+  }
+  function normalizeInput(thing) {
+    if (!bufferOrString(thing))
+      thing = JSON.stringify(thing);
+    return thing;
+  }
+  function createHmacSigner(bits2) {
+    return function sign(thing, secret) {
+      checkIsSecretKey(secret);
+      thing = normalizeInput(thing);
+      var hmac = crypto2.createHmac("sha" + bits2, secret);
+      var sig = (hmac.update(thing), hmac.digest("base64"));
+      return fromBase64(sig);
+    };
+  }
+  var bufferEqual;
+  var timingSafeEqual = "timingSafeEqual" in crypto2 ? function timingSafeEqual(a12, b) {
+    if (a12.byteLength !== b.byteLength) {
+      return false;
+    }
+    return crypto2.timingSafeEqual(a12, b);
+  } : function timingSafeEqual(a12, b) {
+    if (!bufferEqual) {
+      bufferEqual = require_buffer_equal_constant_time();
+    }
+    return bufferEqual(a12, b);
+  };
+  function createHmacVerifier(bits2) {
+    return function verify(thing, signature, secret) {
+      var computedSig = createHmacSigner(bits2)(thing, secret);
+      return timingSafeEqual(Buffer2.from(signature), Buffer2.from(computedSig));
+    };
+  }
+  function createKeySigner(bits2) {
+    return function sign(thing, privateKey) {
+      checkIsPrivateKey(privateKey);
+      thing = normalizeInput(thing);
+      var signer = crypto2.createSign("RSA-SHA" + bits2);
+      var sig = (signer.update(thing), signer.sign(privateKey, "base64"));
+      return fromBase64(sig);
+    };
+  }
+  function createKeyVerifier(bits2) {
+    return function verify(thing, signature, publicKey) {
+      checkIsPublicKey(publicKey);
+      thing = normalizeInput(thing);
+      signature = toBase64(signature);
+      var verifier = crypto2.createVerify("RSA-SHA" + bits2);
+      verifier.update(thing);
+      return verifier.verify(publicKey, signature, "base64");
+    };
+  }
+  function createPSSKeySigner(bits2) {
+    return function sign(thing, privateKey) {
+      checkIsPrivateKey(privateKey);
+      thing = normalizeInput(thing);
+      var signer = crypto2.createSign("RSA-SHA" + bits2);
+      var sig = (signer.update(thing), signer.sign({
+        key: privateKey,
+        padding: crypto2.constants.RSA_PKCS1_PSS_PADDING,
+        saltLength: crypto2.constants.RSA_PSS_SALTLEN_DIGEST
+      }, "base64"));
+      return fromBase64(sig);
+    };
+  }
+  function createPSSKeyVerifier(bits2) {
+    return function verify(thing, signature, publicKey) {
+      checkIsPublicKey(publicKey);
+      thing = normalizeInput(thing);
+      signature = toBase64(signature);
+      var verifier = crypto2.createVerify("RSA-SHA" + bits2);
+      verifier.update(thing);
+      return verifier.verify({
+        key: publicKey,
+        padding: crypto2.constants.RSA_PKCS1_PSS_PADDING,
+        saltLength: crypto2.constants.RSA_PSS_SALTLEN_DIGEST
+      }, signature, "base64");
+    };
+  }
+  function createECDSASigner(bits2) {
+    var inner = createKeySigner(bits2);
+    return function sign() {
+      var signature = inner.apply(null, arguments);
+      signature = formatEcdsa.derToJose(signature, "ES" + bits2);
+      return signature;
+    };
+  }
+  function createECDSAVerifer(bits2) {
+    var inner = createKeyVerifier(bits2);
+    return function verify(thing, signature, publicKey) {
+      signature = formatEcdsa.joseToDer(signature, "ES" + bits2).toString("base64");
+      var result = inner(thing, signature, publicKey);
+      return result;
+    };
+  }
+  function createNoneSigner() {
+    return function sign() {
+      return "";
+    };
+  }
+  function createNoneVerifier() {
+    return function verify(thing, signature) {
+      return signature === "";
+    };
+  }
+  module.exports = function jwa(algorithm) {
+    var signerFactories = {
+      hs: createHmacSigner,
+      rs: createKeySigner,
+      ps: createPSSKeySigner,
+      es: createECDSASigner,
+      none: createNoneSigner
+    };
+    var verifierFactories = {
+      hs: createHmacVerifier,
+      rs: createKeyVerifier,
+      ps: createPSSKeyVerifier,
+      es: createECDSAVerifer,
+      none: createNoneVerifier
+    };
+    var match = algorithm.match(/^(RS|PS|ES|HS)(256|384|512)$|^(none)$/i);
+    if (!match)
+      throw typeError(MSG_INVALID_ALGORITHM, algorithm);
+    var algo = (match[1] || match[3]).toLowerCase();
+    var bits2 = match[2];
+    return {
+      sign: signerFactories[algo](bits2),
+      verify: verifierFactories[algo](bits2)
+    };
+  };
+});
+
+// node_modules/jws/lib/tostring.js
+var require_tostring = __commonJS((exports, module) => {
+  var Buffer2 = __require("buffer").Buffer;
+  module.exports = function toString(obj) {
+    if (typeof obj === "string")
+      return obj;
+    if (typeof obj === "number" || Buffer2.isBuffer(obj))
+      return obj.toString();
+    return JSON.stringify(obj);
+  };
+});
+
+// node_modules/jws/lib/sign-stream.js
+var require_sign_stream = __commonJS((exports, module) => {
+  var Buffer2 = require_safe_buffer().Buffer;
+  var DataStream = require_data_stream();
+  var jwa = require_jwa();
+  var Stream = __require("stream");
+  var toString = require_tostring();
+  var util3 = __require("util");
+  function base64url(string, encoding) {
+    return Buffer2.from(string, encoding).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  }
+  function jwsSecuredInput(header, payload, encoding) {
+    encoding = encoding || "utf8";
+    var encodedHeader = base64url(toString(header), "binary");
+    var encodedPayload = base64url(toString(payload), encoding);
+    return util3.format("%s.%s", encodedHeader, encodedPayload);
+  }
+  function jwsSign(opts) {
+    var header = opts.header;
+    var payload = opts.payload;
+    var secretOrKey = opts.secret || opts.privateKey;
+    var encoding = opts.encoding;
+    var algo = jwa(header.alg);
+    var securedInput = jwsSecuredInput(header, payload, encoding);
+    var signature = algo.sign(securedInput, secretOrKey);
+    return util3.format("%s.%s", securedInput, signature);
+  }
+  function SignStream(opts) {
+    var secret = opts.secret || opts.privateKey || opts.key;
+    var secretStream = new DataStream(secret);
+    this.readable = true;
+    this.header = opts.header;
+    this.encoding = opts.encoding;
+    this.secret = this.privateKey = this.key = secretStream;
+    this.payload = new DataStream(opts.payload);
+    this.secret.once("close", function() {
+      if (!this.payload.writable && this.readable)
+        this.sign();
+    }.bind(this));
+    this.payload.once("close", function() {
+      if (!this.secret.writable && this.readable)
+        this.sign();
+    }.bind(this));
+  }
+  util3.inherits(SignStream, Stream);
+  SignStream.prototype.sign = function sign() {
+    try {
+      var signature = jwsSign({
+        header: this.header,
+        payload: this.payload.buffer,
+        secret: this.secret.buffer,
+        encoding: this.encoding
+      });
+      this.emit("done", signature);
+      this.emit("data", signature);
+      this.emit("end");
+      this.readable = false;
+      return signature;
+    } catch (e) {
+      this.readable = false;
+      this.emit("error", e);
+      this.emit("close");
+    }
+  };
+  SignStream.sign = jwsSign;
+  module.exports = SignStream;
+});
+
+// node_modules/jws/lib/verify-stream.js
+var require_verify_stream = __commonJS((exports, module) => {
+  var Buffer2 = require_safe_buffer().Buffer;
+  var DataStream = require_data_stream();
+  var jwa = require_jwa();
+  var Stream = __require("stream");
+  var toString = require_tostring();
+  var util3 = __require("util");
+  var JWS_REGEX = /^[a-zA-Z0-9\-_]+?\.[a-zA-Z0-9\-_]+?\.([a-zA-Z0-9\-_]+)?$/;
+  function isObject2(thing) {
+    return Object.prototype.toString.call(thing) === "[object Object]";
+  }
+  function safeJsonParse(thing) {
+    if (isObject2(thing))
+      return thing;
+    try {
+      return JSON.parse(thing);
+    } catch (e) {
+      return;
+    }
+  }
+  function headerFromJWS(jwsSig) {
+    var encodedHeader = jwsSig.split(".", 1)[0];
+    return safeJsonParse(Buffer2.from(encodedHeader, "base64").toString("binary"));
+  }
+  function securedInputFromJWS(jwsSig) {
+    return jwsSig.split(".", 2).join(".");
+  }
+  function signatureFromJWS(jwsSig) {
+    return jwsSig.split(".")[2];
+  }
+  function payloadFromJWS(jwsSig, encoding) {
+    encoding = encoding || "utf8";
+    var payload = jwsSig.split(".")[1];
+    return Buffer2.from(payload, "base64").toString(encoding);
+  }
+  function isValidJws(string) {
+    return JWS_REGEX.test(string) && !!headerFromJWS(string);
+  }
+  function jwsVerify(jwsSig, algorithm, secretOrKey) {
+    if (!algorithm) {
+      var err2 = new Error("Missing algorithm parameter for jws.verify");
+      err2.code = "MISSING_ALGORITHM";
+      throw err2;
+    }
+    jwsSig = toString(jwsSig);
+    var signature = signatureFromJWS(jwsSig);
+    var securedInput = securedInputFromJWS(jwsSig);
+    var algo = jwa(algorithm);
+    return algo.verify(securedInput, signature, secretOrKey);
+  }
+  function jwsDecode(jwsSig, opts) {
+    opts = opts || {};
+    jwsSig = toString(jwsSig);
+    if (!isValidJws(jwsSig))
+      return null;
+    var header = headerFromJWS(jwsSig);
+    if (!header)
+      return null;
+    var payload = payloadFromJWS(jwsSig);
+    if (header.typ === "JWT" || opts.json)
+      payload = JSON.parse(payload, opts.encoding);
+    return {
+      header,
+      payload,
+      signature: signatureFromJWS(jwsSig)
+    };
+  }
+  function VerifyStream(opts) {
+    opts = opts || {};
+    var secretOrKey = opts.secret || opts.publicKey || opts.key;
+    var secretStream = new DataStream(secretOrKey);
+    this.readable = true;
+    this.algorithm = opts.algorithm;
+    this.encoding = opts.encoding;
+    this.secret = this.publicKey = this.key = secretStream;
+    this.signature = new DataStream(opts.signature);
+    this.secret.once("close", function() {
+      if (!this.signature.writable && this.readable)
+        this.verify();
+    }.bind(this));
+    this.signature.once("close", function() {
+      if (!this.secret.writable && this.readable)
+        this.verify();
+    }.bind(this));
+  }
+  util3.inherits(VerifyStream, Stream);
+  VerifyStream.prototype.verify = function verify() {
+    try {
+      var valid = jwsVerify(this.signature.buffer, this.algorithm, this.key.buffer);
+      var obj = jwsDecode(this.signature.buffer, this.encoding);
+      this.emit("done", valid, obj);
+      this.emit("data", valid);
+      this.emit("end");
+      this.readable = false;
+      return valid;
+    } catch (e) {
+      this.readable = false;
+      this.emit("error", e);
+      this.emit("close");
+    }
+  };
+  VerifyStream.decode = jwsDecode;
+  VerifyStream.isValid = isValidJws;
+  VerifyStream.verify = jwsVerify;
+  module.exports = VerifyStream;
+});
+
+// node_modules/jws/index.js
+var require_jws = __commonJS((exports) => {
+  var SignStream = require_sign_stream();
+  var VerifyStream = require_verify_stream();
+  var ALGORITHMS = [
+    "HS256",
+    "HS384",
+    "HS512",
+    "RS256",
+    "RS384",
+    "RS512",
+    "PS256",
+    "PS384",
+    "PS512",
+    "ES256",
+    "ES384",
+    "ES512"
+  ];
+  exports.ALGORITHMS = ALGORITHMS;
+  exports.sign = SignStream.sign;
+  exports.verify = VerifyStream.verify;
+  exports.decode = VerifyStream.decode;
+  exports.isValid = VerifyStream.isValid;
+  exports.createSign = function createSign(opts) {
+    return new SignStream(opts);
+  };
+  exports.createVerify = function createVerify(opts) {
+    return new VerifyStream(opts);
+  };
+});
+
+// node_modules/jsonwebtoken/decode.js
+var require_decode = __commonJS((exports, module) => {
+  var jws = require_jws();
+  module.exports = function(jwt, options) {
+    options = options || {};
+    var decoded = jws.decode(jwt, options);
+    if (!decoded) {
+      return null;
+    }
+    var payload = decoded.payload;
+    if (typeof payload === "string") {
+      try {
+        var obj = JSON.parse(payload);
+        if (obj !== null && typeof obj === "object") {
+          payload = obj;
+        }
+      } catch (e) {}
+    }
+    if (options.complete === true) {
+      return {
+        header: decoded.header,
+        payload,
+        signature: decoded.signature
       };
-      intlOpts.timeZone = intlOpts.timeZone || z;
-      this.dtf = getCachedDTF(intl, intlOpts);
+    }
+    return payload;
+  };
+});
+
+// node_modules/jsonwebtoken/lib/JsonWebTokenError.js
+var require_JsonWebTokenError = __commonJS((exports, module) => {
+  var JsonWebTokenError = function(message, error) {
+    Error.call(this, message);
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, this.constructor);
+    }
+    this.name = "JsonWebTokenError";
+    this.message = message;
+    if (error)
+      this.inner = error;
+  };
+  JsonWebTokenError.prototype = Object.create(Error.prototype);
+  JsonWebTokenError.prototype.constructor = JsonWebTokenError;
+  module.exports = JsonWebTokenError;
+});
+
+// node_modules/jsonwebtoken/lib/NotBeforeError.js
+var require_NotBeforeError = __commonJS((exports, module) => {
+  var JsonWebTokenError = require_JsonWebTokenError();
+  var NotBeforeError = function(message, date2) {
+    JsonWebTokenError.call(this, message);
+    this.name = "NotBeforeError";
+    this.date = date2;
+  };
+  NotBeforeError.prototype = Object.create(JsonWebTokenError.prototype);
+  NotBeforeError.prototype.constructor = NotBeforeError;
+  module.exports = NotBeforeError;
+});
+
+// node_modules/jsonwebtoken/lib/TokenExpiredError.js
+var require_TokenExpiredError = __commonJS((exports, module) => {
+  var JsonWebTokenError = require_JsonWebTokenError();
+  var TokenExpiredError = function(message, expiredAt) {
+    JsonWebTokenError.call(this, message);
+    this.name = "TokenExpiredError";
+    this.expiredAt = expiredAt;
+  };
+  TokenExpiredError.prototype = Object.create(JsonWebTokenError.prototype);
+  TokenExpiredError.prototype.constructor = TokenExpiredError;
+  module.exports = TokenExpiredError;
+});
+
+// node_modules/jsonwebtoken/lib/timespan.js
+var require_timespan = __commonJS((exports, module) => {
+  var ms = require_ms();
+  module.exports = function(time, iat) {
+    var timestamp = iat || Math.floor(Date.now() / 1000);
+    if (typeof time === "string") {
+      var milliseconds = ms(time);
+      if (typeof milliseconds === "undefined") {
+        return;
+      }
+      return Math.floor(timestamp + milliseconds / 1000);
+    } else if (typeof time === "number") {
+      return timestamp + time;
+    } else {
+      return;
+    }
+  };
+});
+
+// node_modules/semver/internal/constants.js
+var require_constants = __commonJS((exports, module) => {
+  var SEMVER_SPEC_VERSION = "2.0.0";
+  var MAX_LENGTH = 256;
+  var MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER || 9007199254740991;
+  var MAX_SAFE_COMPONENT_LENGTH = 16;
+  var MAX_SAFE_BUILD_LENGTH = MAX_LENGTH - 6;
+  var RELEASE_TYPES = [
+    "major",
+    "premajor",
+    "minor",
+    "preminor",
+    "patch",
+    "prepatch",
+    "prerelease"
+  ];
+  module.exports = {
+    MAX_LENGTH,
+    MAX_SAFE_COMPONENT_LENGTH,
+    MAX_SAFE_BUILD_LENGTH,
+    MAX_SAFE_INTEGER,
+    RELEASE_TYPES,
+    SEMVER_SPEC_VERSION,
+    FLAG_INCLUDE_PRERELEASE: 1,
+    FLAG_LOOSE: 2
+  };
+});
+
+// node_modules/semver/internal/debug.js
+var require_debug = __commonJS((exports, module) => {
+  var debug2 = typeof process === "object" && process.env && process.env.NODE_DEBUG && /\bsemver\b/i.test(process.env.NODE_DEBUG) ? (...args) => console.error("SEMVER", ...args) : () => {};
+  module.exports = debug2;
+});
+
+// node_modules/semver/internal/re.js
+var require_re = __commonJS((exports, module) => {
+  var {
+    MAX_SAFE_COMPONENT_LENGTH,
+    MAX_SAFE_BUILD_LENGTH,
+    MAX_LENGTH
+  } = require_constants();
+  var debug2 = require_debug();
+  exports = module.exports = {};
+  var re = exports.re = [];
+  var safeRe = exports.safeRe = [];
+  var src = exports.src = [];
+  var safeSrc = exports.safeSrc = [];
+  var t2 = exports.t = {};
+  var R = 0;
+  var LETTERDASHNUMBER = "[a-zA-Z0-9-]";
+  var safeRegexReplacements = [
+    ["\\s", 1],
+    ["\\d", MAX_LENGTH],
+    [LETTERDASHNUMBER, MAX_SAFE_BUILD_LENGTH]
+  ];
+  var makeSafeRegex = (value) => {
+    for (const [token, max2] of safeRegexReplacements) {
+      value = value.split(`${token}*`).join(`${token}{0,${max2}}`).split(`${token}+`).join(`${token}{1,${max2}}`);
+    }
+    return value;
+  };
+  var createToken = (name, value, isGlobal) => {
+    const safe = makeSafeRegex(value);
+    const index = R++;
+    debug2(name, index, value);
+    t2[name] = index;
+    src[index] = value;
+    safeSrc[index] = safe;
+    re[index] = new RegExp(value, isGlobal ? "g" : undefined);
+    safeRe[index] = new RegExp(safe, isGlobal ? "g" : undefined);
+  };
+  createToken("NUMERICIDENTIFIER", "0|[1-9]\\d*");
+  createToken("NUMERICIDENTIFIERLOOSE", "\\d+");
+  createToken("NONNUMERICIDENTIFIER", `\\d*[a-zA-Z-]${LETTERDASHNUMBER}*`);
+  createToken("MAINVERSION", `(${src[t2.NUMERICIDENTIFIER]})\\.` + `(${src[t2.NUMERICIDENTIFIER]})\\.` + `(${src[t2.NUMERICIDENTIFIER]})`);
+  createToken("MAINVERSIONLOOSE", `(${src[t2.NUMERICIDENTIFIERLOOSE]})\\.` + `(${src[t2.NUMERICIDENTIFIERLOOSE]})\\.` + `(${src[t2.NUMERICIDENTIFIERLOOSE]})`);
+  createToken("PRERELEASEIDENTIFIER", `(?:${src[t2.NONNUMERICIDENTIFIER]}|${src[t2.NUMERICIDENTIFIER]})`);
+  createToken("PRERELEASEIDENTIFIERLOOSE", `(?:${src[t2.NONNUMERICIDENTIFIER]}|${src[t2.NUMERICIDENTIFIERLOOSE]})`);
+  createToken("PRERELEASE", `(?:-(${src[t2.PRERELEASEIDENTIFIER]}(?:\\.${src[t2.PRERELEASEIDENTIFIER]})*))`);
+  createToken("PRERELEASELOOSE", `(?:-?(${src[t2.PRERELEASEIDENTIFIERLOOSE]}(?:\\.${src[t2.PRERELEASEIDENTIFIERLOOSE]})*))`);
+  createToken("BUILDIDENTIFIER", `${LETTERDASHNUMBER}+`);
+  createToken("BUILD", `(?:\\+(${src[t2.BUILDIDENTIFIER]}(?:\\.${src[t2.BUILDIDENTIFIER]})*))`);
+  createToken("FULLPLAIN", `v?${src[t2.MAINVERSION]}${src[t2.PRERELEASE]}?${src[t2.BUILD]}?`);
+  createToken("FULL", `^${src[t2.FULLPLAIN]}$`);
+  createToken("LOOSEPLAIN", `[v=\\s]*${src[t2.MAINVERSIONLOOSE]}${src[t2.PRERELEASELOOSE]}?${src[t2.BUILD]}?`);
+  createToken("LOOSE", `^${src[t2.LOOSEPLAIN]}$`);
+  createToken("GTLT", "((?:<|>)?=?)");
+  createToken("XRANGEIDENTIFIERLOOSE", `${src[t2.NUMERICIDENTIFIERLOOSE]}|x|X|\\*`);
+  createToken("XRANGEIDENTIFIER", `${src[t2.NUMERICIDENTIFIER]}|x|X|\\*`);
+  createToken("XRANGEPLAIN", `[v=\\s]*(${src[t2.XRANGEIDENTIFIER]})` + `(?:\\.(${src[t2.XRANGEIDENTIFIER]})` + `(?:\\.(${src[t2.XRANGEIDENTIFIER]})` + `(?:${src[t2.PRERELEASE]})?${src[t2.BUILD]}?` + `)?)?`);
+  createToken("XRANGEPLAINLOOSE", `[v=\\s]*(${src[t2.XRANGEIDENTIFIERLOOSE]})` + `(?:\\.(${src[t2.XRANGEIDENTIFIERLOOSE]})` + `(?:\\.(${src[t2.XRANGEIDENTIFIERLOOSE]})` + `(?:${src[t2.PRERELEASELOOSE]})?${src[t2.BUILD]}?` + `)?)?`);
+  createToken("XRANGE", `^${src[t2.GTLT]}\\s*${src[t2.XRANGEPLAIN]}$`);
+  createToken("XRANGELOOSE", `^${src[t2.GTLT]}\\s*${src[t2.XRANGEPLAINLOOSE]}$`);
+  createToken("COERCEPLAIN", `${"(^|[^\\d])" + "(\\d{1,"}${MAX_SAFE_COMPONENT_LENGTH}})` + `(?:\\.(\\d{1,${MAX_SAFE_COMPONENT_LENGTH}}))?` + `(?:\\.(\\d{1,${MAX_SAFE_COMPONENT_LENGTH}}))?`);
+  createToken("COERCE", `${src[t2.COERCEPLAIN]}(?:$|[^\\d])`);
+  createToken("COERCEFULL", src[t2.COERCEPLAIN] + `(?:${src[t2.PRERELEASE]})?` + `(?:${src[t2.BUILD]})?` + `(?:$|[^\\d])`);
+  createToken("COERCERTL", src[t2.COERCE], true);
+  createToken("COERCERTLFULL", src[t2.COERCEFULL], true);
+  createToken("LONETILDE", "(?:~>?)");
+  createToken("TILDETRIM", `(\\s*)${src[t2.LONETILDE]}\\s+`, true);
+  exports.tildeTrimReplace = "$1~";
+  createToken("TILDE", `^${src[t2.LONETILDE]}${src[t2.XRANGEPLAIN]}$`);
+  createToken("TILDELOOSE", `^${src[t2.LONETILDE]}${src[t2.XRANGEPLAINLOOSE]}$`);
+  createToken("LONECARET", "(?:\\^)");
+  createToken("CARETTRIM", `(\\s*)${src[t2.LONECARET]}\\s+`, true);
+  exports.caretTrimReplace = "$1^";
+  createToken("CARET", `^${src[t2.LONECARET]}${src[t2.XRANGEPLAIN]}$`);
+  createToken("CARETLOOSE", `^${src[t2.LONECARET]}${src[t2.XRANGEPLAINLOOSE]}$`);
+  createToken("COMPARATORLOOSE", `^${src[t2.GTLT]}\\s*(${src[t2.LOOSEPLAIN]})$|^$`);
+  createToken("COMPARATOR", `^${src[t2.GTLT]}\\s*(${src[t2.FULLPLAIN]})$|^$`);
+  createToken("COMPARATORTRIM", `(\\s*)${src[t2.GTLT]}\\s*(${src[t2.LOOSEPLAIN]}|${src[t2.XRANGEPLAIN]})`, true);
+  exports.comparatorTrimReplace = "$1$2$3";
+  createToken("HYPHENRANGE", `^\\s*(${src[t2.XRANGEPLAIN]})` + `\\s+-\\s+` + `(${src[t2.XRANGEPLAIN]})` + `\\s*$`);
+  createToken("HYPHENRANGELOOSE", `^\\s*(${src[t2.XRANGEPLAINLOOSE]})` + `\\s+-\\s+` + `(${src[t2.XRANGEPLAINLOOSE]})` + `\\s*$`);
+  createToken("STAR", "(<|>)?=?\\s*\\*");
+  createToken("GTE0", "^\\s*>=\\s*0\\.0\\.0\\s*$");
+  createToken("GTE0PRE", "^\\s*>=\\s*0\\.0\\.0-0\\s*$");
+});
+
+// node_modules/semver/internal/parse-options.js
+var require_parse_options = __commonJS((exports, module) => {
+  var looseOption = Object.freeze({ loose: true });
+  var emptyOpts = Object.freeze({});
+  var parseOptions = (options) => {
+    if (!options) {
+      return emptyOpts;
+    }
+    if (typeof options !== "object") {
+      return looseOption;
+    }
+    return options;
+  };
+  module.exports = parseOptions;
+});
+
+// node_modules/semver/internal/identifiers.js
+var require_identifiers = __commonJS((exports, module) => {
+  var numeric = /^[0-9]+$/;
+  var compareIdentifiers = (a12, b) => {
+    const anum = numeric.test(a12);
+    const bnum = numeric.test(b);
+    if (anum && bnum) {
+      a12 = +a12;
+      b = +b;
+    }
+    return a12 === b ? 0 : anum && !bnum ? -1 : bnum && !anum ? 1 : a12 < b ? -1 : 1;
+  };
+  var rcompareIdentifiers = (a12, b) => compareIdentifiers(b, a12);
+  module.exports = {
+    compareIdentifiers,
+    rcompareIdentifiers
+  };
+});
+
+// node_modules/semver/classes/semver.js
+var require_semver = __commonJS((exports, module) => {
+  var debug2 = require_debug();
+  var { MAX_LENGTH, MAX_SAFE_INTEGER } = require_constants();
+  var { safeRe: re, t: t2 } = require_re();
+  var parseOptions = require_parse_options();
+  var { compareIdentifiers } = require_identifiers();
+
+  class SemVer {
+    constructor(version, options) {
+      options = parseOptions(options);
+      if (version instanceof SemVer) {
+        if (version.loose === !!options.loose && version.includePrerelease === !!options.includePrerelease) {
+          return version;
+        } else {
+          version = version.version;
+        }
+      } else if (typeof version !== "string") {
+        throw new TypeError(`Invalid version. Must be a string. Got type "${typeof version}".`);
+      }
+      if (version.length > MAX_LENGTH) {
+        throw new TypeError(`version is longer than ${MAX_LENGTH} characters`);
+      }
+      debug2("SemVer", version, options);
+      this.options = options;
+      this.loose = !!options.loose;
+      this.includePrerelease = !!options.includePrerelease;
+      const m2 = version.trim().match(options.loose ? re[t2.LOOSE] : re[t2.FULL]);
+      if (!m2) {
+        throw new TypeError(`Invalid Version: ${version}`);
+      }
+      this.raw = version;
+      this.major = +m2[1];
+      this.minor = +m2[2];
+      this.patch = +m2[3];
+      if (this.major > MAX_SAFE_INTEGER || this.major < 0) {
+        throw new TypeError("Invalid major version");
+      }
+      if (this.minor > MAX_SAFE_INTEGER || this.minor < 0) {
+        throw new TypeError("Invalid minor version");
+      }
+      if (this.patch > MAX_SAFE_INTEGER || this.patch < 0) {
+        throw new TypeError("Invalid patch version");
+      }
+      if (!m2[4]) {
+        this.prerelease = [];
+      } else {
+        this.prerelease = m2[4].split(".").map((id) => {
+          if (/^[0-9]+$/.test(id)) {
+            const num = +id;
+            if (num >= 0 && num < MAX_SAFE_INTEGER) {
+              return num;
+            }
+          }
+          return id;
+        });
+      }
+      this.build = m2[5] ? m2[5].split(".") : [];
+      this.format();
     }
     format() {
-      if (this.originalZone) {
-        return this.formatToParts().map(({
-          value
-        }) => value).join("");
+      this.version = `${this.major}.${this.minor}.${this.patch}`;
+      if (this.prerelease.length) {
+        this.version += `-${this.prerelease.join(".")}`;
       }
-      return this.dtf.format(this.dt.toJSDate());
-    }
-    formatToParts() {
-      const parts = this.dtf.formatToParts(this.dt.toJSDate());
-      if (this.originalZone) {
-        return parts.map((part) => {
-          if (part.type === "timeZoneName") {
-            const offsetName = this.originalZone.offsetName(this.dt.ts, {
-              locale: this.dt.locale,
-              format: this.opts.timeZoneName
-            });
-            return {
-              ...part,
-              value: offsetName
-            };
-          } else {
-            return part;
-          }
-        });
-      }
-      return parts;
-    }
-    resolvedOptions() {
-      return this.dtf.resolvedOptions();
-    }
-  }
-
-  class PolyRelFormatter {
-    constructor(intl, isEnglish, opts) {
-      this.opts = {
-        style: "long",
-        ...opts
-      };
-      if (!isEnglish && hasRelative()) {
-        this.rtf = getCachedRTF(intl, opts);
-      }
-    }
-    format(count, unit) {
-      if (this.rtf) {
-        return this.rtf.format(count, unit);
-      } else {
-        return formatRelativeTime(unit, count, this.opts.numeric, this.opts.style !== "long");
-      }
-    }
-    formatToParts(count, unit) {
-      if (this.rtf) {
-        return this.rtf.formatToParts(count, unit);
-      } else {
-        return [];
-      }
-    }
-  }
-  var fallbackWeekSettings = {
-    firstDay: 1,
-    minimalDays: 4,
-    weekend: [6, 7]
-  };
-
-  class Locale {
-    static fromOpts(opts) {
-      return Locale.create(opts.locale, opts.numberingSystem, opts.outputCalendar, opts.weekSettings, opts.defaultToEN);
-    }
-    static create(locale, numberingSystem, outputCalendar, weekSettings, defaultToEN = false) {
-      const specifiedLocale = locale || Settings.defaultLocale;
-      const localeR = specifiedLocale || (defaultToEN ? "en-US" : systemLocale());
-      const numberingSystemR = numberingSystem || Settings.defaultNumberingSystem;
-      const outputCalendarR = outputCalendar || Settings.defaultOutputCalendar;
-      const weekSettingsR = validateWeekSettings(weekSettings) || Settings.defaultWeekSettings;
-      return new Locale(localeR, numberingSystemR, outputCalendarR, weekSettingsR, specifiedLocale);
-    }
-    static resetCache() {
-      sysLocaleCache = null;
-      intlDTCache.clear();
-      intlNumCache.clear();
-      intlRelCache.clear();
-      intlResolvedOptionsCache.clear();
-      weekInfoCache.clear();
-    }
-    static fromObject({
-      locale,
-      numberingSystem,
-      outputCalendar,
-      weekSettings
-    } = {}) {
-      return Locale.create(locale, numberingSystem, outputCalendar, weekSettings);
-    }
-    constructor(locale, numbering, outputCalendar, weekSettings, specifiedLocale) {
-      const [parsedLocale, parsedNumberingSystem, parsedOutputCalendar] = parseLocaleString(locale);
-      this.locale = parsedLocale;
-      this.numberingSystem = numbering || parsedNumberingSystem || null;
-      this.outputCalendar = outputCalendar || parsedOutputCalendar || null;
-      this.weekSettings = weekSettings;
-      this.intl = intlConfigString(this.locale, this.numberingSystem, this.outputCalendar);
-      this.weekdaysCache = {
-        format: {},
-        standalone: {}
-      };
-      this.monthsCache = {
-        format: {},
-        standalone: {}
-      };
-      this.meridiemCache = null;
-      this.eraCache = {};
-      this.specifiedLocale = specifiedLocale;
-      this.fastNumbersCached = null;
-    }
-    get fastNumbers() {
-      if (this.fastNumbersCached == null) {
-        this.fastNumbersCached = supportsFastNumbers(this);
-      }
-      return this.fastNumbersCached;
-    }
-    listingMode() {
-      const isActuallyEn = this.isEnglish();
-      const hasNoWeirdness = (this.numberingSystem === null || this.numberingSystem === "latn") && (this.outputCalendar === null || this.outputCalendar === "gregory");
-      return isActuallyEn && hasNoWeirdness ? "en" : "intl";
-    }
-    clone(alts) {
-      if (!alts || Object.getOwnPropertyNames(alts).length === 0) {
-        return this;
-      } else {
-        return Locale.create(alts.locale || this.specifiedLocale, alts.numberingSystem || this.numberingSystem, alts.outputCalendar || this.outputCalendar, validateWeekSettings(alts.weekSettings) || this.weekSettings, alts.defaultToEN || false);
-      }
-    }
-    redefaultToEN(alts = {}) {
-      return this.clone({
-        ...alts,
-        defaultToEN: true
-      });
-    }
-    redefaultToSystem(alts = {}) {
-      return this.clone({
-        ...alts,
-        defaultToEN: false
-      });
-    }
-    months(length, format = false) {
-      return listStuff(this, length, months, () => {
-        const monthSpecialCase = this.intl === "ja" || this.intl.startsWith("ja-");
-        format &= !monthSpecialCase;
-        const intl = format ? {
-          month: length,
-          day: "numeric"
-        } : {
-          month: length
-        }, formatStr = format ? "format" : "standalone";
-        if (!this.monthsCache[formatStr][length]) {
-          const mapper = !monthSpecialCase ? (dt) => this.extract(dt, intl, "month") : (dt) => this.dtFormatter(dt, intl).format();
-          this.monthsCache[formatStr][length] = mapMonths(mapper);
-        }
-        return this.monthsCache[formatStr][length];
-      });
-    }
-    weekdays(length, format = false) {
-      return listStuff(this, length, weekdays, () => {
-        const intl = format ? {
-          weekday: length,
-          year: "numeric",
-          month: "long",
-          day: "numeric"
-        } : {
-          weekday: length
-        }, formatStr = format ? "format" : "standalone";
-        if (!this.weekdaysCache[formatStr][length]) {
-          this.weekdaysCache[formatStr][length] = mapWeekdays((dt) => this.extract(dt, intl, "weekday"));
-        }
-        return this.weekdaysCache[formatStr][length];
-      });
-    }
-    meridiems() {
-      return listStuff(this, undefined, () => meridiems, () => {
-        if (!this.meridiemCache) {
-          const intl = {
-            hour: "numeric",
-            hourCycle: "h12"
-          };
-          this.meridiemCache = [DateTime.utc(2016, 11, 13, 9), DateTime.utc(2016, 11, 13, 19)].map((dt) => this.extract(dt, intl, "dayperiod"));
-        }
-        return this.meridiemCache;
-      });
-    }
-    eras(length) {
-      return listStuff(this, length, eras, () => {
-        const intl = {
-          era: length
-        };
-        if (!this.eraCache[length]) {
-          this.eraCache[length] = [DateTime.utc(-40, 1, 1), DateTime.utc(2017, 1, 1)].map((dt) => this.extract(dt, intl, "era"));
-        }
-        return this.eraCache[length];
-      });
-    }
-    extract(dt, intlOpts, field) {
-      const df = this.dtFormatter(dt, intlOpts), results = df.formatToParts(), matching = results.find((m2) => m2.type.toLowerCase() === field);
-      return matching ? matching.value : null;
-    }
-    numberFormatter(opts = {}) {
-      return new PolyNumberFormatter(this.intl, opts.forceSimple || this.fastNumbers, opts);
-    }
-    dtFormatter(dt, intlOpts = {}) {
-      return new PolyDateFormatter(dt, this.intl, intlOpts);
-    }
-    relFormatter(opts = {}) {
-      return new PolyRelFormatter(this.intl, this.isEnglish(), opts);
-    }
-    listFormatter(opts = {}) {
-      return getCachedLF(this.intl, opts);
-    }
-    isEnglish() {
-      return this.locale === "en" || this.locale.toLowerCase() === "en-us" || getCachedIntResolvedOptions(this.intl).locale.startsWith("en-us");
-    }
-    getWeekSettings() {
-      if (this.weekSettings) {
-        return this.weekSettings;
-      } else if (!hasLocaleWeekInfo()) {
-        return fallbackWeekSettings;
-      } else {
-        return getCachedWeekInfo(this.locale);
-      }
-    }
-    getStartOfWeek() {
-      return this.getWeekSettings().firstDay;
-    }
-    getMinDaysInFirstWeek() {
-      return this.getWeekSettings().minimalDays;
-    }
-    getWeekendDays() {
-      return this.getWeekSettings().weekend;
-    }
-    equals(other) {
-      return this.locale === other.locale && this.numberingSystem === other.numberingSystem && this.outputCalendar === other.outputCalendar;
+      return this.version;
     }
     toString() {
-      return `Locale(${this.locale}, ${this.numberingSystem}, ${this.outputCalendar})`;
+      return this.version;
     }
-  }
-  var singleton = null;
-
-  class FixedOffsetZone extends Zone {
-    static get utcInstance() {
-      if (singleton === null) {
-        singleton = new FixedOffsetZone(0);
+    compare(other) {
+      debug2("SemVer.compare", this.version, this.options, other);
+      if (!(other instanceof SemVer)) {
+        if (typeof other === "string" && other === this.version) {
+          return 0;
+        }
+        other = new SemVer(other, this.options);
       }
-      return singleton;
+      if (other.version === this.version) {
+        return 0;
+      }
+      return this.compareMain(other) || this.comparePre(other);
     }
-    static instance(offset2) {
-      return offset2 === 0 ? FixedOffsetZone.utcInstance : new FixedOffsetZone(offset2);
+    compareMain(other) {
+      if (!(other instanceof SemVer)) {
+        other = new SemVer(other, this.options);
+      }
+      return compareIdentifiers(this.major, other.major) || compareIdentifiers(this.minor, other.minor) || compareIdentifiers(this.patch, other.patch);
     }
-    static parseSpecifier(s2) {
-      if (s2) {
-        const r2 = s2.match(/^utc(?:([+-]\d{1,2})(?::(\d{2}))?)?$/i);
-        if (r2) {
-          return new FixedOffsetZone(signedOffset(r2[1], r2[2]));
+    comparePre(other) {
+      if (!(other instanceof SemVer)) {
+        other = new SemVer(other, this.options);
+      }
+      if (this.prerelease.length && !other.prerelease.length) {
+        return -1;
+      } else if (!this.prerelease.length && other.prerelease.length) {
+        return 1;
+      } else if (!this.prerelease.length && !other.prerelease.length) {
+        return 0;
+      }
+      let i2 = 0;
+      do {
+        const a12 = this.prerelease[i2];
+        const b = other.prerelease[i2];
+        debug2("prerelease compare", i2, a12, b);
+        if (a12 === undefined && b === undefined) {
+          return 0;
+        } else if (b === undefined) {
+          return 1;
+        } else if (a12 === undefined) {
+          return -1;
+        } else if (a12 === b) {
+          continue;
+        } else {
+          return compareIdentifiers(a12, b);
+        }
+      } while (++i2);
+    }
+    compareBuild(other) {
+      if (!(other instanceof SemVer)) {
+        other = new SemVer(other, this.options);
+      }
+      let i2 = 0;
+      do {
+        const a12 = this.build[i2];
+        const b = other.build[i2];
+        debug2("build compare", i2, a12, b);
+        if (a12 === undefined && b === undefined) {
+          return 0;
+        } else if (b === undefined) {
+          return 1;
+        } else if (a12 === undefined) {
+          return -1;
+        } else if (a12 === b) {
+          continue;
+        } else {
+          return compareIdentifiers(a12, b);
+        }
+      } while (++i2);
+    }
+    inc(release, identifier, identifierBase) {
+      if (release.startsWith("pre")) {
+        if (!identifier && identifierBase === false) {
+          throw new Error("invalid increment argument: identifier is empty");
+        }
+        if (identifier) {
+          const match = `-${identifier}`.match(this.options.loose ? re[t2.PRERELEASELOOSE] : re[t2.PRERELEASE]);
+          if (!match || match[1] !== identifier) {
+            throw new Error(`invalid identifier: ${identifier}`);
+          }
         }
       }
+      switch (release) {
+        case "premajor":
+          this.prerelease.length = 0;
+          this.patch = 0;
+          this.minor = 0;
+          this.major++;
+          this.inc("pre", identifier, identifierBase);
+          break;
+        case "preminor":
+          this.prerelease.length = 0;
+          this.patch = 0;
+          this.minor++;
+          this.inc("pre", identifier, identifierBase);
+          break;
+        case "prepatch":
+          this.prerelease.length = 0;
+          this.inc("patch", identifier, identifierBase);
+          this.inc("pre", identifier, identifierBase);
+          break;
+        case "prerelease":
+          if (this.prerelease.length === 0) {
+            this.inc("patch", identifier, identifierBase);
+          }
+          this.inc("pre", identifier, identifierBase);
+          break;
+        case "release":
+          if (this.prerelease.length === 0) {
+            throw new Error(`version ${this.raw} is not a prerelease`);
+          }
+          this.prerelease.length = 0;
+          break;
+        case "major":
+          if (this.minor !== 0 || this.patch !== 0 || this.prerelease.length === 0) {
+            this.major++;
+          }
+          this.minor = 0;
+          this.patch = 0;
+          this.prerelease = [];
+          break;
+        case "minor":
+          if (this.patch !== 0 || this.prerelease.length === 0) {
+            this.minor++;
+          }
+          this.patch = 0;
+          this.prerelease = [];
+          break;
+        case "patch":
+          if (this.prerelease.length === 0) {
+            this.patch++;
+          }
+          this.prerelease = [];
+          break;
+        case "pre": {
+          const base = Number(identifierBase) ? 1 : 0;
+          if (this.prerelease.length === 0) {
+            this.prerelease = [base];
+          } else {
+            let i2 = this.prerelease.length;
+            while (--i2 >= 0) {
+              if (typeof this.prerelease[i2] === "number") {
+                this.prerelease[i2]++;
+                i2 = -2;
+              }
+            }
+            if (i2 === -1) {
+              if (identifier === this.prerelease.join(".") && identifierBase === false) {
+                throw new Error("invalid increment argument: identifier already exists");
+              }
+              this.prerelease.push(base);
+            }
+          }
+          if (identifier) {
+            let prerelease = [identifier, base];
+            if (identifierBase === false) {
+              prerelease = [identifier];
+            }
+            if (compareIdentifiers(this.prerelease[0], identifier) === 0) {
+              if (isNaN(this.prerelease[1])) {
+                this.prerelease = prerelease;
+              }
+            } else {
+              this.prerelease = prerelease;
+            }
+          }
+          break;
+        }
+        default:
+          throw new Error(`invalid increment argument: ${release}`);
+      }
+      this.raw = this.format();
+      if (this.build.length) {
+        this.raw += `+${this.build.join(".")}`;
+      }
+      return this;
+    }
+  }
+  module.exports = SemVer;
+});
+
+// node_modules/semver/functions/parse.js
+var require_parse = __commonJS((exports, module) => {
+  var SemVer = require_semver();
+  var parse3 = (version, options, throwErrors = false) => {
+    if (version instanceof SemVer) {
+      return version;
+    }
+    try {
+      return new SemVer(version, options);
+    } catch (er) {
+      if (!throwErrors) {
+        return null;
+      }
+      throw er;
+    }
+  };
+  module.exports = parse3;
+});
+
+// node_modules/semver/functions/valid.js
+var require_valid = __commonJS((exports, module) => {
+  var parse3 = require_parse();
+  var valid = (version, options) => {
+    const v = parse3(version, options);
+    return v ? v.version : null;
+  };
+  module.exports = valid;
+});
+
+// node_modules/semver/functions/clean.js
+var require_clean = __commonJS((exports, module) => {
+  var parse3 = require_parse();
+  var clean2 = (version, options) => {
+    const s = parse3(version.trim().replace(/^[=v]+/, ""), options);
+    return s ? s.version : null;
+  };
+  module.exports = clean2;
+});
+
+// node_modules/semver/functions/inc.js
+var require_inc = __commonJS((exports, module) => {
+  var SemVer = require_semver();
+  var inc = (version, release, options, identifier, identifierBase) => {
+    if (typeof options === "string") {
+      identifierBase = identifier;
+      identifier = options;
+      options = undefined;
+    }
+    try {
+      return new SemVer(version instanceof SemVer ? version.version : version, options).inc(release, identifier, identifierBase).version;
+    } catch (er) {
       return null;
     }
-    constructor(offset2) {
-      super();
-      this.fixed = offset2;
+  };
+  module.exports = inc;
+});
+
+// node_modules/semver/functions/diff.js
+var require_diff = __commonJS((exports, module) => {
+  var parse3 = require_parse();
+  var diff = (version1, version2) => {
+    const v1 = parse3(version1, null, true);
+    const v2 = parse3(version2, null, true);
+    const comparison = v1.compare(v2);
+    if (comparison === 0) {
+      return null;
     }
-    get type() {
-      return "fixed";
-    }
-    get name() {
-      return this.fixed === 0 ? "UTC" : `UTC${formatOffset(this.fixed, "narrow")}`;
-    }
-    get ianaName() {
-      if (this.fixed === 0) {
-        return "Etc/UTC";
-      } else {
-        return `Etc/GMT${formatOffset(-this.fixed, "narrow")}`;
+    const v1Higher = comparison > 0;
+    const highVersion = v1Higher ? v1 : v2;
+    const lowVersion = v1Higher ? v2 : v1;
+    const highHasPre = !!highVersion.prerelease.length;
+    const lowHasPre = !!lowVersion.prerelease.length;
+    if (lowHasPre && !highHasPre) {
+      if (!lowVersion.patch && !lowVersion.minor) {
+        return "major";
+      }
+      if (lowVersion.compareMain(highVersion) === 0) {
+        if (lowVersion.minor && !lowVersion.patch) {
+          return "minor";
+        }
+        return "patch";
       }
     }
-    offsetName() {
-      return this.name;
+    const prefix = highHasPre ? "pre" : "";
+    if (v1.major !== v2.major) {
+      return prefix + "major";
     }
-    formatOffset(ts, format) {
-      return formatOffset(this.fixed, format);
+    if (v1.minor !== v2.minor) {
+      return prefix + "minor";
     }
-    get isUniversal() {
-      return true;
+    if (v1.patch !== v2.patch) {
+      return prefix + "patch";
     }
-    offset() {
-      return this.fixed;
-    }
-    equals(otherZone) {
-      return otherZone.type === "fixed" && otherZone.fixed === this.fixed;
-    }
-    get isValid() {
-      return true;
-    }
-  }
+    return "prerelease";
+  };
+  module.exports = diff;
+});
 
-  class InvalidZone extends Zone {
-    constructor(zoneName) {
-      super();
-      this.zoneName = zoneName;
+// node_modules/semver/functions/major.js
+var require_major = __commonJS((exports, module) => {
+  var SemVer = require_semver();
+  var major = (a12, loose) => new SemVer(a12, loose).major;
+  module.exports = major;
+});
+
+// node_modules/semver/functions/minor.js
+var require_minor = __commonJS((exports, module) => {
+  var SemVer = require_semver();
+  var minor = (a12, loose) => new SemVer(a12, loose).minor;
+  module.exports = minor;
+});
+
+// node_modules/semver/functions/patch.js
+var require_patch = __commonJS((exports, module) => {
+  var SemVer = require_semver();
+  var patch = (a12, loose) => new SemVer(a12, loose).patch;
+  module.exports = patch;
+});
+
+// node_modules/semver/functions/prerelease.js
+var require_prerelease = __commonJS((exports, module) => {
+  var parse3 = require_parse();
+  var prerelease = (version, options) => {
+    const parsed = parse3(version, options);
+    return parsed && parsed.prerelease.length ? parsed.prerelease : null;
+  };
+  module.exports = prerelease;
+});
+
+// node_modules/semver/functions/compare.js
+var require_compare = __commonJS((exports, module) => {
+  var SemVer = require_semver();
+  var compare = (a12, b, loose) => new SemVer(a12, loose).compare(new SemVer(b, loose));
+  module.exports = compare;
+});
+
+// node_modules/semver/functions/rcompare.js
+var require_rcompare = __commonJS((exports, module) => {
+  var compare = require_compare();
+  var rcompare = (a12, b, loose) => compare(b, a12, loose);
+  module.exports = rcompare;
+});
+
+// node_modules/semver/functions/compare-loose.js
+var require_compare_loose = __commonJS((exports, module) => {
+  var compare = require_compare();
+  var compareLoose = (a12, b) => compare(a12, b, true);
+  module.exports = compareLoose;
+});
+
+// node_modules/semver/functions/compare-build.js
+var require_compare_build = __commonJS((exports, module) => {
+  var SemVer = require_semver();
+  var compareBuild = (a12, b, loose) => {
+    const versionA = new SemVer(a12, loose);
+    const versionB = new SemVer(b, loose);
+    return versionA.compare(versionB) || versionA.compareBuild(versionB);
+  };
+  module.exports = compareBuild;
+});
+
+// node_modules/semver/functions/sort.js
+var require_sort = __commonJS((exports, module) => {
+  var compareBuild = require_compare_build();
+  var sort = (list, loose) => list.sort((a12, b) => compareBuild(a12, b, loose));
+  module.exports = sort;
+});
+
+// node_modules/semver/functions/rsort.js
+var require_rsort = __commonJS((exports, module) => {
+  var compareBuild = require_compare_build();
+  var rsort = (list, loose) => list.sort((a12, b) => compareBuild(b, a12, loose));
+  module.exports = rsort;
+});
+
+// node_modules/semver/functions/gt.js
+var require_gt = __commonJS((exports, module) => {
+  var compare = require_compare();
+  var gt = (a12, b, loose) => compare(a12, b, loose) > 0;
+  module.exports = gt;
+});
+
+// node_modules/semver/functions/lt.js
+var require_lt = __commonJS((exports, module) => {
+  var compare = require_compare();
+  var lt = (a12, b, loose) => compare(a12, b, loose) < 0;
+  module.exports = lt;
+});
+
+// node_modules/semver/functions/eq.js
+var require_eq = __commonJS((exports, module) => {
+  var compare = require_compare();
+  var eq = (a12, b, loose) => compare(a12, b, loose) === 0;
+  module.exports = eq;
+});
+
+// node_modules/semver/functions/neq.js
+var require_neq = __commonJS((exports, module) => {
+  var compare = require_compare();
+  var neq = (a12, b, loose) => compare(a12, b, loose) !== 0;
+  module.exports = neq;
+});
+
+// node_modules/semver/functions/gte.js
+var require_gte = __commonJS((exports, module) => {
+  var compare = require_compare();
+  var gte = (a12, b, loose) => compare(a12, b, loose) >= 0;
+  module.exports = gte;
+});
+
+// node_modules/semver/functions/lte.js
+var require_lte = __commonJS((exports, module) => {
+  var compare = require_compare();
+  var lte = (a12, b, loose) => compare(a12, b, loose) <= 0;
+  module.exports = lte;
+});
+
+// node_modules/semver/functions/cmp.js
+var require_cmp = __commonJS((exports, module) => {
+  var eq = require_eq();
+  var neq = require_neq();
+  var gt = require_gt();
+  var gte = require_gte();
+  var lt = require_lt();
+  var lte = require_lte();
+  var cmp = (a12, op, b, loose) => {
+    switch (op) {
+      case "===":
+        if (typeof a12 === "object") {
+          a12 = a12.version;
+        }
+        if (typeof b === "object") {
+          b = b.version;
+        }
+        return a12 === b;
+      case "!==":
+        if (typeof a12 === "object") {
+          a12 = a12.version;
+        }
+        if (typeof b === "object") {
+          b = b.version;
+        }
+        return a12 !== b;
+      case "":
+      case "=":
+      case "==":
+        return eq(a12, b, loose);
+      case "!=":
+        return neq(a12, b, loose);
+      case ">":
+        return gt(a12, b, loose);
+      case ">=":
+        return gte(a12, b, loose);
+      case "<":
+        return lt(a12, b, loose);
+      case "<=":
+        return lte(a12, b, loose);
+      default:
+        throw new TypeError(`Invalid operator: ${op}`);
     }
-    get type() {
-      return "invalid";
+  };
+  module.exports = cmp;
+});
+
+// node_modules/semver/functions/coerce.js
+var require_coerce = __commonJS((exports, module) => {
+  var SemVer = require_semver();
+  var parse3 = require_parse();
+  var { safeRe: re, t: t2 } = require_re();
+  var coerce2 = (version, options) => {
+    if (version instanceof SemVer) {
+      return version;
     }
-    get name() {
-      return this.zoneName;
+    if (typeof version === "number") {
+      version = String(version);
     }
-    get isUniversal() {
-      return false;
-    }
-    offsetName() {
+    if (typeof version !== "string") {
       return null;
     }
-    formatOffset() {
-      return "";
-    }
-    offset() {
-      return NaN;
-    }
-    equals() {
-      return false;
-    }
-    get isValid() {
-      return false;
-    }
-  }
-  function normalizeZone(input, defaultZone2) {
-    if (isUndefined(input) || input === null) {
-      return defaultZone2;
-    } else if (input instanceof Zone) {
-      return input;
-    } else if (isString(input)) {
-      const lowered = input.toLowerCase();
-      if (lowered === "default")
-        return defaultZone2;
-      else if (lowered === "local" || lowered === "system")
-        return SystemZone.instance;
-      else if (lowered === "utc" || lowered === "gmt")
-        return FixedOffsetZone.utcInstance;
-      else
-        return FixedOffsetZone.parseSpecifier(lowered) || IANAZone.create(input);
-    } else if (isNumber(input)) {
-      return FixedOffsetZone.instance(input);
-    } else if (typeof input === "object" && "offset" in input && typeof input.offset === "function") {
-      return input;
+    options = options || {};
+    let match = null;
+    if (!options.rtl) {
+      match = version.match(options.includePrerelease ? re[t2.COERCEFULL] : re[t2.COERCE]);
     } else {
-      return new InvalidZone(input);
+      const coerceRtlRegex = options.includePrerelease ? re[t2.COERCERTLFULL] : re[t2.COERCERTL];
+      let next;
+      while ((next = coerceRtlRegex.exec(version)) && (!match || match.index + match[0].length !== version.length)) {
+        if (!match || next.index + next[0].length !== match.index + match[0].length) {
+          match = next;
+        }
+        coerceRtlRegex.lastIndex = next.index + next[1].length + next[2].length;
+      }
+      coerceRtlRegex.lastIndex = -1;
+    }
+    if (match === null) {
+      return null;
+    }
+    const major = match[2];
+    const minor = match[3] || "0";
+    const patch = match[4] || "0";
+    const prerelease = options.includePrerelease && match[5] ? `-${match[5]}` : "";
+    const build = options.includePrerelease && match[6] ? `+${match[6]}` : "";
+    return parse3(`${major}.${minor}.${patch}${prerelease}${build}`, options);
+  };
+  module.exports = coerce2;
+});
+
+// node_modules/semver/internal/lrucache.js
+var require_lrucache = __commonJS((exports, module) => {
+  class LRUCache {
+    constructor() {
+      this.max = 1000;
+      this.map = new Map;
+    }
+    get(key) {
+      const value = this.map.get(key);
+      if (value === undefined) {
+        return;
+      } else {
+        this.map.delete(key);
+        this.map.set(key, value);
+        return value;
+      }
+    }
+    delete(key) {
+      return this.map.delete(key);
+    }
+    set(key, value) {
+      const deleted = this.delete(key);
+      if (!deleted && value !== undefined) {
+        if (this.map.size >= this.max) {
+          const firstKey = this.map.keys().next().value;
+          this.delete(firstKey);
+        }
+        this.map.set(key, value);
+      }
+      return this;
     }
   }
-  var numberingSystems = {
-    arab: "[٠-٩]",
-    arabext: "[۰-۹]",
-    bali: "[᭐-᭙]",
-    beng: "[০-৯]",
-    deva: "[०-९]",
-    fullwide: "[０-９]",
-    gujr: "[૦-૯]",
-    hanidec: "[〇|一|二|三|四|五|六|七|八|九]",
-    khmr: "[០-៩]",
-    knda: "[೦-೯]",
-    laoo: "[໐-໙]",
-    limb: "[᥆-᥏]",
-    mlym: "[൦-൯]",
-    mong: "[᠐-᠙]",
-    mymr: "[၀-၉]",
-    orya: "[୦-୯]",
-    tamldec: "[௦-௯]",
-    telu: "[౦-౯]",
-    thai: "[๐-๙]",
-    tibt: "[༠-༩]",
-    latn: "\\d"
-  };
-  var numberingSystemsUTF16 = {
-    arab: [1632, 1641],
-    arabext: [1776, 1785],
-    bali: [6992, 7001],
-    beng: [2534, 2543],
-    deva: [2406, 2415],
-    fullwide: [65296, 65303],
-    gujr: [2790, 2799],
-    khmr: [6112, 6121],
-    knda: [3302, 3311],
-    laoo: [3792, 3801],
-    limb: [6470, 6479],
-    mlym: [3430, 3439],
-    mong: [6160, 6169],
-    mymr: [4160, 4169],
-    orya: [2918, 2927],
-    tamldec: [3046, 3055],
-    telu: [3174, 3183],
-    thai: [3664, 3673],
-    tibt: [3872, 3881]
-  };
-  var hanidecChars = numberingSystems.hanidec.replace(/[\[|\]]/g, "").split("");
-  function parseDigits(str) {
-    let value = parseInt(str, 10);
-    if (isNaN(value)) {
-      value = "";
-      for (let i2 = 0;i2 < str.length; i2++) {
-        const code = str.charCodeAt(i2);
-        if (str[i2].search(numberingSystems.hanidec) !== -1) {
-          value += hanidecChars.indexOf(str[i2]);
+  module.exports = LRUCache;
+});
+
+// node_modules/semver/classes/range.js
+var require_range = __commonJS((exports, module) => {
+  var SPACE_CHARACTERS = /\s+/g;
+
+  class Range {
+    constructor(range, options) {
+      options = parseOptions(options);
+      if (range instanceof Range) {
+        if (range.loose === !!options.loose && range.includePrerelease === !!options.includePrerelease) {
+          return range;
         } else {
-          for (const key in numberingSystemsUTF16) {
-            const [min, max2] = numberingSystemsUTF16[key];
-            if (code >= min && code <= max2) {
-              value += code - min;
+          return new Range(range.raw, options);
+        }
+      }
+      if (range instanceof Comparator) {
+        this.raw = range.value;
+        this.set = [[range]];
+        this.formatted = undefined;
+        return this;
+      }
+      this.options = options;
+      this.loose = !!options.loose;
+      this.includePrerelease = !!options.includePrerelease;
+      this.raw = range.trim().replace(SPACE_CHARACTERS, " ");
+      this.set = this.raw.split("||").map((r2) => this.parseRange(r2.trim())).filter((c) => c.length);
+      if (!this.set.length) {
+        throw new TypeError(`Invalid SemVer Range: ${this.raw}`);
+      }
+      if (this.set.length > 1) {
+        const first = this.set[0];
+        this.set = this.set.filter((c) => !isNullSet(c[0]));
+        if (this.set.length === 0) {
+          this.set = [first];
+        } else if (this.set.length > 1) {
+          for (const c of this.set) {
+            if (c.length === 1 && isAny(c[0])) {
+              this.set = [c];
+              break;
             }
           }
         }
       }
-      return parseInt(value, 10);
-    } else {
-      return value;
+      this.formatted = undefined;
     }
-  }
-  var digitRegexCache = new Map;
-  function resetDigitRegexCache() {
-    digitRegexCache.clear();
-  }
-  function digitRegex({
-    numberingSystem
-  }, append = "") {
-    const ns = numberingSystem || "latn";
-    let appendCache = digitRegexCache.get(ns);
-    if (appendCache === undefined) {
-      appendCache = new Map;
-      digitRegexCache.set(ns, appendCache);
-    }
-    let regex2 = appendCache.get(append);
-    if (regex2 === undefined) {
-      regex2 = new RegExp(`${numberingSystems[ns]}${append}`);
-      appendCache.set(append, regex2);
-    }
-    return regex2;
-  }
-  var now = () => Date.now();
-  var defaultZone = "system";
-  var defaultLocale = null;
-  var defaultNumberingSystem = null;
-  var defaultOutputCalendar = null;
-  var twoDigitCutoffYear = 60;
-  var throwOnInvalid;
-  var defaultWeekSettings = null;
-
-  class Settings {
-    static get now() {
-      return now;
-    }
-    static set now(n3) {
-      now = n3;
-    }
-    static set defaultZone(zone) {
-      defaultZone = zone;
-    }
-    static get defaultZone() {
-      return normalizeZone(defaultZone, SystemZone.instance);
-    }
-    static get defaultLocale() {
-      return defaultLocale;
-    }
-    static set defaultLocale(locale) {
-      defaultLocale = locale;
-    }
-    static get defaultNumberingSystem() {
-      return defaultNumberingSystem;
-    }
-    static set defaultNumberingSystem(numberingSystem) {
-      defaultNumberingSystem = numberingSystem;
-    }
-    static get defaultOutputCalendar() {
-      return defaultOutputCalendar;
-    }
-    static set defaultOutputCalendar(outputCalendar) {
-      defaultOutputCalendar = outputCalendar;
-    }
-    static get defaultWeekSettings() {
-      return defaultWeekSettings;
-    }
-    static set defaultWeekSettings(weekSettings) {
-      defaultWeekSettings = validateWeekSettings(weekSettings);
-    }
-    static get twoDigitCutoffYear() {
-      return twoDigitCutoffYear;
-    }
-    static set twoDigitCutoffYear(cutoffYear) {
-      twoDigitCutoffYear = cutoffYear % 100;
-    }
-    static get throwOnInvalid() {
-      return throwOnInvalid;
-    }
-    static set throwOnInvalid(t3) {
-      throwOnInvalid = t3;
-    }
-    static resetCaches() {
-      Locale.resetCache();
-      IANAZone.resetCache();
-      DateTime.resetCache();
-      resetDigitRegexCache();
-    }
-  }
-
-  class Invalid {
-    constructor(reason, explanation) {
-      this.reason = reason;
-      this.explanation = explanation;
-    }
-    toMessage() {
-      if (this.explanation) {
-        return `${this.reason}: ${this.explanation}`;
-      } else {
-        return this.reason;
-      }
-    }
-  }
-  var nonLeapLadder = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
-  var leapLadder = [0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
-  function unitOutOfRange(unit, value) {
-    return new Invalid("unit out of range", `you specified ${value} (of type ${typeof value}) as a ${unit}, which is invalid`);
-  }
-  function dayOfWeek(year, month, day) {
-    const d = new Date(Date.UTC(year, month - 1, day));
-    if (year < 100 && year >= 0) {
-      d.setUTCFullYear(d.getUTCFullYear() - 1900);
-    }
-    const js = d.getUTCDay();
-    return js === 0 ? 7 : js;
-  }
-  function computeOrdinal(year, month, day) {
-    return day + (isLeapYear2(year) ? leapLadder : nonLeapLadder)[month - 1];
-  }
-  function uncomputeOrdinal(year, ordinal) {
-    const table = isLeapYear2(year) ? leapLadder : nonLeapLadder, month0 = table.findIndex((i2) => i2 < ordinal), day = ordinal - table[month0];
-    return {
-      month: month0 + 1,
-      day
-    };
-  }
-  function isoWeekdayToLocal(isoWeekday, startOfWeek) {
-    return (isoWeekday - startOfWeek + 7) % 7 + 1;
-  }
-  function gregorianToWeek(gregObj, minDaysInFirstWeek = 4, startOfWeek = 1) {
-    const {
-      year,
-      month,
-      day
-    } = gregObj, ordinal = computeOrdinal(year, month, day), weekday = isoWeekdayToLocal(dayOfWeek(year, month, day), startOfWeek);
-    let weekNumber = Math.floor((ordinal - weekday + 14 - minDaysInFirstWeek) / 7), weekYear;
-    if (weekNumber < 1) {
-      weekYear = year - 1;
-      weekNumber = weeksInWeekYear(weekYear, minDaysInFirstWeek, startOfWeek);
-    } else if (weekNumber > weeksInWeekYear(year, minDaysInFirstWeek, startOfWeek)) {
-      weekYear = year + 1;
-      weekNumber = 1;
-    } else {
-      weekYear = year;
-    }
-    return {
-      weekYear,
-      weekNumber,
-      weekday,
-      ...timeObject(gregObj)
-    };
-  }
-  function weekToGregorian(weekData, minDaysInFirstWeek = 4, startOfWeek = 1) {
-    const {
-      weekYear,
-      weekNumber,
-      weekday
-    } = weekData, weekdayOfJan4 = isoWeekdayToLocal(dayOfWeek(weekYear, 1, minDaysInFirstWeek), startOfWeek), yearInDays = daysInYear(weekYear);
-    let ordinal = weekNumber * 7 + weekday - weekdayOfJan4 - 7 + minDaysInFirstWeek, year;
-    if (ordinal < 1) {
-      year = weekYear - 1;
-      ordinal += daysInYear(year);
-    } else if (ordinal > yearInDays) {
-      year = weekYear + 1;
-      ordinal -= daysInYear(weekYear);
-    } else {
-      year = weekYear;
-    }
-    const {
-      month,
-      day
-    } = uncomputeOrdinal(year, ordinal);
-    return {
-      year,
-      month,
-      day,
-      ...timeObject(weekData)
-    };
-  }
-  function gregorianToOrdinal(gregData) {
-    const {
-      year,
-      month,
-      day
-    } = gregData;
-    const ordinal = computeOrdinal(year, month, day);
-    return {
-      year,
-      ordinal,
-      ...timeObject(gregData)
-    };
-  }
-  function ordinalToGregorian(ordinalData) {
-    const {
-      year,
-      ordinal
-    } = ordinalData;
-    const {
-      month,
-      day
-    } = uncomputeOrdinal(year, ordinal);
-    return {
-      year,
-      month,
-      day,
-      ...timeObject(ordinalData)
-    };
-  }
-  function usesLocalWeekValues(obj, loc) {
-    const hasLocaleWeekData = !isUndefined(obj.localWeekday) || !isUndefined(obj.localWeekNumber) || !isUndefined(obj.localWeekYear);
-    if (hasLocaleWeekData) {
-      const hasIsoWeekData = !isUndefined(obj.weekday) || !isUndefined(obj.weekNumber) || !isUndefined(obj.weekYear);
-      if (hasIsoWeekData) {
-        throw new ConflictingSpecificationError("Cannot mix locale-based week fields with ISO-based week fields");
-      }
-      if (!isUndefined(obj.localWeekday))
-        obj.weekday = obj.localWeekday;
-      if (!isUndefined(obj.localWeekNumber))
-        obj.weekNumber = obj.localWeekNumber;
-      if (!isUndefined(obj.localWeekYear))
-        obj.weekYear = obj.localWeekYear;
-      delete obj.localWeekday;
-      delete obj.localWeekNumber;
-      delete obj.localWeekYear;
-      return {
-        minDaysInFirstWeek: loc.getMinDaysInFirstWeek(),
-        startOfWeek: loc.getStartOfWeek()
-      };
-    } else {
-      return {
-        minDaysInFirstWeek: 4,
-        startOfWeek: 1
-      };
-    }
-  }
-  function hasInvalidWeekData(obj, minDaysInFirstWeek = 4, startOfWeek = 1) {
-    const validYear = isInteger(obj.weekYear), validWeek = integerBetween(obj.weekNumber, 1, weeksInWeekYear(obj.weekYear, minDaysInFirstWeek, startOfWeek)), validWeekday = integerBetween(obj.weekday, 1, 7);
-    if (!validYear) {
-      return unitOutOfRange("weekYear", obj.weekYear);
-    } else if (!validWeek) {
-      return unitOutOfRange("week", obj.weekNumber);
-    } else if (!validWeekday) {
-      return unitOutOfRange("weekday", obj.weekday);
-    } else
-      return false;
-  }
-  function hasInvalidOrdinalData(obj) {
-    const validYear = isInteger(obj.year), validOrdinal = integerBetween(obj.ordinal, 1, daysInYear(obj.year));
-    if (!validYear) {
-      return unitOutOfRange("year", obj.year);
-    } else if (!validOrdinal) {
-      return unitOutOfRange("ordinal", obj.ordinal);
-    } else
-      return false;
-  }
-  function hasInvalidGregorianData(obj) {
-    const validYear = isInteger(obj.year), validMonth = integerBetween(obj.month, 1, 12), validDay = integerBetween(obj.day, 1, daysInMonth(obj.year, obj.month));
-    if (!validYear) {
-      return unitOutOfRange("year", obj.year);
-    } else if (!validMonth) {
-      return unitOutOfRange("month", obj.month);
-    } else if (!validDay) {
-      return unitOutOfRange("day", obj.day);
-    } else
-      return false;
-  }
-  function hasInvalidTimeData(obj) {
-    const {
-      hour,
-      minute,
-      second,
-      millisecond
-    } = obj;
-    const validHour = integerBetween(hour, 0, 23) || hour === 24 && minute === 0 && second === 0 && millisecond === 0, validMinute = integerBetween(minute, 0, 59), validSecond = integerBetween(second, 0, 59), validMillisecond = integerBetween(millisecond, 0, 999);
-    if (!validHour) {
-      return unitOutOfRange("hour", hour);
-    } else if (!validMinute) {
-      return unitOutOfRange("minute", minute);
-    } else if (!validSecond) {
-      return unitOutOfRange("second", second);
-    } else if (!validMillisecond) {
-      return unitOutOfRange("millisecond", millisecond);
-    } else
-      return false;
-  }
-  function isUndefined(o) {
-    return typeof o === "undefined";
-  }
-  function isNumber(o) {
-    return typeof o === "number";
-  }
-  function isInteger(o) {
-    return typeof o === "number" && o % 1 === 0;
-  }
-  function isString(o) {
-    return typeof o === "string";
-  }
-  function isDate(o) {
-    return Object.prototype.toString.call(o) === "[object Date]";
-  }
-  function hasRelative() {
-    try {
-      return typeof Intl !== "undefined" && !!Intl.RelativeTimeFormat;
-    } catch (e) {
-      return false;
-    }
-  }
-  function hasLocaleWeekInfo() {
-    try {
-      return typeof Intl !== "undefined" && !!Intl.Locale && (("weekInfo" in Intl.Locale.prototype) || ("getWeekInfo" in Intl.Locale.prototype));
-    } catch (e) {
-      return false;
-    }
-  }
-  function maybeArray(thing) {
-    return Array.isArray(thing) ? thing : [thing];
-  }
-  function bestBy(arr, by, compare) {
-    if (arr.length === 0) {
-      return;
-    }
-    return arr.reduce((best, next) => {
-      const pair = [by(next), next];
-      if (!best) {
-        return pair;
-      } else if (compare(best[0], pair[0]) === best[0]) {
-        return best;
-      } else {
-        return pair;
-      }
-    }, null)[1];
-  }
-  function pick(obj, keys) {
-    return keys.reduce((a12, k) => {
-      a12[k] = obj[k];
-      return a12;
-    }, {});
-  }
-  function hasOwnProperty(obj, prop) {
-    return Object.prototype.hasOwnProperty.call(obj, prop);
-  }
-  function validateWeekSettings(settings) {
-    if (settings == null) {
-      return null;
-    } else if (typeof settings !== "object") {
-      throw new InvalidArgumentError("Week settings must be an object");
-    } else {
-      if (!integerBetween(settings.firstDay, 1, 7) || !integerBetween(settings.minimalDays, 1, 7) || !Array.isArray(settings.weekend) || settings.weekend.some((v) => !integerBetween(v, 1, 7))) {
-        throw new InvalidArgumentError("Invalid week settings");
-      }
-      return {
-        firstDay: settings.firstDay,
-        minimalDays: settings.minimalDays,
-        weekend: Array.from(settings.weekend)
-      };
-    }
-  }
-  function integerBetween(thing, bottom, top) {
-    return isInteger(thing) && thing >= bottom && thing <= top;
-  }
-  function floorMod(x2, n3) {
-    return x2 - n3 * Math.floor(x2 / n3);
-  }
-  function padStart(input, n3 = 2) {
-    const isNeg = input < 0;
-    let padded;
-    if (isNeg) {
-      padded = "-" + ("" + -input).padStart(n3, "0");
-    } else {
-      padded = ("" + input).padStart(n3, "0");
-    }
-    return padded;
-  }
-  function parseInteger(string) {
-    if (isUndefined(string) || string === null || string === "") {
-      return;
-    } else {
-      return parseInt(string, 10);
-    }
-  }
-  function parseFloating(string) {
-    if (isUndefined(string) || string === null || string === "") {
-      return;
-    } else {
-      return parseFloat(string);
-    }
-  }
-  function parseMillis(fraction) {
-    if (isUndefined(fraction) || fraction === null || fraction === "") {
-      return;
-    } else {
-      const f = parseFloat("0." + fraction) * 1000;
-      return Math.floor(f);
-    }
-  }
-  function roundTo(number, digits, rounding = "round") {
-    const factor = 10 ** digits;
-    switch (rounding) {
-      case "expand":
-        return number > 0 ? Math.ceil(number * factor) / factor : Math.floor(number * factor) / factor;
-      case "trunc":
-        return Math.trunc(number * factor) / factor;
-      case "round":
-        return Math.round(number * factor) / factor;
-      case "floor":
-        return Math.floor(number * factor) / factor;
-      case "ceil":
-        return Math.ceil(number * factor) / factor;
-      default:
-        throw new RangeError(`Value rounding ${rounding} is out of range`);
-    }
-  }
-  function isLeapYear2(year) {
-    return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-  }
-  function daysInYear(year) {
-    return isLeapYear2(year) ? 366 : 365;
-  }
-  function daysInMonth(year, month) {
-    const modMonth = floorMod(month - 1, 12) + 1, modYear = year + (month - modMonth) / 12;
-    if (modMonth === 2) {
-      return isLeapYear2(modYear) ? 29 : 28;
-    } else {
-      return [31, null, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][modMonth - 1];
-    }
-  }
-  function objToLocalTS(obj) {
-    let d = Date.UTC(obj.year, obj.month - 1, obj.day, obj.hour, obj.minute, obj.second, obj.millisecond);
-    if (obj.year < 100 && obj.year >= 0) {
-      d = new Date(d);
-      d.setUTCFullYear(obj.year, obj.month - 1, obj.day);
-    }
-    return +d;
-  }
-  function firstWeekOffset(year, minDaysInFirstWeek, startOfWeek) {
-    const fwdlw = isoWeekdayToLocal(dayOfWeek(year, 1, minDaysInFirstWeek), startOfWeek);
-    return -fwdlw + minDaysInFirstWeek - 1;
-  }
-  function weeksInWeekYear(weekYear, minDaysInFirstWeek = 4, startOfWeek = 1) {
-    const weekOffset = firstWeekOffset(weekYear, minDaysInFirstWeek, startOfWeek);
-    const weekOffsetNext = firstWeekOffset(weekYear + 1, minDaysInFirstWeek, startOfWeek);
-    return (daysInYear(weekYear) - weekOffset + weekOffsetNext) / 7;
-  }
-  function untruncateYear(year) {
-    if (year > 99) {
-      return year;
-    } else
-      return year > Settings.twoDigitCutoffYear ? 1900 + year : 2000 + year;
-  }
-  function parseZoneInfo(ts, offsetFormat, locale, timeZone = null) {
-    const date2 = new Date(ts), intlOpts = {
-      hourCycle: "h23",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit"
-    };
-    if (timeZone) {
-      intlOpts.timeZone = timeZone;
-    }
-    const modified = {
-      timeZoneName: offsetFormat,
-      ...intlOpts
-    };
-    const parsed = new Intl.DateTimeFormat(locale, modified).formatToParts(date2).find((m2) => m2.type.toLowerCase() === "timezonename");
-    return parsed ? parsed.value : null;
-  }
-  function signedOffset(offHourStr, offMinuteStr) {
-    let offHour = parseInt(offHourStr, 10);
-    if (Number.isNaN(offHour)) {
-      offHour = 0;
-    }
-    const offMin = parseInt(offMinuteStr, 10) || 0, offMinSigned = offHour < 0 || Object.is(offHour, -0) ? -offMin : offMin;
-    return offHour * 60 + offMinSigned;
-  }
-  function asNumber(value) {
-    const numericValue = Number(value);
-    if (typeof value === "boolean" || value === "" || !Number.isFinite(numericValue))
-      throw new InvalidArgumentError(`Invalid unit value ${value}`);
-    return numericValue;
-  }
-  function normalizeObject(obj, normalizer) {
-    const normalized = {};
-    for (const u in obj) {
-      if (hasOwnProperty(obj, u)) {
-        const v = obj[u];
-        if (v === undefined || v === null)
-          continue;
-        normalized[normalizer(u)] = asNumber(v);
-      }
-    }
-    return normalized;
-  }
-  function formatOffset(offset2, format) {
-    const hours = Math.trunc(Math.abs(offset2 / 60)), minutes = Math.trunc(Math.abs(offset2 % 60)), sign = offset2 >= 0 ? "+" : "-";
-    switch (format) {
-      case "short":
-        return `${sign}${padStart(hours, 2)}:${padStart(minutes, 2)}`;
-      case "narrow":
-        return `${sign}${hours}${minutes > 0 ? `:${minutes}` : ""}`;
-      case "techie":
-        return `${sign}${padStart(hours, 2)}${padStart(minutes, 2)}`;
-      default:
-        throw new RangeError(`Value format ${format} is out of range for property format`);
-    }
-  }
-  function timeObject(obj) {
-    return pick(obj, ["hour", "minute", "second", "millisecond"]);
-  }
-  var monthsLong = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  var monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  var monthsNarrow = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
-  function months(length) {
-    switch (length) {
-      case "narrow":
-        return [...monthsNarrow];
-      case "short":
-        return [...monthsShort];
-      case "long":
-        return [...monthsLong];
-      case "numeric":
-        return ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
-      case "2-digit":
-        return ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];
-      default:
-        return null;
-    }
-  }
-  var weekdaysLong = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-  var weekdaysShort = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  var weekdaysNarrow = ["M", "T", "W", "T", "F", "S", "S"];
-  function weekdays(length) {
-    switch (length) {
-      case "narrow":
-        return [...weekdaysNarrow];
-      case "short":
-        return [...weekdaysShort];
-      case "long":
-        return [...weekdaysLong];
-      case "numeric":
-        return ["1", "2", "3", "4", "5", "6", "7"];
-      default:
-        return null;
-    }
-  }
-  var meridiems = ["AM", "PM"];
-  var erasLong = ["Before Christ", "Anno Domini"];
-  var erasShort = ["BC", "AD"];
-  var erasNarrow = ["B", "A"];
-  function eras(length) {
-    switch (length) {
-      case "narrow":
-        return [...erasNarrow];
-      case "short":
-        return [...erasShort];
-      case "long":
-        return [...erasLong];
-      default:
-        return null;
-    }
-  }
-  function meridiemForDateTime(dt) {
-    return meridiems[dt.hour < 12 ? 0 : 1];
-  }
-  function weekdayForDateTime(dt, length) {
-    return weekdays(length)[dt.weekday - 1];
-  }
-  function monthForDateTime(dt, length) {
-    return months(length)[dt.month - 1];
-  }
-  function eraForDateTime(dt, length) {
-    return eras(length)[dt.year < 0 ? 0 : 1];
-  }
-  function formatRelativeTime(unit, count, numeric = "always", narrow = false) {
-    const units = {
-      years: ["year", "yr."],
-      quarters: ["quarter", "qtr."],
-      months: ["month", "mo."],
-      weeks: ["week", "wk."],
-      days: ["day", "day", "days"],
-      hours: ["hour", "hr."],
-      minutes: ["minute", "min."],
-      seconds: ["second", "sec."]
-    };
-    const lastable = ["hours", "minutes", "seconds"].indexOf(unit) === -1;
-    if (numeric === "auto" && lastable) {
-      const isDay = unit === "days";
-      switch (count) {
-        case 1:
-          return isDay ? "tomorrow" : `next ${units[unit][0]}`;
-        case -1:
-          return isDay ? "yesterday" : `last ${units[unit][0]}`;
-        case 0:
-          return isDay ? "today" : `this ${units[unit][0]}`;
-      }
-    }
-    const isInPast = Object.is(count, -0) || count < 0, fmtValue = Math.abs(count), singular = fmtValue === 1, lilUnits = units[unit], fmtUnit = narrow ? singular ? lilUnits[1] : lilUnits[2] || lilUnits[1] : singular ? units[unit][0] : unit;
-    return isInPast ? `${fmtValue} ${fmtUnit} ago` : `in ${fmtValue} ${fmtUnit}`;
-  }
-  function stringifyTokens(splits, tokenToString) {
-    let s2 = "";
-    for (const token of splits) {
-      if (token.literal) {
-        s2 += token.val;
-      } else {
-        s2 += tokenToString(token.val);
-      }
-    }
-    return s2;
-  }
-  var macroTokenToFormatOpts = {
-    D: DATE_SHORT,
-    DD: DATE_MED,
-    DDD: DATE_FULL,
-    DDDD: DATE_HUGE,
-    t: TIME_SIMPLE,
-    tt: TIME_WITH_SECONDS,
-    ttt: TIME_WITH_SHORT_OFFSET,
-    tttt: TIME_WITH_LONG_OFFSET,
-    T: TIME_24_SIMPLE,
-    TT: TIME_24_WITH_SECONDS,
-    TTT: TIME_24_WITH_SHORT_OFFSET,
-    TTTT: TIME_24_WITH_LONG_OFFSET,
-    f: DATETIME_SHORT,
-    ff: DATETIME_MED,
-    fff: DATETIME_FULL,
-    ffff: DATETIME_HUGE,
-    F: DATETIME_SHORT_WITH_SECONDS,
-    FF: DATETIME_MED_WITH_SECONDS,
-    FFF: DATETIME_FULL_WITH_SECONDS,
-    FFFF: DATETIME_HUGE_WITH_SECONDS
-  };
-
-  class Formatter {
-    static create(locale, opts = {}) {
-      return new Formatter(locale, opts);
-    }
-    static parseFormat(fmt) {
-      let current = null, currentFull = "", bracketed = false;
-      const splits = [];
-      for (let i2 = 0;i2 < fmt.length; i2++) {
-        const c = fmt.charAt(i2);
-        if (c === "'") {
-          if (currentFull.length > 0 || bracketed) {
-            splits.push({
-              literal: bracketed || /^\s+$/.test(currentFull),
-              val: currentFull === "" ? "'" : currentFull
-            });
+    get range() {
+      if (this.formatted === undefined) {
+        this.formatted = "";
+        for (let i2 = 0;i2 < this.set.length; i2++) {
+          if (i2 > 0) {
+            this.formatted += "||";
           }
-          current = null;
-          currentFull = "";
-          bracketed = !bracketed;
-        } else if (bracketed) {
-          currentFull += c;
-        } else if (c === current) {
-          currentFull += c;
-        } else {
-          if (currentFull.length > 0) {
-            splits.push({
-              literal: /^\s+$/.test(currentFull),
-              val: currentFull
-            });
+          const comps = this.set[i2];
+          for (let k = 0;k < comps.length; k++) {
+            if (k > 0) {
+              this.formatted += " ";
+            }
+            this.formatted += comps[k].toString().trim();
           }
-          currentFull = c;
-          current = c;
         }
       }
-      if (currentFull.length > 0) {
-        splits.push({
-          literal: bracketed || /^\s+$/.test(currentFull),
-          val: currentFull
+      return this.formatted;
+    }
+    format() {
+      return this.range;
+    }
+    toString() {
+      return this.range;
+    }
+    parseRange(range) {
+      const memoOpts = (this.options.includePrerelease && FLAG_INCLUDE_PRERELEASE) | (this.options.loose && FLAG_LOOSE);
+      const memoKey = memoOpts + ":" + range;
+      const cached = cache.get(memoKey);
+      if (cached) {
+        return cached;
+      }
+      const loose = this.options.loose;
+      const hr = loose ? re[t2.HYPHENRANGELOOSE] : re[t2.HYPHENRANGE];
+      range = range.replace(hr, hyphenReplace(this.options.includePrerelease));
+      debug2("hyphen replace", range);
+      range = range.replace(re[t2.COMPARATORTRIM], comparatorTrimReplace);
+      debug2("comparator trim", range);
+      range = range.replace(re[t2.TILDETRIM], tildeTrimReplace);
+      debug2("tilde trim", range);
+      range = range.replace(re[t2.CARETTRIM], caretTrimReplace);
+      debug2("caret trim", range);
+      let rangeList = range.split(" ").map((comp) => parseComparator(comp, this.options)).join(" ").split(/\s+/).map((comp) => replaceGTE0(comp, this.options));
+      if (loose) {
+        rangeList = rangeList.filter((comp) => {
+          debug2("loose invalid filter", comp, this.options);
+          return !!comp.match(re[t2.COMPARATORLOOSE]);
         });
       }
-      return splits;
-    }
-    static macroTokenToFormatOpts(token) {
-      return macroTokenToFormatOpts[token];
-    }
-    constructor(locale, formatOpts) {
-      this.opts = formatOpts;
-      this.loc = locale;
-      this.systemLoc = null;
-    }
-    formatWithSystemDefault(dt, opts) {
-      if (this.systemLoc === null) {
-        this.systemLoc = this.loc.redefaultToSystem();
+      debug2("range list", rangeList);
+      const rangeMap = new Map;
+      const comparators = rangeList.map((comp) => new Comparator(comp, this.options));
+      for (const comp of comparators) {
+        if (isNullSet(comp)) {
+          return [comp];
+        }
+        rangeMap.set(comp.value, comp);
       }
-      const df = this.systemLoc.dtFormatter(dt, {
-        ...this.opts,
-        ...opts
+      if (rangeMap.size > 1 && rangeMap.has("")) {
+        rangeMap.delete("");
+      }
+      const result = [...rangeMap.values()];
+      cache.set(memoKey, result);
+      return result;
+    }
+    intersects(range, options) {
+      if (!(range instanceof Range)) {
+        throw new TypeError("a Range is required");
+      }
+      return this.set.some((thisComparators) => {
+        return isSatisfiable(thisComparators, options) && range.set.some((rangeComparators) => {
+          return isSatisfiable(rangeComparators, options) && thisComparators.every((thisComparator) => {
+            return rangeComparators.every((rangeComparator) => {
+              return thisComparator.intersects(rangeComparator, options);
+            });
+          });
+        });
       });
-      return df.format();
     }
-    dtFormatter(dt, opts = {}) {
-      return this.loc.dtFormatter(dt, {
-        ...this.opts,
-        ...opts
+    test(version) {
+      if (!version) {
+        return false;
+      }
+      if (typeof version === "string") {
+        try {
+          version = new SemVer(version, this.options);
+        } catch (er) {
+          return false;
+        }
+      }
+      for (let i2 = 0;i2 < this.set.length; i2++) {
+        if (testSet(this.set[i2], version, this.options)) {
+          return true;
+        }
+      }
+      return false;
+    }
+  }
+  module.exports = Range;
+  var LRU = require_lrucache();
+  var cache = new LRU;
+  var parseOptions = require_parse_options();
+  var Comparator = require_comparator();
+  var debug2 = require_debug();
+  var SemVer = require_semver();
+  var {
+    safeRe: re,
+    t: t2,
+    comparatorTrimReplace,
+    tildeTrimReplace,
+    caretTrimReplace
+  } = require_re();
+  var { FLAG_INCLUDE_PRERELEASE, FLAG_LOOSE } = require_constants();
+  var isNullSet = (c) => c.value === "<0.0.0-0";
+  var isAny = (c) => c.value === "";
+  var isSatisfiable = (comparators, options) => {
+    let result = true;
+    const remainingComparators = comparators.slice();
+    let testComparator = remainingComparators.pop();
+    while (result && remainingComparators.length) {
+      result = remainingComparators.every((otherComparator) => {
+        return testComparator.intersects(otherComparator, options);
       });
+      testComparator = remainingComparators.pop();
     }
-    formatDateTime(dt, opts) {
-      return this.dtFormatter(dt, opts).format();
-    }
-    formatDateTimeParts(dt, opts) {
-      return this.dtFormatter(dt, opts).formatToParts();
-    }
-    formatInterval(interval, opts) {
-      const df = this.dtFormatter(interval.start, opts);
-      return df.dtf.formatRange(interval.start.toJSDate(), interval.end.toJSDate());
-    }
-    resolvedOptions(dt, opts) {
-      return this.dtFormatter(dt, opts).resolvedOptions();
-    }
-    num(n3, p = 0, signDisplay = undefined) {
-      if (this.opts.forceSimple) {
-        return padStart(n3, p);
-      }
-      const opts = {
-        ...this.opts
-      };
-      if (p > 0) {
-        opts.padTo = p;
-      }
-      if (signDisplay) {
-        opts.signDisplay = signDisplay;
-      }
-      return this.loc.numberFormatter(opts).format(n3);
-    }
-    formatDateTimeFromString(dt, fmt) {
-      const knownEnglish = this.loc.listingMode() === "en", useDateTimeFormatter = this.loc.outputCalendar && this.loc.outputCalendar !== "gregory", string = (opts, extract) => this.loc.extract(dt, opts, extract), formatOffset2 = (opts) => {
-        if (dt.isOffsetFixed && dt.offset === 0 && opts.allowZ) {
-          return "Z";
-        }
-        return dt.isValid ? dt.zone.formatOffset(dt.ts, opts.format) : "";
-      }, meridiem = () => knownEnglish ? meridiemForDateTime(dt) : string({
-        hour: "numeric",
-        hourCycle: "h12"
-      }, "dayperiod"), month = (length, standalone) => knownEnglish ? monthForDateTime(dt, length) : string(standalone ? {
-        month: length
-      } : {
-        month: length,
-        day: "numeric"
-      }, "month"), weekday = (length, standalone) => knownEnglish ? weekdayForDateTime(dt, length) : string(standalone ? {
-        weekday: length
-      } : {
-        weekday: length,
-        month: "long",
-        day: "numeric"
-      }, "weekday"), maybeMacro = (token) => {
-        const formatOpts = Formatter.macroTokenToFormatOpts(token);
-        if (formatOpts) {
-          return this.formatWithSystemDefault(dt, formatOpts);
-        } else {
-          return token;
-        }
-      }, era = (length) => knownEnglish ? eraForDateTime(dt, length) : string({
-        era: length
-      }, "era"), tokenToString = (token) => {
-        switch (token) {
-          case "S":
-            return this.num(dt.millisecond);
-          case "u":
-          case "SSS":
-            return this.num(dt.millisecond, 3);
-          case "s":
-            return this.num(dt.second);
-          case "ss":
-            return this.num(dt.second, 2);
-          case "uu":
-            return this.num(Math.floor(dt.millisecond / 10), 2);
-          case "uuu":
-            return this.num(Math.floor(dt.millisecond / 100));
-          case "m":
-            return this.num(dt.minute);
-          case "mm":
-            return this.num(dt.minute, 2);
-          case "h":
-            return this.num(dt.hour % 12 === 0 ? 12 : dt.hour % 12);
-          case "hh":
-            return this.num(dt.hour % 12 === 0 ? 12 : dt.hour % 12, 2);
-          case "H":
-            return this.num(dt.hour);
-          case "HH":
-            return this.num(dt.hour, 2);
-          case "Z":
-            return formatOffset2({
-              format: "narrow",
-              allowZ: this.opts.allowZ
-            });
-          case "ZZ":
-            return formatOffset2({
-              format: "short",
-              allowZ: this.opts.allowZ
-            });
-          case "ZZZ":
-            return formatOffset2({
-              format: "techie",
-              allowZ: this.opts.allowZ
-            });
-          case "ZZZZ":
-            return dt.zone.offsetName(dt.ts, {
-              format: "short",
-              locale: this.loc.locale
-            });
-          case "ZZZZZ":
-            return dt.zone.offsetName(dt.ts, {
-              format: "long",
-              locale: this.loc.locale
-            });
-          case "z":
-            return dt.zoneName;
-          case "a":
-            return meridiem();
-          case "d":
-            return useDateTimeFormatter ? string({
-              day: "numeric"
-            }, "day") : this.num(dt.day);
-          case "dd":
-            return useDateTimeFormatter ? string({
-              day: "2-digit"
-            }, "day") : this.num(dt.day, 2);
-          case "c":
-            return this.num(dt.weekday);
-          case "ccc":
-            return weekday("short", true);
-          case "cccc":
-            return weekday("long", true);
-          case "ccccc":
-            return weekday("narrow", true);
-          case "E":
-            return this.num(dt.weekday);
-          case "EEE":
-            return weekday("short", false);
-          case "EEEE":
-            return weekday("long", false);
-          case "EEEEE":
-            return weekday("narrow", false);
-          case "L":
-            return useDateTimeFormatter ? string({
-              month: "numeric",
-              day: "numeric"
-            }, "month") : this.num(dt.month);
-          case "LL":
-            return useDateTimeFormatter ? string({
-              month: "2-digit",
-              day: "numeric"
-            }, "month") : this.num(dt.month, 2);
-          case "LLL":
-            return month("short", true);
-          case "LLLL":
-            return month("long", true);
-          case "LLLLL":
-            return month("narrow", true);
-          case "M":
-            return useDateTimeFormatter ? string({
-              month: "numeric"
-            }, "month") : this.num(dt.month);
-          case "MM":
-            return useDateTimeFormatter ? string({
-              month: "2-digit"
-            }, "month") : this.num(dt.month, 2);
-          case "MMM":
-            return month("short", false);
-          case "MMMM":
-            return month("long", false);
-          case "MMMMM":
-            return month("narrow", false);
-          case "y":
-            return useDateTimeFormatter ? string({
-              year: "numeric"
-            }, "year") : this.num(dt.year);
-          case "yy":
-            return useDateTimeFormatter ? string({
-              year: "2-digit"
-            }, "year") : this.num(dt.year.toString().slice(-2), 2);
-          case "yyyy":
-            return useDateTimeFormatter ? string({
-              year: "numeric"
-            }, "year") : this.num(dt.year, 4);
-          case "yyyyyy":
-            return useDateTimeFormatter ? string({
-              year: "numeric"
-            }, "year") : this.num(dt.year, 6);
-          case "G":
-            return era("short");
-          case "GG":
-            return era("long");
-          case "GGGGG":
-            return era("narrow");
-          case "kk":
-            return this.num(dt.weekYear.toString().slice(-2), 2);
-          case "kkkk":
-            return this.num(dt.weekYear, 4);
-          case "W":
-            return this.num(dt.weekNumber);
-          case "WW":
-            return this.num(dt.weekNumber, 2);
-          case "n":
-            return this.num(dt.localWeekNumber);
-          case "nn":
-            return this.num(dt.localWeekNumber, 2);
-          case "ii":
-            return this.num(dt.localWeekYear.toString().slice(-2), 2);
-          case "iiii":
-            return this.num(dt.localWeekYear, 4);
-          case "o":
-            return this.num(dt.ordinal);
-          case "ooo":
-            return this.num(dt.ordinal, 3);
-          case "q":
-            return this.num(dt.quarter);
-          case "qq":
-            return this.num(dt.quarter, 2);
-          case "X":
-            return this.num(Math.floor(dt.ts / 1000));
-          case "x":
-            return this.num(dt.ts);
-          default:
-            return maybeMacro(token);
-        }
-      };
-      return stringifyTokens(Formatter.parseFormat(fmt), tokenToString);
-    }
-    formatDurationFromString(dur, fmt) {
-      const invertLargest = this.opts.signMode === "negativeLargestOnly" ? -1 : 1;
-      const tokenToField = (token) => {
-        switch (token[0]) {
-          case "S":
-            return "milliseconds";
-          case "s":
-            return "seconds";
-          case "m":
-            return "minutes";
-          case "h":
-            return "hours";
-          case "d":
-            return "days";
-          case "w":
-            return "weeks";
-          case "M":
-            return "months";
-          case "y":
-            return "years";
-          default:
-            return null;
-        }
-      }, tokenToString = (lildur, info) => (token) => {
-        const mapped = tokenToField(token);
-        if (mapped) {
-          const inversionFactor = info.isNegativeDuration && mapped !== info.largestUnit ? invertLargest : 1;
-          let signDisplay;
-          if (this.opts.signMode === "negativeLargestOnly" && mapped !== info.largestUnit) {
-            signDisplay = "never";
-          } else if (this.opts.signMode === "all") {
-            signDisplay = "always";
-          } else {
-            signDisplay = "auto";
-          }
-          return this.num(lildur.get(mapped) * inversionFactor, token.length, signDisplay);
-        } else {
-          return token;
-        }
-      }, tokens = Formatter.parseFormat(fmt), realTokens = tokens.reduce((found, {
-        literal,
-        val
-      }) => literal ? found : found.concat(val), []), collapsed = dur.shiftTo(...realTokens.map(tokenToField).filter((t3) => t3)), durationInfo = {
-        isNegativeDuration: collapsed < 0,
-        largestUnit: Object.keys(collapsed.values)[0]
-      };
-      return stringifyTokens(tokens, tokenToString(collapsed, durationInfo));
-    }
-  }
-  var ianaRegex = /[A-Za-z_+-]{1,256}(?::?\/[A-Za-z0-9_+-]{1,256}(?:\/[A-Za-z0-9_+-]{1,256})?)?/;
-  function combineRegexes(...regexes) {
-    const full = regexes.reduce((f, r2) => f + r2.source, "");
-    return RegExp(`^${full}$`);
-  }
-  function combineExtractors(...extractors) {
-    return (m2) => extractors.reduce(([mergedVals, mergedZone, cursor], ex) => {
-      const [val, zone, next] = ex(m2, cursor);
-      return [{
-        ...mergedVals,
-        ...val
-      }, zone || mergedZone, next];
-    }, [{}, null, 1]).slice(0, 2);
-  }
-  function parse3(s2, ...patterns) {
-    if (s2 == null) {
-      return [null, null];
-    }
-    for (const [regex2, extractor] of patterns) {
-      const m2 = regex2.exec(s2);
-      if (m2) {
-        return extractor(m2);
-      }
-    }
-    return [null, null];
-  }
-  function simpleParse(...keys) {
-    return (match2, cursor) => {
-      const ret = {};
-      let i2;
-      for (i2 = 0;i2 < keys.length; i2++) {
-        ret[keys[i2]] = parseInteger(match2[cursor + i2]);
-      }
-      return [ret, null, cursor + i2];
-    };
-  }
-  var offsetRegex = /(?:([Zz])|([+-]\d\d)(?::?(\d\d))?)/;
-  var isoExtendedZone = `(?:${offsetRegex.source}?(?:\\[(${ianaRegex.source})\\])?)?`;
-  var isoTimeBaseRegex = /(\d\d)(?::?(\d\d)(?::?(\d\d)(?:[.,](\d{1,30}))?)?)?/;
-  var isoTimeRegex = RegExp(`${isoTimeBaseRegex.source}${isoExtendedZone}`);
-  var isoTimeExtensionRegex = RegExp(`(?:[Tt]${isoTimeRegex.source})?`);
-  var isoYmdRegex = /([+-]\d{6}|\d{4})(?:-?(\d\d)(?:-?(\d\d))?)?/;
-  var isoWeekRegex = /(\d{4})-?W(\d\d)(?:-?(\d))?/;
-  var isoOrdinalRegex = /(\d{4})-?(\d{3})/;
-  var extractISOWeekData = simpleParse("weekYear", "weekNumber", "weekDay");
-  var extractISOOrdinalData = simpleParse("year", "ordinal");
-  var sqlYmdRegex = /(\d{4})-(\d\d)-(\d\d)/;
-  var sqlTimeRegex = RegExp(`${isoTimeBaseRegex.source} ?(?:${offsetRegex.source}|(${ianaRegex.source}))?`);
-  var sqlTimeExtensionRegex = RegExp(`(?: ${sqlTimeRegex.source})?`);
-  function int(match2, pos, fallback) {
-    const m2 = match2[pos];
-    return isUndefined(m2) ? fallback : parseInteger(m2);
-  }
-  function extractISOYmd(match2, cursor) {
-    const item = {
-      year: int(match2, cursor),
-      month: int(match2, cursor + 1, 1),
-      day: int(match2, cursor + 2, 1)
-    };
-    return [item, null, cursor + 3];
-  }
-  function extractISOTime(match2, cursor) {
-    const item = {
-      hours: int(match2, cursor, 0),
-      minutes: int(match2, cursor + 1, 0),
-      seconds: int(match2, cursor + 2, 0),
-      milliseconds: parseMillis(match2[cursor + 3])
-    };
-    return [item, null, cursor + 4];
-  }
-  function extractISOOffset(match2, cursor) {
-    const local = !match2[cursor] && !match2[cursor + 1], fullOffset = signedOffset(match2[cursor + 1], match2[cursor + 2]), zone = local ? null : FixedOffsetZone.instance(fullOffset);
-    return [{}, zone, cursor + 3];
-  }
-  function extractIANAZone(match2, cursor) {
-    const zone = match2[cursor] ? IANAZone.create(match2[cursor]) : null;
-    return [{}, zone, cursor + 1];
-  }
-  var isoTimeOnly = RegExp(`^T?${isoTimeBaseRegex.source}$`);
-  var isoDuration = /^-?P(?:(?:(-?\d{1,20}(?:\.\d{1,20})?)Y)?(?:(-?\d{1,20}(?:\.\d{1,20})?)M)?(?:(-?\d{1,20}(?:\.\d{1,20})?)W)?(?:(-?\d{1,20}(?:\.\d{1,20})?)D)?(?:T(?:(-?\d{1,20}(?:\.\d{1,20})?)H)?(?:(-?\d{1,20}(?:\.\d{1,20})?)M)?(?:(-?\d{1,20})(?:[.,](-?\d{1,20}))?S)?)?)$/;
-  function extractISODuration(match2) {
-    const [s2, yearStr, monthStr, weekStr, dayStr, hourStr, minuteStr, secondStr, millisecondsStr] = match2;
-    const hasNegativePrefix = s2[0] === "-";
-    const negativeSeconds = secondStr && secondStr[0] === "-";
-    const maybeNegate = (num, force = false) => num !== undefined && (force || num && hasNegativePrefix) ? -num : num;
-    return [{
-      years: maybeNegate(parseFloating(yearStr)),
-      months: maybeNegate(parseFloating(monthStr)),
-      weeks: maybeNegate(parseFloating(weekStr)),
-      days: maybeNegate(parseFloating(dayStr)),
-      hours: maybeNegate(parseFloating(hourStr)),
-      minutes: maybeNegate(parseFloating(minuteStr)),
-      seconds: maybeNegate(parseFloating(secondStr), secondStr === "-0"),
-      milliseconds: maybeNegate(parseMillis(millisecondsStr), negativeSeconds)
-    }];
-  }
-  var obsOffsets = {
-    GMT: 0,
-    EDT: -4 * 60,
-    EST: -5 * 60,
-    CDT: -5 * 60,
-    CST: -6 * 60,
-    MDT: -6 * 60,
-    MST: -7 * 60,
-    PDT: -7 * 60,
-    PST: -8 * 60
+    return result;
   };
-  function fromStrings(weekdayStr, yearStr, monthStr, dayStr, hourStr, minuteStr, secondStr) {
-    const result = {
-      year: yearStr.length === 2 ? untruncateYear(parseInteger(yearStr)) : parseInteger(yearStr),
-      month: monthsShort.indexOf(monthStr) + 1,
-      day: parseInteger(dayStr),
-      hour: parseInteger(hourStr),
-      minute: parseInteger(minuteStr)
-    };
-    if (secondStr)
-      result.second = parseInteger(secondStr);
-    if (weekdayStr) {
-      result.weekday = weekdayStr.length > 3 ? weekdaysLong.indexOf(weekdayStr) + 1 : weekdaysShort.indexOf(weekdayStr) + 1;
+  var parseComparator = (comp, options) => {
+    debug2("comp", comp, options);
+    comp = replaceCarets(comp, options);
+    debug2("caret", comp);
+    comp = replaceTildes(comp, options);
+    debug2("tildes", comp);
+    comp = replaceXRanges(comp, options);
+    debug2("xrange", comp);
+    comp = replaceStars(comp, options);
+    debug2("stars", comp);
+    return comp;
+  };
+  var isX = (id) => !id || id.toLowerCase() === "x" || id === "*";
+  var replaceTildes = (comp, options) => {
+    return comp.trim().split(/\s+/).map((c) => replaceTilde(c, options)).join(" ");
+  };
+  var replaceTilde = (comp, options) => {
+    const r2 = options.loose ? re[t2.TILDELOOSE] : re[t2.TILDE];
+    return comp.replace(r2, (_, M, m2, p, pr) => {
+      debug2("tilde", comp, _, M, m2, p, pr);
+      let ret;
+      if (isX(M)) {
+        ret = "";
+      } else if (isX(m2)) {
+        ret = `>=${M}.0.0 <${+M + 1}.0.0-0`;
+      } else if (isX(p)) {
+        ret = `>=${M}.${m2}.0 <${M}.${+m2 + 1}.0-0`;
+      } else if (pr) {
+        debug2("replaceTilde pr", pr);
+        ret = `>=${M}.${m2}.${p}-${pr} <${M}.${+m2 + 1}.0-0`;
+      } else {
+        ret = `>=${M}.${m2}.${p} <${M}.${+m2 + 1}.0-0`;
+      }
+      debug2("tilde return", ret);
+      return ret;
+    });
+  };
+  var replaceCarets = (comp, options) => {
+    return comp.trim().split(/\s+/).map((c) => replaceCaret(c, options)).join(" ");
+  };
+  var replaceCaret = (comp, options) => {
+    debug2("caret", comp, options);
+    const r2 = options.loose ? re[t2.CARETLOOSE] : re[t2.CARET];
+    const z = options.includePrerelease ? "-0" : "";
+    return comp.replace(r2, (_, M, m2, p, pr) => {
+      debug2("caret", comp, _, M, m2, p, pr);
+      let ret;
+      if (isX(M)) {
+        ret = "";
+      } else if (isX(m2)) {
+        ret = `>=${M}.0.0${z} <${+M + 1}.0.0-0`;
+      } else if (isX(p)) {
+        if (M === "0") {
+          ret = `>=${M}.${m2}.0${z} <${M}.${+m2 + 1}.0-0`;
+        } else {
+          ret = `>=${M}.${m2}.0${z} <${+M + 1}.0.0-0`;
+        }
+      } else if (pr) {
+        debug2("replaceCaret pr", pr);
+        if (M === "0") {
+          if (m2 === "0") {
+            ret = `>=${M}.${m2}.${p}-${pr} <${M}.${m2}.${+p + 1}-0`;
+          } else {
+            ret = `>=${M}.${m2}.${p}-${pr} <${M}.${+m2 + 1}.0-0`;
+          }
+        } else {
+          ret = `>=${M}.${m2}.${p}-${pr} <${+M + 1}.0.0-0`;
+        }
+      } else {
+        debug2("no pr");
+        if (M === "0") {
+          if (m2 === "0") {
+            ret = `>=${M}.${m2}.${p}${z} <${M}.${m2}.${+p + 1}-0`;
+          } else {
+            ret = `>=${M}.${m2}.${p}${z} <${M}.${+m2 + 1}.0-0`;
+          }
+        } else {
+          ret = `>=${M}.${m2}.${p} <${+M + 1}.0.0-0`;
+        }
+      }
+      debug2("caret return", ret);
+      return ret;
+    });
+  };
+  var replaceXRanges = (comp, options) => {
+    debug2("replaceXRanges", comp, options);
+    return comp.split(/\s+/).map((c) => replaceXRange(c, options)).join(" ");
+  };
+  var replaceXRange = (comp, options) => {
+    comp = comp.trim();
+    const r2 = options.loose ? re[t2.XRANGELOOSE] : re[t2.XRANGE];
+    return comp.replace(r2, (ret, gtlt, M, m2, p, pr) => {
+      debug2("xRange", comp, ret, gtlt, M, m2, p, pr);
+      const xM = isX(M);
+      const xm = xM || isX(m2);
+      const xp = xm || isX(p);
+      const anyX = xp;
+      if (gtlt === "=" && anyX) {
+        gtlt = "";
+      }
+      pr = options.includePrerelease ? "-0" : "";
+      if (xM) {
+        if (gtlt === ">" || gtlt === "<") {
+          ret = "<0.0.0-0";
+        } else {
+          ret = "*";
+        }
+      } else if (gtlt && anyX) {
+        if (xm) {
+          m2 = 0;
+        }
+        p = 0;
+        if (gtlt === ">") {
+          gtlt = ">=";
+          if (xm) {
+            M = +M + 1;
+            m2 = 0;
+            p = 0;
+          } else {
+            m2 = +m2 + 1;
+            p = 0;
+          }
+        } else if (gtlt === "<=") {
+          gtlt = "<";
+          if (xm) {
+            M = +M + 1;
+          } else {
+            m2 = +m2 + 1;
+          }
+        }
+        if (gtlt === "<") {
+          pr = "-0";
+        }
+        ret = `${gtlt + M}.${m2}.${p}${pr}`;
+      } else if (xm) {
+        ret = `>=${M}.0.0${pr} <${+M + 1}.0.0-0`;
+      } else if (xp) {
+        ret = `>=${M}.${m2}.0${pr} <${M}.${+m2 + 1}.0-0`;
+      }
+      debug2("xRange return", ret);
+      return ret;
+    });
+  };
+  var replaceStars = (comp, options) => {
+    debug2("replaceStars", comp, options);
+    return comp.trim().replace(re[t2.STAR], "");
+  };
+  var replaceGTE0 = (comp, options) => {
+    debug2("replaceGTE0", comp, options);
+    return comp.trim().replace(re[options.includePrerelease ? t2.GTE0PRE : t2.GTE0], "");
+  };
+  var hyphenReplace = (incPr) => ($0, from, fM, fm, fp, fpr, fb, to, tM, tm, tp, tpr) => {
+    if (isX(fM)) {
+      from = "";
+    } else if (isX(fm)) {
+      from = `>=${fM}.0.0${incPr ? "-0" : ""}`;
+    } else if (isX(fp)) {
+      from = `>=${fM}.${fm}.0${incPr ? "-0" : ""}`;
+    } else if (fpr) {
+      from = `>=${from}`;
+    } else {
+      from = `>=${from}${incPr ? "-0" : ""}`;
+    }
+    if (isX(tM)) {
+      to = "";
+    } else if (isX(tm)) {
+      to = `<${+tM + 1}.0.0-0`;
+    } else if (isX(tp)) {
+      to = `<${tM}.${+tm + 1}.0-0`;
+    } else if (tpr) {
+      to = `<=${tM}.${tm}.${tp}-${tpr}`;
+    } else if (incPr) {
+      to = `<${tM}.${tm}.${+tp + 1}-0`;
+    } else {
+      to = `<=${to}`;
+    }
+    return `${from} ${to}`.trim();
+  };
+  var testSet = (set2, version, options) => {
+    for (let i2 = 0;i2 < set2.length; i2++) {
+      if (!set2[i2].test(version)) {
+        return false;
+      }
+    }
+    if (version.prerelease.length && !options.includePrerelease) {
+      for (let i2 = 0;i2 < set2.length; i2++) {
+        debug2(set2[i2].semver);
+        if (set2[i2].semver === Comparator.ANY) {
+          continue;
+        }
+        if (set2[i2].semver.prerelease.length > 0) {
+          const allowed = set2[i2].semver;
+          if (allowed.major === version.major && allowed.minor === version.minor && allowed.patch === version.patch) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+    return true;
+  };
+});
+
+// node_modules/semver/classes/comparator.js
+var require_comparator = __commonJS((exports, module) => {
+  var ANY = Symbol("SemVer ANY");
+
+  class Comparator {
+    static get ANY() {
+      return ANY;
+    }
+    constructor(comp, options) {
+      options = parseOptions(options);
+      if (comp instanceof Comparator) {
+        if (comp.loose === !!options.loose) {
+          return comp;
+        } else {
+          comp = comp.value;
+        }
+      }
+      comp = comp.trim().split(/\s+/).join(" ");
+      debug2("comparator", comp, options);
+      this.options = options;
+      this.loose = !!options.loose;
+      this.parse(comp);
+      if (this.semver === ANY) {
+        this.value = "";
+      } else {
+        this.value = this.operator + this.semver.version;
+      }
+      debug2("comp", this);
+    }
+    parse(comp) {
+      const r2 = this.options.loose ? re[t2.COMPARATORLOOSE] : re[t2.COMPARATOR];
+      const m2 = comp.match(r2);
+      if (!m2) {
+        throw new TypeError(`Invalid comparator: ${comp}`);
+      }
+      this.operator = m2[1] !== undefined ? m2[1] : "";
+      if (this.operator === "=") {
+        this.operator = "";
+      }
+      if (!m2[2]) {
+        this.semver = ANY;
+      } else {
+        this.semver = new SemVer(m2[2], this.options.loose);
+      }
+    }
+    toString() {
+      return this.value;
+    }
+    test(version) {
+      debug2("Comparator.test", version, this.options.loose);
+      if (this.semver === ANY || version === ANY) {
+        return true;
+      }
+      if (typeof version === "string") {
+        try {
+          version = new SemVer(version, this.options);
+        } catch (er) {
+          return false;
+        }
+      }
+      return cmp(version, this.operator, this.semver, this.options);
+    }
+    intersects(comp, options) {
+      if (!(comp instanceof Comparator)) {
+        throw new TypeError("a Comparator is required");
+      }
+      if (this.operator === "") {
+        if (this.value === "") {
+          return true;
+        }
+        return new Range(comp.value, options).test(this.value);
+      } else if (comp.operator === "") {
+        if (comp.value === "") {
+          return true;
+        }
+        return new Range(this.value, options).test(comp.semver);
+      }
+      options = parseOptions(options);
+      if (options.includePrerelease && (this.value === "<0.0.0-0" || comp.value === "<0.0.0-0")) {
+        return false;
+      }
+      if (!options.includePrerelease && (this.value.startsWith("<0.0.0") || comp.value.startsWith("<0.0.0"))) {
+        return false;
+      }
+      if (this.operator.startsWith(">") && comp.operator.startsWith(">")) {
+        return true;
+      }
+      if (this.operator.startsWith("<") && comp.operator.startsWith("<")) {
+        return true;
+      }
+      if (this.semver.version === comp.semver.version && this.operator.includes("=") && comp.operator.includes("=")) {
+        return true;
+      }
+      if (cmp(this.semver, "<", comp.semver, options) && this.operator.startsWith(">") && comp.operator.startsWith("<")) {
+        return true;
+      }
+      if (cmp(this.semver, ">", comp.semver, options) && this.operator.startsWith("<") && comp.operator.startsWith(">")) {
+        return true;
+      }
+      return false;
+    }
+  }
+  module.exports = Comparator;
+  var parseOptions = require_parse_options();
+  var { safeRe: re, t: t2 } = require_re();
+  var cmp = require_cmp();
+  var debug2 = require_debug();
+  var SemVer = require_semver();
+  var Range = require_range();
+});
+
+// node_modules/semver/functions/satisfies.js
+var require_satisfies = __commonJS((exports, module) => {
+  var Range = require_range();
+  var satisfies = (version, range, options) => {
+    try {
+      range = new Range(range, options);
+    } catch (er) {
+      return false;
+    }
+    return range.test(version);
+  };
+  module.exports = satisfies;
+});
+
+// node_modules/semver/ranges/to-comparators.js
+var require_to_comparators = __commonJS((exports, module) => {
+  var Range = require_range();
+  var toComparators = (range, options) => new Range(range, options).set.map((comp) => comp.map((c) => c.value).join(" ").trim().split(" "));
+  module.exports = toComparators;
+});
+
+// node_modules/semver/ranges/max-satisfying.js
+var require_max_satisfying = __commonJS((exports, module) => {
+  var SemVer = require_semver();
+  var Range = require_range();
+  var maxSatisfying = (versions, range, options) => {
+    let max2 = null;
+    let maxSV = null;
+    let rangeObj = null;
+    try {
+      rangeObj = new Range(range, options);
+    } catch (er) {
+      return null;
+    }
+    versions.forEach((v) => {
+      if (rangeObj.test(v)) {
+        if (!max2 || maxSV.compare(v) === -1) {
+          max2 = v;
+          maxSV = new SemVer(max2, options);
+        }
+      }
+    });
+    return max2;
+  };
+  module.exports = maxSatisfying;
+});
+
+// node_modules/semver/ranges/min-satisfying.js
+var require_min_satisfying = __commonJS((exports, module) => {
+  var SemVer = require_semver();
+  var Range = require_range();
+  var minSatisfying = (versions, range, options) => {
+    let min = null;
+    let minSV = null;
+    let rangeObj = null;
+    try {
+      rangeObj = new Range(range, options);
+    } catch (er) {
+      return null;
+    }
+    versions.forEach((v) => {
+      if (rangeObj.test(v)) {
+        if (!min || minSV.compare(v) === 1) {
+          min = v;
+          minSV = new SemVer(min, options);
+        }
+      }
+    });
+    return min;
+  };
+  module.exports = minSatisfying;
+});
+
+// node_modules/semver/ranges/min-version.js
+var require_min_version = __commonJS((exports, module) => {
+  var SemVer = require_semver();
+  var Range = require_range();
+  var gt = require_gt();
+  var minVersion = (range, loose) => {
+    range = new Range(range, loose);
+    let minver = new SemVer("0.0.0");
+    if (range.test(minver)) {
+      return minver;
+    }
+    minver = new SemVer("0.0.0-0");
+    if (range.test(minver)) {
+      return minver;
+    }
+    minver = null;
+    for (let i2 = 0;i2 < range.set.length; ++i2) {
+      const comparators = range.set[i2];
+      let setMin = null;
+      comparators.forEach((comparator) => {
+        const compver = new SemVer(comparator.semver.version);
+        switch (comparator.operator) {
+          case ">":
+            if (compver.prerelease.length === 0) {
+              compver.patch++;
+            } else {
+              compver.prerelease.push(0);
+            }
+            compver.raw = compver.format();
+          case "":
+          case ">=":
+            if (!setMin || gt(compver, setMin)) {
+              setMin = compver;
+            }
+            break;
+          case "<":
+          case "<=":
+            break;
+          default:
+            throw new Error(`Unexpected operation: ${comparator.operator}`);
+        }
+      });
+      if (setMin && (!minver || gt(minver, setMin))) {
+        minver = setMin;
+      }
+    }
+    if (minver && range.test(minver)) {
+      return minver;
+    }
+    return null;
+  };
+  module.exports = minVersion;
+});
+
+// node_modules/semver/ranges/valid.js
+var require_valid2 = __commonJS((exports, module) => {
+  var Range = require_range();
+  var validRange = (range, options) => {
+    try {
+      return new Range(range, options).range || "*";
+    } catch (er) {
+      return null;
+    }
+  };
+  module.exports = validRange;
+});
+
+// node_modules/semver/ranges/outside.js
+var require_outside = __commonJS((exports, module) => {
+  var SemVer = require_semver();
+  var Comparator = require_comparator();
+  var { ANY } = Comparator;
+  var Range = require_range();
+  var satisfies = require_satisfies();
+  var gt = require_gt();
+  var lt = require_lt();
+  var lte = require_lte();
+  var gte = require_gte();
+  var outside = (version, range, hilo, options) => {
+    version = new SemVer(version, options);
+    range = new Range(range, options);
+    let gtfn, ltefn, ltfn, comp, ecomp;
+    switch (hilo) {
+      case ">":
+        gtfn = gt;
+        ltefn = lte;
+        ltfn = lt;
+        comp = ">";
+        ecomp = ">=";
+        break;
+      case "<":
+        gtfn = lt;
+        ltefn = gte;
+        ltfn = gt;
+        comp = "<";
+        ecomp = "<=";
+        break;
+      default:
+        throw new TypeError('Must provide a hilo val of "<" or ">"');
+    }
+    if (satisfies(version, range, options)) {
+      return false;
+    }
+    for (let i2 = 0;i2 < range.set.length; ++i2) {
+      const comparators = range.set[i2];
+      let high = null;
+      let low = null;
+      comparators.forEach((comparator) => {
+        if (comparator.semver === ANY) {
+          comparator = new Comparator(">=0.0.0");
+        }
+        high = high || comparator;
+        low = low || comparator;
+        if (gtfn(comparator.semver, high.semver, options)) {
+          high = comparator;
+        } else if (ltfn(comparator.semver, low.semver, options)) {
+          low = comparator;
+        }
+      });
+      if (high.operator === comp || high.operator === ecomp) {
+        return false;
+      }
+      if ((!low.operator || low.operator === comp) && ltefn(version, low.semver)) {
+        return false;
+      } else if (low.operator === ecomp && ltfn(version, low.semver)) {
+        return false;
+      }
+    }
+    return true;
+  };
+  module.exports = outside;
+});
+
+// node_modules/semver/ranges/gtr.js
+var require_gtr = __commonJS((exports, module) => {
+  var outside = require_outside();
+  var gtr = (version, range, options) => outside(version, range, ">", options);
+  module.exports = gtr;
+});
+
+// node_modules/semver/ranges/ltr.js
+var require_ltr = __commonJS((exports, module) => {
+  var outside = require_outside();
+  var ltr = (version, range, options) => outside(version, range, "<", options);
+  module.exports = ltr;
+});
+
+// node_modules/semver/ranges/intersects.js
+var require_intersects = __commonJS((exports, module) => {
+  var Range = require_range();
+  var intersects = (r1, r2, options) => {
+    r1 = new Range(r1, options);
+    r2 = new Range(r2, options);
+    return r1.intersects(r2, options);
+  };
+  module.exports = intersects;
+});
+
+// node_modules/semver/ranges/simplify.js
+var require_simplify = __commonJS((exports, module) => {
+  var satisfies = require_satisfies();
+  var compare = require_compare();
+  module.exports = (versions, range, options) => {
+    const set2 = [];
+    let first = null;
+    let prev = null;
+    const v = versions.sort((a12, b) => compare(a12, b, options));
+    for (const version of v) {
+      const included = satisfies(version, range, options);
+      if (included) {
+        prev = version;
+        if (!first) {
+          first = version;
+        }
+      } else {
+        if (prev) {
+          set2.push([first, prev]);
+        }
+        prev = null;
+        first = null;
+      }
+    }
+    if (first) {
+      set2.push([first, null]);
+    }
+    const ranges = [];
+    for (const [min, max2] of set2) {
+      if (min === max2) {
+        ranges.push(min);
+      } else if (!max2 && min === v[0]) {
+        ranges.push("*");
+      } else if (!max2) {
+        ranges.push(`>=${min}`);
+      } else if (min === v[0]) {
+        ranges.push(`<=${max2}`);
+      } else {
+        ranges.push(`${min} - ${max2}`);
+      }
+    }
+    const simplified = ranges.join(" || ");
+    const original = typeof range.raw === "string" ? range.raw : String(range);
+    return simplified.length < original.length ? simplified : range;
+  };
+});
+
+// node_modules/semver/ranges/subset.js
+var require_subset = __commonJS((exports, module) => {
+  var Range = require_range();
+  var Comparator = require_comparator();
+  var { ANY } = Comparator;
+  var satisfies = require_satisfies();
+  var compare = require_compare();
+  var subset = (sub, dom, options = {}) => {
+    if (sub === dom) {
+      return true;
+    }
+    sub = new Range(sub, options);
+    dom = new Range(dom, options);
+    let sawNonNull = false;
+    OUTER:
+      for (const simpleSub of sub.set) {
+        for (const simpleDom of dom.set) {
+          const isSub = simpleSubset(simpleSub, simpleDom, options);
+          sawNonNull = sawNonNull || isSub !== null;
+          if (isSub) {
+            continue OUTER;
+          }
+        }
+        if (sawNonNull) {
+          return false;
+        }
+      }
+    return true;
+  };
+  var minimumVersionWithPreRelease = [new Comparator(">=0.0.0-0")];
+  var minimumVersion = [new Comparator(">=0.0.0")];
+  var simpleSubset = (sub, dom, options) => {
+    if (sub === dom) {
+      return true;
+    }
+    if (sub.length === 1 && sub[0].semver === ANY) {
+      if (dom.length === 1 && dom[0].semver === ANY) {
+        return true;
+      } else if (options.includePrerelease) {
+        sub = minimumVersionWithPreRelease;
+      } else {
+        sub = minimumVersion;
+      }
+    }
+    if (dom.length === 1 && dom[0].semver === ANY) {
+      if (options.includePrerelease) {
+        return true;
+      } else {
+        dom = minimumVersion;
+      }
+    }
+    const eqSet = new Set;
+    let gt, lt;
+    for (const c of sub) {
+      if (c.operator === ">" || c.operator === ">=") {
+        gt = higherGT(gt, c, options);
+      } else if (c.operator === "<" || c.operator === "<=") {
+        lt = lowerLT(lt, c, options);
+      } else {
+        eqSet.add(c.semver);
+      }
+    }
+    if (eqSet.size > 1) {
+      return null;
+    }
+    let gtltComp;
+    if (gt && lt) {
+      gtltComp = compare(gt.semver, lt.semver, options);
+      if (gtltComp > 0) {
+        return null;
+      } else if (gtltComp === 0 && (gt.operator !== ">=" || lt.operator !== "<=")) {
+        return null;
+      }
+    }
+    for (const eq of eqSet) {
+      if (gt && !satisfies(eq, String(gt), options)) {
+        return null;
+      }
+      if (lt && !satisfies(eq, String(lt), options)) {
+        return null;
+      }
+      for (const c of dom) {
+        if (!satisfies(eq, String(c), options)) {
+          return false;
+        }
+      }
+      return true;
+    }
+    let higher, lower;
+    let hasDomLT, hasDomGT;
+    let needDomLTPre = lt && !options.includePrerelease && lt.semver.prerelease.length ? lt.semver : false;
+    let needDomGTPre = gt && !options.includePrerelease && gt.semver.prerelease.length ? gt.semver : false;
+    if (needDomLTPre && needDomLTPre.prerelease.length === 1 && lt.operator === "<" && needDomLTPre.prerelease[0] === 0) {
+      needDomLTPre = false;
+    }
+    for (const c of dom) {
+      hasDomGT = hasDomGT || c.operator === ">" || c.operator === ">=";
+      hasDomLT = hasDomLT || c.operator === "<" || c.operator === "<=";
+      if (gt) {
+        if (needDomGTPre) {
+          if (c.semver.prerelease && c.semver.prerelease.length && c.semver.major === needDomGTPre.major && c.semver.minor === needDomGTPre.minor && c.semver.patch === needDomGTPre.patch) {
+            needDomGTPre = false;
+          }
+        }
+        if (c.operator === ">" || c.operator === ">=") {
+          higher = higherGT(gt, c, options);
+          if (higher === c && higher !== gt) {
+            return false;
+          }
+        } else if (gt.operator === ">=" && !satisfies(gt.semver, String(c), options)) {
+          return false;
+        }
+      }
+      if (lt) {
+        if (needDomLTPre) {
+          if (c.semver.prerelease && c.semver.prerelease.length && c.semver.major === needDomLTPre.major && c.semver.minor === needDomLTPre.minor && c.semver.patch === needDomLTPre.patch) {
+            needDomLTPre = false;
+          }
+        }
+        if (c.operator === "<" || c.operator === "<=") {
+          lower = lowerLT(lt, c, options);
+          if (lower === c && lower !== lt) {
+            return false;
+          }
+        } else if (lt.operator === "<=" && !satisfies(lt.semver, String(c), options)) {
+          return false;
+        }
+      }
+      if (!c.operator && (lt || gt) && gtltComp !== 0) {
+        return false;
+      }
+    }
+    if (gt && hasDomLT && !lt && gtltComp !== 0) {
+      return false;
+    }
+    if (lt && hasDomGT && !gt && gtltComp !== 0) {
+      return false;
+    }
+    if (needDomGTPre || needDomLTPre) {
+      return false;
+    }
+    return true;
+  };
+  var higherGT = (a12, b, options) => {
+    if (!a12) {
+      return b;
+    }
+    const comp = compare(a12.semver, b.semver, options);
+    return comp > 0 ? a12 : comp < 0 ? b : b.operator === ">" && a12.operator === ">=" ? b : a12;
+  };
+  var lowerLT = (a12, b, options) => {
+    if (!a12) {
+      return b;
+    }
+    const comp = compare(a12.semver, b.semver, options);
+    return comp < 0 ? a12 : comp > 0 ? b : b.operator === "<" && a12.operator === "<=" ? b : a12;
+  };
+  module.exports = subset;
+});
+
+// node_modules/semver/index.js
+var require_semver2 = __commonJS((exports, module) => {
+  var internalRe = require_re();
+  var constants = require_constants();
+  var SemVer = require_semver();
+  var identifiers = require_identifiers();
+  var parse3 = require_parse();
+  var valid = require_valid();
+  var clean2 = require_clean();
+  var inc = require_inc();
+  var diff = require_diff();
+  var major = require_major();
+  var minor = require_minor();
+  var patch = require_patch();
+  var prerelease = require_prerelease();
+  var compare = require_compare();
+  var rcompare = require_rcompare();
+  var compareLoose = require_compare_loose();
+  var compareBuild = require_compare_build();
+  var sort = require_sort();
+  var rsort = require_rsort();
+  var gt = require_gt();
+  var lt = require_lt();
+  var eq = require_eq();
+  var neq = require_neq();
+  var gte = require_gte();
+  var lte = require_lte();
+  var cmp = require_cmp();
+  var coerce2 = require_coerce();
+  var Comparator = require_comparator();
+  var Range = require_range();
+  var satisfies = require_satisfies();
+  var toComparators = require_to_comparators();
+  var maxSatisfying = require_max_satisfying();
+  var minSatisfying = require_min_satisfying();
+  var minVersion = require_min_version();
+  var validRange = require_valid2();
+  var outside = require_outside();
+  var gtr = require_gtr();
+  var ltr = require_ltr();
+  var intersects = require_intersects();
+  var simplifyRange = require_simplify();
+  var subset = require_subset();
+  module.exports = {
+    parse: parse3,
+    valid,
+    clean: clean2,
+    inc,
+    diff,
+    major,
+    minor,
+    patch,
+    prerelease,
+    compare,
+    rcompare,
+    compareLoose,
+    compareBuild,
+    sort,
+    rsort,
+    gt,
+    lt,
+    eq,
+    neq,
+    gte,
+    lte,
+    cmp,
+    coerce: coerce2,
+    Comparator,
+    Range,
+    satisfies,
+    toComparators,
+    maxSatisfying,
+    minSatisfying,
+    minVersion,
+    validRange,
+    outside,
+    gtr,
+    ltr,
+    intersects,
+    simplifyRange,
+    subset,
+    SemVer,
+    re: internalRe.re,
+    src: internalRe.src,
+    tokens: internalRe.t,
+    SEMVER_SPEC_VERSION: constants.SEMVER_SPEC_VERSION,
+    RELEASE_TYPES: constants.RELEASE_TYPES,
+    compareIdentifiers: identifiers.compareIdentifiers,
+    rcompareIdentifiers: identifiers.rcompareIdentifiers
+  };
+});
+
+// node_modules/jsonwebtoken/lib/asymmetricKeyDetailsSupported.js
+var require_asymmetricKeyDetailsSupported = __commonJS((exports, module) => {
+  var semver = require_semver2();
+  module.exports = semver.satisfies(process.version, ">=15.7.0");
+});
+
+// node_modules/jsonwebtoken/lib/rsaPssKeyDetailsSupported.js
+var require_rsaPssKeyDetailsSupported = __commonJS((exports, module) => {
+  var semver = require_semver2();
+  module.exports = semver.satisfies(process.version, ">=16.9.0");
+});
+
+// node_modules/jsonwebtoken/lib/validateAsymmetricKey.js
+var require_validateAsymmetricKey = __commonJS((exports, module) => {
+  var ASYMMETRIC_KEY_DETAILS_SUPPORTED = require_asymmetricKeyDetailsSupported();
+  var RSA_PSS_KEY_DETAILS_SUPPORTED = require_rsaPssKeyDetailsSupported();
+  var allowedAlgorithmsForKeys = {
+    ec: ["ES256", "ES384", "ES512"],
+    rsa: ["RS256", "PS256", "RS384", "PS384", "RS512", "PS512"],
+    "rsa-pss": ["PS256", "PS384", "PS512"]
+  };
+  var allowedCurves = {
+    ES256: "prime256v1",
+    ES384: "secp384r1",
+    ES512: "secp521r1"
+  };
+  module.exports = function(algorithm, key) {
+    if (!algorithm || !key)
+      return;
+    const keyType = key.asymmetricKeyType;
+    if (!keyType)
+      return;
+    const allowedAlgorithms = allowedAlgorithmsForKeys[keyType];
+    if (!allowedAlgorithms) {
+      throw new Error(`Unknown key type "${keyType}".`);
+    }
+    if (!allowedAlgorithms.includes(algorithm)) {
+      throw new Error(`"alg" parameter for "${keyType}" key type must be one of: ${allowedAlgorithms.join(", ")}.`);
+    }
+    if (ASYMMETRIC_KEY_DETAILS_SUPPORTED) {
+      switch (keyType) {
+        case "ec":
+          const keyCurve = key.asymmetricKeyDetails.namedCurve;
+          const allowedCurve = allowedCurves[algorithm];
+          if (keyCurve !== allowedCurve) {
+            throw new Error(`"alg" parameter "${algorithm}" requires curve "${allowedCurve}".`);
+          }
+          break;
+        case "rsa-pss":
+          if (RSA_PSS_KEY_DETAILS_SUPPORTED) {
+            const length = parseInt(algorithm.slice(-3), 10);
+            const { hashAlgorithm, mgf1HashAlgorithm, saltLength } = key.asymmetricKeyDetails;
+            if (hashAlgorithm !== `sha${length}` || mgf1HashAlgorithm !== hashAlgorithm) {
+              throw new Error(`Invalid key for this operation, its RSA-PSS parameters do not meet the requirements of "alg" ${algorithm}.`);
+            }
+            if (saltLength !== undefined && saltLength > length >> 3) {
+              throw new Error(`Invalid key for this operation, its RSA-PSS parameter saltLength does not meet the requirements of "alg" ${algorithm}.`);
+            }
+          }
+          break;
+      }
+    }
+  };
+});
+
+// node_modules/jsonwebtoken/lib/psSupported.js
+var require_psSupported = __commonJS((exports, module) => {
+  var semver = require_semver2();
+  module.exports = semver.satisfies(process.version, "^6.12.0 || >=8.0.0");
+});
+
+// node_modules/jsonwebtoken/verify.js
+var require_verify = __commonJS((exports, module) => {
+  var JsonWebTokenError = require_JsonWebTokenError();
+  var NotBeforeError = require_NotBeforeError();
+  var TokenExpiredError = require_TokenExpiredError();
+  var decode4 = require_decode();
+  var timespan = require_timespan();
+  var validateAsymmetricKey = require_validateAsymmetricKey();
+  var PS_SUPPORTED = require_psSupported();
+  var jws = require_jws();
+  var { KeyObject, createSecretKey, createPublicKey } = __require("crypto");
+  var PUB_KEY_ALGS = ["RS256", "RS384", "RS512"];
+  var EC_KEY_ALGS = ["ES256", "ES384", "ES512"];
+  var RSA_KEY_ALGS = ["RS256", "RS384", "RS512"];
+  var HS_ALGS = ["HS256", "HS384", "HS512"];
+  if (PS_SUPPORTED) {
+    PUB_KEY_ALGS.splice(PUB_KEY_ALGS.length, 0, "PS256", "PS384", "PS512");
+    RSA_KEY_ALGS.splice(RSA_KEY_ALGS.length, 0, "PS256", "PS384", "PS512");
+  }
+  module.exports = function(jwtString, secretOrPublicKey, options, callback) {
+    if (typeof options === "function" && !callback) {
+      callback = options;
+      options = {};
+    }
+    if (!options) {
+      options = {};
+    }
+    options = Object.assign({}, options);
+    let done;
+    if (callback) {
+      done = callback;
+    } else {
+      done = function(err2, data) {
+        if (err2)
+          throw err2;
+        return data;
+      };
+    }
+    if (options.clockTimestamp && typeof options.clockTimestamp !== "number") {
+      return done(new JsonWebTokenError("clockTimestamp must be a number"));
+    }
+    if (options.nonce !== undefined && (typeof options.nonce !== "string" || options.nonce.trim() === "")) {
+      return done(new JsonWebTokenError("nonce must be a non-empty string"));
+    }
+    if (options.allowInvalidAsymmetricKeyTypes !== undefined && typeof options.allowInvalidAsymmetricKeyTypes !== "boolean") {
+      return done(new JsonWebTokenError("allowInvalidAsymmetricKeyTypes must be a boolean"));
+    }
+    const clockTimestamp = options.clockTimestamp || Math.floor(Date.now() / 1000);
+    if (!jwtString) {
+      return done(new JsonWebTokenError("jwt must be provided"));
+    }
+    if (typeof jwtString !== "string") {
+      return done(new JsonWebTokenError("jwt must be a string"));
+    }
+    const parts = jwtString.split(".");
+    if (parts.length !== 3) {
+      return done(new JsonWebTokenError("jwt malformed"));
+    }
+    let decodedToken;
+    try {
+      decodedToken = decode4(jwtString, { complete: true });
+    } catch (err2) {
+      return done(err2);
+    }
+    if (!decodedToken) {
+      return done(new JsonWebTokenError("invalid token"));
+    }
+    const header = decodedToken.header;
+    let getSecret;
+    if (typeof secretOrPublicKey === "function") {
+      if (!callback) {
+        return done(new JsonWebTokenError("verify must be called asynchronous if secret or public key is provided as a callback"));
+      }
+      getSecret = secretOrPublicKey;
+    } else {
+      getSecret = function(header2, secretCallback) {
+        return secretCallback(null, secretOrPublicKey);
+      };
+    }
+    return getSecret(header, function(err2, secretOrPublicKey2) {
+      if (err2) {
+        return done(new JsonWebTokenError("error in secret or public key callback: " + err2.message));
+      }
+      const hasSignature = parts[2].trim() !== "";
+      if (!hasSignature && secretOrPublicKey2) {
+        return done(new JsonWebTokenError("jwt signature is required"));
+      }
+      if (hasSignature && !secretOrPublicKey2) {
+        return done(new JsonWebTokenError("secret or public key must be provided"));
+      }
+      if (!hasSignature && !options.algorithms) {
+        return done(new JsonWebTokenError('please specify "none" in "algorithms" to verify unsigned tokens'));
+      }
+      if (secretOrPublicKey2 != null && !(secretOrPublicKey2 instanceof KeyObject)) {
+        try {
+          secretOrPublicKey2 = createPublicKey(secretOrPublicKey2);
+        } catch (_) {
+          try {
+            secretOrPublicKey2 = createSecretKey(typeof secretOrPublicKey2 === "string" ? Buffer.from(secretOrPublicKey2) : secretOrPublicKey2);
+          } catch (_2) {
+            return done(new JsonWebTokenError("secretOrPublicKey is not valid key material"));
+          }
+        }
+      }
+      if (!options.algorithms) {
+        if (secretOrPublicKey2.type === "secret") {
+          options.algorithms = HS_ALGS;
+        } else if (["rsa", "rsa-pss"].includes(secretOrPublicKey2.asymmetricKeyType)) {
+          options.algorithms = RSA_KEY_ALGS;
+        } else if (secretOrPublicKey2.asymmetricKeyType === "ec") {
+          options.algorithms = EC_KEY_ALGS;
+        } else {
+          options.algorithms = PUB_KEY_ALGS;
+        }
+      }
+      if (options.algorithms.indexOf(decodedToken.header.alg) === -1) {
+        return done(new JsonWebTokenError("invalid algorithm"));
+      }
+      if (header.alg.startsWith("HS") && secretOrPublicKey2.type !== "secret") {
+        return done(new JsonWebTokenError(`secretOrPublicKey must be a symmetric key when using ${header.alg}`));
+      } else if (/^(?:RS|PS|ES)/.test(header.alg) && secretOrPublicKey2.type !== "public") {
+        return done(new JsonWebTokenError(`secretOrPublicKey must be an asymmetric key when using ${header.alg}`));
+      }
+      if (!options.allowInvalidAsymmetricKeyTypes) {
+        try {
+          validateAsymmetricKey(header.alg, secretOrPublicKey2);
+        } catch (e) {
+          return done(e);
+        }
+      }
+      let valid;
+      try {
+        valid = jws.verify(jwtString, decodedToken.header.alg, secretOrPublicKey2);
+      } catch (e) {
+        return done(e);
+      }
+      if (!valid) {
+        return done(new JsonWebTokenError("invalid signature"));
+      }
+      const payload = decodedToken.payload;
+      if (typeof payload.nbf !== "undefined" && !options.ignoreNotBefore) {
+        if (typeof payload.nbf !== "number") {
+          return done(new JsonWebTokenError("invalid nbf value"));
+        }
+        if (payload.nbf > clockTimestamp + (options.clockTolerance || 0)) {
+          return done(new NotBeforeError("jwt not active", new Date(payload.nbf * 1000)));
+        }
+      }
+      if (typeof payload.exp !== "undefined" && !options.ignoreExpiration) {
+        if (typeof payload.exp !== "number") {
+          return done(new JsonWebTokenError("invalid exp value"));
+        }
+        if (clockTimestamp >= payload.exp + (options.clockTolerance || 0)) {
+          return done(new TokenExpiredError("jwt expired", new Date(payload.exp * 1000)));
+        }
+      }
+      if (options.audience) {
+        const audiences = Array.isArray(options.audience) ? options.audience : [options.audience];
+        const target = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
+        const match = target.some(function(targetAudience) {
+          return audiences.some(function(audience) {
+            return audience instanceof RegExp ? audience.test(targetAudience) : audience === targetAudience;
+          });
+        });
+        if (!match) {
+          return done(new JsonWebTokenError("jwt audience invalid. expected: " + audiences.join(" or ")));
+        }
+      }
+      if (options.issuer) {
+        const invalid_issuer = typeof options.issuer === "string" && payload.iss !== options.issuer || Array.isArray(options.issuer) && options.issuer.indexOf(payload.iss) === -1;
+        if (invalid_issuer) {
+          return done(new JsonWebTokenError("jwt issuer invalid. expected: " + options.issuer));
+        }
+      }
+      if (options.subject) {
+        if (payload.sub !== options.subject) {
+          return done(new JsonWebTokenError("jwt subject invalid. expected: " + options.subject));
+        }
+      }
+      if (options.jwtid) {
+        if (payload.jti !== options.jwtid) {
+          return done(new JsonWebTokenError("jwt jwtid invalid. expected: " + options.jwtid));
+        }
+      }
+      if (options.nonce) {
+        if (payload.nonce !== options.nonce) {
+          return done(new JsonWebTokenError("jwt nonce invalid. expected: " + options.nonce));
+        }
+      }
+      if (options.maxAge) {
+        if (typeof payload.iat !== "number") {
+          return done(new JsonWebTokenError("iat required when maxAge is specified"));
+        }
+        const maxAgeTimestamp = timespan(options.maxAge, payload.iat);
+        if (typeof maxAgeTimestamp === "undefined") {
+          return done(new JsonWebTokenError('"maxAge" should be a number of seconds or string representing a timespan eg: "1d", "20h", 60'));
+        }
+        if (clockTimestamp >= maxAgeTimestamp + (options.clockTolerance || 0)) {
+          return done(new TokenExpiredError("maxAge exceeded", new Date(maxAgeTimestamp * 1000)));
+        }
+      }
+      if (options.complete === true) {
+        const signature = decodedToken.signature;
+        return done(null, {
+          header,
+          payload,
+          signature
+        });
+      }
+      return done(null, payload);
+    });
+  };
+});
+
+// node_modules/lodash.includes/index.js
+var require_lodash = __commonJS((exports, module) => {
+  var INFINITY = 1 / 0;
+  var MAX_SAFE_INTEGER = 9007199254740991;
+  var MAX_INTEGER = 179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000;
+  var NAN = 0 / 0;
+  var argsTag = "[object Arguments]";
+  var funcTag = "[object Function]";
+  var genTag = "[object GeneratorFunction]";
+  var stringTag = "[object String]";
+  var symbolTag = "[object Symbol]";
+  var reTrim = /^\s+|\s+$/g;
+  var reIsBadHex = /^[-+]0x[0-9a-f]+$/i;
+  var reIsBinary = /^0b[01]+$/i;
+  var reIsOctal = /^0o[0-7]+$/i;
+  var reIsUint = /^(?:0|[1-9]\d*)$/;
+  var freeParseInt = parseInt;
+  function arrayMap(array, iteratee) {
+    var index = -1, length = array ? array.length : 0, result = Array(length);
+    while (++index < length) {
+      result[index] = iteratee(array[index], index, array);
     }
     return result;
   }
-  var rfc2822 = /^(?:(Mon|Tue|Wed|Thu|Fri|Sat|Sun),\s)?(\d{1,2})\s(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s(\d{2,4})\s(\d\d):(\d\d)(?::(\d\d))?\s(?:(UT|GMT|[ECMP][SD]T)|([Zz])|(?:([+-]\d\d)(\d\d)))$/;
-  function extractRFC2822(match2) {
-    const [, weekdayStr, dayStr, monthStr, yearStr, hourStr, minuteStr, secondStr, obsOffset, milOffset, offHourStr, offMinuteStr] = match2, result = fromStrings(weekdayStr, yearStr, monthStr, dayStr, hourStr, minuteStr, secondStr);
-    let offset2;
-    if (obsOffset) {
-      offset2 = obsOffsets[obsOffset];
-    } else if (milOffset) {
-      offset2 = 0;
-    } else {
-      offset2 = signedOffset(offHourStr, offMinuteStr);
+  function baseFindIndex(array, predicate, fromIndex, fromRight) {
+    var length = array.length, index = fromIndex + (fromRight ? 1 : -1);
+    while (fromRight ? index-- : ++index < length) {
+      if (predicate(array[index], index, array)) {
+        return index;
+      }
     }
-    return [result, new FixedOffsetZone(offset2)];
+    return -1;
   }
-  function preprocessRFC2822(s2) {
-    return s2.replace(/\([^()]*\)|[\n\t]/g, " ").replace(/(\s\s+)/g, " ").trim();
+  function baseIndexOf(array, value, fromIndex) {
+    if (value !== value) {
+      return baseFindIndex(array, baseIsNaN, fromIndex);
+    }
+    var index = fromIndex - 1, length = array.length;
+    while (++index < length) {
+      if (array[index] === value) {
+        return index;
+      }
+    }
+    return -1;
   }
-  var rfc1123 = /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun), (\d\d) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{4}) (\d\d):(\d\d):(\d\d) GMT$/;
-  var rfc850 = /^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday), (\d\d)-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d\d) (\d\d):(\d\d):(\d\d) GMT$/;
-  var ascii = /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) ( \d|\d\d) (\d\d):(\d\d):(\d\d) (\d{4})$/;
-  function extractRFC1123Or850(match2) {
-    const [, weekdayStr, dayStr, monthStr, yearStr, hourStr, minuteStr, secondStr] = match2, result = fromStrings(weekdayStr, yearStr, monthStr, dayStr, hourStr, minuteStr, secondStr);
-    return [result, FixedOffsetZone.utcInstance];
+  function baseIsNaN(value) {
+    return value !== value;
   }
-  function extractASCII(match2) {
-    const [, weekdayStr, monthStr, dayStr, hourStr, minuteStr, secondStr, yearStr] = match2, result = fromStrings(weekdayStr, yearStr, monthStr, dayStr, hourStr, minuteStr, secondStr);
-    return [result, FixedOffsetZone.utcInstance];
+  function baseTimes(n2, iteratee) {
+    var index = -1, result = Array(n2);
+    while (++index < n2) {
+      result[index] = iteratee(index);
+    }
+    return result;
   }
-  var isoYmdWithTimeExtensionRegex = combineRegexes(isoYmdRegex, isoTimeExtensionRegex);
-  var isoWeekWithTimeExtensionRegex = combineRegexes(isoWeekRegex, isoTimeExtensionRegex);
-  var isoOrdinalWithTimeExtensionRegex = combineRegexes(isoOrdinalRegex, isoTimeExtensionRegex);
-  var isoTimeCombinedRegex = combineRegexes(isoTimeRegex);
-  var extractISOYmdTimeAndOffset = combineExtractors(extractISOYmd, extractISOTime, extractISOOffset, extractIANAZone);
-  var extractISOWeekTimeAndOffset = combineExtractors(extractISOWeekData, extractISOTime, extractISOOffset, extractIANAZone);
-  var extractISOOrdinalDateAndTime = combineExtractors(extractISOOrdinalData, extractISOTime, extractISOOffset, extractIANAZone);
-  var extractISOTimeAndOffset = combineExtractors(extractISOTime, extractISOOffset, extractIANAZone);
-  function parseISODate(s2) {
-    return parse3(s2, [isoYmdWithTimeExtensionRegex, extractISOYmdTimeAndOffset], [isoWeekWithTimeExtensionRegex, extractISOWeekTimeAndOffset], [isoOrdinalWithTimeExtensionRegex, extractISOOrdinalDateAndTime], [isoTimeCombinedRegex, extractISOTimeAndOffset]);
-  }
-  function parseRFC2822Date(s2) {
-    return parse3(preprocessRFC2822(s2), [rfc2822, extractRFC2822]);
-  }
-  function parseHTTPDate(s2) {
-    return parse3(s2, [rfc1123, extractRFC1123Or850], [rfc850, extractRFC1123Or850], [ascii, extractASCII]);
-  }
-  function parseISODuration(s2) {
-    return parse3(s2, [isoDuration, extractISODuration]);
-  }
-  var extractISOTimeOnly = combineExtractors(extractISOTime);
-  function parseISOTimeOnly(s2) {
-    return parse3(s2, [isoTimeOnly, extractISOTimeOnly]);
-  }
-  var sqlYmdWithTimeExtensionRegex = combineRegexes(sqlYmdRegex, sqlTimeExtensionRegex);
-  var sqlTimeCombinedRegex = combineRegexes(sqlTimeRegex);
-  var extractISOTimeOffsetAndIANAZone = combineExtractors(extractISOTime, extractISOOffset, extractIANAZone);
-  function parseSQL(s2) {
-    return parse3(s2, [sqlYmdWithTimeExtensionRegex, extractISOYmdTimeAndOffset], [sqlTimeCombinedRegex, extractISOTimeOffsetAndIANAZone]);
-  }
-  var INVALID$2 = "Invalid Duration";
-  var lowOrderMatrix = {
-    weeks: {
-      days: 7,
-      hours: 7 * 24,
-      minutes: 7 * 24 * 60,
-      seconds: 7 * 24 * 60 * 60,
-      milliseconds: 7 * 24 * 60 * 60 * 1000
-    },
-    days: {
-      hours: 24,
-      minutes: 24 * 60,
-      seconds: 24 * 60 * 60,
-      milliseconds: 24 * 60 * 60 * 1000
-    },
-    hours: {
-      minutes: 60,
-      seconds: 60 * 60,
-      milliseconds: 60 * 60 * 1000
-    },
-    minutes: {
-      seconds: 60,
-      milliseconds: 60 * 1000
-    },
-    seconds: {
-      milliseconds: 1000
-    }
-  };
-  var casualMatrix = {
-    years: {
-      quarters: 4,
-      months: 12,
-      weeks: 52,
-      days: 365,
-      hours: 365 * 24,
-      minutes: 365 * 24 * 60,
-      seconds: 365 * 24 * 60 * 60,
-      milliseconds: 365 * 24 * 60 * 60 * 1000
-    },
-    quarters: {
-      months: 3,
-      weeks: 13,
-      days: 91,
-      hours: 91 * 24,
-      minutes: 91 * 24 * 60,
-      seconds: 91 * 24 * 60 * 60,
-      milliseconds: 91 * 24 * 60 * 60 * 1000
-    },
-    months: {
-      weeks: 4,
-      days: 30,
-      hours: 30 * 24,
-      minutes: 30 * 24 * 60,
-      seconds: 30 * 24 * 60 * 60,
-      milliseconds: 30 * 24 * 60 * 60 * 1000
-    },
-    ...lowOrderMatrix
-  };
-  var daysInYearAccurate = 146097 / 400;
-  var daysInMonthAccurate = 146097 / 4800;
-  var accurateMatrix = {
-    years: {
-      quarters: 4,
-      months: 12,
-      weeks: daysInYearAccurate / 7,
-      days: daysInYearAccurate,
-      hours: daysInYearAccurate * 24,
-      minutes: daysInYearAccurate * 24 * 60,
-      seconds: daysInYearAccurate * 24 * 60 * 60,
-      milliseconds: daysInYearAccurate * 24 * 60 * 60 * 1000
-    },
-    quarters: {
-      months: 3,
-      weeks: daysInYearAccurate / 28,
-      days: daysInYearAccurate / 4,
-      hours: daysInYearAccurate * 24 / 4,
-      minutes: daysInYearAccurate * 24 * 60 / 4,
-      seconds: daysInYearAccurate * 24 * 60 * 60 / 4,
-      milliseconds: daysInYearAccurate * 24 * 60 * 60 * 1000 / 4
-    },
-    months: {
-      weeks: daysInMonthAccurate / 7,
-      days: daysInMonthAccurate,
-      hours: daysInMonthAccurate * 24,
-      minutes: daysInMonthAccurate * 24 * 60,
-      seconds: daysInMonthAccurate * 24 * 60 * 60,
-      milliseconds: daysInMonthAccurate * 24 * 60 * 60 * 1000
-    },
-    ...lowOrderMatrix
-  };
-  var orderedUnits$1 = ["years", "quarters", "months", "weeks", "days", "hours", "minutes", "seconds", "milliseconds"];
-  var reverseUnits = orderedUnits$1.slice(0).reverse();
-  function clone$1(dur, alts, clear = false) {
-    const conf = {
-      values: clear ? alts.values : {
-        ...dur.values,
-        ...alts.values || {}
-      },
-      loc: dur.loc.clone(alts.loc),
-      conversionAccuracy: alts.conversionAccuracy || dur.conversionAccuracy,
-      matrix: alts.matrix || dur.matrix
-    };
-    return new Duration(conf);
-  }
-  function durationToMillis(matrix, vals) {
-    var _vals$milliseconds;
-    let sum = (_vals$milliseconds = vals.milliseconds) != null ? _vals$milliseconds : 0;
-    for (const unit of reverseUnits.slice(1)) {
-      if (vals[unit]) {
-        sum += vals[unit] * matrix[unit]["milliseconds"];
-      }
-    }
-    return sum;
-  }
-  function normalizeValues(matrix, vals) {
-    const factor = durationToMillis(matrix, vals) < 0 ? -1 : 1;
-    orderedUnits$1.reduceRight((previous, current) => {
-      if (!isUndefined(vals[current])) {
-        if (previous) {
-          const previousVal = vals[previous] * factor;
-          const conv = matrix[current][previous];
-          const rollUp = Math.floor(previousVal / conv);
-          vals[current] += rollUp * factor;
-          vals[previous] -= rollUp * conv * factor;
-        }
-        return current;
-      } else {
-        return previous;
-      }
-    }, null);
-    orderedUnits$1.reduce((previous, current) => {
-      if (!isUndefined(vals[current])) {
-        if (previous) {
-          const fraction = vals[previous] % 1;
-          vals[previous] -= fraction;
-          vals[current] += fraction * matrix[previous][current];
-        }
-        return current;
-      } else {
-        return previous;
-      }
-    }, null);
-  }
-  function removeZeroes(vals) {
-    const newVals = {};
-    for (const [key, value] of Object.entries(vals)) {
-      if (value !== 0) {
-        newVals[key] = value;
-      }
-    }
-    return newVals;
-  }
-
-  class Duration {
-    constructor(config) {
-      const accurate = config.conversionAccuracy === "longterm" || false;
-      let matrix = accurate ? accurateMatrix : casualMatrix;
-      if (config.matrix) {
-        matrix = config.matrix;
-      }
-      this.values = config.values;
-      this.loc = config.loc || Locale.create();
-      this.conversionAccuracy = accurate ? "longterm" : "casual";
-      this.invalid = config.invalid || null;
-      this.matrix = matrix;
-      this.isLuxonDuration = true;
-    }
-    static fromMillis(count, opts) {
-      return Duration.fromObject({
-        milliseconds: count
-      }, opts);
-    }
-    static fromObject(obj, opts = {}) {
-      if (obj == null || typeof obj !== "object") {
-        throw new InvalidArgumentError(`Duration.fromObject: argument expected to be an object, got ${obj === null ? "null" : typeof obj}`);
-      }
-      return new Duration({
-        values: normalizeObject(obj, Duration.normalizeUnit),
-        loc: Locale.fromObject(opts),
-        conversionAccuracy: opts.conversionAccuracy,
-        matrix: opts.matrix
-      });
-    }
-    static fromDurationLike(durationLike) {
-      if (isNumber(durationLike)) {
-        return Duration.fromMillis(durationLike);
-      } else if (Duration.isDuration(durationLike)) {
-        return durationLike;
-      } else if (typeof durationLike === "object") {
-        return Duration.fromObject(durationLike);
-      } else {
-        throw new InvalidArgumentError(`Unknown duration argument ${durationLike} of type ${typeof durationLike}`);
-      }
-    }
-    static fromISO(text, opts) {
-      const [parsed] = parseISODuration(text);
-      if (parsed) {
-        return Duration.fromObject(parsed, opts);
-      } else {
-        return Duration.invalid("unparsable", `the input "${text}" can't be parsed as ISO 8601`);
-      }
-    }
-    static fromISOTime(text, opts) {
-      const [parsed] = parseISOTimeOnly(text);
-      if (parsed) {
-        return Duration.fromObject(parsed, opts);
-      } else {
-        return Duration.invalid("unparsable", `the input "${text}" can't be parsed as ISO 8601`);
-      }
-    }
-    static invalid(reason, explanation = null) {
-      if (!reason) {
-        throw new InvalidArgumentError("need to specify a reason the Duration is invalid");
-      }
-      const invalid = reason instanceof Invalid ? reason : new Invalid(reason, explanation);
-      if (Settings.throwOnInvalid) {
-        throw new InvalidDurationError(invalid);
-      } else {
-        return new Duration({
-          invalid
-        });
-      }
-    }
-    static normalizeUnit(unit) {
-      const normalized = {
-        year: "years",
-        years: "years",
-        quarter: "quarters",
-        quarters: "quarters",
-        month: "months",
-        months: "months",
-        week: "weeks",
-        weeks: "weeks",
-        day: "days",
-        days: "days",
-        hour: "hours",
-        hours: "hours",
-        minute: "minutes",
-        minutes: "minutes",
-        second: "seconds",
-        seconds: "seconds",
-        millisecond: "milliseconds",
-        milliseconds: "milliseconds"
-      }[unit ? unit.toLowerCase() : unit];
-      if (!normalized)
-        throw new InvalidUnitError(unit);
-      return normalized;
-    }
-    static isDuration(o) {
-      return o && o.isLuxonDuration || false;
-    }
-    get locale() {
-      return this.isValid ? this.loc.locale : null;
-    }
-    get numberingSystem() {
-      return this.isValid ? this.loc.numberingSystem : null;
-    }
-    toFormat(fmt, opts = {}) {
-      const fmtOpts = {
-        ...opts,
-        floor: opts.round !== false && opts.floor !== false
-      };
-      return this.isValid ? Formatter.create(this.loc, fmtOpts).formatDurationFromString(this, fmt) : INVALID$2;
-    }
-    toHuman(opts = {}) {
-      if (!this.isValid)
-        return INVALID$2;
-      const showZeros = opts.showZeros !== false;
-      const l3 = orderedUnits$1.map((unit) => {
-        const val = this.values[unit];
-        if (isUndefined(val) || val === 0 && !showZeros) {
-          return null;
-        }
-        return this.loc.numberFormatter({
-          style: "unit",
-          unitDisplay: "long",
-          ...opts,
-          unit: unit.slice(0, -1)
-        }).format(val);
-      }).filter((n3) => n3);
-      return this.loc.listFormatter({
-        type: "conjunction",
-        style: opts.listStyle || "narrow",
-        ...opts
-      }).format(l3);
-    }
-    toObject() {
-      if (!this.isValid)
-        return {};
-      return {
-        ...this.values
-      };
-    }
-    toISO() {
-      if (!this.isValid)
-        return null;
-      let s2 = "P";
-      if (this.years !== 0)
-        s2 += this.years + "Y";
-      if (this.months !== 0 || this.quarters !== 0)
-        s2 += this.months + this.quarters * 3 + "M";
-      if (this.weeks !== 0)
-        s2 += this.weeks + "W";
-      if (this.days !== 0)
-        s2 += this.days + "D";
-      if (this.hours !== 0 || this.minutes !== 0 || this.seconds !== 0 || this.milliseconds !== 0)
-        s2 += "T";
-      if (this.hours !== 0)
-        s2 += this.hours + "H";
-      if (this.minutes !== 0)
-        s2 += this.minutes + "M";
-      if (this.seconds !== 0 || this.milliseconds !== 0)
-        s2 += roundTo(this.seconds + this.milliseconds / 1000, 3) + "S";
-      if (s2 === "P")
-        s2 += "T0S";
-      return s2;
-    }
-    toISOTime(opts = {}) {
-      if (!this.isValid)
-        return null;
-      const millis = this.toMillis();
-      if (millis < 0 || millis >= 86400000)
-        return null;
-      opts = {
-        suppressMilliseconds: false,
-        suppressSeconds: false,
-        includePrefix: false,
-        format: "extended",
-        ...opts,
-        includeOffset: false
-      };
-      const dateTime = DateTime.fromMillis(millis, {
-        zone: "UTC"
-      });
-      return dateTime.toISOTime(opts);
-    }
-    toJSON() {
-      return this.toISO();
-    }
-    toString() {
-      return this.toISO();
-    }
-    [Symbol.for("nodejs.util.inspect.custom")]() {
-      if (this.isValid) {
-        return `Duration { values: ${JSON.stringify(this.values)} }`;
-      } else {
-        return `Duration { Invalid, reason: ${this.invalidReason} }`;
-      }
-    }
-    toMillis() {
-      if (!this.isValid)
-        return NaN;
-      return durationToMillis(this.matrix, this.values);
-    }
-    valueOf() {
-      return this.toMillis();
-    }
-    plus(duration) {
-      if (!this.isValid)
-        return this;
-      const dur = Duration.fromDurationLike(duration), result = {};
-      for (const k of orderedUnits$1) {
-        if (hasOwnProperty(dur.values, k) || hasOwnProperty(this.values, k)) {
-          result[k] = dur.get(k) + this.get(k);
-        }
-      }
-      return clone$1(this, {
-        values: result
-      }, true);
-    }
-    minus(duration) {
-      if (!this.isValid)
-        return this;
-      const dur = Duration.fromDurationLike(duration);
-      return this.plus(dur.negate());
-    }
-    mapUnits(fn) {
-      if (!this.isValid)
-        return this;
-      const result = {};
-      for (const k of Object.keys(this.values)) {
-        result[k] = asNumber(fn(this.values[k], k));
-      }
-      return clone$1(this, {
-        values: result
-      }, true);
-    }
-    get(unit) {
-      return this[Duration.normalizeUnit(unit)];
-    }
-    set(values) {
-      if (!this.isValid)
-        return this;
-      const mixed = {
-        ...this.values,
-        ...normalizeObject(values, Duration.normalizeUnit)
-      };
-      return clone$1(this, {
-        values: mixed
-      });
-    }
-    reconfigure({
-      locale,
-      numberingSystem,
-      conversionAccuracy,
-      matrix
-    } = {}) {
-      const loc = this.loc.clone({
-        locale,
-        numberingSystem
-      });
-      const opts = {
-        loc,
-        matrix,
-        conversionAccuracy
-      };
-      return clone$1(this, opts);
-    }
-    as(unit) {
-      return this.isValid ? this.shiftTo(unit).get(unit) : NaN;
-    }
-    normalize() {
-      if (!this.isValid)
-        return this;
-      const vals = this.toObject();
-      normalizeValues(this.matrix, vals);
-      return clone$1(this, {
-        values: vals
-      }, true);
-    }
-    rescale() {
-      if (!this.isValid)
-        return this;
-      const vals = removeZeroes(this.normalize().shiftToAll().toObject());
-      return clone$1(this, {
-        values: vals
-      }, true);
-    }
-    shiftTo(...units) {
-      if (!this.isValid)
-        return this;
-      if (units.length === 0) {
-        return this;
-      }
-      units = units.map((u) => Duration.normalizeUnit(u));
-      const built = {}, accumulated = {}, vals = this.toObject();
-      let lastUnit;
-      for (const k of orderedUnits$1) {
-        if (units.indexOf(k) >= 0) {
-          lastUnit = k;
-          let own = 0;
-          for (const ak in accumulated) {
-            own += this.matrix[ak][k] * accumulated[ak];
-            accumulated[ak] = 0;
-          }
-          if (isNumber(vals[k])) {
-            own += vals[k];
-          }
-          const i2 = Math.trunc(own);
-          built[k] = i2;
-          accumulated[k] = (own * 1000 - i2 * 1000) / 1000;
-        } else if (isNumber(vals[k])) {
-          accumulated[k] = vals[k];
-        }
-      }
-      for (const key in accumulated) {
-        if (accumulated[key] !== 0) {
-          built[lastUnit] += key === lastUnit ? accumulated[key] : accumulated[key] / this.matrix[lastUnit][key];
-        }
-      }
-      normalizeValues(this.matrix, built);
-      return clone$1(this, {
-        values: built
-      }, true);
-    }
-    shiftToAll() {
-      if (!this.isValid)
-        return this;
-      return this.shiftTo("years", "months", "weeks", "days", "hours", "minutes", "seconds", "milliseconds");
-    }
-    negate() {
-      if (!this.isValid)
-        return this;
-      const negated = {};
-      for (const k of Object.keys(this.values)) {
-        negated[k] = this.values[k] === 0 ? 0 : -this.values[k];
-      }
-      return clone$1(this, {
-        values: negated
-      }, true);
-    }
-    removeZeros() {
-      if (!this.isValid)
-        return this;
-      const vals = removeZeroes(this.values);
-      return clone$1(this, {
-        values: vals
-      }, true);
-    }
-    get years() {
-      return this.isValid ? this.values.years || 0 : NaN;
-    }
-    get quarters() {
-      return this.isValid ? this.values.quarters || 0 : NaN;
-    }
-    get months() {
-      return this.isValid ? this.values.months || 0 : NaN;
-    }
-    get weeks() {
-      return this.isValid ? this.values.weeks || 0 : NaN;
-    }
-    get days() {
-      return this.isValid ? this.values.days || 0 : NaN;
-    }
-    get hours() {
-      return this.isValid ? this.values.hours || 0 : NaN;
-    }
-    get minutes() {
-      return this.isValid ? this.values.minutes || 0 : NaN;
-    }
-    get seconds() {
-      return this.isValid ? this.values.seconds || 0 : NaN;
-    }
-    get milliseconds() {
-      return this.isValid ? this.values.milliseconds || 0 : NaN;
-    }
-    get isValid() {
-      return this.invalid === null;
-    }
-    get invalidReason() {
-      return this.invalid ? this.invalid.reason : null;
-    }
-    get invalidExplanation() {
-      return this.invalid ? this.invalid.explanation : null;
-    }
-    equals(other) {
-      if (!this.isValid || !other.isValid) {
-        return false;
-      }
-      if (!this.loc.equals(other.loc)) {
-        return false;
-      }
-      function eq(v1, v2) {
-        if (v1 === undefined || v1 === 0)
-          return v2 === undefined || v2 === 0;
-        return v1 === v2;
-      }
-      for (const u of orderedUnits$1) {
-        if (!eq(this.values[u], other.values[u])) {
-          return false;
-        }
-      }
-      return true;
-    }
-  }
-  var INVALID$1 = "Invalid Interval";
-  function validateStartEnd(start, end) {
-    if (!start || !start.isValid) {
-      return Interval.invalid("missing or invalid start");
-    } else if (!end || !end.isValid) {
-      return Interval.invalid("missing or invalid end");
-    } else if (end < start) {
-      return Interval.invalid("end before start", `The end of an interval must be after its start, but you had start=${start.toISO()} and end=${end.toISO()}`);
-    } else {
-      return null;
-    }
-  }
-
-  class Interval {
-    constructor(config) {
-      this.s = config.start;
-      this.e = config.end;
-      this.invalid = config.invalid || null;
-      this.isLuxonInterval = true;
-    }
-    static invalid(reason, explanation = null) {
-      if (!reason) {
-        throw new InvalidArgumentError("need to specify a reason the Interval is invalid");
-      }
-      const invalid = reason instanceof Invalid ? reason : new Invalid(reason, explanation);
-      if (Settings.throwOnInvalid) {
-        throw new InvalidIntervalError(invalid);
-      } else {
-        return new Interval({
-          invalid
-        });
-      }
-    }
-    static fromDateTimes(start, end) {
-      const builtStart = friendlyDateTime(start), builtEnd = friendlyDateTime(end);
-      const validateError = validateStartEnd(builtStart, builtEnd);
-      if (validateError == null) {
-        return new Interval({
-          start: builtStart,
-          end: builtEnd
-        });
-      } else {
-        return validateError;
-      }
-    }
-    static after(start, duration) {
-      const dur = Duration.fromDurationLike(duration), dt = friendlyDateTime(start);
-      return Interval.fromDateTimes(dt, dt.plus(dur));
-    }
-    static before(end, duration) {
-      const dur = Duration.fromDurationLike(duration), dt = friendlyDateTime(end);
-      return Interval.fromDateTimes(dt.minus(dur), dt);
-    }
-    static fromISO(text, opts) {
-      const [s2, e] = (text || "").split("/", 2);
-      if (s2 && e) {
-        let start, startIsValid;
-        try {
-          start = DateTime.fromISO(s2, opts);
-          startIsValid = start.isValid;
-        } catch (e2) {
-          startIsValid = false;
-        }
-        let end, endIsValid;
-        try {
-          end = DateTime.fromISO(e, opts);
-          endIsValid = end.isValid;
-        } catch (e2) {
-          endIsValid = false;
-        }
-        if (startIsValid && endIsValid) {
-          return Interval.fromDateTimes(start, end);
-        }
-        if (startIsValid) {
-          const dur = Duration.fromISO(e, opts);
-          if (dur.isValid) {
-            return Interval.after(start, dur);
-          }
-        } else if (endIsValid) {
-          const dur = Duration.fromISO(s2, opts);
-          if (dur.isValid) {
-            return Interval.before(end, dur);
-          }
-        }
-      }
-      return Interval.invalid("unparsable", `the input "${text}" can't be parsed as ISO 8601`);
-    }
-    static isInterval(o) {
-      return o && o.isLuxonInterval || false;
-    }
-    get start() {
-      return this.isValid ? this.s : null;
-    }
-    get end() {
-      return this.isValid ? this.e : null;
-    }
-    get lastDateTime() {
-      return this.isValid ? this.e ? this.e.minus(1) : null : null;
-    }
-    get isValid() {
-      return this.invalidReason === null;
-    }
-    get invalidReason() {
-      return this.invalid ? this.invalid.reason : null;
-    }
-    get invalidExplanation() {
-      return this.invalid ? this.invalid.explanation : null;
-    }
-    length(unit = "milliseconds") {
-      return this.isValid ? this.toDuration(...[unit]).get(unit) : NaN;
-    }
-    count(unit = "milliseconds", opts) {
-      if (!this.isValid)
-        return NaN;
-      const start = this.start.startOf(unit, opts);
-      let end;
-      if (opts != null && opts.useLocaleWeeks) {
-        end = this.end.reconfigure({
-          locale: start.locale
-        });
-      } else {
-        end = this.end;
-      }
-      end = end.startOf(unit, opts);
-      return Math.floor(end.diff(start, unit).get(unit)) + (end.valueOf() !== this.end.valueOf());
-    }
-    hasSame(unit) {
-      return this.isValid ? this.isEmpty() || this.e.minus(1).hasSame(this.s, unit) : false;
-    }
-    isEmpty() {
-      return this.s.valueOf() === this.e.valueOf();
-    }
-    isAfter(dateTime) {
-      if (!this.isValid)
-        return false;
-      return this.s > dateTime;
-    }
-    isBefore(dateTime) {
-      if (!this.isValid)
-        return false;
-      return this.e <= dateTime;
-    }
-    contains(dateTime) {
-      if (!this.isValid)
-        return false;
-      return this.s <= dateTime && this.e > dateTime;
-    }
-    set({
-      start,
-      end
-    } = {}) {
-      if (!this.isValid)
-        return this;
-      return Interval.fromDateTimes(start || this.s, end || this.e);
-    }
-    splitAt(...dateTimes) {
-      if (!this.isValid)
-        return [];
-      const sorted = dateTimes.map(friendlyDateTime).filter((d) => this.contains(d)).sort((a12, b) => a12.toMillis() - b.toMillis()), results = [];
-      let {
-        s: s2
-      } = this, i2 = 0;
-      while (s2 < this.e) {
-        const added = sorted[i2] || this.e, next = +added > +this.e ? this.e : added;
-        results.push(Interval.fromDateTimes(s2, next));
-        s2 = next;
-        i2 += 1;
-      }
-      return results;
-    }
-    splitBy(duration) {
-      const dur = Duration.fromDurationLike(duration);
-      if (!this.isValid || !dur.isValid || dur.as("milliseconds") === 0) {
-        return [];
-      }
-      let {
-        s: s2
-      } = this, idx = 1, next;
-      const results = [];
-      while (s2 < this.e) {
-        const added = this.start.plus(dur.mapUnits((x2) => x2 * idx));
-        next = +added > +this.e ? this.e : added;
-        results.push(Interval.fromDateTimes(s2, next));
-        s2 = next;
-        idx += 1;
-      }
-      return results;
-    }
-    divideEqually(numberOfParts) {
-      if (!this.isValid)
-        return [];
-      return this.splitBy(this.length() / numberOfParts).slice(0, numberOfParts);
-    }
-    overlaps(other) {
-      return this.e > other.s && this.s < other.e;
-    }
-    abutsStart(other) {
-      if (!this.isValid)
-        return false;
-      return +this.e === +other.s;
-    }
-    abutsEnd(other) {
-      if (!this.isValid)
-        return false;
-      return +other.e === +this.s;
-    }
-    engulfs(other) {
-      if (!this.isValid)
-        return false;
-      return this.s <= other.s && this.e >= other.e;
-    }
-    equals(other) {
-      if (!this.isValid || !other.isValid) {
-        return false;
-      }
-      return this.s.equals(other.s) && this.e.equals(other.e);
-    }
-    intersection(other) {
-      if (!this.isValid)
-        return this;
-      const s2 = this.s > other.s ? this.s : other.s, e = this.e < other.e ? this.e : other.e;
-      if (s2 >= e) {
-        return null;
-      } else {
-        return Interval.fromDateTimes(s2, e);
-      }
-    }
-    union(other) {
-      if (!this.isValid)
-        return this;
-      const s2 = this.s < other.s ? this.s : other.s, e = this.e > other.e ? this.e : other.e;
-      return Interval.fromDateTimes(s2, e);
-    }
-    static merge(intervals) {
-      const [found, final] = intervals.sort((a12, b) => a12.s - b.s).reduce(([sofar, current], item) => {
-        if (!current) {
-          return [sofar, item];
-        } else if (current.overlaps(item) || current.abutsStart(item)) {
-          return [sofar, current.union(item)];
-        } else {
-          return [sofar.concat([current]), item];
-        }
-      }, [[], null]);
-      if (final) {
-        found.push(final);
-      }
-      return found;
-    }
-    static xor(intervals) {
-      let start = null, currentCount = 0;
-      const results = [], ends = intervals.map((i2) => [{
-        time: i2.s,
-        type: "s"
-      }, {
-        time: i2.e,
-        type: "e"
-      }]), flattened = Array.prototype.concat(...ends), arr = flattened.sort((a12, b) => a12.time - b.time);
-      for (const i2 of arr) {
-        currentCount += i2.type === "s" ? 1 : -1;
-        if (currentCount === 1) {
-          start = i2.time;
-        } else {
-          if (start && +start !== +i2.time) {
-            results.push(Interval.fromDateTimes(start, i2.time));
-          }
-          start = null;
-        }
-      }
-      return Interval.merge(results);
-    }
-    difference(...intervals) {
-      return Interval.xor([this].concat(intervals)).map((i2) => this.intersection(i2)).filter((i2) => i2 && !i2.isEmpty());
-    }
-    toString() {
-      if (!this.isValid)
-        return INVALID$1;
-      return `[${this.s.toISO()} – ${this.e.toISO()})`;
-    }
-    [Symbol.for("nodejs.util.inspect.custom")]() {
-      if (this.isValid) {
-        return `Interval { start: ${this.s.toISO()}, end: ${this.e.toISO()} }`;
-      } else {
-        return `Interval { Invalid, reason: ${this.invalidReason} }`;
-      }
-    }
-    toLocaleString(formatOpts = DATE_SHORT, opts = {}) {
-      return this.isValid ? Formatter.create(this.s.loc.clone(opts), formatOpts).formatInterval(this) : INVALID$1;
-    }
-    toISO(opts) {
-      if (!this.isValid)
-        return INVALID$1;
-      return `${this.s.toISO(opts)}/${this.e.toISO(opts)}`;
-    }
-    toISODate() {
-      if (!this.isValid)
-        return INVALID$1;
-      return `${this.s.toISODate()}/${this.e.toISODate()}`;
-    }
-    toISOTime(opts) {
-      if (!this.isValid)
-        return INVALID$1;
-      return `${this.s.toISOTime(opts)}/${this.e.toISOTime(opts)}`;
-    }
-    toFormat(dateFormat, {
-      separator = " – "
-    } = {}) {
-      if (!this.isValid)
-        return INVALID$1;
-      return `${this.s.toFormat(dateFormat)}${separator}${this.e.toFormat(dateFormat)}`;
-    }
-    toDuration(unit, opts) {
-      if (!this.isValid) {
-        return Duration.invalid(this.invalidReason);
-      }
-      return this.e.diff(this.s, unit, opts);
-    }
-    mapEndpoints(mapFn) {
-      return Interval.fromDateTimes(mapFn(this.s), mapFn(this.e));
-    }
-  }
-
-  class Info {
-    static hasDST(zone = Settings.defaultZone) {
-      const proto = DateTime.now().setZone(zone).set({
-        month: 12
-      });
-      return !zone.isUniversal && proto.offset !== proto.set({
-        month: 6
-      }).offset;
-    }
-    static isValidIANAZone(zone) {
-      return IANAZone.isValidZone(zone);
-    }
-    static normalizeZone(input) {
-      return normalizeZone(input, Settings.defaultZone);
-    }
-    static getStartOfWeek({
-      locale = null,
-      locObj = null
-    } = {}) {
-      return (locObj || Locale.create(locale)).getStartOfWeek();
-    }
-    static getMinimumDaysInFirstWeek({
-      locale = null,
-      locObj = null
-    } = {}) {
-      return (locObj || Locale.create(locale)).getMinDaysInFirstWeek();
-    }
-    static getWeekendWeekdays({
-      locale = null,
-      locObj = null
-    } = {}) {
-      return (locObj || Locale.create(locale)).getWeekendDays().slice();
-    }
-    static months(length = "long", {
-      locale = null,
-      numberingSystem = null,
-      locObj = null,
-      outputCalendar = "gregory"
-    } = {}) {
-      return (locObj || Locale.create(locale, numberingSystem, outputCalendar)).months(length);
-    }
-    static monthsFormat(length = "long", {
-      locale = null,
-      numberingSystem = null,
-      locObj = null,
-      outputCalendar = "gregory"
-    } = {}) {
-      return (locObj || Locale.create(locale, numberingSystem, outputCalendar)).months(length, true);
-    }
-    static weekdays(length = "long", {
-      locale = null,
-      numberingSystem = null,
-      locObj = null
-    } = {}) {
-      return (locObj || Locale.create(locale, numberingSystem, null)).weekdays(length);
-    }
-    static weekdaysFormat(length = "long", {
-      locale = null,
-      numberingSystem = null,
-      locObj = null
-    } = {}) {
-      return (locObj || Locale.create(locale, numberingSystem, null)).weekdays(length, true);
-    }
-    static meridiems({
-      locale = null
-    } = {}) {
-      return Locale.create(locale).meridiems();
-    }
-    static eras(length = "short", {
-      locale = null
-    } = {}) {
-      return Locale.create(locale, null, "gregory").eras(length);
-    }
-    static features() {
-      return {
-        relative: hasRelative(),
-        localeWeek: hasLocaleWeekInfo()
-      };
-    }
-  }
-  function dayDiff(earlier, later) {
-    const utcDayStart = (dt) => dt.toUTC(0, {
-      keepLocalTime: true
-    }).startOf("day").valueOf(), ms = utcDayStart(later) - utcDayStart(earlier);
-    return Math.floor(Duration.fromMillis(ms).as("days"));
-  }
-  function highOrderDiffs(cursor, later, units) {
-    const differs = [["years", (a12, b) => b.year - a12.year], ["quarters", (a12, b) => b.quarter - a12.quarter + (b.year - a12.year) * 4], ["months", (a12, b) => b.month - a12.month + (b.year - a12.year) * 12], ["weeks", (a12, b) => {
-      const days = dayDiff(a12, b);
-      return (days - days % 7) / 7;
-    }], ["days", dayDiff]];
-    const results = {};
-    const earlier = cursor;
-    let lowestOrder, highWater;
-    for (const [unit, differ] of differs) {
-      if (units.indexOf(unit) >= 0) {
-        lowestOrder = unit;
-        results[unit] = differ(cursor, later);
-        highWater = earlier.plus(results);
-        if (highWater > later) {
-          results[unit]--;
-          cursor = earlier.plus(results);
-          if (cursor > later) {
-            highWater = cursor;
-            results[unit]--;
-            cursor = earlier.plus(results);
-          }
-        } else {
-          cursor = highWater;
-        }
-      }
-    }
-    return [cursor, results, highWater, lowestOrder];
-  }
-  function diff(earlier, later, units, opts) {
-    let [cursor, results, highWater, lowestOrder] = highOrderDiffs(earlier, later, units);
-    const remainingMillis = later - cursor;
-    const lowerOrderUnits = units.filter((u) => ["hours", "minutes", "seconds", "milliseconds"].indexOf(u) >= 0);
-    if (lowerOrderUnits.length === 0) {
-      if (highWater < later) {
-        highWater = cursor.plus({
-          [lowestOrder]: 1
-        });
-      }
-      if (highWater !== cursor) {
-        results[lowestOrder] = (results[lowestOrder] || 0) + remainingMillis / (highWater - cursor);
-      }
-    }
-    const duration = Duration.fromObject(results, opts);
-    if (lowerOrderUnits.length > 0) {
-      return Duration.fromMillis(remainingMillis, opts).shiftTo(...lowerOrderUnits).plus(duration);
-    } else {
-      return duration;
-    }
-  }
-  var MISSING_FTP = "missing Intl.DateTimeFormat.formatToParts support";
-  function intUnit(regex2, post = (i2) => i2) {
-    return {
-      regex: regex2,
-      deser: ([s2]) => post(parseDigits(s2))
-    };
-  }
-  var NBSP = String.fromCharCode(160);
-  var spaceOrNBSP = `[ ${NBSP}]`;
-  var spaceOrNBSPRegExp = new RegExp(spaceOrNBSP, "g");
-  function fixListRegex(s2) {
-    return s2.replace(/\./g, "\\.?").replace(spaceOrNBSPRegExp, spaceOrNBSP);
-  }
-  function stripInsensitivities(s2) {
-    return s2.replace(/\./g, "").replace(spaceOrNBSPRegExp, " ").toLowerCase();
-  }
-  function oneOf(strings, startIndex) {
-    if (strings === null) {
-      return null;
-    } else {
-      return {
-        regex: RegExp(strings.map(fixListRegex).join("|")),
-        deser: ([s2]) => strings.findIndex((i2) => stripInsensitivities(s2) === stripInsensitivities(i2)) + startIndex
-      };
-    }
-  }
-  function offset(regex2, groups) {
-    return {
-      regex: regex2,
-      deser: ([, h, m2]) => signedOffset(h, m2),
-      groups
-    };
-  }
-  function simple(regex2) {
-    return {
-      regex: regex2,
-      deser: ([s2]) => s2
-    };
-  }
-  function escapeToken(value) {
-    return value.replace(/[\-\[\]{}()*+?.,\\\^$|#\s]/g, "\\$&");
-  }
-  function unitForToken(token, loc) {
-    const one = digitRegex(loc), two = digitRegex(loc, "{2}"), three = digitRegex(loc, "{3}"), four = digitRegex(loc, "{4}"), six = digitRegex(loc, "{6}"), oneOrTwo = digitRegex(loc, "{1,2}"), oneToThree = digitRegex(loc, "{1,3}"), oneToSix = digitRegex(loc, "{1,6}"), oneToNine = digitRegex(loc, "{1,9}"), twoToFour = digitRegex(loc, "{2,4}"), fourToSix = digitRegex(loc, "{4,6}"), literal = (t3) => ({
-      regex: RegExp(escapeToken(t3.val)),
-      deser: ([s2]) => s2,
-      literal: true
-    }), unitate = (t3) => {
-      if (token.literal) {
-        return literal(t3);
-      }
-      switch (t3.val) {
-        case "G":
-          return oneOf(loc.eras("short"), 0);
-        case "GG":
-          return oneOf(loc.eras("long"), 0);
-        case "y":
-          return intUnit(oneToSix);
-        case "yy":
-          return intUnit(twoToFour, untruncateYear);
-        case "yyyy":
-          return intUnit(four);
-        case "yyyyy":
-          return intUnit(fourToSix);
-        case "yyyyyy":
-          return intUnit(six);
-        case "M":
-          return intUnit(oneOrTwo);
-        case "MM":
-          return intUnit(two);
-        case "MMM":
-          return oneOf(loc.months("short", true), 1);
-        case "MMMM":
-          return oneOf(loc.months("long", true), 1);
-        case "L":
-          return intUnit(oneOrTwo);
-        case "LL":
-          return intUnit(two);
-        case "LLL":
-          return oneOf(loc.months("short", false), 1);
-        case "LLLL":
-          return oneOf(loc.months("long", false), 1);
-        case "d":
-          return intUnit(oneOrTwo);
-        case "dd":
-          return intUnit(two);
-        case "o":
-          return intUnit(oneToThree);
-        case "ooo":
-          return intUnit(three);
-        case "HH":
-          return intUnit(two);
-        case "H":
-          return intUnit(oneOrTwo);
-        case "hh":
-          return intUnit(two);
-        case "h":
-          return intUnit(oneOrTwo);
-        case "mm":
-          return intUnit(two);
-        case "m":
-          return intUnit(oneOrTwo);
-        case "q":
-          return intUnit(oneOrTwo);
-        case "qq":
-          return intUnit(two);
-        case "s":
-          return intUnit(oneOrTwo);
-        case "ss":
-          return intUnit(two);
-        case "S":
-          return intUnit(oneToThree);
-        case "SSS":
-          return intUnit(three);
-        case "u":
-          return simple(oneToNine);
-        case "uu":
-          return simple(oneOrTwo);
-        case "uuu":
-          return intUnit(one);
-        case "a":
-          return oneOf(loc.meridiems(), 0);
-        case "kkkk":
-          return intUnit(four);
-        case "kk":
-          return intUnit(twoToFour, untruncateYear);
-        case "W":
-          return intUnit(oneOrTwo);
-        case "WW":
-          return intUnit(two);
-        case "E":
-        case "c":
-          return intUnit(one);
-        case "EEE":
-          return oneOf(loc.weekdays("short", false), 1);
-        case "EEEE":
-          return oneOf(loc.weekdays("long", false), 1);
-        case "ccc":
-          return oneOf(loc.weekdays("short", true), 1);
-        case "cccc":
-          return oneOf(loc.weekdays("long", true), 1);
-        case "Z":
-        case "ZZ":
-          return offset(new RegExp(`([+-]${oneOrTwo.source})(?::(${two.source}))?`), 2);
-        case "ZZZ":
-          return offset(new RegExp(`([+-]${oneOrTwo.source})(${two.source})?`), 2);
-        case "z":
-          return simple(/[a-z_+-/]{1,256}?/i);
-        case " ":
-          return simple(/[^\S\n\r]/);
-        default:
-          return literal(t3);
-      }
-    };
-    const unit = unitate(token) || {
-      invalidReason: MISSING_FTP
-    };
-    unit.token = token;
-    return unit;
-  }
-  var partTypeStyleToTokenVal = {
-    year: {
-      "2-digit": "yy",
-      numeric: "yyyyy"
-    },
-    month: {
-      numeric: "M",
-      "2-digit": "MM",
-      short: "MMM",
-      long: "MMMM"
-    },
-    day: {
-      numeric: "d",
-      "2-digit": "dd"
-    },
-    weekday: {
-      short: "EEE",
-      long: "EEEE"
-    },
-    dayperiod: "a",
-    dayPeriod: "a",
-    hour12: {
-      numeric: "h",
-      "2-digit": "hh"
-    },
-    hour24: {
-      numeric: "H",
-      "2-digit": "HH"
-    },
-    minute: {
-      numeric: "m",
-      "2-digit": "mm"
-    },
-    second: {
-      numeric: "s",
-      "2-digit": "ss"
-    },
-    timeZoneName: {
-      long: "ZZZZZ",
-      short: "ZZZ"
-    }
-  };
-  function tokenForPart(part, formatOpts, resolvedOpts) {
-    const {
-      type,
-      value
-    } = part;
-    if (type === "literal") {
-      const isSpace = /^\s+$/.test(value);
-      return {
-        literal: !isSpace,
-        val: isSpace ? " " : value
-      };
-    }
-    const style = formatOpts[type];
-    let actualType = type;
-    if (type === "hour") {
-      if (formatOpts.hour12 != null) {
-        actualType = formatOpts.hour12 ? "hour12" : "hour24";
-      } else if (formatOpts.hourCycle != null) {
-        if (formatOpts.hourCycle === "h11" || formatOpts.hourCycle === "h12") {
-          actualType = "hour12";
-        } else {
-          actualType = "hour24";
-        }
-      } else {
-        actualType = resolvedOpts.hour12 ? "hour12" : "hour24";
-      }
-    }
-    let val = partTypeStyleToTokenVal[actualType];
-    if (typeof val === "object") {
-      val = val[style];
-    }
-    if (val) {
-      return {
-        literal: false,
-        val
-      };
-    }
-    return;
-  }
-  function buildRegex(units) {
-    const re = units.map((u) => u.regex).reduce((f, r2) => `${f}(${r2.source})`, "");
-    return [`^${re}$`, units];
-  }
-  function match(input, regex2, handlers) {
-    const matches = input.match(regex2);
-    if (matches) {
-      const all = {};
-      let matchIndex = 1;
-      for (const i2 in handlers) {
-        if (hasOwnProperty(handlers, i2)) {
-          const h = handlers[i2], groups = h.groups ? h.groups + 1 : 1;
-          if (!h.literal && h.token) {
-            all[h.token.val[0]] = h.deser(matches.slice(matchIndex, matchIndex + groups));
-          }
-          matchIndex += groups;
-        }
-      }
-      return [matches, all];
-    } else {
-      return [matches, {}];
-    }
-  }
-  function dateTimeFromMatches(matches) {
-    const toField = (token) => {
-      switch (token) {
-        case "S":
-          return "millisecond";
-        case "s":
-          return "second";
-        case "m":
-          return "minute";
-        case "h":
-        case "H":
-          return "hour";
-        case "d":
-          return "day";
-        case "o":
-          return "ordinal";
-        case "L":
-        case "M":
-          return "month";
-        case "y":
-          return "year";
-        case "E":
-        case "c":
-          return "weekday";
-        case "W":
-          return "weekNumber";
-        case "k":
-          return "weekYear";
-        case "q":
-          return "quarter";
-        default:
-          return null;
-      }
-    };
-    let zone = null;
-    let specificOffset;
-    if (!isUndefined(matches.z)) {
-      zone = IANAZone.create(matches.z);
-    }
-    if (!isUndefined(matches.Z)) {
-      if (!zone) {
-        zone = new FixedOffsetZone(matches.Z);
-      }
-      specificOffset = matches.Z;
-    }
-    if (!isUndefined(matches.q)) {
-      matches.M = (matches.q - 1) * 3 + 1;
-    }
-    if (!isUndefined(matches.h)) {
-      if (matches.h < 12 && matches.a === 1) {
-        matches.h += 12;
-      } else if (matches.h === 12 && matches.a === 0) {
-        matches.h = 0;
-      }
-    }
-    if (matches.G === 0 && matches.y) {
-      matches.y = -matches.y;
-    }
-    if (!isUndefined(matches.u)) {
-      matches.S = parseMillis(matches.u);
-    }
-    const vals = Object.keys(matches).reduce((r2, k) => {
-      const f = toField(k);
-      if (f) {
-        r2[f] = matches[k];
-      }
-      return r2;
-    }, {});
-    return [vals, zone, specificOffset];
-  }
-  var dummyDateTimeCache = null;
-  function getDummyDateTime() {
-    if (!dummyDateTimeCache) {
-      dummyDateTimeCache = DateTime.fromMillis(1555555555555);
-    }
-    return dummyDateTimeCache;
-  }
-  function maybeExpandMacroToken(token, locale) {
-    if (token.literal) {
-      return token;
-    }
-    const formatOpts = Formatter.macroTokenToFormatOpts(token.val);
-    const tokens = formatOptsToTokens(formatOpts, locale);
-    if (tokens == null || tokens.includes(undefined)) {
-      return token;
-    }
-    return tokens;
-  }
-  function expandMacroTokens(tokens, locale) {
-    return Array.prototype.concat(...tokens.map((t3) => maybeExpandMacroToken(t3, locale)));
-  }
-
-  class TokenParser {
-    constructor(locale, format) {
-      this.locale = locale;
-      this.format = format;
-      this.tokens = expandMacroTokens(Formatter.parseFormat(format), locale);
-      this.units = this.tokens.map((t3) => unitForToken(t3, locale));
-      this.disqualifyingUnit = this.units.find((t3) => t3.invalidReason);
-      if (!this.disqualifyingUnit) {
-        const [regexString, handlers] = buildRegex(this.units);
-        this.regex = RegExp(regexString, "i");
-        this.handlers = handlers;
-      }
-    }
-    explainFromTokens(input) {
-      if (!this.isValid) {
-        return {
-          input,
-          tokens: this.tokens,
-          invalidReason: this.invalidReason
-        };
-      } else {
-        const [rawMatches, matches] = match(input, this.regex, this.handlers), [result, zone, specificOffset] = matches ? dateTimeFromMatches(matches) : [null, null, undefined];
-        if (hasOwnProperty(matches, "a") && hasOwnProperty(matches, "H")) {
-          throw new ConflictingSpecificationError("Can't include meridiem when specifying 24-hour format");
-        }
-        return {
-          input,
-          tokens: this.tokens,
-          regex: this.regex,
-          rawMatches,
-          matches,
-          result,
-          zone,
-          specificOffset
-        };
-      }
-    }
-    get isValid() {
-      return !this.disqualifyingUnit;
-    }
-    get invalidReason() {
-      return this.disqualifyingUnit ? this.disqualifyingUnit.invalidReason : null;
-    }
-  }
-  function explainFromTokens(locale, input, format) {
-    const parser = new TokenParser(locale, format);
-    return parser.explainFromTokens(input);
-  }
-  function parseFromTokens(locale, input, format) {
-    const {
-      result,
-      zone,
-      specificOffset,
-      invalidReason
-    } = explainFromTokens(locale, input, format);
-    return [result, zone, specificOffset, invalidReason];
-  }
-  function formatOptsToTokens(formatOpts, locale) {
-    if (!formatOpts) {
-      return null;
-    }
-    const formatter = Formatter.create(locale, formatOpts);
-    const df = formatter.dtFormatter(getDummyDateTime());
-    const parts = df.formatToParts();
-    const resolvedOpts = df.resolvedOptions();
-    return parts.map((p) => tokenForPart(p, formatOpts, resolvedOpts));
-  }
-  var INVALID2 = "Invalid DateTime";
-  var MAX_DATE = 8640000000000000;
-  function unsupportedZone(zone) {
-    return new Invalid("unsupported zone", `the zone "${zone.name}" is not supported`);
-  }
-  function possiblyCachedWeekData(dt) {
-    if (dt.weekData === null) {
-      dt.weekData = gregorianToWeek(dt.c);
-    }
-    return dt.weekData;
-  }
-  function possiblyCachedLocalWeekData(dt) {
-    if (dt.localWeekData === null) {
-      dt.localWeekData = gregorianToWeek(dt.c, dt.loc.getMinDaysInFirstWeek(), dt.loc.getStartOfWeek());
-    }
-    return dt.localWeekData;
-  }
-  function clone2(inst, alts) {
-    const current = {
-      ts: inst.ts,
-      zone: inst.zone,
-      c: inst.c,
-      o: inst.o,
-      loc: inst.loc,
-      invalid: inst.invalid
-    };
-    return new DateTime({
-      ...current,
-      ...alts,
-      old: current
+  function baseValues(object, props) {
+    return arrayMap(props, function(key) {
+      return object[key];
     });
   }
-  function fixOffset(localTS, o, tz) {
-    let utcGuess = localTS - o * 60 * 1000;
-    const o2 = tz.offset(utcGuess);
-    if (o === o2) {
-      return [utcGuess, o];
-    }
-    utcGuess -= (o2 - o) * 60 * 1000;
-    const o3 = tz.offset(utcGuess);
-    if (o2 === o3) {
-      return [utcGuess, o2];
-    }
-    return [localTS - Math.min(o2, o3) * 60 * 1000, Math.max(o2, o3)];
-  }
-  function tsToObj(ts, offset2) {
-    ts += offset2 * 60 * 1000;
-    const d = new Date(ts);
-    return {
-      year: d.getUTCFullYear(),
-      month: d.getUTCMonth() + 1,
-      day: d.getUTCDate(),
-      hour: d.getUTCHours(),
-      minute: d.getUTCMinutes(),
-      second: d.getUTCSeconds(),
-      millisecond: d.getUTCMilliseconds()
+  function overArg(func, transform2) {
+    return function(arg) {
+      return func(transform2(arg));
     };
   }
-  function objToTS(obj, offset2, zone) {
-    return fixOffset(objToLocalTS(obj), offset2, zone);
+  var objectProto = Object.prototype;
+  var hasOwnProperty = objectProto.hasOwnProperty;
+  var objectToString = objectProto.toString;
+  var propertyIsEnumerable = objectProto.propertyIsEnumerable;
+  var nativeKeys = overArg(Object.keys, Object);
+  var nativeMax = Math.max;
+  function arrayLikeKeys(value, inherited) {
+    var result = isArray(value) || isArguments(value) ? baseTimes(value.length, String) : [];
+    var length = result.length, skipIndexes = !!length;
+    for (var key in value) {
+      if ((inherited || hasOwnProperty.call(value, key)) && !(skipIndexes && (key == "length" || isIndex(key, length)))) {
+        result.push(key);
+      }
+    }
+    return result;
   }
-  function adjustTime(inst, dur) {
-    const oPre = inst.o, year = inst.c.year + Math.trunc(dur.years), month = inst.c.month + Math.trunc(dur.months) + Math.trunc(dur.quarters) * 3, c = {
-      ...inst.c,
-      year,
-      month,
-      day: Math.min(inst.c.day, daysInMonth(year, month)) + Math.trunc(dur.days) + Math.trunc(dur.weeks) * 7
-    }, millisToAdd = Duration.fromObject({
-      years: dur.years - Math.trunc(dur.years),
-      quarters: dur.quarters - Math.trunc(dur.quarters),
-      months: dur.months - Math.trunc(dur.months),
-      weeks: dur.weeks - Math.trunc(dur.weeks),
-      days: dur.days - Math.trunc(dur.days),
-      hours: dur.hours,
-      minutes: dur.minutes,
-      seconds: dur.seconds,
-      milliseconds: dur.milliseconds
-    }).as("milliseconds"), localTS = objToLocalTS(c);
-    let [ts, o] = fixOffset(localTS, oPre, inst.zone);
-    if (millisToAdd !== 0) {
-      ts += millisToAdd;
-      o = inst.zone.offset(ts);
+  function baseKeys(object) {
+    if (!isPrototype(object)) {
+      return nativeKeys(object);
     }
-    return {
-      ts,
-      o
-    };
+    var result = [];
+    for (var key in Object(object)) {
+      if (hasOwnProperty.call(object, key) && key != "constructor") {
+        result.push(key);
+      }
+    }
+    return result;
   }
-  function parseDataToDateTime(parsed, parsedZone, opts, format, text, specificOffset) {
-    const {
-      setZone,
-      zone
-    } = opts;
-    if (parsed && Object.keys(parsed).length !== 0 || parsedZone) {
-      const interpretationZone = parsedZone || zone, inst = DateTime.fromObject(parsed, {
-        ...opts,
-        zone: interpretationZone,
-        specificOffset
-      });
-      return setZone ? inst : inst.setZone(zone);
-    } else {
-      return DateTime.invalid(new Invalid("unparsable", `the input "${text}" can't be parsed as ${format}`));
-    }
+  function isIndex(value, length) {
+    length = length == null ? MAX_SAFE_INTEGER : length;
+    return !!length && (typeof value == "number" || reIsUint.test(value)) && (value > -1 && value % 1 == 0 && value < length);
   }
-  function toTechFormat(dt, format, allowZ = true) {
-    return dt.isValid ? Formatter.create(Locale.create("en-US"), {
-      allowZ,
-      forceSimple: true
-    }).formatDateTimeFromString(dt, format) : null;
+  function isPrototype(value) {
+    var Ctor = value && value.constructor, proto = typeof Ctor == "function" && Ctor.prototype || objectProto;
+    return value === proto;
   }
-  function toISODate(o, extended, precision) {
-    const longFormat = o.c.year > 9999 || o.c.year < 0;
-    let c = "";
-    if (longFormat && o.c.year >= 0)
-      c += "+";
-    c += padStart(o.c.year, longFormat ? 6 : 4);
-    if (precision === "year")
-      return c;
-    if (extended) {
-      c += "-";
-      c += padStart(o.c.month);
-      if (precision === "month")
-        return c;
-      c += "-";
-    } else {
-      c += padStart(o.c.month);
-      if (precision === "month")
-        return c;
+  function includes(collection, value, fromIndex, guard2) {
+    collection = isArrayLike(collection) ? collection : values(collection);
+    fromIndex = fromIndex && !guard2 ? toInteger(fromIndex) : 0;
+    var length = collection.length;
+    if (fromIndex < 0) {
+      fromIndex = nativeMax(length + fromIndex, 0);
     }
-    c += padStart(o.c.day);
-    return c;
+    return isString(collection) ? fromIndex <= length && collection.indexOf(value, fromIndex) > -1 : !!length && baseIndexOf(collection, value, fromIndex) > -1;
   }
-  function toISOTime(o, extended, suppressSeconds, suppressMilliseconds, includeOffset, extendedZone, precision) {
-    let showSeconds = !suppressSeconds || o.c.millisecond !== 0 || o.c.second !== 0, c = "";
-    switch (precision) {
-      case "day":
-      case "month":
-      case "year":
-        break;
-      default:
-        c += padStart(o.c.hour);
-        if (precision === "hour")
-          break;
-        if (extended) {
-          c += ":";
-          c += padStart(o.c.minute);
-          if (precision === "minute")
-            break;
-          if (showSeconds) {
-            c += ":";
-            c += padStart(o.c.second);
-          }
-        } else {
-          c += padStart(o.c.minute);
-          if (precision === "minute")
-            break;
-          if (showSeconds) {
-            c += padStart(o.c.second);
-          }
-        }
-        if (precision === "second")
-          break;
-        if (showSeconds && (!suppressMilliseconds || o.c.millisecond !== 0)) {
-          c += ".";
-          c += padStart(o.c.millisecond, 3);
-        }
-    }
-    if (includeOffset) {
-      if (o.isOffsetFixed && o.offset === 0 && !extendedZone) {
-        c += "Z";
-      } else if (o.o < 0) {
-        c += "-";
-        c += padStart(Math.trunc(-o.o / 60));
-        c += ":";
-        c += padStart(Math.trunc(-o.o % 60));
-      } else {
-        c += "+";
-        c += padStart(Math.trunc(o.o / 60));
-        c += ":";
-        c += padStart(Math.trunc(o.o % 60));
-      }
-    }
-    if (extendedZone) {
-      c += "[" + o.zone.ianaName + "]";
-    }
-    return c;
+  function isArguments(value) {
+    return isArrayLikeObject(value) && hasOwnProperty.call(value, "callee") && (!propertyIsEnumerable.call(value, "callee") || objectToString.call(value) == argsTag);
   }
-  var defaultUnitValues = {
-    month: 1,
-    day: 1,
-    hour: 0,
-    minute: 0,
-    second: 0,
-    millisecond: 0
-  };
-  var defaultWeekUnitValues = {
-    weekNumber: 1,
-    weekday: 1,
-    hour: 0,
-    minute: 0,
-    second: 0,
-    millisecond: 0
-  };
-  var defaultOrdinalUnitValues = {
-    ordinal: 1,
-    hour: 0,
-    minute: 0,
-    second: 0,
-    millisecond: 0
-  };
-  var orderedUnits = ["year", "month", "day", "hour", "minute", "second", "millisecond"];
-  var orderedWeekUnits = ["weekYear", "weekNumber", "weekday", "hour", "minute", "second", "millisecond"];
-  var orderedOrdinalUnits = ["year", "ordinal", "hour", "minute", "second", "millisecond"];
-  function normalizeUnit(unit) {
-    const normalized = {
-      year: "year",
-      years: "year",
-      month: "month",
-      months: "month",
-      day: "day",
-      days: "day",
-      hour: "hour",
-      hours: "hour",
-      minute: "minute",
-      minutes: "minute",
-      quarter: "quarter",
-      quarters: "quarter",
-      second: "second",
-      seconds: "second",
-      millisecond: "millisecond",
-      milliseconds: "millisecond",
-      weekday: "weekday",
-      weekdays: "weekday",
-      weeknumber: "weekNumber",
-      weeksnumber: "weekNumber",
-      weeknumbers: "weekNumber",
-      weekyear: "weekYear",
-      weekyears: "weekYear",
-      ordinal: "ordinal"
-    }[unit.toLowerCase()];
-    if (!normalized)
-      throw new InvalidUnitError(unit);
-    return normalized;
+  var isArray = Array.isArray;
+  function isArrayLike(value) {
+    return value != null && isLength(value.length) && !isFunction2(value);
   }
-  function normalizeUnitWithLocalWeeks(unit) {
-    switch (unit.toLowerCase()) {
-      case "localweekday":
-      case "localweekdays":
-        return "localWeekday";
-      case "localweeknumber":
-      case "localweeknumbers":
-        return "localWeekNumber";
-      case "localweekyear":
-      case "localweekyears":
-        return "localWeekYear";
-      default:
-        return normalizeUnit(unit);
-    }
+  function isArrayLikeObject(value) {
+    return isObjectLike(value) && isArrayLike(value);
   }
-  function guessOffsetForZone(zone) {
-    if (zoneOffsetTs === undefined) {
-      zoneOffsetTs = Settings.now();
-    }
-    if (zone.type !== "iana") {
-      return zone.offset(zoneOffsetTs);
-    }
-    const zoneName = zone.name;
-    let offsetGuess = zoneOffsetGuessCache.get(zoneName);
-    if (offsetGuess === undefined) {
-      offsetGuess = zone.offset(zoneOffsetTs);
-      zoneOffsetGuessCache.set(zoneName, offsetGuess);
-    }
-    return offsetGuess;
+  function isFunction2(value) {
+    var tag = isObject2(value) ? objectToString.call(value) : "";
+    return tag == funcTag || tag == genTag;
   }
-  function quickDT(obj, opts) {
-    const zone = normalizeZone(opts.zone, Settings.defaultZone);
-    if (!zone.isValid) {
-      return DateTime.invalid(unsupportedZone(zone));
-    }
-    const loc = Locale.fromObject(opts);
-    let ts, o;
-    if (!isUndefined(obj.year)) {
-      for (const u of orderedUnits) {
-        if (isUndefined(obj[u])) {
-          obj[u] = defaultUnitValues[u];
-        }
-      }
-      const invalid = hasInvalidGregorianData(obj) || hasInvalidTimeData(obj);
-      if (invalid) {
-        return DateTime.invalid(invalid);
-      }
-      const offsetProvis = guessOffsetForZone(zone);
-      [ts, o] = objToTS(obj, offsetProvis, zone);
-    } else {
-      ts = Settings.now();
-    }
-    return new DateTime({
-      ts,
-      zone,
-      loc,
-      o
-    });
+  function isLength(value) {
+    return typeof value == "number" && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
   }
-  function diffRelative(start, end, opts) {
-    const round = isUndefined(opts.round) ? true : opts.round, rounding = isUndefined(opts.rounding) ? "trunc" : opts.rounding, format = (c, unit) => {
-      c = roundTo(c, round || opts.calendary ? 0 : 2, opts.calendary ? "round" : rounding);
-      const formatter = end.loc.clone(opts).relFormatter(opts);
-      return formatter.format(c, unit);
-    }, differ = (unit) => {
-      if (opts.calendary) {
-        if (!end.hasSame(start, unit)) {
-          return end.startOf(unit).diff(start.startOf(unit), unit).get(unit);
-        } else
-          return 0;
-      } else {
-        return end.diff(start, unit).get(unit);
-      }
-    };
-    if (opts.unit) {
-      return format(differ(opts.unit), opts.unit);
-    }
-    for (const unit of opts.units) {
-      const count = differ(unit);
-      if (Math.abs(count) >= 1) {
-        return format(count, unit);
-      }
-    }
-    return format(start > end ? -0 : 0, opts.units[opts.units.length - 1]);
+  function isObject2(value) {
+    var type = typeof value;
+    return !!value && (type == "object" || type == "function");
   }
-  function lastOpts(argList) {
-    let opts = {}, args;
-    if (argList.length > 0 && typeof argList[argList.length - 1] === "object") {
-      opts = argList[argList.length - 1];
-      args = Array.from(argList).slice(0, argList.length - 1);
-    } else {
-      args = Array.from(argList);
-    }
-    return [opts, args];
+  function isObjectLike(value) {
+    return !!value && typeof value == "object";
   }
-  var zoneOffsetTs;
-  var zoneOffsetGuessCache = new Map;
-
-  class DateTime {
-    constructor(config) {
-      const zone = config.zone || Settings.defaultZone;
-      let invalid = config.invalid || (Number.isNaN(config.ts) ? new Invalid("invalid input") : null) || (!zone.isValid ? unsupportedZone(zone) : null);
-      this.ts = isUndefined(config.ts) ? Settings.now() : config.ts;
-      let c = null, o = null;
-      if (!invalid) {
-        const unchanged = config.old && config.old.ts === this.ts && config.old.zone.equals(zone);
-        if (unchanged) {
-          [c, o] = [config.old.c, config.old.o];
-        } else {
-          const ot = isNumber(config.o) && !config.old ? config.o : zone.offset(this.ts);
-          c = tsToObj(this.ts, ot);
-          invalid = Number.isNaN(c.year) ? new Invalid("invalid input") : null;
-          c = invalid ? null : c;
-          o = invalid ? null : ot;
-        }
-      }
-      this._zone = zone;
-      this.loc = config.loc || Locale.create();
-      this.invalid = invalid;
-      this.weekData = null;
-      this.localWeekData = null;
-      this.c = c;
-      this.o = o;
-      this.isLuxonDateTime = true;
-    }
-    static now() {
-      return new DateTime({});
-    }
-    static local() {
-      const [opts, args] = lastOpts(arguments), [year, month, day, hour, minute, second, millisecond] = args;
-      return quickDT({
-        year,
-        month,
-        day,
-        hour,
-        minute,
-        second,
-        millisecond
-      }, opts);
-    }
-    static utc() {
-      const [opts, args] = lastOpts(arguments), [year, month, day, hour, minute, second, millisecond] = args;
-      opts.zone = FixedOffsetZone.utcInstance;
-      return quickDT({
-        year,
-        month,
-        day,
-        hour,
-        minute,
-        second,
-        millisecond
-      }, opts);
-    }
-    static fromJSDate(date2, options = {}) {
-      const ts = isDate(date2) ? date2.valueOf() : NaN;
-      if (Number.isNaN(ts)) {
-        return DateTime.invalid("invalid input");
-      }
-      const zoneToUse = normalizeZone(options.zone, Settings.defaultZone);
-      if (!zoneToUse.isValid) {
-        return DateTime.invalid(unsupportedZone(zoneToUse));
-      }
-      return new DateTime({
-        ts,
-        zone: zoneToUse,
-        loc: Locale.fromObject(options)
-      });
-    }
-    static fromMillis(milliseconds, options = {}) {
-      if (!isNumber(milliseconds)) {
-        throw new InvalidArgumentError(`fromMillis requires a numerical input, but received a ${typeof milliseconds} with value ${milliseconds}`);
-      } else if (milliseconds < -MAX_DATE || milliseconds > MAX_DATE) {
-        return DateTime.invalid("Timestamp out of range");
-      } else {
-        return new DateTime({
-          ts: milliseconds,
-          zone: normalizeZone(options.zone, Settings.defaultZone),
-          loc: Locale.fromObject(options)
-        });
-      }
-    }
-    static fromSeconds(seconds, options = {}) {
-      if (!isNumber(seconds)) {
-        throw new InvalidArgumentError("fromSeconds requires a numerical input");
-      } else {
-        return new DateTime({
-          ts: seconds * 1000,
-          zone: normalizeZone(options.zone, Settings.defaultZone),
-          loc: Locale.fromObject(options)
-        });
-      }
-    }
-    static fromObject(obj, opts = {}) {
-      obj = obj || {};
-      const zoneToUse = normalizeZone(opts.zone, Settings.defaultZone);
-      if (!zoneToUse.isValid) {
-        return DateTime.invalid(unsupportedZone(zoneToUse));
-      }
-      const loc = Locale.fromObject(opts);
-      const normalized = normalizeObject(obj, normalizeUnitWithLocalWeeks);
-      const {
-        minDaysInFirstWeek,
-        startOfWeek
-      } = usesLocalWeekValues(normalized, loc);
-      const tsNow = Settings.now(), offsetProvis = !isUndefined(opts.specificOffset) ? opts.specificOffset : zoneToUse.offset(tsNow), containsOrdinal = !isUndefined(normalized.ordinal), containsGregorYear = !isUndefined(normalized.year), containsGregorMD = !isUndefined(normalized.month) || !isUndefined(normalized.day), containsGregor = containsGregorYear || containsGregorMD, definiteWeekDef = normalized.weekYear || normalized.weekNumber;
-      if ((containsGregor || containsOrdinal) && definiteWeekDef) {
-        throw new ConflictingSpecificationError("Can't mix weekYear/weekNumber units with year/month/day or ordinals");
-      }
-      if (containsGregorMD && containsOrdinal) {
-        throw new ConflictingSpecificationError("Can't mix ordinal dates with month/day");
-      }
-      const useWeekData = definiteWeekDef || normalized.weekday && !containsGregor;
-      let units, defaultValues, objNow = tsToObj(tsNow, offsetProvis);
-      if (useWeekData) {
-        units = orderedWeekUnits;
-        defaultValues = defaultWeekUnitValues;
-        objNow = gregorianToWeek(objNow, minDaysInFirstWeek, startOfWeek);
-      } else if (containsOrdinal) {
-        units = orderedOrdinalUnits;
-        defaultValues = defaultOrdinalUnitValues;
-        objNow = gregorianToOrdinal(objNow);
-      } else {
-        units = orderedUnits;
-        defaultValues = defaultUnitValues;
-      }
-      let foundFirst = false;
-      for (const u of units) {
-        const v = normalized[u];
-        if (!isUndefined(v)) {
-          foundFirst = true;
-        } else if (foundFirst) {
-          normalized[u] = defaultValues[u];
-        } else {
-          normalized[u] = objNow[u];
-        }
-      }
-      const higherOrderInvalid = useWeekData ? hasInvalidWeekData(normalized, minDaysInFirstWeek, startOfWeek) : containsOrdinal ? hasInvalidOrdinalData(normalized) : hasInvalidGregorianData(normalized), invalid = higherOrderInvalid || hasInvalidTimeData(normalized);
-      if (invalid) {
-        return DateTime.invalid(invalid);
-      }
-      const gregorian = useWeekData ? weekToGregorian(normalized, minDaysInFirstWeek, startOfWeek) : containsOrdinal ? ordinalToGregorian(normalized) : normalized, [tsFinal, offsetFinal] = objToTS(gregorian, offsetProvis, zoneToUse), inst = new DateTime({
-        ts: tsFinal,
-        zone: zoneToUse,
-        o: offsetFinal,
-        loc
-      });
-      if (normalized.weekday && containsGregor && obj.weekday !== inst.weekday) {
-        return DateTime.invalid("mismatched weekday", `you can't specify both a weekday of ${normalized.weekday} and a date of ${inst.toISO()}`);
-      }
-      if (!inst.isValid) {
-        return DateTime.invalid(inst.invalid);
-      }
-      return inst;
-    }
-    static fromISO(text, opts = {}) {
-      const [vals, parsedZone] = parseISODate(text);
-      return parseDataToDateTime(vals, parsedZone, opts, "ISO 8601", text);
-    }
-    static fromRFC2822(text, opts = {}) {
-      const [vals, parsedZone] = parseRFC2822Date(text);
-      return parseDataToDateTime(vals, parsedZone, opts, "RFC 2822", text);
-    }
-    static fromHTTP(text, opts = {}) {
-      const [vals, parsedZone] = parseHTTPDate(text);
-      return parseDataToDateTime(vals, parsedZone, opts, "HTTP", opts);
-    }
-    static fromFormat(text, fmt, opts = {}) {
-      if (isUndefined(text) || isUndefined(fmt)) {
-        throw new InvalidArgumentError("fromFormat requires an input string and a format");
-      }
-      const {
-        locale = null,
-        numberingSystem = null
-      } = opts, localeToUse = Locale.fromOpts({
-        locale,
-        numberingSystem,
-        defaultToEN: true
-      }), [vals, parsedZone, specificOffset, invalid] = parseFromTokens(localeToUse, text, fmt);
-      if (invalid) {
-        return DateTime.invalid(invalid);
-      } else {
-        return parseDataToDateTime(vals, parsedZone, opts, `format ${fmt}`, text, specificOffset);
-      }
-    }
-    static fromString(text, fmt, opts = {}) {
-      return DateTime.fromFormat(text, fmt, opts);
-    }
-    static fromSQL(text, opts = {}) {
-      const [vals, parsedZone] = parseSQL(text);
-      return parseDataToDateTime(vals, parsedZone, opts, "SQL", text);
-    }
-    static invalid(reason, explanation = null) {
-      if (!reason) {
-        throw new InvalidArgumentError("need to specify a reason the DateTime is invalid");
-      }
-      const invalid = reason instanceof Invalid ? reason : new Invalid(reason, explanation);
-      if (Settings.throwOnInvalid) {
-        throw new InvalidDateTimeError(invalid);
-      } else {
-        return new DateTime({
-          invalid
-        });
-      }
-    }
-    static isDateTime(o) {
-      return o && o.isLuxonDateTime || false;
-    }
-    static parseFormatForOpts(formatOpts, localeOpts = {}) {
-      const tokenList = formatOptsToTokens(formatOpts, Locale.fromObject(localeOpts));
-      return !tokenList ? null : tokenList.map((t3) => t3 ? t3.val : null).join("");
-    }
-    static expandFormat(fmt, localeOpts = {}) {
-      const expanded = expandMacroTokens(Formatter.parseFormat(fmt), Locale.fromObject(localeOpts));
-      return expanded.map((t3) => t3.val).join("");
-    }
-    static resetCache() {
-      zoneOffsetTs = undefined;
-      zoneOffsetGuessCache.clear();
-    }
-    get(unit) {
-      return this[unit];
-    }
-    get isValid() {
-      return this.invalid === null;
-    }
-    get invalidReason() {
-      return this.invalid ? this.invalid.reason : null;
-    }
-    get invalidExplanation() {
-      return this.invalid ? this.invalid.explanation : null;
-    }
-    get locale() {
-      return this.isValid ? this.loc.locale : null;
-    }
-    get numberingSystem() {
-      return this.isValid ? this.loc.numberingSystem : null;
-    }
-    get outputCalendar() {
-      return this.isValid ? this.loc.outputCalendar : null;
-    }
-    get zone() {
-      return this._zone;
-    }
-    get zoneName() {
-      return this.isValid ? this.zone.name : null;
-    }
-    get year() {
-      return this.isValid ? this.c.year : NaN;
-    }
-    get quarter() {
-      return this.isValid ? Math.ceil(this.c.month / 3) : NaN;
-    }
-    get month() {
-      return this.isValid ? this.c.month : NaN;
-    }
-    get day() {
-      return this.isValid ? this.c.day : NaN;
-    }
-    get hour() {
-      return this.isValid ? this.c.hour : NaN;
-    }
-    get minute() {
-      return this.isValid ? this.c.minute : NaN;
-    }
-    get second() {
-      return this.isValid ? this.c.second : NaN;
-    }
-    get millisecond() {
-      return this.isValid ? this.c.millisecond : NaN;
-    }
-    get weekYear() {
-      return this.isValid ? possiblyCachedWeekData(this).weekYear : NaN;
-    }
-    get weekNumber() {
-      return this.isValid ? possiblyCachedWeekData(this).weekNumber : NaN;
-    }
-    get weekday() {
-      return this.isValid ? possiblyCachedWeekData(this).weekday : NaN;
-    }
-    get isWeekend() {
-      return this.isValid && this.loc.getWeekendDays().includes(this.weekday);
-    }
-    get localWeekday() {
-      return this.isValid ? possiblyCachedLocalWeekData(this).weekday : NaN;
-    }
-    get localWeekNumber() {
-      return this.isValid ? possiblyCachedLocalWeekData(this).weekNumber : NaN;
-    }
-    get localWeekYear() {
-      return this.isValid ? possiblyCachedLocalWeekData(this).weekYear : NaN;
-    }
-    get ordinal() {
-      return this.isValid ? gregorianToOrdinal(this.c).ordinal : NaN;
-    }
-    get monthShort() {
-      return this.isValid ? Info.months("short", {
-        locObj: this.loc
-      })[this.month - 1] : null;
-    }
-    get monthLong() {
-      return this.isValid ? Info.months("long", {
-        locObj: this.loc
-      })[this.month - 1] : null;
-    }
-    get weekdayShort() {
-      return this.isValid ? Info.weekdays("short", {
-        locObj: this.loc
-      })[this.weekday - 1] : null;
-    }
-    get weekdayLong() {
-      return this.isValid ? Info.weekdays("long", {
-        locObj: this.loc
-      })[this.weekday - 1] : null;
-    }
-    get offset() {
-      return this.isValid ? +this.o : NaN;
-    }
-    get offsetNameShort() {
-      if (this.isValid) {
-        return this.zone.offsetName(this.ts, {
-          format: "short",
-          locale: this.locale
-        });
-      } else {
-        return null;
-      }
-    }
-    get offsetNameLong() {
-      if (this.isValid) {
-        return this.zone.offsetName(this.ts, {
-          format: "long",
-          locale: this.locale
-        });
-      } else {
-        return null;
-      }
-    }
-    get isOffsetFixed() {
-      return this.isValid ? this.zone.isUniversal : null;
-    }
-    get isInDST() {
-      if (this.isOffsetFixed) {
-        return false;
-      } else {
-        return this.offset > this.set({
-          month: 1,
-          day: 1
-        }).offset || this.offset > this.set({
-          month: 5
-        }).offset;
-      }
-    }
-    getPossibleOffsets() {
-      if (!this.isValid || this.isOffsetFixed) {
-        return [this];
-      }
-      const dayMs = 86400000;
-      const minuteMs = 60000;
-      const localTS = objToLocalTS(this.c);
-      const oEarlier = this.zone.offset(localTS - dayMs);
-      const oLater = this.zone.offset(localTS + dayMs);
-      const o1 = this.zone.offset(localTS - oEarlier * minuteMs);
-      const o2 = this.zone.offset(localTS - oLater * minuteMs);
-      if (o1 === o2) {
-        return [this];
-      }
-      const ts1 = localTS - o1 * minuteMs;
-      const ts2 = localTS - o2 * minuteMs;
-      const c1 = tsToObj(ts1, o1);
-      const c2 = tsToObj(ts2, o2);
-      if (c1.hour === c2.hour && c1.minute === c2.minute && c1.second === c2.second && c1.millisecond === c2.millisecond) {
-        return [clone2(this, {
-          ts: ts1
-        }), clone2(this, {
-          ts: ts2
-        })];
-      }
-      return [this];
-    }
-    get isInLeapYear() {
-      return isLeapYear2(this.year);
-    }
-    get daysInMonth() {
-      return daysInMonth(this.year, this.month);
-    }
-    get daysInYear() {
-      return this.isValid ? daysInYear(this.year) : NaN;
-    }
-    get weeksInWeekYear() {
-      return this.isValid ? weeksInWeekYear(this.weekYear) : NaN;
-    }
-    get weeksInLocalWeekYear() {
-      return this.isValid ? weeksInWeekYear(this.localWeekYear, this.loc.getMinDaysInFirstWeek(), this.loc.getStartOfWeek()) : NaN;
-    }
-    resolvedLocaleOptions(opts = {}) {
-      const {
-        locale,
-        numberingSystem,
-        calendar
-      } = Formatter.create(this.loc.clone(opts), opts).resolvedOptions(this);
-      return {
-        locale,
-        numberingSystem,
-        outputCalendar: calendar
-      };
-    }
-    toUTC(offset2 = 0, opts = {}) {
-      return this.setZone(FixedOffsetZone.instance(offset2), opts);
-    }
-    toLocal() {
-      return this.setZone(Settings.defaultZone);
-    }
-    setZone(zone, {
-      keepLocalTime = false,
-      keepCalendarTime = false
-    } = {}) {
-      zone = normalizeZone(zone, Settings.defaultZone);
-      if (zone.equals(this.zone)) {
-        return this;
-      } else if (!zone.isValid) {
-        return DateTime.invalid(unsupportedZone(zone));
-      } else {
-        let newTS = this.ts;
-        if (keepLocalTime || keepCalendarTime) {
-          const offsetGuess = zone.offset(this.ts);
-          const asObj = this.toObject();
-          [newTS] = objToTS(asObj, offsetGuess, zone);
-        }
-        return clone2(this, {
-          ts: newTS,
-          zone
-        });
-      }
-    }
-    reconfigure({
-      locale,
-      numberingSystem,
-      outputCalendar
-    } = {}) {
-      const loc = this.loc.clone({
-        locale,
-        numberingSystem,
-        outputCalendar
-      });
-      return clone2(this, {
-        loc
-      });
-    }
-    setLocale(locale) {
-      return this.reconfigure({
-        locale
-      });
-    }
-    set(values) {
-      if (!this.isValid)
-        return this;
-      const normalized = normalizeObject(values, normalizeUnitWithLocalWeeks);
-      const {
-        minDaysInFirstWeek,
-        startOfWeek
-      } = usesLocalWeekValues(normalized, this.loc);
-      const settingWeekStuff = !isUndefined(normalized.weekYear) || !isUndefined(normalized.weekNumber) || !isUndefined(normalized.weekday), containsOrdinal = !isUndefined(normalized.ordinal), containsGregorYear = !isUndefined(normalized.year), containsGregorMD = !isUndefined(normalized.month) || !isUndefined(normalized.day), containsGregor = containsGregorYear || containsGregorMD, definiteWeekDef = normalized.weekYear || normalized.weekNumber;
-      if ((containsGregor || containsOrdinal) && definiteWeekDef) {
-        throw new ConflictingSpecificationError("Can't mix weekYear/weekNumber units with year/month/day or ordinals");
-      }
-      if (containsGregorMD && containsOrdinal) {
-        throw new ConflictingSpecificationError("Can't mix ordinal dates with month/day");
-      }
-      let mixed;
-      if (settingWeekStuff) {
-        mixed = weekToGregorian({
-          ...gregorianToWeek(this.c, minDaysInFirstWeek, startOfWeek),
-          ...normalized
-        }, minDaysInFirstWeek, startOfWeek);
-      } else if (!isUndefined(normalized.ordinal)) {
-        mixed = ordinalToGregorian({
-          ...gregorianToOrdinal(this.c),
-          ...normalized
-        });
-      } else {
-        mixed = {
-          ...this.toObject(),
-          ...normalized
-        };
-        if (isUndefined(normalized.day)) {
-          mixed.day = Math.min(daysInMonth(mixed.year, mixed.month), mixed.day);
-        }
-      }
-      const [ts, o] = objToTS(mixed, this.o, this.zone);
-      return clone2(this, {
-        ts,
-        o
-      });
-    }
-    plus(duration) {
-      if (!this.isValid)
-        return this;
-      const dur = Duration.fromDurationLike(duration);
-      return clone2(this, adjustTime(this, dur));
-    }
-    minus(duration) {
-      if (!this.isValid)
-        return this;
-      const dur = Duration.fromDurationLike(duration).negate();
-      return clone2(this, adjustTime(this, dur));
-    }
-    startOf(unit, {
-      useLocaleWeeks = false
-    } = {}) {
-      if (!this.isValid)
-        return this;
-      const o = {}, normalizedUnit = Duration.normalizeUnit(unit);
-      switch (normalizedUnit) {
-        case "years":
-          o.month = 1;
-        case "quarters":
-        case "months":
-          o.day = 1;
-        case "weeks":
-        case "days":
-          o.hour = 0;
-        case "hours":
-          o.minute = 0;
-        case "minutes":
-          o.second = 0;
-        case "seconds":
-          o.millisecond = 0;
-          break;
-      }
-      if (normalizedUnit === "weeks") {
-        if (useLocaleWeeks) {
-          const startOfWeek = this.loc.getStartOfWeek();
-          const {
-            weekday
-          } = this;
-          if (weekday < startOfWeek) {
-            o.weekNumber = this.weekNumber - 1;
-          }
-          o.weekday = startOfWeek;
-        } else {
-          o.weekday = 1;
-        }
-      }
-      if (normalizedUnit === "quarters") {
-        const q = Math.ceil(this.month / 3);
-        o.month = (q - 1) * 3 + 1;
-      }
-      return this.set(o);
-    }
-    endOf(unit, opts) {
-      return this.isValid ? this.plus({
-        [unit]: 1
-      }).startOf(unit, opts).minus(1) : this;
-    }
-    toFormat(fmt, opts = {}) {
-      return this.isValid ? Formatter.create(this.loc.redefaultToEN(opts)).formatDateTimeFromString(this, fmt) : INVALID2;
-    }
-    toLocaleString(formatOpts = DATE_SHORT, opts = {}) {
-      return this.isValid ? Formatter.create(this.loc.clone(opts), formatOpts).formatDateTime(this) : INVALID2;
-    }
-    toLocaleParts(opts = {}) {
-      return this.isValid ? Formatter.create(this.loc.clone(opts), opts).formatDateTimeParts(this) : [];
-    }
-    toISO({
-      format = "extended",
-      suppressSeconds = false,
-      suppressMilliseconds = false,
-      includeOffset = true,
-      extendedZone = false,
-      precision = "milliseconds"
-    } = {}) {
-      if (!this.isValid) {
-        return null;
-      }
-      precision = normalizeUnit(precision);
-      const ext = format === "extended";
-      let c = toISODate(this, ext, precision);
-      if (orderedUnits.indexOf(precision) >= 3)
-        c += "T";
-      c += toISOTime(this, ext, suppressSeconds, suppressMilliseconds, includeOffset, extendedZone, precision);
-      return c;
-    }
-    toISODate({
-      format = "extended",
-      precision = "day"
-    } = {}) {
-      if (!this.isValid) {
-        return null;
-      }
-      return toISODate(this, format === "extended", normalizeUnit(precision));
-    }
-    toISOWeekDate() {
-      return toTechFormat(this, "kkkk-'W'WW-c");
-    }
-    toISOTime({
-      suppressMilliseconds = false,
-      suppressSeconds = false,
-      includeOffset = true,
-      includePrefix = false,
-      extendedZone = false,
-      format = "extended",
-      precision = "milliseconds"
-    } = {}) {
-      if (!this.isValid) {
-        return null;
-      }
-      precision = normalizeUnit(precision);
-      let c = includePrefix && orderedUnits.indexOf(precision) >= 3 ? "T" : "";
-      return c + toISOTime(this, format === "extended", suppressSeconds, suppressMilliseconds, includeOffset, extendedZone, precision);
-    }
-    toRFC2822() {
-      return toTechFormat(this, "EEE, dd LLL yyyy HH:mm:ss ZZZ", false);
-    }
-    toHTTP() {
-      return toTechFormat(this.toUTC(), "EEE, dd LLL yyyy HH:mm:ss 'GMT'");
-    }
-    toSQLDate() {
-      if (!this.isValid) {
-        return null;
-      }
-      return toISODate(this, true);
-    }
-    toSQLTime({
-      includeOffset = true,
-      includeZone = false,
-      includeOffsetSpace = true
-    } = {}) {
-      let fmt = "HH:mm:ss.SSS";
-      if (includeZone || includeOffset) {
-        if (includeOffsetSpace) {
-          fmt += " ";
-        }
-        if (includeZone) {
-          fmt += "z";
-        } else if (includeOffset) {
-          fmt += "ZZ";
-        }
-      }
-      return toTechFormat(this, fmt, true);
-    }
-    toSQL(opts = {}) {
-      if (!this.isValid) {
-        return null;
-      }
-      return `${this.toSQLDate()} ${this.toSQLTime(opts)}`;
-    }
-    toString() {
-      return this.isValid ? this.toISO() : INVALID2;
-    }
-    [Symbol.for("nodejs.util.inspect.custom")]() {
-      if (this.isValid) {
-        return `DateTime { ts: ${this.toISO()}, zone: ${this.zone.name}, locale: ${this.locale} }`;
-      } else {
-        return `DateTime { Invalid, reason: ${this.invalidReason} }`;
-      }
-    }
-    valueOf() {
-      return this.toMillis();
-    }
-    toMillis() {
-      return this.isValid ? this.ts : NaN;
-    }
-    toSeconds() {
-      return this.isValid ? this.ts / 1000 : NaN;
-    }
-    toUnixInteger() {
-      return this.isValid ? Math.floor(this.ts / 1000) : NaN;
-    }
-    toJSON() {
-      return this.toISO();
-    }
-    toBSON() {
-      return this.toJSDate();
-    }
-    toObject(opts = {}) {
-      if (!this.isValid)
-        return {};
-      const base = {
-        ...this.c
-      };
-      if (opts.includeConfig) {
-        base.outputCalendar = this.outputCalendar;
-        base.numberingSystem = this.loc.numberingSystem;
-        base.locale = this.loc.locale;
-      }
-      return base;
-    }
-    toJSDate() {
-      return new Date(this.isValid ? this.ts : NaN);
-    }
-    diff(otherDateTime, unit = "milliseconds", opts = {}) {
-      if (!this.isValid || !otherDateTime.isValid) {
-        return Duration.invalid("created by diffing an invalid DateTime");
-      }
-      const durOpts = {
-        locale: this.locale,
-        numberingSystem: this.numberingSystem,
-        ...opts
-      };
-      const units = maybeArray(unit).map(Duration.normalizeUnit), otherIsLater = otherDateTime.valueOf() > this.valueOf(), earlier = otherIsLater ? this : otherDateTime, later = otherIsLater ? otherDateTime : this, diffed = diff(earlier, later, units, durOpts);
-      return otherIsLater ? diffed.negate() : diffed;
-    }
-    diffNow(unit = "milliseconds", opts = {}) {
-      return this.diff(DateTime.now(), unit, opts);
-    }
-    until(otherDateTime) {
-      return this.isValid ? Interval.fromDateTimes(this, otherDateTime) : this;
-    }
-    hasSame(otherDateTime, unit, opts) {
-      if (!this.isValid)
-        return false;
-      const inputMs = otherDateTime.valueOf();
-      const adjustedToZone = this.setZone(otherDateTime.zone, {
-        keepLocalTime: true
-      });
-      return adjustedToZone.startOf(unit, opts) <= inputMs && inputMs <= adjustedToZone.endOf(unit, opts);
-    }
-    equals(other) {
-      return this.isValid && other.isValid && this.valueOf() === other.valueOf() && this.zone.equals(other.zone) && this.loc.equals(other.loc);
-    }
-    toRelative(options = {}) {
-      if (!this.isValid)
-        return null;
-      const base = options.base || DateTime.fromObject({}, {
-        zone: this.zone
-      }), padding = options.padding ? this < base ? -options.padding : options.padding : 0;
-      let units = ["years", "months", "days", "hours", "minutes", "seconds"];
-      let unit = options.unit;
-      if (Array.isArray(options.unit)) {
-        units = options.unit;
-        unit = undefined;
-      }
-      return diffRelative(base, this.plus(padding), {
-        ...options,
-        numeric: "always",
-        units,
-        unit
-      });
-    }
-    toRelativeCalendar(options = {}) {
-      if (!this.isValid)
-        return null;
-      return diffRelative(options.base || DateTime.fromObject({}, {
-        zone: this.zone
-      }), this, {
-        ...options,
-        numeric: "auto",
-        units: ["years", "months", "days"],
-        calendary: true
-      });
-    }
-    static min(...dateTimes) {
-      if (!dateTimes.every(DateTime.isDateTime)) {
-        throw new InvalidArgumentError("min requires all arguments be DateTimes");
-      }
-      return bestBy(dateTimes, (i2) => i2.valueOf(), Math.min);
-    }
-    static max(...dateTimes) {
-      if (!dateTimes.every(DateTime.isDateTime)) {
-        throw new InvalidArgumentError("max requires all arguments be DateTimes");
-      }
-      return bestBy(dateTimes, (i2) => i2.valueOf(), Math.max);
-    }
-    static fromFormatExplain(text, fmt, options = {}) {
-      const {
-        locale = null,
-        numberingSystem = null
-      } = options, localeToUse = Locale.fromOpts({
-        locale,
-        numberingSystem,
-        defaultToEN: true
-      });
-      return explainFromTokens(localeToUse, text, fmt);
-    }
-    static fromStringExplain(text, fmt, options = {}) {
-      return DateTime.fromFormatExplain(text, fmt, options);
-    }
-    static buildFormatParser(fmt, options = {}) {
-      const {
-        locale = null,
-        numberingSystem = null
-      } = options, localeToUse = Locale.fromOpts({
-        locale,
-        numberingSystem,
-        defaultToEN: true
-      });
-      return new TokenParser(localeToUse, fmt);
-    }
-    static fromFormatParser(text, formatParser, opts = {}) {
-      if (isUndefined(text) || isUndefined(formatParser)) {
-        throw new InvalidArgumentError("fromFormatParser requires an input string and a format parser");
-      }
-      const {
-        locale = null,
-        numberingSystem = null
-      } = opts, localeToUse = Locale.fromOpts({
-        locale,
-        numberingSystem,
-        defaultToEN: true
-      });
-      if (!localeToUse.equals(formatParser.locale)) {
-        throw new InvalidArgumentError(`fromFormatParser called with a locale of ${localeToUse}, ` + `but the format parser was created for ${formatParser.locale}`);
-      }
-      const {
-        result,
-        zone,
-        specificOffset,
-        invalidReason
-      } = formatParser.explainFromTokens(text);
-      if (invalidReason) {
-        return DateTime.invalid(invalidReason);
-      } else {
-        return parseDataToDateTime(result, zone, opts, `format ${formatParser.format}`, text, specificOffset);
-      }
-    }
-    static get DATE_SHORT() {
-      return DATE_SHORT;
-    }
-    static get DATE_MED() {
-      return DATE_MED;
-    }
-    static get DATE_MED_WITH_WEEKDAY() {
-      return DATE_MED_WITH_WEEKDAY;
-    }
-    static get DATE_FULL() {
-      return DATE_FULL;
-    }
-    static get DATE_HUGE() {
-      return DATE_HUGE;
-    }
-    static get TIME_SIMPLE() {
-      return TIME_SIMPLE;
-    }
-    static get TIME_WITH_SECONDS() {
-      return TIME_WITH_SECONDS;
-    }
-    static get TIME_WITH_SHORT_OFFSET() {
-      return TIME_WITH_SHORT_OFFSET;
-    }
-    static get TIME_WITH_LONG_OFFSET() {
-      return TIME_WITH_LONG_OFFSET;
-    }
-    static get TIME_24_SIMPLE() {
-      return TIME_24_SIMPLE;
-    }
-    static get TIME_24_WITH_SECONDS() {
-      return TIME_24_WITH_SECONDS;
-    }
-    static get TIME_24_WITH_SHORT_OFFSET() {
-      return TIME_24_WITH_SHORT_OFFSET;
-    }
-    static get TIME_24_WITH_LONG_OFFSET() {
-      return TIME_24_WITH_LONG_OFFSET;
-    }
-    static get DATETIME_SHORT() {
-      return DATETIME_SHORT;
-    }
-    static get DATETIME_SHORT_WITH_SECONDS() {
-      return DATETIME_SHORT_WITH_SECONDS;
-    }
-    static get DATETIME_MED() {
-      return DATETIME_MED;
-    }
-    static get DATETIME_MED_WITH_SECONDS() {
-      return DATETIME_MED_WITH_SECONDS;
-    }
-    static get DATETIME_MED_WITH_WEEKDAY() {
-      return DATETIME_MED_WITH_WEEKDAY;
-    }
-    static get DATETIME_FULL() {
-      return DATETIME_FULL;
-    }
-    static get DATETIME_FULL_WITH_SECONDS() {
-      return DATETIME_FULL_WITH_SECONDS;
-    }
-    static get DATETIME_HUGE() {
-      return DATETIME_HUGE;
-    }
-    static get DATETIME_HUGE_WITH_SECONDS() {
-      return DATETIME_HUGE_WITH_SECONDS;
-    }
+  function isString(value) {
+    return typeof value == "string" || !isArray(value) && isObjectLike(value) && objectToString.call(value) == stringTag;
   }
-  function friendlyDateTime(dateTimeish) {
-    if (DateTime.isDateTime(dateTimeish)) {
-      return dateTimeish;
-    } else if (dateTimeish && dateTimeish.valueOf && isNumber(dateTimeish.valueOf())) {
-      return DateTime.fromJSDate(dateTimeish);
-    } else if (dateTimeish && typeof dateTimeish === "object") {
-      return DateTime.fromObject(dateTimeish);
-    } else {
-      throw new InvalidArgumentError(`Unknown datetime argument: ${dateTimeish}, of type ${typeof dateTimeish}`);
-    }
+  function isSymbol(value) {
+    return typeof value == "symbol" || isObjectLike(value) && objectToString.call(value) == symbolTag;
   }
-  var VERSION = "3.7.1";
-  exports.DateTime = DateTime;
-  exports.Duration = Duration;
-  exports.FixedOffsetZone = FixedOffsetZone;
-  exports.IANAZone = IANAZone;
-  exports.Info = Info;
-  exports.Interval = Interval;
-  exports.InvalidZone = InvalidZone;
-  exports.Settings = Settings;
-  exports.SystemZone = SystemZone;
-  exports.VERSION = VERSION;
-  exports.Zone = Zone;
+  function toFinite(value) {
+    if (!value) {
+      return value === 0 ? value : 0;
+    }
+    value = toNumber(value);
+    if (value === INFINITY || value === -INFINITY) {
+      var sign = value < 0 ? -1 : 1;
+      return sign * MAX_INTEGER;
+    }
+    return value === value ? value : 0;
+  }
+  function toInteger(value) {
+    var result = toFinite(value), remainder = result % 1;
+    return result === result ? remainder ? result - remainder : result : 0;
+  }
+  function toNumber(value) {
+    if (typeof value == "number") {
+      return value;
+    }
+    if (isSymbol(value)) {
+      return NAN;
+    }
+    if (isObject2(value)) {
+      var other = typeof value.valueOf == "function" ? value.valueOf() : value;
+      value = isObject2(other) ? other + "" : other;
+    }
+    if (typeof value != "string") {
+      return value === 0 ? value : +value;
+    }
+    value = value.replace(reTrim, "");
+    var isBinary = reIsBinary.test(value);
+    return isBinary || reIsOctal.test(value) ? freeParseInt(value.slice(2), isBinary ? 2 : 8) : reIsBadHex.test(value) ? NAN : +value;
+  }
+  function keys(object) {
+    return isArrayLike(object) ? arrayLikeKeys(object) : baseKeys(object);
+  }
+  function values(object) {
+    return object ? baseValues(object, keys(object)) : [];
+  }
+  module.exports = includes;
 });
 
-// node_modules/cron/dist/constants.js
-var require_constants = __commonJS((exports) => {
-  Object.defineProperty(exports, "__esModule", { value: true });
-  exports.RE_RANGE = exports.RE_WILDCARDS = exports.PRESETS = exports.TIME_UNITS_LEN = exports.TIME_UNITS = exports.TIME_UNITS_MAP = exports.ALIASES = exports.PARSE_DEFAULTS = exports.CONSTRAINTS = undefined;
-  exports.CONSTRAINTS = Object.freeze({
-    second: [0, 59],
-    minute: [0, 59],
-    hour: [0, 23],
-    dayOfMonth: [1, 31],
-    month: [1, 12],
-    dayOfWeek: [0, 7]
-  });
-  exports.PARSE_DEFAULTS = Object.freeze({
-    second: "0",
-    minute: "*",
-    hour: "*",
-    dayOfMonth: "*",
-    month: "*",
-    dayOfWeek: "*"
-  });
-  exports.ALIASES = Object.freeze({
-    jan: 1,
-    feb: 2,
-    mar: 3,
-    apr: 4,
-    may: 5,
-    jun: 6,
-    jul: 7,
-    aug: 8,
-    sep: 9,
-    oct: 10,
-    nov: 11,
-    dec: 12,
-    sun: 0,
-    mon: 1,
-    tue: 2,
-    wed: 3,
-    thu: 4,
-    fri: 5,
-    sat: 6
-  });
-  exports.TIME_UNITS_MAP = Object.freeze({
-    SECOND: "second",
-    MINUTE: "minute",
-    HOUR: "hour",
-    DAY_OF_MONTH: "dayOfMonth",
-    MONTH: "month",
-    DAY_OF_WEEK: "dayOfWeek"
-  });
-  exports.TIME_UNITS = Object.freeze(Object.values(exports.TIME_UNITS_MAP));
-  exports.TIME_UNITS_LEN = exports.TIME_UNITS.length;
-  exports.PRESETS = Object.freeze({
-    "@yearly": "0 0 0 1 1 *",
-    "@monthly": "0 0 0 1 * *",
-    "@weekly": "0 0 0 * * 0",
-    "@daily": "0 0 0 * * *",
-    "@hourly": "0 0 * * * *",
-    "@minutely": "0 * * * * *",
-    "@secondly": "* * * * * *",
-    "@weekdays": "0 0 0 * * 1-5",
-    "@weekends": "0 0 0 * * 0,6"
-  });
-  exports.RE_WILDCARDS = /\*/g;
-  exports.RE_RANGE = /^(\d+)(?:-(\d+))?(?:\/(\d+))?$/g;
+// node_modules/lodash.isboolean/index.js
+var require_lodash2 = __commonJS((exports, module) => {
+  var boolTag = "[object Boolean]";
+  var objectProto = Object.prototype;
+  var objectToString = objectProto.toString;
+  function isBoolean(value) {
+    return value === true || value === false || isObjectLike(value) && objectToString.call(value) == boolTag;
+  }
+  function isObjectLike(value) {
+    return !!value && typeof value == "object";
+  }
+  module.exports = isBoolean;
 });
 
-// node_modules/cron/dist/errors.js
-var require_errors = __commonJS((exports) => {
-  Object.defineProperty(exports, "__esModule", { value: true });
-  exports.ExclusiveParametersError = exports.CronError = undefined;
-
-  class CronError extends Error {
+// node_modules/lodash.isinteger/index.js
+var require_lodash3 = __commonJS((exports, module) => {
+  var INFINITY = 1 / 0;
+  var MAX_INTEGER = 179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000;
+  var NAN = 0 / 0;
+  var symbolTag = "[object Symbol]";
+  var reTrim = /^\s+|\s+$/g;
+  var reIsBadHex = /^[-+]0x[0-9a-f]+$/i;
+  var reIsBinary = /^0b[01]+$/i;
+  var reIsOctal = /^0o[0-7]+$/i;
+  var freeParseInt = parseInt;
+  var objectProto = Object.prototype;
+  var objectToString = objectProto.toString;
+  function isInteger(value) {
+    return typeof value == "number" && value == toInteger(value);
   }
-  exports.CronError = CronError;
-
-  class ExclusiveParametersError extends CronError {
-    constructor(param1, param2) {
-      super(`You can't specify both ${param1} and ${param2}`);
+  function isObject2(value) {
+    var type = typeof value;
+    return !!value && (type == "object" || type == "function");
+  }
+  function isObjectLike(value) {
+    return !!value && typeof value == "object";
+  }
+  function isSymbol(value) {
+    return typeof value == "symbol" || isObjectLike(value) && objectToString.call(value) == symbolTag;
+  }
+  function toFinite(value) {
+    if (!value) {
+      return value === 0 ? value : 0;
     }
+    value = toNumber(value);
+    if (value === INFINITY || value === -INFINITY) {
+      var sign = value < 0 ? -1 : 1;
+      return sign * MAX_INTEGER;
+    }
+    return value === value ? value : 0;
   }
-  exports.ExclusiveParametersError = ExclusiveParametersError;
+  function toInteger(value) {
+    var result = toFinite(value), remainder = result % 1;
+    return result === result ? remainder ? result - remainder : result : 0;
+  }
+  function toNumber(value) {
+    if (typeof value == "number") {
+      return value;
+    }
+    if (isSymbol(value)) {
+      return NAN;
+    }
+    if (isObject2(value)) {
+      var other = typeof value.valueOf == "function" ? value.valueOf() : value;
+      value = isObject2(other) ? other + "" : other;
+    }
+    if (typeof value != "string") {
+      return value === 0 ? value : +value;
+    }
+    value = value.replace(reTrim, "");
+    var isBinary = reIsBinary.test(value);
+    return isBinary || reIsOctal.test(value) ? freeParseInt(value.slice(2), isBinary ? 2 : 8) : reIsBadHex.test(value) ? NAN : +value;
+  }
+  module.exports = isInteger;
 });
 
-// node_modules/cron/dist/time.js
-var require_time = __commonJS((exports) => {
-  Object.defineProperty(exports, "__esModule", { value: true });
-  exports.CronTime = undefined;
-  var luxon_1 = require_luxon();
-  var constants_1 = require_constants();
-  var errors_1 = require_errors();
+// node_modules/lodash.isnumber/index.js
+var require_lodash4 = __commonJS((exports, module) => {
+  var numberTag = "[object Number]";
+  var objectProto = Object.prototype;
+  var objectToString = objectProto.toString;
+  function isObjectLike(value) {
+    return !!value && typeof value == "object";
+  }
+  function isNumber(value) {
+    return typeof value == "number" || isObjectLike(value) && objectToString.call(value) == numberTag;
+  }
+  module.exports = isNumber;
+});
 
-  class CronTime {
-    constructor(source, timeZone, utcOffset) {
-      this.realDate = false;
-      this.second = {};
-      this.minute = {};
-      this.hour = {};
-      this.dayOfMonth = {};
-      this.month = {};
-      this.dayOfWeek = {};
-      if (timeZone != null && utcOffset != null) {
-        throw new errors_1.ExclusiveParametersError("timeZone", "utcOffset");
-      }
-      if (timeZone) {
-        const dt = luxon_1.DateTime.fromObject({}, { zone: timeZone });
-        if (!dt.isValid) {
-          throw new errors_1.CronError("Invalid timezone.");
-        }
-        this.timeZone = timeZone;
-      }
-      if (utcOffset != null) {
-        this.utcOffset = utcOffset;
-      }
-      if (timeZone == null && utcOffset == null) {
-        const systemTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        this.timeZone = systemTimezone;
-      }
-      if (source instanceof Date || source instanceof luxon_1.DateTime) {
-        this.source = source instanceof Date ? luxon_1.DateTime.fromJSDate(source) : source;
-        this.realDate = true;
-      } else {
-        this.source = source;
-        this._parse(this.source);
-      }
-    }
-    static validateCronExpression(cronExpression) {
+// node_modules/lodash.isplainobject/index.js
+var require_lodash5 = __commonJS((exports, module) => {
+  var objectTag = "[object Object]";
+  function isHostObject(value) {
+    var result = false;
+    if (value != null && typeof value.toString != "function") {
       try {
-        new CronTime(cronExpression);
-        return {
-          valid: true
-        };
-      } catch (error) {
-        return {
-          valid: false,
-          error
-        };
-      }
+        result = !!(value + "");
+      } catch (e) {}
     }
-    _getWeekDay(date2) {
-      return date2.weekday === 7 ? 0 : date2.weekday;
+    return result;
+  }
+  function overArg(func, transform2) {
+    return function(arg) {
+      return func(transform2(arg));
+    };
+  }
+  var funcProto = Function.prototype;
+  var objectProto = Object.prototype;
+  var funcToString = funcProto.toString;
+  var hasOwnProperty = objectProto.hasOwnProperty;
+  var objectCtorString = funcToString.call(Object);
+  var objectToString = objectProto.toString;
+  var getPrototype = overArg(Object.getPrototypeOf, Object);
+  function isObjectLike(value) {
+    return !!value && typeof value == "object";
+  }
+  function isPlainObject(value) {
+    if (!isObjectLike(value) || objectToString.call(value) != objectTag || isHostObject(value)) {
+      return false;
     }
-    sendAt(i2) {
-      let date2 = this.realDate && this.source instanceof luxon_1.DateTime ? this.source : luxon_1.DateTime.utc();
-      if (this.timeZone) {
-        date2 = date2.setZone(this.timeZone);
-      }
-      if (this.utcOffset !== undefined) {
-        const sign = this.utcOffset < 0 ? "-" : "+";
-        const offsetHours = Math.trunc(this.utcOffset / 60);
-        const offsetHoursStr = String(Math.abs(offsetHours)).padStart(2, "0");
-        const offsetMins = Math.abs(this.utcOffset - offsetHours * 60);
-        const offsetMinsStr = String(offsetMins).padStart(2, "0");
-        const utcZone = `UTC${sign}${offsetHoursStr}:${offsetMinsStr}`;
-        date2 = date2.setZone(utcZone);
-        if (!date2.isValid) {
-          throw new errors_1.CronError("ERROR: You specified an invalid UTC offset.");
-        }
-      }
-      if (this.realDate) {
-        if (luxon_1.DateTime.local() > date2) {
-          throw new errors_1.CronError("WARNING: Date in past. Will never be fired.");
-        }
-        return date2;
-      }
-      if (i2 === undefined || isNaN(i2) || i2 < 0) {
-        const nextDate = this.getNextDateFrom(date2);
-        return nextDate;
-      } else {
-        const dates = [];
-        for (;i2 > 0; i2--) {
-          date2 = this.getNextDateFrom(date2);
-          dates.push(date2);
-        }
-        return dates;
-      }
-    }
-    getTimeout() {
-      return this.sendAt().toMillis() - luxon_1.DateTime.local().toMillis();
-    }
-    toString() {
-      return this.toJSON().join(" ");
-    }
-    toJSON() {
-      return constants_1.TIME_UNITS.map((unit) => {
-        return this._wcOrAll(unit);
-      });
-    }
-    getNextDateFrom(start, timeZone) {
-      var _a3, _b2;
-      if (start instanceof Date) {
-        start = luxon_1.DateTime.fromJSDate(start);
-      }
-      if (timeZone) {
-        start = start.setZone(timeZone);
-      } else {
-        timeZone = (_a3 = start.zone.zoneName) !== null && _a3 !== undefined ? _a3 : start.zone.fixed;
-      }
-      let date2 = luxon_1.DateTime.fromFormat(`${start.year}-${start.month}-${start.day} ${start.hour}:${start.minute}:${start.second}`, "yyyy-M-d H:m:s", {
-        zone: "UTC"
-      });
-      const firstDate = date2.toMillis();
-      if (!this.realDate) {
-        if (date2.millisecond > 0) {
-          date2 = date2.set({ millisecond: 0, second: date2.second + 1 });
-        }
-      }
-      if (!date2.isValid) {
-        throw new errors_1.CronError("ERROR: You specified an invalid date.");
-      }
-      const maxMatch = luxon_1.DateTime.now().plus({ years: 8 });
-      while (true) {
-        if (date2 > maxMatch) {
-          throw new errors_1.CronError(`Something went wrong. No execution date was found in the next 8 years.
-							Please provide the following string if you would like to help debug:
-							Time Zone: ${(_b2 = timeZone === null || timeZone === undefined ? undefined : timeZone.toString()) !== null && _b2 !== undefined ? _b2 : '""'} - Cron String: ${this.source.toString()} - UTC offset: ${date2.offset} - current Date: ${luxon_1.DateTime.local().toString()}`);
-        }
-        if (!(date2.month in this.month) && Object.keys(this.month).length !== 12) {
-          date2 = date2.plus({ month: 1 });
-          date2 = date2.set({ day: 1, hour: 0, minute: 0, second: 0 });
-          continue;
-        }
-        if (!(date2.day in this.dayOfMonth) && Object.keys(this.dayOfMonth).length !== 31 && !((this._getWeekDay(date2) in this.dayOfWeek) && Object.keys(this.dayOfWeek).length !== 7) || !(this._getWeekDay(date2) in this.dayOfWeek) && Object.keys(this.dayOfWeek).length !== 7 && !((date2.day in this.dayOfMonth) && Object.keys(this.dayOfMonth).length !== 31)) {
-          date2 = date2.plus({ days: 1 });
-          date2 = date2.set({ hour: 0, minute: 0, second: 0 });
-          continue;
-        }
-        if (!(date2.hour in this.hour) && Object.keys(this.hour).length !== 24) {
-          date2 = date2.plus({ hour: 1 });
-          date2 = date2.set({ minute: 0, second: 0 });
-          continue;
-        }
-        if (!(date2.minute in this.minute) && Object.keys(this.minute).length !== 60) {
-          date2 = date2.plus({ minute: 1 });
-          date2 = date2.set({ second: 0 });
-          continue;
-        }
-        if (date2.toMillis() === firstDate || !(date2.second in this.second) && Object.keys(this.second).length !== 60) {
-          date2 = date2.plus({ second: 1 });
-          continue;
-        }
-        break;
-      }
-      const expectedHour = date2.hour;
-      const expectedMinute = date2.minute;
-      date2 = luxon_1.DateTime.fromFormat(`${date2.year}-${date2.month}-${date2.day} ${date2.hour}:${date2.minute}:${date2.second}`, "yyyy-M-d H:m:s", {
-        zone: timeZone
-      });
-      const nonDSTReferenceDate = luxon_1.DateTime.fromFormat(`${date2.year}-1-1 0:0:0`, "yyyy-M-d H:m:s", { zone: timeZone });
-      if ((expectedHour !== date2.hour || expectedMinute !== date2.minute) && nonDSTReferenceDate.offset !== date2.offset) {
-        while (date2.minus({ minute: 1 }).offset !== nonDSTReferenceDate.offset) {
-          date2 = date2.minus({ minute: 1 });
-        }
-        return date2;
-      }
-      const hourTestDate = date2.minus({ hour: 1 });
-      const twoHourTestDate = date2.minus({ hour: 2 });
-      if ((hourTestDate.hour === date2.hour || twoHourTestDate.hour === hourTestDate.hour) && hourTestDate > start) {
-        date2 = hourTestDate;
-      }
-      const halfHourTestDate = date2.minus({ minute: 30 });
-      if ((halfHourTestDate.minute === date2.minute || hourTestDate.minute === halfHourTestDate.minute) && halfHourTestDate > start) {
-        date2 = halfHourTestDate;
-      }
-      return date2;
-    }
-    _wcOrAll(unit) {
-      if (this._hasAll(unit)) {
-        return "*";
-      }
-      const all = [];
-      for (const time in this[unit]) {
-        all.push(time);
-      }
-      return all.join(",");
-    }
-    _hasAll(unit) {
-      const constraints = constants_1.CONSTRAINTS[unit];
-      const low = constraints[0];
-      const high = unit === constants_1.TIME_UNITS_MAP.DAY_OF_WEEK ? constraints[1] - 1 : constraints[1];
-      for (let i2 = low, n2 = high;i2 < n2; i2++) {
-        if (!(i2 in this[unit])) {
-          return false;
-        }
-      }
+    var proto = getPrototype(value);
+    if (proto === null) {
       return true;
     }
-    _parse(source) {
-      var _a3;
-      source = source.toLowerCase();
-      if (Object.keys(constants_1.PRESETS).includes(source)) {
-        source = constants_1.PRESETS[source];
-      }
-      source = source.replace(/[a-z]{1,3}/gi, (alias) => {
-        if (Object.keys(constants_1.ALIASES).includes(alias)) {
-          return constants_1.ALIASES[alias].toString();
-        }
-        throw new errors_1.CronError(`Unknown alias: ${alias}`);
-      });
-      const units = source.trim().split(/\s+/);
-      if (units.length < constants_1.TIME_UNITS_LEN - 1) {
-        throw new errors_1.CronError("Too few fields");
-      }
-      if (units.length > constants_1.TIME_UNITS_LEN) {
-        throw new errors_1.CronError("Too many fields");
-      }
-      const unitsLen = units.length;
-      for (const unit of constants_1.TIME_UNITS) {
-        const i2 = constants_1.TIME_UNITS.indexOf(unit);
-        const cur = (_a3 = units[i2 - (constants_1.TIME_UNITS_LEN - unitsLen)]) !== null && _a3 !== undefined ? _a3 : constants_1.PARSE_DEFAULTS[unit];
-        this._parseField(cur, unit);
-      }
-    }
-    _parseField(value, unit) {
-      const typeObj = this[unit];
-      let pointer2;
-      const constraints = constants_1.CONSTRAINTS[unit];
-      const low = constraints[0];
-      const high = constraints[1];
-      const fields = value.split(",");
-      fields.forEach((field) => {
-        const wildcardIndex = field.indexOf("*");
-        if (wildcardIndex !== -1 && wildcardIndex !== 0) {
-          throw new errors_1.CronError(`Field (${field}) has an invalid wildcard expression`);
-        }
-      });
-      value = value.replace(constants_1.RE_WILDCARDS, `${low}-${high}`);
-      const allRanges = value.split(",");
-      for (const range of allRanges) {
-        const match = [...range.matchAll(constants_1.RE_RANGE)][0];
-        if ((match === null || match === undefined ? undefined : match[1]) !== undefined) {
-          const [, mLower, mUpper, mStep] = match;
-          let lower = parseInt(mLower, 10);
-          let upper = mUpper !== undefined ? parseInt(mUpper, 10) : undefined;
-          const wasStepDefined = mStep !== undefined;
-          const step = parseInt(mStep !== null && mStep !== undefined ? mStep : "1", 10);
-          if (step === 0) {
-            throw new errors_1.CronError(`Field (${unit}) has a step of zero`);
-          }
-          if (upper !== undefined && lower > upper) {
-            throw new errors_1.CronError(`Field (${unit}) has an invalid range`);
-          }
-          const isOutOfRange = lower < low || upper !== undefined && upper > high || upper === undefined && lower > high;
-          if (isOutOfRange) {
-            throw new errors_1.CronError(`Field value (${value}) is out of range`);
-          }
-          lower = Math.min(Math.max(low, ~~Math.abs(lower)), high);
-          if (upper !== undefined) {
-            upper = Math.min(high, ~~Math.abs(upper));
-          } else {
-            upper = wasStepDefined ? high : lower;
-          }
-          pointer2 = lower;
-          do {
-            typeObj[pointer2] = true;
-            pointer2 += step;
-          } while (pointer2 <= upper);
-          if (unit === "dayOfWeek") {
-            if (!typeObj[0] && !!typeObj[7])
-              typeObj[0] = typeObj[7];
-            delete typeObj[7];
-          }
-        } else {
-          throw new errors_1.CronError(`Field (${unit}) cannot be parsed`);
-        }
-      }
-    }
+    var Ctor = hasOwnProperty.call(proto, "constructor") && proto.constructor;
+    return typeof Ctor == "function" && Ctor instanceof Ctor && funcToString.call(Ctor) == objectCtorString;
   }
-  exports.CronTime = CronTime;
+  module.exports = isPlainObject;
 });
 
-// node_modules/cron/dist/job.js
-var require_job = __commonJS((exports) => {
-  var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
-    function adopt(value) {
-      return value instanceof P ? value : new P(function(resolve) {
-        resolve(value);
-      });
+// node_modules/lodash.isstring/index.js
+var require_lodash6 = __commonJS((exports, module) => {
+  var stringTag = "[object String]";
+  var objectProto = Object.prototype;
+  var objectToString = objectProto.toString;
+  var isArray = Array.isArray;
+  function isObjectLike(value) {
+    return !!value && typeof value == "object";
+  }
+  function isString(value) {
+    return typeof value == "string" || !isArray(value) && isObjectLike(value) && objectToString.call(value) == stringTag;
+  }
+  module.exports = isString;
+});
+
+// node_modules/lodash.once/index.js
+var require_lodash7 = __commonJS((exports, module) => {
+  var FUNC_ERROR_TEXT = "Expected a function";
+  var INFINITY = 1 / 0;
+  var MAX_INTEGER = 179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000;
+  var NAN = 0 / 0;
+  var symbolTag = "[object Symbol]";
+  var reTrim = /^\s+|\s+$/g;
+  var reIsBadHex = /^[-+]0x[0-9a-f]+$/i;
+  var reIsBinary = /^0b[01]+$/i;
+  var reIsOctal = /^0o[0-7]+$/i;
+  var freeParseInt = parseInt;
+  var objectProto = Object.prototype;
+  var objectToString = objectProto.toString;
+  function before(n2, func) {
+    var result;
+    if (typeof func != "function") {
+      throw new TypeError(FUNC_ERROR_TEXT);
     }
-    return new (P || (P = Promise))(function(resolve, reject) {
-      function fulfilled(value) {
-        try {
-          step(generator.next(value));
-        } catch (e) {
-          reject(e);
-        }
+    n2 = toInteger(n2);
+    return function() {
+      if (--n2 > 0) {
+        result = func.apply(this, arguments);
       }
-      function rejected(value) {
-        try {
-          step(generator["throw"](value));
-        } catch (e) {
-          reject(e);
-        }
+      if (n2 <= 1) {
+        func = undefined;
       }
-      function step(result) {
-        result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
-      }
-      step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
+      return result;
+    };
+  }
+  function once(func) {
+    return before(2, func);
+  }
+  function isObject2(value) {
+    var type = typeof value;
+    return !!value && (type == "object" || type == "function");
+  }
+  function isObjectLike(value) {
+    return !!value && typeof value == "object";
+  }
+  function isSymbol(value) {
+    return typeof value == "symbol" || isObjectLike(value) && objectToString.call(value) == symbolTag;
+  }
+  function toFinite(value) {
+    if (!value) {
+      return value === 0 ? value : 0;
+    }
+    value = toNumber(value);
+    if (value === INFINITY || value === -INFINITY) {
+      var sign = value < 0 ? -1 : 1;
+      return sign * MAX_INTEGER;
+    }
+    return value === value ? value : 0;
+  }
+  function toInteger(value) {
+    var result = toFinite(value), remainder = result % 1;
+    return result === result ? remainder ? result - remainder : result : 0;
+  }
+  function toNumber(value) {
+    if (typeof value == "number") {
+      return value;
+    }
+    if (isSymbol(value)) {
+      return NAN;
+    }
+    if (isObject2(value)) {
+      var other = typeof value.valueOf == "function" ? value.valueOf() : value;
+      value = isObject2(other) ? other + "" : other;
+    }
+    if (typeof value != "string") {
+      return value === 0 ? value : +value;
+    }
+    value = value.replace(reTrim, "");
+    var isBinary = reIsBinary.test(value);
+    return isBinary || reIsOctal.test(value) ? freeParseInt(value.slice(2), isBinary ? 2 : 8) : reIsBadHex.test(value) ? NAN : +value;
+  }
+  module.exports = once;
+});
+
+// node_modules/jsonwebtoken/sign.js
+var require_sign = __commonJS((exports, module) => {
+  var timespan = require_timespan();
+  var PS_SUPPORTED = require_psSupported();
+  var validateAsymmetricKey = require_validateAsymmetricKey();
+  var jws = require_jws();
+  var includes = require_lodash();
+  var isBoolean = require_lodash2();
+  var isInteger = require_lodash3();
+  var isNumber = require_lodash4();
+  var isPlainObject = require_lodash5();
+  var isString = require_lodash6();
+  var once = require_lodash7();
+  var { KeyObject, createSecretKey, createPrivateKey } = __require("crypto");
+  var SUPPORTED_ALGS = ["RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "HS256", "HS384", "HS512", "none"];
+  if (PS_SUPPORTED) {
+    SUPPORTED_ALGS.splice(3, 0, "PS256", "PS384", "PS512");
+  }
+  var sign_options_schema = {
+    expiresIn: { isValid: function(value) {
+      return isInteger(value) || isString(value) && value;
+    }, message: '"expiresIn" should be a number of seconds or string representing a timespan' },
+    notBefore: { isValid: function(value) {
+      return isInteger(value) || isString(value) && value;
+    }, message: '"notBefore" should be a number of seconds or string representing a timespan' },
+    audience: { isValid: function(value) {
+      return isString(value) || Array.isArray(value);
+    }, message: '"audience" must be a string or array' },
+    algorithm: { isValid: includes.bind(null, SUPPORTED_ALGS), message: '"algorithm" must be a valid string enum value' },
+    header: { isValid: isPlainObject, message: '"header" must be an object' },
+    encoding: { isValid: isString, message: '"encoding" must be a string' },
+    issuer: { isValid: isString, message: '"issuer" must be a string' },
+    subject: { isValid: isString, message: '"subject" must be a string' },
+    jwtid: { isValid: isString, message: '"jwtid" must be a string' },
+    noTimestamp: { isValid: isBoolean, message: '"noTimestamp" must be a boolean' },
+    keyid: { isValid: isString, message: '"keyid" must be a string' },
+    mutatePayload: { isValid: isBoolean, message: '"mutatePayload" must be a boolean' },
+    allowInsecureKeySizes: { isValid: isBoolean, message: '"allowInsecureKeySizes" must be a boolean' },
+    allowInvalidAsymmetricKeyTypes: { isValid: isBoolean, message: '"allowInvalidAsymmetricKeyTypes" must be a boolean' }
   };
-  Object.defineProperty(exports, "__esModule", { value: true });
-  exports.CronJob = undefined;
-  var child_process_1 = __require("child_process");
-  var errors_1 = require_errors();
-  var time_1 = require_time();
-
-  class CronJob {
-    get isActive() {
-      return this._isActive;
+  var registered_claims_schema = {
+    iat: { isValid: isNumber, message: '"iat" should be a number of seconds' },
+    exp: { isValid: isNumber, message: '"exp" should be a number of seconds' },
+    nbf: { isValid: isNumber, message: '"nbf" should be a number of seconds' }
+  };
+  function validate(schema, allowUnknown, object, parameterName) {
+    if (!isPlainObject(object)) {
+      throw new Error('Expected "' + parameterName + '" to be a plain object.');
     }
-    get isCallbackRunning() {
-      return this._isCallbackRunning;
-    }
-    constructor(cronTime, onTick, onComplete, start, timeZone, context, runOnInit, utcOffset, unrefTimeout, waitForCompletion, errorHandler, name, threshold) {
-      this.unrefTimeout = false;
-      this.lastExecution = null;
-      this.runOnce = false;
-      this.waitForCompletion = false;
-      this.threshold = 250;
-      this._isActive = false;
-      this._isCallbackRunning = false;
-      this._callbacks = [];
-      this.context = context !== null && context !== undefined ? context : this;
-      this.waitForCompletion = Boolean(waitForCompletion);
-      this.errorHandler = errorHandler;
-      if (timeZone != null && utcOffset != null) {
-        throw new errors_1.ExclusiveParametersError("timeZone", "utcOffset");
-      }
-      if (timeZone != null) {
-        this.cronTime = new time_1.CronTime(cronTime, timeZone, null);
-      } else if (utcOffset != null) {
-        this.cronTime = new time_1.CronTime(cronTime, null, utcOffset);
-      } else {
-        this.cronTime = new time_1.CronTime(cronTime, timeZone, utcOffset);
-      }
-      if (unrefTimeout != null) {
-        this.unrefTimeout = unrefTimeout;
-      }
-      if (onComplete != null) {
-        this.onComplete = this._fnWrap(onComplete);
-      }
-      if (threshold != null) {
-        this.threshold = Math.abs(threshold);
-      }
-      if (name != null) {
-        this.name = name;
-      }
-      if (this.cronTime.realDate) {
-        this.runOnce = true;
-      }
-      this.addCallback(this._fnWrap(onTick));
-      if (runOnInit) {
-        this.lastExecution = new Date;
-        this.fireOnTick();
-      }
-      if (start)
-        this.start();
-    }
-    static from(params) {
-      if (params.timeZone != null && params.utcOffset != null) {
-        throw new errors_1.ExclusiveParametersError("timeZone", "utcOffset");
-      }
-      if (params.timeZone != null) {
-        return new CronJob(params.cronTime, params.onTick, params.onComplete, params.start, params.timeZone, params.context, params.runOnInit, params.utcOffset, params.unrefTimeout, params.waitForCompletion, params.errorHandler, params.name, params.threshold);
-      } else if (params.utcOffset != null) {
-        return new CronJob(params.cronTime, params.onTick, params.onComplete, params.start, null, params.context, params.runOnInit, params.utcOffset, params.unrefTimeout, params.waitForCompletion, params.errorHandler, params.name, params.threshold);
-      } else {
-        return new CronJob(params.cronTime, params.onTick, params.onComplete, params.start, params.timeZone, params.context, params.runOnInit, params.utcOffset, params.unrefTimeout, params.waitForCompletion, params.errorHandler, params.name, params.threshold);
-      }
-    }
-    _fnWrap(cmd) {
-      var _a3, _b2;
-      switch (typeof cmd) {
-        case "function": {
-          return cmd;
+    Object.keys(object).forEach(function(key) {
+      const validator = schema[key];
+      if (!validator) {
+        if (!allowUnknown) {
+          throw new Error('"' + key + '" is not allowed in "' + parameterName + '"');
         }
-        case "string": {
-          const [command, ...args] = cmd.split(" ");
-          return child_process_1.spawn.bind(undefined, command !== null && command !== undefined ? command : cmd, args, {});
-        }
-        case "object": {
-          return child_process_1.spawn.bind(undefined, cmd.command, (_a3 = cmd.args) !== null && _a3 !== undefined ? _a3 : [], (_b2 = cmd.options) !== null && _b2 !== undefined ? _b2 : {});
-        }
-      }
-    }
-    addCallback(callback) {
-      if (typeof callback === "function") {
-        this._callbacks.push(callback);
-      }
-    }
-    setTime(time) {
-      if (!(time instanceof time_1.CronTime)) {
-        throw new errors_1.CronError("time must be an instance of CronTime.");
-      }
-      const wasRunning = this._isActive;
-      this.stop();
-      this.cronTime = time;
-      if (time.realDate)
-        this.runOnce = true;
-      if (wasRunning)
-        this.start();
-    }
-    nextDate() {
-      return this.cronTime.sendAt();
-    }
-    fireOnTick() {
-      return __awaiter(this, undefined, undefined, function* () {
-        if (this.waitForCompletion && this._isCallbackRunning)
-          return;
-        this._isCallbackRunning = true;
-        try {
-          for (const callback of this._callbacks) {
-            const result = callback.call(this.context, this.onComplete);
-            if (this.waitForCompletion)
-              yield result;
-          }
-        } catch (error) {
-          if (this.errorHandler != null)
-            this.errorHandler(error);
-          else
-            console.error("[Cron] error in callback", error);
-        } finally {
-          this._isCallbackRunning = false;
-        }
-      });
-    }
-    nextDates(i2) {
-      return this.cronTime.sendAt(i2 !== null && i2 !== undefined ? i2 : 0);
-    }
-    start() {
-      if (this._isActive)
-        return;
-      this._isActive = true;
-      const MAXDELAY = 2147483647;
-      let timeout = this.cronTime.getTimeout();
-      let remaining = 0;
-      let startTime;
-      const setCronTimeout = (t3) => {
-        startTime = Date.now();
-        this._timeout = setTimeout(callbackWrapper, t3);
-        if (this.unrefTimeout && typeof this._timeout.unref === "function") {
-          this._timeout.unref();
-        }
-      };
-      const callbackWrapper = () => {
-        const diff = startTime + timeout - Date.now();
-        if (diff > 0) {
-          let newTimeout = this.cronTime.getTimeout();
-          if (newTimeout > diff) {
-            newTimeout = diff;
-          }
-          remaining += newTimeout;
-        }
-        if (remaining) {
-          if (remaining > MAXDELAY) {
-            remaining -= MAXDELAY;
-            timeout = MAXDELAY;
-          } else {
-            timeout = remaining;
-            remaining = 0;
-          }
-          setCronTimeout(timeout);
-        } else {
-          this.lastExecution = new Date;
-          this._isActive = false;
-          if (!this.runOnce)
-            this.start();
-          this.fireOnTick();
-        }
-      };
-      if (timeout >= 0) {
-        if (timeout > MAXDELAY) {
-          remaining = timeout - MAXDELAY;
-          timeout = MAXDELAY;
-        }
-        setCronTimeout(timeout);
-      } else {
-        const absoluteTimeout = Math.abs(timeout);
-        const message = `[Cron] Missed execution deadline by ${absoluteTimeout}ms for job${this.name ? ` "${this.name}"` : ""} with cron expression '${String(this.cronTime.source)}'`;
-        if (absoluteTimeout <= this.threshold) {
-          console.warn(`${message}. Executing immediately.`);
-          this.lastExecution = new Date;
-          this.fireOnTick();
-        } else {
-          console.warn(`${message}. Skipping execution as it exceeds threshold (${this.threshold}ms).`);
-        }
-        timeout = this.cronTime.getTimeout();
-        setCronTimeout(timeout);
-      }
-    }
-    lastDate() {
-      return this.lastExecution;
-    }
-    _executeOnComplete() {
-      return __awaiter(this, undefined, undefined, function* () {
-        if (typeof this.onComplete !== "function")
-          return;
-        try {
-          yield this.onComplete.call(this.context);
-        } catch (error) {
-          console.error("[Cron] error in onComplete callback:", error);
-        }
-      });
-    }
-    _waitForJobCompletion() {
-      return __awaiter(this, undefined, undefined, function* () {
-        while (this._isCallbackRunning) {
-          yield new Promise((resolve) => setTimeout(resolve, 100));
-        }
-      });
-    }
-    stop() {
-      if (this._timeout)
-        clearTimeout(this._timeout);
-      this._isActive = false;
-      if (!this.waitForCompletion) {
-        this._executeOnComplete();
         return;
       }
-      return Promise.resolve().then(() => __awaiter(this, undefined, undefined, function* () {
-        yield this._waitForJobCompletion();
-        yield this._executeOnComplete();
-      }));
-    }
+      if (!validator.isValid(object[key])) {
+        throw new Error(validator.message);
+      }
+    });
   }
-  exports.CronJob = CronJob;
+  function validateOptions(options) {
+    return validate(sign_options_schema, false, options, "options");
+  }
+  function validatePayload(payload) {
+    return validate(registered_claims_schema, true, payload, "payload");
+  }
+  var options_to_payload = {
+    audience: "aud",
+    issuer: "iss",
+    subject: "sub",
+    jwtid: "jti"
+  };
+  var options_for_objects = [
+    "expiresIn",
+    "notBefore",
+    "noTimestamp",
+    "audience",
+    "issuer",
+    "subject",
+    "jwtid"
+  ];
+  module.exports = function(payload, secretOrPrivateKey, options, callback) {
+    if (typeof options === "function") {
+      callback = options;
+      options = {};
+    } else {
+      options = options || {};
+    }
+    const isObjectPayload = typeof payload === "object" && !Buffer.isBuffer(payload);
+    const header = Object.assign({
+      alg: options.algorithm || "HS256",
+      typ: isObjectPayload ? "JWT" : undefined,
+      kid: options.keyid
+    }, options.header);
+    function failure(err2) {
+      if (callback) {
+        return callback(err2);
+      }
+      throw err2;
+    }
+    if (!secretOrPrivateKey && options.algorithm !== "none") {
+      return failure(new Error("secretOrPrivateKey must have a value"));
+    }
+    if (secretOrPrivateKey != null && !(secretOrPrivateKey instanceof KeyObject)) {
+      try {
+        secretOrPrivateKey = createPrivateKey(secretOrPrivateKey);
+      } catch (_) {
+        try {
+          secretOrPrivateKey = createSecretKey(typeof secretOrPrivateKey === "string" ? Buffer.from(secretOrPrivateKey) : secretOrPrivateKey);
+        } catch (_2) {
+          return failure(new Error("secretOrPrivateKey is not valid key material"));
+        }
+      }
+    }
+    if (header.alg.startsWith("HS") && secretOrPrivateKey.type !== "secret") {
+      return failure(new Error(`secretOrPrivateKey must be a symmetric key when using ${header.alg}`));
+    } else if (/^(?:RS|PS|ES)/.test(header.alg)) {
+      if (secretOrPrivateKey.type !== "private") {
+        return failure(new Error(`secretOrPrivateKey must be an asymmetric key when using ${header.alg}`));
+      }
+      if (!options.allowInsecureKeySizes && !header.alg.startsWith("ES") && secretOrPrivateKey.asymmetricKeyDetails !== undefined && secretOrPrivateKey.asymmetricKeyDetails.modulusLength < 2048) {
+        return failure(new Error(`secretOrPrivateKey has a minimum key size of 2048 bits for ${header.alg}`));
+      }
+    }
+    if (typeof payload === "undefined") {
+      return failure(new Error("payload is required"));
+    } else if (isObjectPayload) {
+      try {
+        validatePayload(payload);
+      } catch (error) {
+        return failure(error);
+      }
+      if (!options.mutatePayload) {
+        payload = Object.assign({}, payload);
+      }
+    } else {
+      const invalid_options = options_for_objects.filter(function(opt) {
+        return typeof options[opt] !== "undefined";
+      });
+      if (invalid_options.length > 0) {
+        return failure(new Error("invalid " + invalid_options.join(",") + " option for " + typeof payload + " payload"));
+      }
+    }
+    if (typeof payload.exp !== "undefined" && typeof options.expiresIn !== "undefined") {
+      return failure(new Error('Bad "options.expiresIn" option the payload already has an "exp" property.'));
+    }
+    if (typeof payload.nbf !== "undefined" && typeof options.notBefore !== "undefined") {
+      return failure(new Error('Bad "options.notBefore" option the payload already has an "nbf" property.'));
+    }
+    try {
+      validateOptions(options);
+    } catch (error) {
+      return failure(error);
+    }
+    if (!options.allowInvalidAsymmetricKeyTypes) {
+      try {
+        validateAsymmetricKey(header.alg, secretOrPrivateKey);
+      } catch (error) {
+        return failure(error);
+      }
+    }
+    const timestamp = payload.iat || Math.floor(Date.now() / 1000);
+    if (options.noTimestamp) {
+      delete payload.iat;
+    } else if (isObjectPayload) {
+      payload.iat = timestamp;
+    }
+    if (typeof options.notBefore !== "undefined") {
+      try {
+        payload.nbf = timespan(options.notBefore, timestamp);
+      } catch (err2) {
+        return failure(err2);
+      }
+      if (typeof payload.nbf === "undefined") {
+        return failure(new Error('"notBefore" should be a number of seconds or string representing a timespan eg: "1d", "20h", 60'));
+      }
+    }
+    if (typeof options.expiresIn !== "undefined" && typeof payload === "object") {
+      try {
+        payload.exp = timespan(options.expiresIn, timestamp);
+      } catch (err2) {
+        return failure(err2);
+      }
+      if (typeof payload.exp === "undefined") {
+        return failure(new Error('"expiresIn" should be a number of seconds or string representing a timespan eg: "1d", "20h", 60'));
+      }
+    }
+    Object.keys(options_to_payload).forEach(function(key) {
+      const claim = options_to_payload[key];
+      if (typeof options[key] !== "undefined") {
+        if (typeof payload[claim] !== "undefined") {
+          return failure(new Error('Bad "options.' + key + '" option. The payload already has an "' + claim + '" property.'));
+        }
+        payload[claim] = options[key];
+      }
+    });
+    const encoding = options.encoding || "utf8";
+    if (typeof callback === "function") {
+      callback = callback && once(callback);
+      jws.createSign({
+        header,
+        privateKey: secretOrPrivateKey,
+        payload,
+        encoding
+      }).once("error", callback).once("done", function(signature) {
+        if (!options.allowInsecureKeySizes && /^(?:RS|PS)/.test(header.alg) && signature.length < 256) {
+          return callback(new Error(`secretOrPrivateKey has a minimum key size of 2048 bits for ${header.alg}`));
+        }
+        callback(null, signature);
+      });
+    } else {
+      let signature = jws.sign({ header, payload, secret: secretOrPrivateKey, encoding });
+      if (!options.allowInsecureKeySizes && /^(?:RS|PS)/.test(header.alg) && signature.length < 256) {
+        throw new Error(`secretOrPrivateKey has a minimum key size of 2048 bits for ${header.alg}`);
+      }
+      return signature;
+    }
+  };
 });
 
-// node_modules/cron/dist/index.js
-var require_dist3 = __commonJS((exports) => {
-  Object.defineProperty(exports, "__esModule", { value: true });
-  exports.validateCronExpression = exports.timeout = exports.sendAt = exports.CronTime = exports.CronJob = undefined;
-  var time_1 = require_time();
-  var job_1 = require_job();
-  Object.defineProperty(exports, "CronJob", { enumerable: true, get: function() {
-    return job_1.CronJob;
-  } });
-  var time_2 = require_time();
-  Object.defineProperty(exports, "CronTime", { enumerable: true, get: function() {
-    return time_2.CronTime;
-  } });
-  var sendAt = (cronTime) => new time_1.CronTime(cronTime).sendAt();
-  exports.sendAt = sendAt;
-  var timeout = (cronTime) => new time_1.CronTime(cronTime).getTimeout();
-  exports.timeout = timeout;
-  exports.validateCronExpression = time_1.CronTime.validateCronExpression;
+// node_modules/jsonwebtoken/index.js
+var require_jsonwebtoken = __commonJS((exports, module) => {
+  module.exports = {
+    decode: require_decode(),
+    verify: require_verify(),
+    sign: require_sign(),
+    JsonWebTokenError: require_JsonWebTokenError(),
+    NotBeforeError: require_NotBeforeError(),
+    TokenExpiredError: require_TokenExpiredError()
+  };
 });
 
 // node_modules/webidl-conversions/lib/index.js
@@ -17761,193 +16176,6 @@ var require_lib4 = __commonJS((exports, module) => {
   exports.AbortError = AbortError2;
 });
 
-// src/banks/baneco.api.ts
-class BanecoApi {
-  apiBaseUrl;
-  aesKey;
-  constructor(apiBaseUrl, aesKey) {
-    this.apiBaseUrl = apiBaseUrl.endsWith("/") ? apiBaseUrl : `${apiBaseUrl}/`;
-    this.aesKey = aesKey;
-  }
-  async encryptText(text, aesKey) {
-    const key = aesKey || this.aesKey;
-    const url = `${this.apiBaseUrl}api/authentication/encrypt?text=${encodeURIComponent(text)}&aesKey=${key}`;
-    console.log({ url });
-    try {
-      const res = await import_node_fetch.default(url, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" }
-      });
-      if (!res.ok) {
-        throw new Error(`Error al encriptar texto: ${await res.text() || "Error desconocido"}`);
-      }
-      const data = await res.json();
-      return data;
-    } catch (error) {
-      console.error("Error en encriptación Baneco:", error);
-      throw error;
-    }
-  }
-  async getToken(username, passwordPlain) {
-    try {
-      const encryptedPassword = await this.encryptText(passwordPlain);
-      console.log({ encryptedPassword, username, passwordPlain });
-      const url = `${this.apiBaseUrl}api/authentication/authenticate`;
-      console.log({ url });
-      console.log({ body: JSON.stringify({ userName: username.replace("A", ""), password: encryptedPassword }) });
-      const res = await import_node_fetch.default(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userName: username, password: encryptedPassword })
-      });
-      console.log({ res });
-      if (!res.ok) {
-        throw new Error(`Error de autenticación: ${await res.text() || "Error desconocido"}`);
-      }
-      const data = await res.json();
-      if (data.responseCode !== 0) {
-        throw new Error(`Error de autenticación: ${data.message}`);
-      }
-      return data.token;
-    } catch (error) {
-      console.error("Error obteniendo token Baneco:", error);
-      throw error;
-    }
-  }
-  async generateQr(token, transactionId, accountNumber, amount, options = {}) {
-    try {
-      const encryptedAccount = await this.encryptText(accountNumber);
-      console.log({ encryptedAccount, accountNumber });
-      const payload = {
-        transactionId,
-        accountCredit: encryptedAccount,
-        currency: options.currency || "BOB",
-        amount,
-        description: options.description || "Pago QR",
-        dueDate: options.dueDate || "2025-12-31",
-        singleUse: options.singleUse !== undefined ? options.singleUse : true,
-        modifyAmount: options.modifyAmount !== undefined ? options.modifyAmount : false,
-        branchCode: options.branchCode || "E0001"
-      };
-      const res = await import_node_fetch.default(`${this.apiBaseUrl}api/qrsimple/generateQR`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) {
-        throw new Error(`Error generando QR: ${await res.text() || "Error desconocido"}`);
-      }
-      const data = await res.json();
-      if (data.responseCode !== 0) {
-        throw new Error(`Error generando QR: ${data.message}`);
-      }
-      return data;
-    } catch (error) {
-      console.error("Error generando QR Baneco:", error);
-      throw error;
-    }
-  }
-  async cancelQr(token, qrId) {
-    try {
-      const res = await import_node_fetch.default(`${this.apiBaseUrl}api/qrsimple/cancelQR`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ qrId })
-      });
-      if (!res.ok) {
-        throw new Error(`Error cancelando QR: ${await res.text() || "Error desconocido"}`);
-      }
-      const data = await res.json();
-      if (data.responseCode !== 0) {
-        throw new Error(`Error cancelando QR: ${data.message}`);
-      }
-      return data;
-    } catch (error) {
-      console.error("Error cancelando QR Baneco:", error);
-      throw error;
-    }
-  }
-  async getQrStatus(token, qrId) {
-    try {
-      const res = await import_node_fetch.default(`${this.apiBaseUrl}api/qrsimple/v2/statusQR/${qrId}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      if (!res.ok) {
-        throw new Error(`Error consultando estado QR: ${await res.text() || "Error desconocido"}`);
-      }
-      const data = await res.json();
-      if (data.responseCode !== 0) {
-        throw new Error(`Error consultando estado QR: ${data.message}`);
-      }
-      return data;
-    } catch (error) {
-      console.error("Error consultando estado QR Baneco:", error);
-      throw error;
-    }
-  }
-  async getPaidQrsByDate(token, dateStr) {
-    try {
-      const res = await import_node_fetch.default(`${this.apiBaseUrl}api/qrsimple/v2/paidQR/${dateStr}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(`Error consultando QRs pagados: ${await res.text() || "Error desconocido"}`);
-      }
-      if (data.responseCode !== 0) {
-        throw new Error(`Error consultando QRs pagados: ${data.message}`);
-      }
-      return data.paymentList || [];
-    } catch (error) {
-      console.error("Error consultando QRs pagados Baneco:", error);
-      throw error;
-    }
-  }
-}
-var import_node_fetch, baneco_api_default;
-var init_baneco_api = __esm(() => {
-  import_node_fetch = __toESM(require_lib4(), 1);
-  baneco_api_default = BanecoApi;
-});
-
-// src/banks/bnb.api.ts
-var init_bnb_api = () => {};
-
-// src/banks/visa.api.ts
-var init_visa_api = () => {};
-
-// src/banks/index.ts
-var init_banks = __esm(() => {
-  init_baneco_api();
-  init_bnb_api();
-  init_visa_api();
-});
-
-// src/utils/error.ts
-var ApiError;
-var init_error = __esm(() => {
-  ApiError = class ApiError extends Error {
-    statusCode;
-    constructor(message, statusCode) {
-      super(message);
-      this.statusCode = statusCode;
-      this.statusCode = statusCode;
-    }
-  };
-});
-
 // src/services/crypto.service.ts
 import crypto2 from "crypto";
 
@@ -18009,39 +16237,61 @@ class BankCredentialsService {
       const encryptedEncryptionKey = await this.cryptoService.encrypt(data.encryptionKey);
       const result = await query(`
         INSERT INTO third_bank_credentials (
-          account_number, account_type, account_name, merchant_id,
-          username, password, encryption_key, environment, api_base_url, bank_branch, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'active')
+          account_number, account_name, merchant_id,
+          username, password, encryption_key, environment, api_base_url, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active')
         RETURNING id
       `, [
         data.accountNumber,
-        data.accountType,
         data.accountName,
         data.merchantId,
         encryptedUsername,
         encryptedPassword,
         encryptedEncryptionKey,
         data.environment,
-        data.apiBaseUrl,
-        data.bankBranch || null
+        data.apiBaseUrl
       ]);
       const credentialId = result.rows[0].id;
-      const credential = await this.getByUserId(credentialId);
+      const credential = await this.getById(credentialId);
       if (!credential) {
         throw new ApiError("Error al crear credenciales", 500);
-      }
-      try {
-        await logActivity("third_bank_credentials_CREATED", {
-          credentialId: credential.id,
-          environment: credential.environment,
-          accountNumber: credential.accountNumber
-        }, "info", 1);
-      } catch (error) {
-        console.log("⚠️  No se pudo registrar actividad (posiblemente durante seed)");
       }
       return credential;
     } catch (error) {
       throw error;
+    }
+  }
+  async getAll() {
+    try {
+      const result = await query(`
+        SELECT 
+          bc.id, 
+          bc.account_number as "accountNumber",
+          bc.account_name as "accountName",
+          bc.merchant_id as "merchantId", 
+          bc.username, 
+          bc.password, 
+          bc.encryption_key as "encryptionKey",
+          bc.environment, 
+          bc.api_base_url as "apiBaseUrl",
+          bc.status
+        FROM third_bank_credentials bc
+        WHERE bc.deleted_at IS NULL
+        ORDER BY bc.created_at DESC
+      `);
+      if (result.rowCount === 0) {
+        return [];
+      }
+      const credentials = result.rows.map((credential) => ({
+        ...credential,
+        username: this.cryptoService.decrypt(credential.username),
+        password: this.cryptoService.decrypt(credential.password),
+        encryptionKey: this.cryptoService.decrypt(credential.encryptionKey)
+      }));
+      return credentials;
+    } catch (error) {
+      console.error("Error obteniendo credenciales:", error);
+      throw new ApiError("Error al obtener credenciales", 500);
     }
   }
   async getById(id) {
@@ -18050,7 +16300,6 @@ class BankCredentialsService {
         SELECT 
           bc.id, 
           bc.account_number as "accountNumber",
-          bc.account_type as "accountType", 
           bc.account_name as "accountName",
           bc.merchant_id as "merchantId", 
           bc.username, 
@@ -18082,7 +16331,6 @@ class BankCredentialsService {
         SELECT 
           bc.id, 
           bc.account_number as "accountNumber",
-          bc.account_type as "accountType", 
           bc.account_name as "accountName",
           bc.merchant_id as "merchantId", 
           bc.username, 
@@ -18092,15 +16340,13 @@ class BankCredentialsService {
           bc.api_base_url as "apiBaseUrl",
           bc.status
         FROM third_bank_credentials bc
-        INNER JOIN users u ON u.third_bank_credential_id = bc.id
-        WHERE u.id = $1 AND u.deleted_at IS NULL
-      `, [userId]);
+        WHERE bc.status = 'active' AND bc.deleted_at IS NULL
+        ORDER BY bc.created_at DESC
+        LIMIT 1
+      `);
       const credential = result.rows[0];
       if (!credential) {
         throw new ApiError("Credenciales no encontradas", 404);
-      }
-      if (credential.status !== "active") {
-        throw new ApiError("Credenciales no activas", 400);
       }
       return {
         ...credential,
@@ -18177,15 +16423,6 @@ class BankCredentialsService {
       if (!updatedCredential) {
         throw new ApiError("Error al obtener credenciales actualizadas", 500);
       }
-      try {
-        await logActivity("third_bank_credentials_UPDATED", {
-          credentialId: credential.id,
-          environment: credential.environment,
-          updatedFields: Object.keys(data)
-        }, "info", 1);
-      } catch (error) {
-        console.log("⚠️  No se pudo registrar actividad (posiblemente durante seed)");
-      }
       return updatedCredential;
     } catch (error) {
       throw error;
@@ -18206,20 +16443,11 @@ class BankCredentialsService {
       }
       const result = await query(`
         UPDATE third_bank_credentials 
-        SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+        SET deleted_at = CURRENT_TIMESTAMP
         WHERE id = $1
       `, [id]);
       if (result.rowCount === 0) {
         throw new ApiError("Error al eliminar credenciales", 500);
-      }
-      try {
-        await logActivity("third_bank_credentials_DELETED", {
-          credentialId: credential.id,
-          environment: credential.environment,
-          accountNumber: credential.accountNumber
-        }, "info", 1);
-      } catch (error) {
-        console.log("⚠️  No se pudo registrar actividad (posiblemente durante seed)");
       }
       return true;
     } catch (error) {
@@ -18228,4499 +16456,11 @@ class BankCredentialsService {
   }
 }
 var bankCredentialsService;
-var init_third_bank_credentials_service = __esm(() => {
+var init_bank_credentials_service = __esm(() => {
   init_database();
   init_crypto_service();
   init_error();
-  init_monitor_service();
   bankCredentialsService = new BankCredentialsService;
-});
-
-// src/services/qr.service.ts
-class QrService {
-  async generate(userId, qrData) {
-    const currency = "BOB";
-    const config = await bankCredentialsService.getByUserId(userId);
-    const banecoApi = new baneco_api_default(config.apiBaseUrl, config.encryptionKey);
-    const client = await pool.connect();
-    await client.query("BEGIN");
-    try {
-      const token = await banecoApi.getToken(config.username, config.password);
-      const qrResponse = await banecoApi.generateQr(token, qrData.transactionId, config.accountNumber, qrData.amount, {
-        description: qrData.description || "",
-        dueDate: qrData.dueDate,
-        singleUse: qrData.singleUse !== false,
-        modifyAmount: qrData.modifyAmount || false,
-        currency
-      });
-      if (qrResponse.responseCode !== 0) {
-        throw new ApiError(`Error al generar QR: ${qrResponse.message}`, 400);
-      }
-      const qrResult = await query(`
-        INSERT INTO qr_codes (
-          qr_id, transaction_id, account_credit, user_id, third_bank_credential_id,
-          environment, currency, amount, description, due_date, single_use, modify_amount, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'active')
-        RETURNING id
-      `, [
-        qrResponse.qrId,
-        qrData.transactionId,
-        config.accountNumber,
-        userId,
-        config.id,
-        config.environment,
-        currency,
-        qrData.amount,
-        qrData.description || "",
-        qrData.dueDate,
-        qrData.singleUse !== false,
-        qrData.modifyAmount || false
-      ]);
-      const qrId = qrResult.rows[0].id;
-      await logActivity("QR_GENERATED", {
-        qrId: qrResponse.qrId,
-        transactionId: qrData.transactionId,
-        amount: qrData.amount,
-        currency,
-        userId
-      }, "info", userId);
-      return {
-        qrId: qrResponse.qrId,
-        qrImage: qrResponse.qrImage,
-        transactionId: qrData.transactionId,
-        amount: qrData.amount,
-        currency,
-        description: qrData.description,
-        dueDate: qrData.dueDate,
-        singleUse: qrData.singleUse !== false,
-        modifyAmount: qrData.modifyAmount || false,
-        status: "active"
-      };
-    } catch (error) {
-      await logActivity("QR_GENERATE_ERROR", {
-        userId,
-        error: error instanceof Error ? error.message : "Unknown error",
-        qrData
-      }, "error", userId);
-      throw new ApiError("Error al generar QR: " + (error instanceof Error ? error.message : "Unknown error"), 401);
-    }
-  }
-  async getQRList(userId, filters = {}, page = 1, limit = 20) {
-    const offset = (page - 1) * limit;
-    let whereClause = "WHERE q.user_id = $1 AND q.deleted_at IS NULL";
-    const params = [userId];
-    let paramCount = 1;
-    if (filters.status) {
-      paramCount++;
-      whereClause += ` AND q.status = $${paramCount}`;
-      params.push(filters.status);
-    }
-    if (filters.startDate) {
-      paramCount++;
-      whereClause += ` AND q.due_date >= $${paramCount}`;
-      params.push(filters.startDate);
-    }
-    if (filters.endDate) {
-      paramCount++;
-      whereClause += ` AND q.due_date <= $${paramCount}`;
-      params.push(filters.endDate);
-    }
-    const countQuery = await query(`
-      SELECT COUNT(*) as total
-      FROM qr_codes q
-      ${whereClause}
-    `, params);
-    const totalCount = parseInt(countQuery.rows[0].total);
-    const qrQuery = await query(`
-        SELECT 
-          q.qr_id as "qrId",
-          q.transaction_id as "transactionId",
-          q.created_at as "createdAt",
-          q.due_date as "dueDate",
-          q.currency,
-          q.amount,
-          q.status,
-          q.description,
-          q.single_use as "singleUse",
-          q.modify_amount as "modifyAmount"
-        FROM qr_codes q
-        ${whereClause}
-        ORDER BY q.created_at DESC
-        LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
-      `, [...params, limit, offset]);
-    const qrList = qrQuery.rows.map((row) => ({
-      qrId: row.qrId,
-      transactionId: row.transactionId,
-      createdAt: row.createdAt,
-      dueDate: row.dueDate,
-      currency: row.currency,
-      amount: parseFloat(row.amount),
-      status: row.status,
-      description: row.description,
-      singleUse: row.singleUse,
-      modifyAmount: row.modifyAmount,
-      payments: []
-    }));
-    for (const qr of qrList) {
-      const paymentsQuery = await query(`
-        SELECT 
-          t.transaction_id as "transactionId",
-          t.payment_date as "paymentDate",
-          t.currency,
-          t.amount,
-          t.sender_name as "senderName",
-          t.sender_document_id as "senderDocumentId",
-          t.sender_account as "senderAccount",
-          t.description,
-          t.metadata
-        FROM transactions t
-        WHERE t.qr_id = $1 AND t.deleted_at IS NULL
-        ORDER BY t.payment_date DESC
-      `, [qr.qrId]);
-      qr.payments = paymentsQuery.rows.map((payment) => {
-        const metadata = payment.metadata ? JSON.parse(payment.metadata) : {};
-        return {
-          qrId: qr.qrId,
-          transactionId: payment.transactionId,
-          paymentDate: payment.paymentDate,
-          paymentTime: metadata.payment_time || "",
-          currency: payment.currency,
-          amount: parseFloat(payment.amount),
-          senderBankCode: metadata.sender_bank_code || "",
-          senderName: payment.senderName || "",
-          senderDocumentId: payment.senderDocumentId || "",
-          senderAccount: payment.senderAccount || "",
-          description: payment.description
-        };
-      });
-    }
-    return {
-      qrList,
-      totalCount
-    };
-  }
-  async getQRDetails(qrId, bankCredentialId) {
-    try {
-      console.log(`\uD83D\uDD0D getQRDetails: Iniciando con qrId=${qrId}, bankCredentialId=${bankCredentialId}`);
-      console.log("\uD83C\uDFE6 getQRDetails: Consultando estado en Baneco...");
-      let banecoStatus = null;
-      let banecoPayments = [];
-      try {
-        const config = await bankCredentialsService.getById(bankCredentialId);
-        console.log("\uD83D\uDD0D getQRDetails: Configuración bancaria:", config);
-        if (config) {
-          const banecoApi = new baneco_api_default(config.apiBaseUrl, config.encryptionKey);
-          try {
-            const token = await banecoApi.getToken(config.username, config.password);
-            const banecoResponse = await banecoApi.getQrStatus(token, qrId);
-            banecoStatus = banecoResponse.statusQrCode;
-            banecoPayments = banecoResponse.payment || [];
-            console.log(`✅ getQRDetails: Estado en Baneco: ${banecoStatus}, Pagos: ${banecoPayments.length}`);
-          } catch (banecoError) {
-            console.log({ banecoError });
-            console.log(`⚠️ getQRDetails: Error consultando Baneco: ${banecoError instanceof Error ? banecoError.message : "Error desconocido"}`);
-          }
-        } else {
-          console.log("⚠️ getQRDetails: Usuario sin configuración bancaria activa");
-        }
-      } catch (configError) {
-        console.log(`⚠️ getQRDetails: Error obteniendo configuración bancaria: ${configError instanceof Error ? configError.message : "Error desconocido"}`);
-      }
-      console.log("\uD83D\uDDC4️ getQRDetails: Verificando QR en base de datos...");
-      const qrQuery = await query(`
-        SELECT 
-          q.qr_id as "qrId",
-          q.transaction_id as "transactionId",
-          q.created_at as "createdAt",
-          q.due_date as "dueDate",
-          q.currency,
-          q.amount,
-          q.status,
-          q.description,
-          q.single_use as "singleUse",
-          q.modify_amount as "modifyAmount",
-          q.user_id as "userId",
-          q.third_bank_credential_id as "bankCredentialId",
-          q.environment
-        FROM qr_codes q
-        WHERE q.qr_id = $1 AND q.deleted_at IS NULL
-      `, [qrId]);
-      console.log(`\uD83D\uDCCA getQRDetails: Consulta QR completada, filas encontradas: ${qrQuery.rowCount}`);
-      if (qrQuery.rowCount === 0) {
-        console.log("⚠️ getQRDetails: No se encontró el QR");
-        return null;
-      }
-      const qr = qrQuery.rows[0];
-      console.log("✅ getQRDetails: QR encontrado:", qr);
-      const qrItem = {
-        qrId: qr.qrId,
-        transactionId: qr.transactionId,
-        createdAt: qr.createdAt,
-        dueDate: qr.dueDate,
-        currency: qr.currency,
-        amount: parseFloat(qr.amount),
-        status: qr.status,
-        description: qr.description,
-        singleUse: qr.singleUse,
-        modifyAmount: qr.modifyAmount,
-        payments: []
-      };
-      console.log("\uD83C\uDFD7️ getQRDetails: Objeto QR construido:", qrItem);
-      if (banecoStatus !== null) {
-        console.log("\uD83D\uDD04 getQRDetails: Actualizando estado en base de datos según Baneco...");
-        let newStatus = qr.status;
-        if (banecoStatus === 1 && qr.status === "active") {
-          newStatus = "used";
-        } else if (banecoStatus === 9 && qr.status === "active") {
-          newStatus = "cancelled";
-        }
-        if (newStatus !== qr.status) {
-          await query(`
-            UPDATE qr_codes 
-            SET status = $1, updated_at = CURRENT_TIMESTAMP
-            WHERE qr_id = $2
-          `, [newStatus, qrId]);
-          qrItem.status = newStatus;
-          console.log(`✅ getQRDetails: Estado actualizado de '${qr.status}' a '${newStatus}'`);
-        }
-      }
-      if (banecoPayments.length > 0) {
-        console.log(`\uD83D\uDCB3 getQRDetails: Procesando ${banecoPayments.length} pagos de Baneco...`);
-        for (const banecoPayment of banecoPayments) {
-          const existingPaymentQuery = await query(`
-            SELECT id FROM transactions 
-            WHERE qr_id = $1 AND transaction_id = $2 AND deleted_at IS NULL
-          `, [qrId, banecoPayment.transactionId]);
-          if (existingPaymentQuery.rowCount === 0) {
-            await query(`
-              INSERT INTO transactions (
-                qr_id, user_id, third_bank_credential_id, environment, transaction_id, payment_date, currency, amount,
-                type, sender_name, sender_document_id, sender_account, description,
-                metadata, status, created_at, updated_at
-              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            `, [
-              qrId,
-              qr.userId || qr.user_id,
-              qr.bankCredentialId || qr.third_bank_credential_id,
-              qr.environment || 1,
-              banecoPayment.transactionId,
-              banecoPayment.paymentDate,
-              banecoPayment.currency,
-              banecoPayment.amount.toString(),
-              "incoming",
-              banecoPayment.senderName,
-              banecoPayment.senderDocumentId,
-              banecoPayment.senderAccount,
-              banecoPayment.description,
-              JSON.stringify({
-                payment_time: banecoPayment.paymentTime,
-                sender_bank_code: banecoPayment.senderBankCode,
-                branch_code: banecoPayment.branchCode
-              }),
-              "completed"
-            ]);
-            console.log(`✅ getQRDetails: Pago ${banecoPayment.transactionId} insertado`);
-          }
-        }
-      }
-      console.log("\uD83D\uDCB0 getQRDetails: Obteniendo pagos del QR...");
-      const paymentsQuery = await query(`
-        SELECT 
-          t.transaction_id as "transactionId",
-          t.payment_date as "paymentDate",
-          t.currency,
-          t.amount,
-          t.sender_name as "senderName",
-          t.sender_document_id as "senderDocumentId",
-          t.sender_account as "senderAccount",
-          t.description,
-          t.metadata
-        FROM transactions t
-        WHERE t.qr_id = $1 AND t.deleted_at IS NULL
-        ORDER BY t.payment_date DESC
-      `, [qrId]);
-      console.log(`\uD83D\uDCB3 getQRDetails: Pagos encontrados: ${paymentsQuery.rowCount}`);
-      qrItem.payments = paymentsQuery.rows.map((payment) => {
-        try {
-          const metadata = payment.metadata ? JSON.parse(payment.metadata) : {};
-          return {
-            qrId: qr.qrId,
-            transactionId: payment.transactionId,
-            paymentDate: payment.paymentDate,
-            paymentTime: metadata.payment_time || "",
-            currency: payment.currency,
-            amount: parseFloat(payment.amount),
-            senderBankCode: metadata.sender_bank_code || "",
-            senderName: payment.senderName || "",
-            senderDocumentId: payment.senderDocumentId || "",
-            senderAccount: payment.senderAccount || "",
-            description: payment.description
-          };
-        } catch (parseError) {
-          console.error("❌ getQRDetails: Error parseando metadata del pago:", parseError);
-          return {
-            qrId: qr.qrId,
-            transactionId: payment.transactionId,
-            paymentDate: payment.paymentDate,
-            paymentTime: "",
-            currency: payment.currency,
-            amount: parseFloat(payment.amount),
-            senderBankCode: "",
-            senderName: payment.senderName || "",
-            senderDocumentId: payment.senderDocumentId || "",
-            senderAccount: payment.senderAccount || "",
-            description: payment.description
-          };
-        }
-      });
-      console.log("\uD83C\uDF89 getQRDetails: Método completado exitosamente");
-      console.log("\uD83D\uDCCB getQRDetails: Flujo ejecutado: Baneco → Base de datos → Actualización → Pagos");
-      return qrItem;
-    } catch (error) {
-      console.error("\uD83D\uDCA5 getQRDetails: Error capturado:", error);
-      console.error("\uD83D\uDCA5 getQRDetails: Stack trace:", error instanceof Error ? error.stack : "No stack trace");
-      throw error;
-    }
-  }
-  async cancelQR(qrId, userId) {
-    const qrQuery = await query(`
-      SELECT q.id, q.status, q.third_bank_credential_id, u.third_bank_credential_id as "userBankCredentialId"
-      FROM qr_codes q
-      JOIN users u ON q.user_id = u.id
-      WHERE q.qr_id = $1 AND q.user_id = $2 AND q.deleted_at IS NULL
-    `, [qrId, userId]);
-    if (qrQuery.rowCount === 0) {
-      throw new ApiError("QR no encontrado o no pertenece a este usuario", 404);
-    }
-    const qr = qrQuery.rows[0];
-    if (qr.status !== "active") {
-      throw new ApiError("Solo se pueden cancelar QRs activos", 400);
-    }
-    if (!qr.userBankCredentialId) {
-      throw new ApiError("El usuario no tiene configuración bancaria asignada", 400);
-    }
-    const config = await bankCredentialsService.getById(qr.userBankCredentialId);
-    if (!config) {
-      throw new ApiError("No se encontró la configuración bancaria del usuario", 400);
-    }
-    if (config.status !== "active") {
-      throw new ApiError("La configuración bancaria del usuario no está activa", 400);
-    }
-    const banecoApi = new baneco_api_default(config.apiBaseUrl, config.encryptionKey);
-    try {
-      const token = await banecoApi.getToken(config.username, config.password);
-      const cancelResponse = await banecoApi.cancelQr(token, qrId);
-      if (cancelResponse.responseCode !== 0) {
-        throw new ApiError(`Error al cancelar QR: ${cancelResponse.message}`, 400);
-      }
-      await query(`
-        UPDATE qr_codes 
-        SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
-        WHERE id = $1
-      `, [qr.id]);
-      await logActivity("QR_CANCELLED", {
-        qrId,
-        userId
-      }, "info", userId);
-      return true;
-    } catch (error) {
-      await logActivity("QR_CANCEL_ERROR", {
-        qrId,
-        userId,
-        error: error instanceof Error ? error.message : "Unknown error"
-      }, "error", userId);
-      throw error;
-    }
-  }
-  async checkQRStatus(qrId, userId) {
-    const qrQuery = await query(`
-      SELECT 
-        q.qr_id as "qrId",
-        q.transaction_id as "transactionId",
-        q.created_at as "createdAt",
-        q.due_date as "dueDate",
-        q.currency,
-        q.amount,
-        q.status,
-        q.description,
-        q.single_use as "singleUse",
-        q.modify_amount as "modifyAmount",
-        q.user_id as "userId",
-        q.third_bank_credential_id as "bankCredentialId",
-        q.environment
-      FROM qr_codes q
-      WHERE q.qr_id = $1 AND q.deleted_at IS NULL
-    `, [qrId]);
-    if (qrQuery.rowCount === 0) {
-      throw new ApiError("QR no encontrado en la base de datos", 404);
-    }
-    const qr = qrQuery.rows[0];
-    const user = await query(`
-      SELECT id, full_name, third_bank_credential_id FROM users WHERE id = $1 AND deleted_at IS NULL
-    `, [userId]);
-    if (user.rowCount === 0) {
-      throw new ApiError("Usuario no encontrado", 404);
-    }
-    const userData = user.rows[0];
-    if (!userData.third_bank_credential_id) {
-      throw new ApiError("El usuario no tiene configuración bancaria asignada", 400);
-    }
-    const config = await bankCredentialsService.getById(userData.third_bank_credential_id);
-    if (!config) {
-      throw new ApiError("No se encontró la configuración bancaria del usuario", 400);
-    }
-    if (config.status !== "active") {
-      throw new ApiError("La configuración bancaria del usuario no está activa", 400);
-    }
-    const banecoApi = new baneco_api_default(config.apiBaseUrl, config.encryptionKey);
-    try {
-      const token = await banecoApi.getToken(config.username, config.password);
-      const banecoResponse = await banecoApi.getQrStatus(token, qrId);
-      let currentStatus = qr.status;
-      if (banecoResponse.statusQrCode === 1 && qr.status === "active") {
-        currentStatus = "used";
-        await query(`
-          UPDATE qr_codes 
-          SET status = $1, updated_at = CURRENT_TIMESTAMP
-          WHERE qr_id = $2
-        `, [currentStatus, qrId]);
-      } else if (banecoResponse.statusQrCode === 9 && qr.status === "active") {
-        currentStatus = "cancelled";
-        await query(`
-          UPDATE qr_codes 
-          SET status = $1, updated_at = CURRENT_TIMESTAMP
-          WHERE qr_id = $2
-        `, [currentStatus, qrId]);
-      }
-      return {
-        qrId: qr.qrId,
-        qrImage: "",
-        transactionId: qr.transactionId,
-        amount: parseFloat(qr.amount),
-        currency: qr.currency,
-        description: qr.description,
-        dueDate: qr.dueDate,
-        singleUse: qr.singleUse,
-        modifyAmount: qr.modifyAmount,
-        status: currentStatus,
-        payments: banecoResponse.payment || []
-      };
-    } catch (error) {
-      throw new ApiError("Error al verificar estado del QR: " + (error instanceof Error ? error.message : "Unknown error"), 500);
-    }
-  }
-  async banecoQRNotify(data) {
-    const checkQR = await query(`
-      SELECT q.id, q.status, q.transaction_id as "transactionId", q.user_id as "userId" 
-      FROM qr_codes q
-      WHERE q.qr_id = $1
-    `, [data.payment.qrId]);
-    if (checkQR.rowCount === 0) {
-      throw new ApiError("QR no encontrado", 404);
-    }
-    const qrInfo = checkQR.rows[0];
-    if (qrInfo.status !== "active") {
-      throw new ApiError("QR no está activo para pago", 400);
-    }
-    const bankId = BANCO_ECONOMICO_ID;
-    const payment = data.payment;
-    const paymentDate = new Date(payment.paymentDate);
-    const client = await pool.connect();
-    await client.query("BEGIN");
-    try {
-      await client.query(`
-        UPDATE qr_codes 
-        SET status = 'used', updated_at = CURRENT_TIMESTAMP 
-        WHERE id = $1
-      `, [qrInfo.id]);
-      const checkPayment = await client.query(`
-        SELECT id FROM transactions WHERE qr_id = $1
-      `, [payment.qrId]);
-      if (checkPayment.rowCount === 0) {
-        const bankQuery = await client.query(`
-          SELECT third_bank_credential_id FROM qr_codes WHERE id = $1
-        `, [qrInfo.id]);
-        const bankCredentialId = bankQuery.rows[0]?.third_bank_credential_id;
-        if (!bankCredentialId) {
-          throw new ApiError("No se encontró la configuración bancaria del QR", 500);
-        }
-        await client.query(`
-           INSERT INTO transactions (
-             qr_id, user_id, third_bank_credential_id, environment, transaction_id, payment_date,
-             currency, amount, type, sender_name, sender_document_id, sender_account,
-             description, metadata, status, created_at, updated_at
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-         `, [
-          payment.qrId,
-          qrInfo.userId,
-          bankCredentialId,
-          1,
-          payment.transactionId,
-          paymentDate,
-          payment.currency,
-          payment.amount,
-          "incoming",
-          payment.senderName,
-          payment.senderDocumentId,
-          payment.senderAccount,
-          payment.description || "",
-          JSON.stringify({
-            sender_bank_code: payment.senderBankCode,
-            payment_time: payment.paymentTime
-          }),
-          "completed"
-        ]);
-      }
-      await client.query("COMMIT");
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
-}
-var BANCO_ECONOMICO_ID = 1, qrService, qr_service_default;
-var init_qr_service = __esm(() => {
-  init_banks();
-  init_database();
-  init_monitor_service();
-  init_error();
-  init_third_bank_credentials_service();
-  qrService = new QrService;
-  qr_service_default = qrService;
-});
-
-// src/services/monitor.service.ts
-async function logActivity(actionType, actionDetails, status2, userId) {
-  try {
-    await query("INSERT INTO activity_logs (user_id, action_type, action_details, status) VALUES ($1, $2, $3, $4)", [userId || null, actionType, actionDetails, status2]);
-  } catch (error) {
-    console.error("Error logging activity:", error);
-  }
-}
-var import_cron;
-var init_monitor_service = __esm(() => {
-  init_database();
-  import_cron = __toESM(require_dist3(), 1);
-  init_qr_service();
-});
-
-// node_modules/node-gyp-build/node-gyp-build.js
-var require_node_gyp_build = __commonJS((exports, module) => {
-  var fs = __require("fs");
-  var path = __require("path");
-  var os = __require("os");
-  var runtimeRequire = typeof __webpack_require__ === "function" ? __non_webpack_require__ : __require;
-  var vars = process.config && process.config.variables || {};
-  var prebuildsOnly = !!process.env.PREBUILDS_ONLY;
-  var abi = process.versions.modules;
-  var runtime = isElectron() ? "electron" : isNwjs() ? "node-webkit" : "node";
-  var arch = process.env.npm_config_arch || os.arch();
-  var platform = process.env.npm_config_platform || os.platform();
-  var libc = process.env.LIBC || (isAlpine(platform) ? "musl" : "glibc");
-  var armv = process.env.ARM_VERSION || (arch === "arm64" ? "8" : vars.arm_version) || "";
-  var uv = (process.versions.uv || "").split(".")[0];
-  module.exports = load;
-  function load(dir) {
-    return runtimeRequire(load.resolve(dir));
-  }
-  load.resolve = load.path = function(dir) {
-    dir = path.resolve(dir || ".");
-    try {
-      var name = runtimeRequire(path.join(dir, "package.json")).name.toUpperCase().replace(/-/g, "_");
-      if (process.env[name + "_PREBUILD"])
-        dir = process.env[name + "_PREBUILD"];
-    } catch (err2) {}
-    if (!prebuildsOnly) {
-      var release = getFirst(path.join(dir, "build/Release"), matchBuild);
-      if (release)
-        return release;
-      var debug2 = getFirst(path.join(dir, "build/Debug"), matchBuild);
-      if (debug2)
-        return debug2;
-    }
-    var prebuild = resolve(dir);
-    if (prebuild)
-      return prebuild;
-    var nearby = resolve(path.dirname(process.execPath));
-    if (nearby)
-      return nearby;
-    var target = [
-      "platform=" + platform,
-      "arch=" + arch,
-      "runtime=" + runtime,
-      "abi=" + abi,
-      "uv=" + uv,
-      armv ? "armv=" + armv : "",
-      "libc=" + libc,
-      "node=" + process.versions.node,
-      process.versions.electron ? "electron=" + process.versions.electron : "",
-      typeof __webpack_require__ === "function" ? "webpack=true" : ""
-    ].filter(Boolean).join(" ");
-    throw new Error("No native build was found for " + target + `
-    loaded from: ` + dir + `
-`);
-    function resolve(dir2) {
-      var tuples = readdirSync(path.join(dir2, "prebuilds")).map(parseTuple);
-      var tuple = tuples.filter(matchTuple(platform, arch)).sort(compareTuples)[0];
-      if (!tuple)
-        return;
-      var prebuilds = path.join(dir2, "prebuilds", tuple.name);
-      var parsed = readdirSync(prebuilds).map(parseTags);
-      var candidates = parsed.filter(matchTags(runtime, abi));
-      var winner = candidates.sort(compareTags(runtime))[0];
-      if (winner)
-        return path.join(prebuilds, winner.file);
-    }
-  };
-  function readdirSync(dir) {
-    try {
-      return fs.readdirSync(dir);
-    } catch (err2) {
-      return [];
-    }
-  }
-  function getFirst(dir, filter) {
-    var files = readdirSync(dir).filter(filter);
-    return files[0] && path.join(dir, files[0]);
-  }
-  function matchBuild(name) {
-    return /\.node$/.test(name);
-  }
-  function parseTuple(name) {
-    var arr = name.split("-");
-    if (arr.length !== 2)
-      return;
-    var platform2 = arr[0];
-    var architectures = arr[1].split("+");
-    if (!platform2)
-      return;
-    if (!architectures.length)
-      return;
-    if (!architectures.every(Boolean))
-      return;
-    return { name, platform: platform2, architectures };
-  }
-  function matchTuple(platform2, arch2) {
-    return function(tuple) {
-      if (tuple == null)
-        return false;
-      if (tuple.platform !== platform2)
-        return false;
-      return tuple.architectures.includes(arch2);
-    };
-  }
-  function compareTuples(a12, b) {
-    return a12.architectures.length - b.architectures.length;
-  }
-  function parseTags(file) {
-    var arr = file.split(".");
-    var extension = arr.pop();
-    var tags = { file, specificity: 0 };
-    if (extension !== "node")
-      return;
-    for (var i2 = 0;i2 < arr.length; i2++) {
-      var tag = arr[i2];
-      if (tag === "node" || tag === "electron" || tag === "node-webkit") {
-        tags.runtime = tag;
-      } else if (tag === "napi") {
-        tags.napi = true;
-      } else if (tag.slice(0, 3) === "abi") {
-        tags.abi = tag.slice(3);
-      } else if (tag.slice(0, 2) === "uv") {
-        tags.uv = tag.slice(2);
-      } else if (tag.slice(0, 4) === "armv") {
-        tags.armv = tag.slice(4);
-      } else if (tag === "glibc" || tag === "musl") {
-        tags.libc = tag;
-      } else {
-        continue;
-      }
-      tags.specificity++;
-    }
-    return tags;
-  }
-  function matchTags(runtime2, abi2) {
-    return function(tags) {
-      if (tags == null)
-        return false;
-      if (tags.runtime && tags.runtime !== runtime2 && !runtimeAgnostic(tags))
-        return false;
-      if (tags.abi && tags.abi !== abi2 && !tags.napi)
-        return false;
-      if (tags.uv && tags.uv !== uv)
-        return false;
-      if (tags.armv && tags.armv !== armv)
-        return false;
-      if (tags.libc && tags.libc !== libc)
-        return false;
-      return true;
-    };
-  }
-  function runtimeAgnostic(tags) {
-    return tags.runtime === "node" && tags.napi;
-  }
-  function compareTags(runtime2) {
-    return function(a12, b) {
-      if (a12.runtime !== b.runtime) {
-        return a12.runtime === runtime2 ? -1 : 1;
-      } else if (a12.abi !== b.abi) {
-        return a12.abi ? -1 : 1;
-      } else if (a12.specificity !== b.specificity) {
-        return a12.specificity > b.specificity ? -1 : 1;
-      } else {
-        return 0;
-      }
-    };
-  }
-  function isNwjs() {
-    return !!(process.versions && process.versions.nw);
-  }
-  function isElectron() {
-    if (process.versions && process.versions.electron)
-      return true;
-    if (process.env.ELECTRON_RUN_AS_NODE)
-      return true;
-    return typeof window !== "undefined" && window.process && window.process.type === "renderer";
-  }
-  function isAlpine(platform2) {
-    return platform2 === "linux" && fs.existsSync("/etc/alpine-release");
-  }
-  load.parseTags = parseTags;
-  load.matchTags = matchTags;
-  load.compareTags = compareTags;
-  load.parseTuple = parseTuple;
-  load.matchTuple = matchTuple;
-  load.compareTuples = compareTuples;
-});
-
-// node_modules/node-gyp-build/index.js
-var require_node_gyp_build2 = __commonJS((exports, module) => {
-  var runtimeRequire = typeof __webpack_require__ === "function" ? __non_webpack_require__ : __require;
-  if (typeof runtimeRequire.addon === "function") {
-    module.exports = runtimeRequire.addon.bind(runtimeRequire);
-  } else {
-    module.exports = require_node_gyp_build();
-  }
-});
-
-// node_modules/bcrypt/promises.js
-var require_promises = __commonJS((exports, module) => {
-  var Promise3 = global.Promise;
-  function promise(fn, context, args) {
-    if (!Array.isArray(args)) {
-      args = Array.prototype.slice.call(args);
-    }
-    if (typeof fn !== "function") {
-      return Promise3.reject(new Error("fn must be a function"));
-    }
-    return new Promise3((resolve, reject2) => {
-      args.push((err2, data) => {
-        if (err2) {
-          reject2(err2);
-        } else {
-          resolve(data);
-        }
-      });
-      fn.apply(context, args);
-    });
-  }
-  function reject(err2) {
-    return Promise3.reject(err2);
-  }
-  function use(promise2) {
-    Promise3 = promise2;
-  }
-  module.exports = {
-    promise,
-    reject,
-    use
-  };
-});
-
-// node_modules/bcrypt/bcrypt.js
-var require_bcrypt = __commonJS((exports, module) => {
-  var __dirname = "D:\\work\\pagui\\backend\\node_modules\\bcrypt";
-  var path = __require("path");
-  var bindings = require_node_gyp_build2()(path.resolve(__dirname));
-  var crypto3 = __require("crypto");
-  var promises = require_promises();
-  function genSaltSync(rounds, minor) {
-    if (!rounds) {
-      rounds = 10;
-    } else if (typeof rounds !== "number") {
-      throw new Error("rounds must be a number");
-    }
-    if (!minor) {
-      minor = "b";
-    } else if (minor !== "b" && minor !== "a") {
-      throw new Error('minor must be either "a" or "b"');
-    }
-    return bindings.gen_salt_sync(minor, rounds, crypto3.randomBytes(16));
-  }
-  function genSalt(rounds, minor, cb) {
-    let error;
-    if (typeof arguments[0] === "function") {
-      cb = arguments[0];
-      rounds = 10;
-      minor = "b";
-    } else if (typeof arguments[1] === "function") {
-      cb = arguments[1];
-      minor = "b";
-    }
-    if (!cb) {
-      return promises.promise(genSalt, this, [rounds, minor]);
-    }
-    if (!rounds) {
-      rounds = 10;
-    } else if (typeof rounds !== "number") {
-      error = new Error("rounds must be a number");
-      return process.nextTick(function() {
-        cb(error);
-      });
-    }
-    if (!minor) {
-      minor = "b";
-    } else if (minor !== "b" && minor !== "a") {
-      error = new Error('minor must be either "a" or "b"');
-      return process.nextTick(function() {
-        cb(error);
-      });
-    }
-    crypto3.randomBytes(16, function(error2, randomBytes) {
-      if (error2) {
-        cb(error2);
-        return;
-      }
-      bindings.gen_salt(minor, rounds, randomBytes, cb);
-    });
-  }
-  function hashSync(data, salt) {
-    if (data == null || salt == null) {
-      throw new Error("data and salt arguments required");
-    }
-    if (!(typeof data === "string" || data instanceof Buffer) || typeof salt !== "string" && typeof salt !== "number") {
-      throw new Error("data must be a string or Buffer and salt must either be a salt string or a number of rounds");
-    }
-    if (typeof salt === "number") {
-      salt = module.exports.genSaltSync(salt);
-    }
-    return bindings.encrypt_sync(data, salt);
-  }
-  function hash2(data, salt, cb) {
-    let error;
-    if (typeof data === "function") {
-      error = new Error("data must be a string or Buffer and salt must either be a salt string or a number of rounds");
-      return process.nextTick(function() {
-        data(error);
-      });
-    }
-    if (typeof salt === "function") {
-      error = new Error("data must be a string or Buffer and salt must either be a salt string or a number of rounds");
-      return process.nextTick(function() {
-        salt(error);
-      });
-    }
-    if (cb && typeof cb !== "function") {
-      return promises.reject(new Error("cb must be a function or null to return a Promise"));
-    }
-    if (!cb) {
-      return promises.promise(hash2, this, [data, salt]);
-    }
-    if (data == null || salt == null) {
-      error = new Error("data and salt arguments required");
-      return process.nextTick(function() {
-        cb(error);
-      });
-    }
-    if (!(typeof data === "string" || data instanceof Buffer) || typeof salt !== "string" && typeof salt !== "number") {
-      error = new Error("data must be a string or Buffer and salt must either be a salt string or a number of rounds");
-      return process.nextTick(function() {
-        cb(error);
-      });
-    }
-    if (typeof salt === "number") {
-      return module.exports.genSalt(salt, function(err2, salt2) {
-        return bindings.encrypt(data, salt2, cb);
-      });
-    }
-    return bindings.encrypt(data, salt, cb);
-  }
-  function compareSync(data, hash3) {
-    if (data == null || hash3 == null) {
-      throw new Error("data and hash arguments required");
-    }
-    if (!(typeof data === "string" || data instanceof Buffer) || typeof hash3 !== "string") {
-      throw new Error("data must be a string or Buffer and hash must be a string");
-    }
-    return bindings.compare_sync(data, hash3);
-  }
-  function compare(data, hash3, cb) {
-    let error;
-    if (typeof data === "function") {
-      error = new Error("data and hash arguments required");
-      return process.nextTick(function() {
-        data(error);
-      });
-    }
-    if (typeof hash3 === "function") {
-      error = new Error("data and hash arguments required");
-      return process.nextTick(function() {
-        hash3(error);
-      });
-    }
-    if (cb && typeof cb !== "function") {
-      return promises.reject(new Error("cb must be a function or null to return a Promise"));
-    }
-    if (!cb) {
-      return promises.promise(compare, this, [data, hash3]);
-    }
-    if (data == null || hash3 == null) {
-      error = new Error("data and hash arguments required");
-      return process.nextTick(function() {
-        cb(error);
-      });
-    }
-    if (!(typeof data === "string" || data instanceof Buffer) || typeof hash3 !== "string") {
-      error = new Error("data and hash must be strings");
-      return process.nextTick(function() {
-        cb(error);
-      });
-    }
-    return bindings.compare(data, hash3, cb);
-  }
-  function getRounds(hash3) {
-    if (hash3 == null) {
-      throw new Error("hash argument required");
-    }
-    if (typeof hash3 !== "string") {
-      throw new Error("hash must be a string");
-    }
-    return bindings.get_rounds(hash3);
-  }
-  module.exports = {
-    genSaltSync,
-    genSalt,
-    hashSync,
-    hash: hash2,
-    compareSync,
-    compare,
-    getRounds
-  };
-});
-
-// node_modules/safe-buffer/index.js
-var require_safe_buffer = __commonJS((exports, module) => {
-  /*! safe-buffer. MIT License. Feross Aboukhadijeh <https://feross.org/opensource> */
-  var buffer = __require("buffer");
-  var Buffer2 = buffer.Buffer;
-  function copyProps(src, dst) {
-    for (var key in src) {
-      dst[key] = src[key];
-    }
-  }
-  if (Buffer2.from && Buffer2.alloc && Buffer2.allocUnsafe && Buffer2.allocUnsafeSlow) {
-    module.exports = buffer;
-  } else {
-    copyProps(buffer, exports);
-    exports.Buffer = SafeBuffer;
-  }
-  function SafeBuffer(arg, encodingOrOffset, length) {
-    return Buffer2(arg, encodingOrOffset, length);
-  }
-  SafeBuffer.prototype = Object.create(Buffer2.prototype);
-  copyProps(Buffer2, SafeBuffer);
-  SafeBuffer.from = function(arg, encodingOrOffset, length) {
-    if (typeof arg === "number") {
-      throw new TypeError("Argument must not be a number");
-    }
-    return Buffer2(arg, encodingOrOffset, length);
-  };
-  SafeBuffer.alloc = function(size, fill, encoding) {
-    if (typeof size !== "number") {
-      throw new TypeError("Argument must be a number");
-    }
-    var buf = Buffer2(size);
-    if (fill !== undefined) {
-      if (typeof encoding === "string") {
-        buf.fill(fill, encoding);
-      } else {
-        buf.fill(fill);
-      }
-    } else {
-      buf.fill(0);
-    }
-    return buf;
-  };
-  SafeBuffer.allocUnsafe = function(size) {
-    if (typeof size !== "number") {
-      throw new TypeError("Argument must be a number");
-    }
-    return Buffer2(size);
-  };
-  SafeBuffer.allocUnsafeSlow = function(size) {
-    if (typeof size !== "number") {
-      throw new TypeError("Argument must be a number");
-    }
-    return buffer.SlowBuffer(size);
-  };
-});
-
-// node_modules/jws/lib/data-stream.js
-var require_data_stream = __commonJS((exports, module) => {
-  var Buffer2 = require_safe_buffer().Buffer;
-  var Stream = __require("stream");
-  var util3 = __require("util");
-  function DataStream(data) {
-    this.buffer = null;
-    this.writable = true;
-    this.readable = true;
-    if (!data) {
-      this.buffer = Buffer2.alloc(0);
-      return this;
-    }
-    if (typeof data.pipe === "function") {
-      this.buffer = Buffer2.alloc(0);
-      data.pipe(this);
-      return this;
-    }
-    if (data.length || typeof data === "object") {
-      this.buffer = data;
-      this.writable = false;
-      process.nextTick(function() {
-        this.emit("end", data);
-        this.readable = false;
-        this.emit("close");
-      }.bind(this));
-      return this;
-    }
-    throw new TypeError("Unexpected data type (" + typeof data + ")");
-  }
-  util3.inherits(DataStream, Stream);
-  DataStream.prototype.write = function write(data) {
-    this.buffer = Buffer2.concat([this.buffer, Buffer2.from(data)]);
-    this.emit("data", data);
-  };
-  DataStream.prototype.end = function end(data) {
-    if (data)
-      this.write(data);
-    this.emit("end", data);
-    this.emit("close");
-    this.writable = false;
-    this.readable = false;
-  };
-  module.exports = DataStream;
-});
-
-// node_modules/ecdsa-sig-formatter/src/param-bytes-for-alg.js
-var require_param_bytes_for_alg = __commonJS((exports, module) => {
-  function getParamSize(keySize) {
-    var result = (keySize / 8 | 0) + (keySize % 8 === 0 ? 0 : 1);
-    return result;
-  }
-  var paramBytesForAlg = {
-    ES256: getParamSize(256),
-    ES384: getParamSize(384),
-    ES512: getParamSize(521)
-  };
-  function getParamBytesForAlg(alg) {
-    var paramBytes = paramBytesForAlg[alg];
-    if (paramBytes) {
-      return paramBytes;
-    }
-    throw new Error('Unknown algorithm "' + alg + '"');
-  }
-  module.exports = getParamBytesForAlg;
-});
-
-// node_modules/ecdsa-sig-formatter/src/ecdsa-sig-formatter.js
-var require_ecdsa_sig_formatter = __commonJS((exports, module) => {
-  var Buffer2 = require_safe_buffer().Buffer;
-  var getParamBytesForAlg = require_param_bytes_for_alg();
-  var MAX_OCTET = 128;
-  var CLASS_UNIVERSAL = 0;
-  var PRIMITIVE_BIT = 32;
-  var TAG_SEQ = 16;
-  var TAG_INT = 2;
-  var ENCODED_TAG_SEQ = TAG_SEQ | PRIMITIVE_BIT | CLASS_UNIVERSAL << 6;
-  var ENCODED_TAG_INT = TAG_INT | CLASS_UNIVERSAL << 6;
-  function base64Url(base64) {
-    return base64.replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
-  }
-  function signatureAsBuffer(signature) {
-    if (Buffer2.isBuffer(signature)) {
-      return signature;
-    } else if (typeof signature === "string") {
-      return Buffer2.from(signature, "base64");
-    }
-    throw new TypeError("ECDSA signature must be a Base64 string or a Buffer");
-  }
-  function derToJose(signature, alg) {
-    signature = signatureAsBuffer(signature);
-    var paramBytes = getParamBytesForAlg(alg);
-    var maxEncodedParamLength = paramBytes + 1;
-    var inputLength = signature.length;
-    var offset = 0;
-    if (signature[offset++] !== ENCODED_TAG_SEQ) {
-      throw new Error('Could not find expected "seq"');
-    }
-    var seqLength = signature[offset++];
-    if (seqLength === (MAX_OCTET | 1)) {
-      seqLength = signature[offset++];
-    }
-    if (inputLength - offset < seqLength) {
-      throw new Error('"seq" specified length of "' + seqLength + '", only "' + (inputLength - offset) + '" remaining');
-    }
-    if (signature[offset++] !== ENCODED_TAG_INT) {
-      throw new Error('Could not find expected "int" for "r"');
-    }
-    var rLength = signature[offset++];
-    if (inputLength - offset - 2 < rLength) {
-      throw new Error('"r" specified length of "' + rLength + '", only "' + (inputLength - offset - 2) + '" available');
-    }
-    if (maxEncodedParamLength < rLength) {
-      throw new Error('"r" specified length of "' + rLength + '", max of "' + maxEncodedParamLength + '" is acceptable');
-    }
-    var rOffset = offset;
-    offset += rLength;
-    if (signature[offset++] !== ENCODED_TAG_INT) {
-      throw new Error('Could not find expected "int" for "s"');
-    }
-    var sLength = signature[offset++];
-    if (inputLength - offset !== sLength) {
-      throw new Error('"s" specified length of "' + sLength + '", expected "' + (inputLength - offset) + '"');
-    }
-    if (maxEncodedParamLength < sLength) {
-      throw new Error('"s" specified length of "' + sLength + '", max of "' + maxEncodedParamLength + '" is acceptable');
-    }
-    var sOffset = offset;
-    offset += sLength;
-    if (offset !== inputLength) {
-      throw new Error('Expected to consume entire buffer, but "' + (inputLength - offset) + '" bytes remain');
-    }
-    var rPadding = paramBytes - rLength, sPadding = paramBytes - sLength;
-    var dst = Buffer2.allocUnsafe(rPadding + rLength + sPadding + sLength);
-    for (offset = 0;offset < rPadding; ++offset) {
-      dst[offset] = 0;
-    }
-    signature.copy(dst, offset, rOffset + Math.max(-rPadding, 0), rOffset + rLength);
-    offset = paramBytes;
-    for (var o = offset;offset < o + sPadding; ++offset) {
-      dst[offset] = 0;
-    }
-    signature.copy(dst, offset, sOffset + Math.max(-sPadding, 0), sOffset + sLength);
-    dst = dst.toString("base64");
-    dst = base64Url(dst);
-    return dst;
-  }
-  function countPadding(buf, start, stop) {
-    var padding = 0;
-    while (start + padding < stop && buf[start + padding] === 0) {
-      ++padding;
-    }
-    var needsSign = buf[start + padding] >= MAX_OCTET;
-    if (needsSign) {
-      --padding;
-    }
-    return padding;
-  }
-  function joseToDer(signature, alg) {
-    signature = signatureAsBuffer(signature);
-    var paramBytes = getParamBytesForAlg(alg);
-    var signatureBytes = signature.length;
-    if (signatureBytes !== paramBytes * 2) {
-      throw new TypeError('"' + alg + '" signatures must be "' + paramBytes * 2 + '" bytes, saw "' + signatureBytes + '"');
-    }
-    var rPadding = countPadding(signature, 0, paramBytes);
-    var sPadding = countPadding(signature, paramBytes, signature.length);
-    var rLength = paramBytes - rPadding;
-    var sLength = paramBytes - sPadding;
-    var rsBytes = 1 + 1 + rLength + 1 + 1 + sLength;
-    var shortLength = rsBytes < MAX_OCTET;
-    var dst = Buffer2.allocUnsafe((shortLength ? 2 : 3) + rsBytes);
-    var offset = 0;
-    dst[offset++] = ENCODED_TAG_SEQ;
-    if (shortLength) {
-      dst[offset++] = rsBytes;
-    } else {
-      dst[offset++] = MAX_OCTET | 1;
-      dst[offset++] = rsBytes & 255;
-    }
-    dst[offset++] = ENCODED_TAG_INT;
-    dst[offset++] = rLength;
-    if (rPadding < 0) {
-      dst[offset++] = 0;
-      offset += signature.copy(dst, offset, 0, paramBytes);
-    } else {
-      offset += signature.copy(dst, offset, rPadding, paramBytes);
-    }
-    dst[offset++] = ENCODED_TAG_INT;
-    dst[offset++] = sLength;
-    if (sPadding < 0) {
-      dst[offset++] = 0;
-      signature.copy(dst, offset, paramBytes);
-    } else {
-      signature.copy(dst, offset, paramBytes + sPadding);
-    }
-    return dst;
-  }
-  module.exports = {
-    derToJose,
-    joseToDer
-  };
-});
-
-// node_modules/buffer-equal-constant-time/index.js
-var require_buffer_equal_constant_time = __commonJS((exports, module) => {
-  var Buffer2 = __require("buffer").Buffer;
-  var SlowBuffer = __require("buffer").SlowBuffer;
-  module.exports = bufferEq;
-  function bufferEq(a12, b) {
-    if (!Buffer2.isBuffer(a12) || !Buffer2.isBuffer(b)) {
-      return false;
-    }
-    if (a12.length !== b.length) {
-      return false;
-    }
-    var c = 0;
-    for (var i2 = 0;i2 < a12.length; i2++) {
-      c |= a12[i2] ^ b[i2];
-    }
-    return c === 0;
-  }
-  bufferEq.install = function() {
-    Buffer2.prototype.equal = SlowBuffer.prototype.equal = function equal(that) {
-      return bufferEq(this, that);
-    };
-  };
-  var origBufEqual = Buffer2.prototype.equal;
-  var origSlowBufEqual = SlowBuffer.prototype.equal;
-  bufferEq.restore = function() {
-    Buffer2.prototype.equal = origBufEqual;
-    SlowBuffer.prototype.equal = origSlowBufEqual;
-  };
-});
-
-// node_modules/jwa/index.js
-var require_jwa = __commonJS((exports, module) => {
-  var Buffer2 = require_safe_buffer().Buffer;
-  var crypto3 = __require("crypto");
-  var formatEcdsa = require_ecdsa_sig_formatter();
-  var util3 = __require("util");
-  var MSG_INVALID_ALGORITHM = `"%s" is not a valid algorithm.
-  Supported algorithms are:
-  "HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "PS256", "PS384", "PS512", "ES256", "ES384", "ES512" and "none".`;
-  var MSG_INVALID_SECRET = "secret must be a string or buffer";
-  var MSG_INVALID_VERIFIER_KEY = "key must be a string or a buffer";
-  var MSG_INVALID_SIGNER_KEY = "key must be a string, a buffer or an object";
-  var supportsKeyObjects = typeof crypto3.createPublicKey === "function";
-  if (supportsKeyObjects) {
-    MSG_INVALID_VERIFIER_KEY += " or a KeyObject";
-    MSG_INVALID_SECRET += "or a KeyObject";
-  }
-  function checkIsPublicKey(key) {
-    if (Buffer2.isBuffer(key)) {
-      return;
-    }
-    if (typeof key === "string") {
-      return;
-    }
-    if (!supportsKeyObjects) {
-      throw typeError(MSG_INVALID_VERIFIER_KEY);
-    }
-    if (typeof key !== "object") {
-      throw typeError(MSG_INVALID_VERIFIER_KEY);
-    }
-    if (typeof key.type !== "string") {
-      throw typeError(MSG_INVALID_VERIFIER_KEY);
-    }
-    if (typeof key.asymmetricKeyType !== "string") {
-      throw typeError(MSG_INVALID_VERIFIER_KEY);
-    }
-    if (typeof key.export !== "function") {
-      throw typeError(MSG_INVALID_VERIFIER_KEY);
-    }
-  }
-  function checkIsPrivateKey(key) {
-    if (Buffer2.isBuffer(key)) {
-      return;
-    }
-    if (typeof key === "string") {
-      return;
-    }
-    if (typeof key === "object") {
-      return;
-    }
-    throw typeError(MSG_INVALID_SIGNER_KEY);
-  }
-  function checkIsSecretKey(key) {
-    if (Buffer2.isBuffer(key)) {
-      return;
-    }
-    if (typeof key === "string") {
-      return key;
-    }
-    if (!supportsKeyObjects) {
-      throw typeError(MSG_INVALID_SECRET);
-    }
-    if (typeof key !== "object") {
-      throw typeError(MSG_INVALID_SECRET);
-    }
-    if (key.type !== "secret") {
-      throw typeError(MSG_INVALID_SECRET);
-    }
-    if (typeof key.export !== "function") {
-      throw typeError(MSG_INVALID_SECRET);
-    }
-  }
-  function fromBase64(base64) {
-    return base64.replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
-  }
-  function toBase64(base64url) {
-    base64url = base64url.toString();
-    var padding = 4 - base64url.length % 4;
-    if (padding !== 4) {
-      for (var i2 = 0;i2 < padding; ++i2) {
-        base64url += "=";
-      }
-    }
-    return base64url.replace(/\-/g, "+").replace(/_/g, "/");
-  }
-  function typeError(template) {
-    var args = [].slice.call(arguments, 1);
-    var errMsg = util3.format.bind(util3, template).apply(null, args);
-    return new TypeError(errMsg);
-  }
-  function bufferOrString(obj) {
-    return Buffer2.isBuffer(obj) || typeof obj === "string";
-  }
-  function normalizeInput(thing) {
-    if (!bufferOrString(thing))
-      thing = JSON.stringify(thing);
-    return thing;
-  }
-  function createHmacSigner(bits2) {
-    return function sign(thing, secret) {
-      checkIsSecretKey(secret);
-      thing = normalizeInput(thing);
-      var hmac = crypto3.createHmac("sha" + bits2, secret);
-      var sig = (hmac.update(thing), hmac.digest("base64"));
-      return fromBase64(sig);
-    };
-  }
-  var bufferEqual;
-  var timingSafeEqual = "timingSafeEqual" in crypto3 ? function timingSafeEqual(a12, b) {
-    if (a12.byteLength !== b.byteLength) {
-      return false;
-    }
-    return crypto3.timingSafeEqual(a12, b);
-  } : function timingSafeEqual(a12, b) {
-    if (!bufferEqual) {
-      bufferEqual = require_buffer_equal_constant_time();
-    }
-    return bufferEqual(a12, b);
-  };
-  function createHmacVerifier(bits2) {
-    return function verify(thing, signature, secret) {
-      var computedSig = createHmacSigner(bits2)(thing, secret);
-      return timingSafeEqual(Buffer2.from(signature), Buffer2.from(computedSig));
-    };
-  }
-  function createKeySigner(bits2) {
-    return function sign(thing, privateKey) {
-      checkIsPrivateKey(privateKey);
-      thing = normalizeInput(thing);
-      var signer = crypto3.createSign("RSA-SHA" + bits2);
-      var sig = (signer.update(thing), signer.sign(privateKey, "base64"));
-      return fromBase64(sig);
-    };
-  }
-  function createKeyVerifier(bits2) {
-    return function verify(thing, signature, publicKey) {
-      checkIsPublicKey(publicKey);
-      thing = normalizeInput(thing);
-      signature = toBase64(signature);
-      var verifier = crypto3.createVerify("RSA-SHA" + bits2);
-      verifier.update(thing);
-      return verifier.verify(publicKey, signature, "base64");
-    };
-  }
-  function createPSSKeySigner(bits2) {
-    return function sign(thing, privateKey) {
-      checkIsPrivateKey(privateKey);
-      thing = normalizeInput(thing);
-      var signer = crypto3.createSign("RSA-SHA" + bits2);
-      var sig = (signer.update(thing), signer.sign({
-        key: privateKey,
-        padding: crypto3.constants.RSA_PKCS1_PSS_PADDING,
-        saltLength: crypto3.constants.RSA_PSS_SALTLEN_DIGEST
-      }, "base64"));
-      return fromBase64(sig);
-    };
-  }
-  function createPSSKeyVerifier(bits2) {
-    return function verify(thing, signature, publicKey) {
-      checkIsPublicKey(publicKey);
-      thing = normalizeInput(thing);
-      signature = toBase64(signature);
-      var verifier = crypto3.createVerify("RSA-SHA" + bits2);
-      verifier.update(thing);
-      return verifier.verify({
-        key: publicKey,
-        padding: crypto3.constants.RSA_PKCS1_PSS_PADDING,
-        saltLength: crypto3.constants.RSA_PSS_SALTLEN_DIGEST
-      }, signature, "base64");
-    };
-  }
-  function createECDSASigner(bits2) {
-    var inner = createKeySigner(bits2);
-    return function sign() {
-      var signature = inner.apply(null, arguments);
-      signature = formatEcdsa.derToJose(signature, "ES" + bits2);
-      return signature;
-    };
-  }
-  function createECDSAVerifer(bits2) {
-    var inner = createKeyVerifier(bits2);
-    return function verify(thing, signature, publicKey) {
-      signature = formatEcdsa.joseToDer(signature, "ES" + bits2).toString("base64");
-      var result = inner(thing, signature, publicKey);
-      return result;
-    };
-  }
-  function createNoneSigner() {
-    return function sign() {
-      return "";
-    };
-  }
-  function createNoneVerifier() {
-    return function verify(thing, signature) {
-      return signature === "";
-    };
-  }
-  module.exports = function jwa(algorithm) {
-    var signerFactories = {
-      hs: createHmacSigner,
-      rs: createKeySigner,
-      ps: createPSSKeySigner,
-      es: createECDSASigner,
-      none: createNoneSigner
-    };
-    var verifierFactories = {
-      hs: createHmacVerifier,
-      rs: createKeyVerifier,
-      ps: createPSSKeyVerifier,
-      es: createECDSAVerifer,
-      none: createNoneVerifier
-    };
-    var match = algorithm.match(/^(RS|PS|ES|HS)(256|384|512)$|^(none)$/i);
-    if (!match)
-      throw typeError(MSG_INVALID_ALGORITHM, algorithm);
-    var algo = (match[1] || match[3]).toLowerCase();
-    var bits2 = match[2];
-    return {
-      sign: signerFactories[algo](bits2),
-      verify: verifierFactories[algo](bits2)
-    };
-  };
-});
-
-// node_modules/jws/lib/tostring.js
-var require_tostring = __commonJS((exports, module) => {
-  var Buffer2 = __require("buffer").Buffer;
-  module.exports = function toString(obj) {
-    if (typeof obj === "string")
-      return obj;
-    if (typeof obj === "number" || Buffer2.isBuffer(obj))
-      return obj.toString();
-    return JSON.stringify(obj);
-  };
-});
-
-// node_modules/jws/lib/sign-stream.js
-var require_sign_stream = __commonJS((exports, module) => {
-  var Buffer2 = require_safe_buffer().Buffer;
-  var DataStream = require_data_stream();
-  var jwa = require_jwa();
-  var Stream = __require("stream");
-  var toString = require_tostring();
-  var util3 = __require("util");
-  function base64url(string, encoding) {
-    return Buffer2.from(string, encoding).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
-  }
-  function jwsSecuredInput(header, payload, encoding) {
-    encoding = encoding || "utf8";
-    var encodedHeader = base64url(toString(header), "binary");
-    var encodedPayload = base64url(toString(payload), encoding);
-    return util3.format("%s.%s", encodedHeader, encodedPayload);
-  }
-  function jwsSign(opts) {
-    var header = opts.header;
-    var payload = opts.payload;
-    var secretOrKey = opts.secret || opts.privateKey;
-    var encoding = opts.encoding;
-    var algo = jwa(header.alg);
-    var securedInput = jwsSecuredInput(header, payload, encoding);
-    var signature = algo.sign(securedInput, secretOrKey);
-    return util3.format("%s.%s", securedInput, signature);
-  }
-  function SignStream(opts) {
-    var secret = opts.secret || opts.privateKey || opts.key;
-    var secretStream = new DataStream(secret);
-    this.readable = true;
-    this.header = opts.header;
-    this.encoding = opts.encoding;
-    this.secret = this.privateKey = this.key = secretStream;
-    this.payload = new DataStream(opts.payload);
-    this.secret.once("close", function() {
-      if (!this.payload.writable && this.readable)
-        this.sign();
-    }.bind(this));
-    this.payload.once("close", function() {
-      if (!this.secret.writable && this.readable)
-        this.sign();
-    }.bind(this));
-  }
-  util3.inherits(SignStream, Stream);
-  SignStream.prototype.sign = function sign() {
-    try {
-      var signature = jwsSign({
-        header: this.header,
-        payload: this.payload.buffer,
-        secret: this.secret.buffer,
-        encoding: this.encoding
-      });
-      this.emit("done", signature);
-      this.emit("data", signature);
-      this.emit("end");
-      this.readable = false;
-      return signature;
-    } catch (e) {
-      this.readable = false;
-      this.emit("error", e);
-      this.emit("close");
-    }
-  };
-  SignStream.sign = jwsSign;
-  module.exports = SignStream;
-});
-
-// node_modules/jws/lib/verify-stream.js
-var require_verify_stream = __commonJS((exports, module) => {
-  var Buffer2 = require_safe_buffer().Buffer;
-  var DataStream = require_data_stream();
-  var jwa = require_jwa();
-  var Stream = __require("stream");
-  var toString = require_tostring();
-  var util3 = __require("util");
-  var JWS_REGEX = /^[a-zA-Z0-9\-_]+?\.[a-zA-Z0-9\-_]+?\.([a-zA-Z0-9\-_]+)?$/;
-  function isObject2(thing) {
-    return Object.prototype.toString.call(thing) === "[object Object]";
-  }
-  function safeJsonParse(thing) {
-    if (isObject2(thing))
-      return thing;
-    try {
-      return JSON.parse(thing);
-    } catch (e) {
-      return;
-    }
-  }
-  function headerFromJWS(jwsSig) {
-    var encodedHeader = jwsSig.split(".", 1)[0];
-    return safeJsonParse(Buffer2.from(encodedHeader, "base64").toString("binary"));
-  }
-  function securedInputFromJWS(jwsSig) {
-    return jwsSig.split(".", 2).join(".");
-  }
-  function signatureFromJWS(jwsSig) {
-    return jwsSig.split(".")[2];
-  }
-  function payloadFromJWS(jwsSig, encoding) {
-    encoding = encoding || "utf8";
-    var payload = jwsSig.split(".")[1];
-    return Buffer2.from(payload, "base64").toString(encoding);
-  }
-  function isValidJws(string) {
-    return JWS_REGEX.test(string) && !!headerFromJWS(string);
-  }
-  function jwsVerify(jwsSig, algorithm, secretOrKey) {
-    if (!algorithm) {
-      var err2 = new Error("Missing algorithm parameter for jws.verify");
-      err2.code = "MISSING_ALGORITHM";
-      throw err2;
-    }
-    jwsSig = toString(jwsSig);
-    var signature = signatureFromJWS(jwsSig);
-    var securedInput = securedInputFromJWS(jwsSig);
-    var algo = jwa(algorithm);
-    return algo.verify(securedInput, signature, secretOrKey);
-  }
-  function jwsDecode(jwsSig, opts) {
-    opts = opts || {};
-    jwsSig = toString(jwsSig);
-    if (!isValidJws(jwsSig))
-      return null;
-    var header = headerFromJWS(jwsSig);
-    if (!header)
-      return null;
-    var payload = payloadFromJWS(jwsSig);
-    if (header.typ === "JWT" || opts.json)
-      payload = JSON.parse(payload, opts.encoding);
-    return {
-      header,
-      payload,
-      signature: signatureFromJWS(jwsSig)
-    };
-  }
-  function VerifyStream(opts) {
-    opts = opts || {};
-    var secretOrKey = opts.secret || opts.publicKey || opts.key;
-    var secretStream = new DataStream(secretOrKey);
-    this.readable = true;
-    this.algorithm = opts.algorithm;
-    this.encoding = opts.encoding;
-    this.secret = this.publicKey = this.key = secretStream;
-    this.signature = new DataStream(opts.signature);
-    this.secret.once("close", function() {
-      if (!this.signature.writable && this.readable)
-        this.verify();
-    }.bind(this));
-    this.signature.once("close", function() {
-      if (!this.secret.writable && this.readable)
-        this.verify();
-    }.bind(this));
-  }
-  util3.inherits(VerifyStream, Stream);
-  VerifyStream.prototype.verify = function verify() {
-    try {
-      var valid = jwsVerify(this.signature.buffer, this.algorithm, this.key.buffer);
-      var obj = jwsDecode(this.signature.buffer, this.encoding);
-      this.emit("done", valid, obj);
-      this.emit("data", valid);
-      this.emit("end");
-      this.readable = false;
-      return valid;
-    } catch (e) {
-      this.readable = false;
-      this.emit("error", e);
-      this.emit("close");
-    }
-  };
-  VerifyStream.decode = jwsDecode;
-  VerifyStream.isValid = isValidJws;
-  VerifyStream.verify = jwsVerify;
-  module.exports = VerifyStream;
-});
-
-// node_modules/jws/index.js
-var require_jws = __commonJS((exports) => {
-  var SignStream = require_sign_stream();
-  var VerifyStream = require_verify_stream();
-  var ALGORITHMS = [
-    "HS256",
-    "HS384",
-    "HS512",
-    "RS256",
-    "RS384",
-    "RS512",
-    "PS256",
-    "PS384",
-    "PS512",
-    "ES256",
-    "ES384",
-    "ES512"
-  ];
-  exports.ALGORITHMS = ALGORITHMS;
-  exports.sign = SignStream.sign;
-  exports.verify = VerifyStream.verify;
-  exports.decode = VerifyStream.decode;
-  exports.isValid = VerifyStream.isValid;
-  exports.createSign = function createSign(opts) {
-    return new SignStream(opts);
-  };
-  exports.createVerify = function createVerify(opts) {
-    return new VerifyStream(opts);
-  };
-});
-
-// node_modules/jsonwebtoken/decode.js
-var require_decode = __commonJS((exports, module) => {
-  var jws = require_jws();
-  module.exports = function(jwt, options) {
-    options = options || {};
-    var decoded = jws.decode(jwt, options);
-    if (!decoded) {
-      return null;
-    }
-    var payload = decoded.payload;
-    if (typeof payload === "string") {
-      try {
-        var obj = JSON.parse(payload);
-        if (obj !== null && typeof obj === "object") {
-          payload = obj;
-        }
-      } catch (e) {}
-    }
-    if (options.complete === true) {
-      return {
-        header: decoded.header,
-        payload,
-        signature: decoded.signature
-      };
-    }
-    return payload;
-  };
-});
-
-// node_modules/jsonwebtoken/lib/JsonWebTokenError.js
-var require_JsonWebTokenError = __commonJS((exports, module) => {
-  var JsonWebTokenError = function(message, error) {
-    Error.call(this, message);
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, this.constructor);
-    }
-    this.name = "JsonWebTokenError";
-    this.message = message;
-    if (error)
-      this.inner = error;
-  };
-  JsonWebTokenError.prototype = Object.create(Error.prototype);
-  JsonWebTokenError.prototype.constructor = JsonWebTokenError;
-  module.exports = JsonWebTokenError;
-});
-
-// node_modules/jsonwebtoken/lib/NotBeforeError.js
-var require_NotBeforeError = __commonJS((exports, module) => {
-  var JsonWebTokenError = require_JsonWebTokenError();
-  var NotBeforeError = function(message, date2) {
-    JsonWebTokenError.call(this, message);
-    this.name = "NotBeforeError";
-    this.date = date2;
-  };
-  NotBeforeError.prototype = Object.create(JsonWebTokenError.prototype);
-  NotBeforeError.prototype.constructor = NotBeforeError;
-  module.exports = NotBeforeError;
-});
-
-// node_modules/jsonwebtoken/lib/TokenExpiredError.js
-var require_TokenExpiredError = __commonJS((exports, module) => {
-  var JsonWebTokenError = require_JsonWebTokenError();
-  var TokenExpiredError = function(message, expiredAt) {
-    JsonWebTokenError.call(this, message);
-    this.name = "TokenExpiredError";
-    this.expiredAt = expiredAt;
-  };
-  TokenExpiredError.prototype = Object.create(JsonWebTokenError.prototype);
-  TokenExpiredError.prototype.constructor = TokenExpiredError;
-  module.exports = TokenExpiredError;
-});
-
-// node_modules/jsonwebtoken/lib/timespan.js
-var require_timespan = __commonJS((exports, module) => {
-  var ms = require_ms();
-  module.exports = function(time, iat) {
-    var timestamp = iat || Math.floor(Date.now() / 1000);
-    if (typeof time === "string") {
-      var milliseconds = ms(time);
-      if (typeof milliseconds === "undefined") {
-        return;
-      }
-      return Math.floor(timestamp + milliseconds / 1000);
-    } else if (typeof time === "number") {
-      return timestamp + time;
-    } else {
-      return;
-    }
-  };
-});
-
-// node_modules/semver/internal/constants.js
-var require_constants2 = __commonJS((exports, module) => {
-  var SEMVER_SPEC_VERSION = "2.0.0";
-  var MAX_LENGTH = 256;
-  var MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER || 9007199254740991;
-  var MAX_SAFE_COMPONENT_LENGTH = 16;
-  var MAX_SAFE_BUILD_LENGTH = MAX_LENGTH - 6;
-  var RELEASE_TYPES = [
-    "major",
-    "premajor",
-    "minor",
-    "preminor",
-    "patch",
-    "prepatch",
-    "prerelease"
-  ];
-  module.exports = {
-    MAX_LENGTH,
-    MAX_SAFE_COMPONENT_LENGTH,
-    MAX_SAFE_BUILD_LENGTH,
-    MAX_SAFE_INTEGER,
-    RELEASE_TYPES,
-    SEMVER_SPEC_VERSION,
-    FLAG_INCLUDE_PRERELEASE: 1,
-    FLAG_LOOSE: 2
-  };
-});
-
-// node_modules/semver/internal/debug.js
-var require_debug = __commonJS((exports, module) => {
-  var debug2 = typeof process === "object" && process.env && process.env.NODE_DEBUG && /\bsemver\b/i.test(process.env.NODE_DEBUG) ? (...args) => console.error("SEMVER", ...args) : () => {};
-  module.exports = debug2;
-});
-
-// node_modules/semver/internal/re.js
-var require_re = __commonJS((exports, module) => {
-  var {
-    MAX_SAFE_COMPONENT_LENGTH,
-    MAX_SAFE_BUILD_LENGTH,
-    MAX_LENGTH
-  } = require_constants2();
-  var debug2 = require_debug();
-  exports = module.exports = {};
-  var re = exports.re = [];
-  var safeRe = exports.safeRe = [];
-  var src = exports.src = [];
-  var safeSrc = exports.safeSrc = [];
-  var t3 = exports.t = {};
-  var R = 0;
-  var LETTERDASHNUMBER = "[a-zA-Z0-9-]";
-  var safeRegexReplacements = [
-    ["\\s", 1],
-    ["\\d", MAX_LENGTH],
-    [LETTERDASHNUMBER, MAX_SAFE_BUILD_LENGTH]
-  ];
-  var makeSafeRegex = (value) => {
-    for (const [token, max2] of safeRegexReplacements) {
-      value = value.split(`${token}*`).join(`${token}{0,${max2}}`).split(`${token}+`).join(`${token}{1,${max2}}`);
-    }
-    return value;
-  };
-  var createToken = (name, value, isGlobal) => {
-    const safe = makeSafeRegex(value);
-    const index = R++;
-    debug2(name, index, value);
-    t3[name] = index;
-    src[index] = value;
-    safeSrc[index] = safe;
-    re[index] = new RegExp(value, isGlobal ? "g" : undefined);
-    safeRe[index] = new RegExp(safe, isGlobal ? "g" : undefined);
-  };
-  createToken("NUMERICIDENTIFIER", "0|[1-9]\\d*");
-  createToken("NUMERICIDENTIFIERLOOSE", "\\d+");
-  createToken("NONNUMERICIDENTIFIER", `\\d*[a-zA-Z-]${LETTERDASHNUMBER}*`);
-  createToken("MAINVERSION", `(${src[t3.NUMERICIDENTIFIER]})\\.` + `(${src[t3.NUMERICIDENTIFIER]})\\.` + `(${src[t3.NUMERICIDENTIFIER]})`);
-  createToken("MAINVERSIONLOOSE", `(${src[t3.NUMERICIDENTIFIERLOOSE]})\\.` + `(${src[t3.NUMERICIDENTIFIERLOOSE]})\\.` + `(${src[t3.NUMERICIDENTIFIERLOOSE]})`);
-  createToken("PRERELEASEIDENTIFIER", `(?:${src[t3.NONNUMERICIDENTIFIER]}|${src[t3.NUMERICIDENTIFIER]})`);
-  createToken("PRERELEASEIDENTIFIERLOOSE", `(?:${src[t3.NONNUMERICIDENTIFIER]}|${src[t3.NUMERICIDENTIFIERLOOSE]})`);
-  createToken("PRERELEASE", `(?:-(${src[t3.PRERELEASEIDENTIFIER]}(?:\\.${src[t3.PRERELEASEIDENTIFIER]})*))`);
-  createToken("PRERELEASELOOSE", `(?:-?(${src[t3.PRERELEASEIDENTIFIERLOOSE]}(?:\\.${src[t3.PRERELEASEIDENTIFIERLOOSE]})*))`);
-  createToken("BUILDIDENTIFIER", `${LETTERDASHNUMBER}+`);
-  createToken("BUILD", `(?:\\+(${src[t3.BUILDIDENTIFIER]}(?:\\.${src[t3.BUILDIDENTIFIER]})*))`);
-  createToken("FULLPLAIN", `v?${src[t3.MAINVERSION]}${src[t3.PRERELEASE]}?${src[t3.BUILD]}?`);
-  createToken("FULL", `^${src[t3.FULLPLAIN]}$`);
-  createToken("LOOSEPLAIN", `[v=\\s]*${src[t3.MAINVERSIONLOOSE]}${src[t3.PRERELEASELOOSE]}?${src[t3.BUILD]}?`);
-  createToken("LOOSE", `^${src[t3.LOOSEPLAIN]}$`);
-  createToken("GTLT", "((?:<|>)?=?)");
-  createToken("XRANGEIDENTIFIERLOOSE", `${src[t3.NUMERICIDENTIFIERLOOSE]}|x|X|\\*`);
-  createToken("XRANGEIDENTIFIER", `${src[t3.NUMERICIDENTIFIER]}|x|X|\\*`);
-  createToken("XRANGEPLAIN", `[v=\\s]*(${src[t3.XRANGEIDENTIFIER]})` + `(?:\\.(${src[t3.XRANGEIDENTIFIER]})` + `(?:\\.(${src[t3.XRANGEIDENTIFIER]})` + `(?:${src[t3.PRERELEASE]})?${src[t3.BUILD]}?` + `)?)?`);
-  createToken("XRANGEPLAINLOOSE", `[v=\\s]*(${src[t3.XRANGEIDENTIFIERLOOSE]})` + `(?:\\.(${src[t3.XRANGEIDENTIFIERLOOSE]})` + `(?:\\.(${src[t3.XRANGEIDENTIFIERLOOSE]})` + `(?:${src[t3.PRERELEASELOOSE]})?${src[t3.BUILD]}?` + `)?)?`);
-  createToken("XRANGE", `^${src[t3.GTLT]}\\s*${src[t3.XRANGEPLAIN]}$`);
-  createToken("XRANGELOOSE", `^${src[t3.GTLT]}\\s*${src[t3.XRANGEPLAINLOOSE]}$`);
-  createToken("COERCEPLAIN", `${"(^|[^\\d])" + "(\\d{1,"}${MAX_SAFE_COMPONENT_LENGTH}})` + `(?:\\.(\\d{1,${MAX_SAFE_COMPONENT_LENGTH}}))?` + `(?:\\.(\\d{1,${MAX_SAFE_COMPONENT_LENGTH}}))?`);
-  createToken("COERCE", `${src[t3.COERCEPLAIN]}(?:$|[^\\d])`);
-  createToken("COERCEFULL", src[t3.COERCEPLAIN] + `(?:${src[t3.PRERELEASE]})?` + `(?:${src[t3.BUILD]})?` + `(?:$|[^\\d])`);
-  createToken("COERCERTL", src[t3.COERCE], true);
-  createToken("COERCERTLFULL", src[t3.COERCEFULL], true);
-  createToken("LONETILDE", "(?:~>?)");
-  createToken("TILDETRIM", `(\\s*)${src[t3.LONETILDE]}\\s+`, true);
-  exports.tildeTrimReplace = "$1~";
-  createToken("TILDE", `^${src[t3.LONETILDE]}${src[t3.XRANGEPLAIN]}$`);
-  createToken("TILDELOOSE", `^${src[t3.LONETILDE]}${src[t3.XRANGEPLAINLOOSE]}$`);
-  createToken("LONECARET", "(?:\\^)");
-  createToken("CARETTRIM", `(\\s*)${src[t3.LONECARET]}\\s+`, true);
-  exports.caretTrimReplace = "$1^";
-  createToken("CARET", `^${src[t3.LONECARET]}${src[t3.XRANGEPLAIN]}$`);
-  createToken("CARETLOOSE", `^${src[t3.LONECARET]}${src[t3.XRANGEPLAINLOOSE]}$`);
-  createToken("COMPARATORLOOSE", `^${src[t3.GTLT]}\\s*(${src[t3.LOOSEPLAIN]})$|^$`);
-  createToken("COMPARATOR", `^${src[t3.GTLT]}\\s*(${src[t3.FULLPLAIN]})$|^$`);
-  createToken("COMPARATORTRIM", `(\\s*)${src[t3.GTLT]}\\s*(${src[t3.LOOSEPLAIN]}|${src[t3.XRANGEPLAIN]})`, true);
-  exports.comparatorTrimReplace = "$1$2$3";
-  createToken("HYPHENRANGE", `^\\s*(${src[t3.XRANGEPLAIN]})` + `\\s+-\\s+` + `(${src[t3.XRANGEPLAIN]})` + `\\s*$`);
-  createToken("HYPHENRANGELOOSE", `^\\s*(${src[t3.XRANGEPLAINLOOSE]})` + `\\s+-\\s+` + `(${src[t3.XRANGEPLAINLOOSE]})` + `\\s*$`);
-  createToken("STAR", "(<|>)?=?\\s*\\*");
-  createToken("GTE0", "^\\s*>=\\s*0\\.0\\.0\\s*$");
-  createToken("GTE0PRE", "^\\s*>=\\s*0\\.0\\.0-0\\s*$");
-});
-
-// node_modules/semver/internal/parse-options.js
-var require_parse_options = __commonJS((exports, module) => {
-  var looseOption = Object.freeze({ loose: true });
-  var emptyOpts = Object.freeze({});
-  var parseOptions = (options) => {
-    if (!options) {
-      return emptyOpts;
-    }
-    if (typeof options !== "object") {
-      return looseOption;
-    }
-    return options;
-  };
-  module.exports = parseOptions;
-});
-
-// node_modules/semver/internal/identifiers.js
-var require_identifiers = __commonJS((exports, module) => {
-  var numeric = /^[0-9]+$/;
-  var compareIdentifiers = (a12, b) => {
-    const anum = numeric.test(a12);
-    const bnum = numeric.test(b);
-    if (anum && bnum) {
-      a12 = +a12;
-      b = +b;
-    }
-    return a12 === b ? 0 : anum && !bnum ? -1 : bnum && !anum ? 1 : a12 < b ? -1 : 1;
-  };
-  var rcompareIdentifiers = (a12, b) => compareIdentifiers(b, a12);
-  module.exports = {
-    compareIdentifiers,
-    rcompareIdentifiers
-  };
-});
-
-// node_modules/semver/classes/semver.js
-var require_semver = __commonJS((exports, module) => {
-  var debug2 = require_debug();
-  var { MAX_LENGTH, MAX_SAFE_INTEGER } = require_constants2();
-  var { safeRe: re, t: t3 } = require_re();
-  var parseOptions = require_parse_options();
-  var { compareIdentifiers } = require_identifiers();
-
-  class SemVer {
-    constructor(version, options) {
-      options = parseOptions(options);
-      if (version instanceof SemVer) {
-        if (version.loose === !!options.loose && version.includePrerelease === !!options.includePrerelease) {
-          return version;
-        } else {
-          version = version.version;
-        }
-      } else if (typeof version !== "string") {
-        throw new TypeError(`Invalid version. Must be a string. Got type "${typeof version}".`);
-      }
-      if (version.length > MAX_LENGTH) {
-        throw new TypeError(`version is longer than ${MAX_LENGTH} characters`);
-      }
-      debug2("SemVer", version, options);
-      this.options = options;
-      this.loose = !!options.loose;
-      this.includePrerelease = !!options.includePrerelease;
-      const m2 = version.trim().match(options.loose ? re[t3.LOOSE] : re[t3.FULL]);
-      if (!m2) {
-        throw new TypeError(`Invalid Version: ${version}`);
-      }
-      this.raw = version;
-      this.major = +m2[1];
-      this.minor = +m2[2];
-      this.patch = +m2[3];
-      if (this.major > MAX_SAFE_INTEGER || this.major < 0) {
-        throw new TypeError("Invalid major version");
-      }
-      if (this.minor > MAX_SAFE_INTEGER || this.minor < 0) {
-        throw new TypeError("Invalid minor version");
-      }
-      if (this.patch > MAX_SAFE_INTEGER || this.patch < 0) {
-        throw new TypeError("Invalid patch version");
-      }
-      if (!m2[4]) {
-        this.prerelease = [];
-      } else {
-        this.prerelease = m2[4].split(".").map((id) => {
-          if (/^[0-9]+$/.test(id)) {
-            const num = +id;
-            if (num >= 0 && num < MAX_SAFE_INTEGER) {
-              return num;
-            }
-          }
-          return id;
-        });
-      }
-      this.build = m2[5] ? m2[5].split(".") : [];
-      this.format();
-    }
-    format() {
-      this.version = `${this.major}.${this.minor}.${this.patch}`;
-      if (this.prerelease.length) {
-        this.version += `-${this.prerelease.join(".")}`;
-      }
-      return this.version;
-    }
-    toString() {
-      return this.version;
-    }
-    compare(other) {
-      debug2("SemVer.compare", this.version, this.options, other);
-      if (!(other instanceof SemVer)) {
-        if (typeof other === "string" && other === this.version) {
-          return 0;
-        }
-        other = new SemVer(other, this.options);
-      }
-      if (other.version === this.version) {
-        return 0;
-      }
-      return this.compareMain(other) || this.comparePre(other);
-    }
-    compareMain(other) {
-      if (!(other instanceof SemVer)) {
-        other = new SemVer(other, this.options);
-      }
-      return compareIdentifiers(this.major, other.major) || compareIdentifiers(this.minor, other.minor) || compareIdentifiers(this.patch, other.patch);
-    }
-    comparePre(other) {
-      if (!(other instanceof SemVer)) {
-        other = new SemVer(other, this.options);
-      }
-      if (this.prerelease.length && !other.prerelease.length) {
-        return -1;
-      } else if (!this.prerelease.length && other.prerelease.length) {
-        return 1;
-      } else if (!this.prerelease.length && !other.prerelease.length) {
-        return 0;
-      }
-      let i2 = 0;
-      do {
-        const a12 = this.prerelease[i2];
-        const b = other.prerelease[i2];
-        debug2("prerelease compare", i2, a12, b);
-        if (a12 === undefined && b === undefined) {
-          return 0;
-        } else if (b === undefined) {
-          return 1;
-        } else if (a12 === undefined) {
-          return -1;
-        } else if (a12 === b) {
-          continue;
-        } else {
-          return compareIdentifiers(a12, b);
-        }
-      } while (++i2);
-    }
-    compareBuild(other) {
-      if (!(other instanceof SemVer)) {
-        other = new SemVer(other, this.options);
-      }
-      let i2 = 0;
-      do {
-        const a12 = this.build[i2];
-        const b = other.build[i2];
-        debug2("build compare", i2, a12, b);
-        if (a12 === undefined && b === undefined) {
-          return 0;
-        } else if (b === undefined) {
-          return 1;
-        } else if (a12 === undefined) {
-          return -1;
-        } else if (a12 === b) {
-          continue;
-        } else {
-          return compareIdentifiers(a12, b);
-        }
-      } while (++i2);
-    }
-    inc(release, identifier, identifierBase) {
-      if (release.startsWith("pre")) {
-        if (!identifier && identifierBase === false) {
-          throw new Error("invalid increment argument: identifier is empty");
-        }
-        if (identifier) {
-          const match = `-${identifier}`.match(this.options.loose ? re[t3.PRERELEASELOOSE] : re[t3.PRERELEASE]);
-          if (!match || match[1] !== identifier) {
-            throw new Error(`invalid identifier: ${identifier}`);
-          }
-        }
-      }
-      switch (release) {
-        case "premajor":
-          this.prerelease.length = 0;
-          this.patch = 0;
-          this.minor = 0;
-          this.major++;
-          this.inc("pre", identifier, identifierBase);
-          break;
-        case "preminor":
-          this.prerelease.length = 0;
-          this.patch = 0;
-          this.minor++;
-          this.inc("pre", identifier, identifierBase);
-          break;
-        case "prepatch":
-          this.prerelease.length = 0;
-          this.inc("patch", identifier, identifierBase);
-          this.inc("pre", identifier, identifierBase);
-          break;
-        case "prerelease":
-          if (this.prerelease.length === 0) {
-            this.inc("patch", identifier, identifierBase);
-          }
-          this.inc("pre", identifier, identifierBase);
-          break;
-        case "release":
-          if (this.prerelease.length === 0) {
-            throw new Error(`version ${this.raw} is not a prerelease`);
-          }
-          this.prerelease.length = 0;
-          break;
-        case "major":
-          if (this.minor !== 0 || this.patch !== 0 || this.prerelease.length === 0) {
-            this.major++;
-          }
-          this.minor = 0;
-          this.patch = 0;
-          this.prerelease = [];
-          break;
-        case "minor":
-          if (this.patch !== 0 || this.prerelease.length === 0) {
-            this.minor++;
-          }
-          this.patch = 0;
-          this.prerelease = [];
-          break;
-        case "patch":
-          if (this.prerelease.length === 0) {
-            this.patch++;
-          }
-          this.prerelease = [];
-          break;
-        case "pre": {
-          const base = Number(identifierBase) ? 1 : 0;
-          if (this.prerelease.length === 0) {
-            this.prerelease = [base];
-          } else {
-            let i2 = this.prerelease.length;
-            while (--i2 >= 0) {
-              if (typeof this.prerelease[i2] === "number") {
-                this.prerelease[i2]++;
-                i2 = -2;
-              }
-            }
-            if (i2 === -1) {
-              if (identifier === this.prerelease.join(".") && identifierBase === false) {
-                throw new Error("invalid increment argument: identifier already exists");
-              }
-              this.prerelease.push(base);
-            }
-          }
-          if (identifier) {
-            let prerelease = [identifier, base];
-            if (identifierBase === false) {
-              prerelease = [identifier];
-            }
-            if (compareIdentifiers(this.prerelease[0], identifier) === 0) {
-              if (isNaN(this.prerelease[1])) {
-                this.prerelease = prerelease;
-              }
-            } else {
-              this.prerelease = prerelease;
-            }
-          }
-          break;
-        }
-        default:
-          throw new Error(`invalid increment argument: ${release}`);
-      }
-      this.raw = this.format();
-      if (this.build.length) {
-        this.raw += `+${this.build.join(".")}`;
-      }
-      return this;
-    }
-  }
-  module.exports = SemVer;
-});
-
-// node_modules/semver/functions/parse.js
-var require_parse = __commonJS((exports, module) => {
-  var SemVer = require_semver();
-  var parse3 = (version, options, throwErrors = false) => {
-    if (version instanceof SemVer) {
-      return version;
-    }
-    try {
-      return new SemVer(version, options);
-    } catch (er) {
-      if (!throwErrors) {
-        return null;
-      }
-      throw er;
-    }
-  };
-  module.exports = parse3;
-});
-
-// node_modules/semver/functions/valid.js
-var require_valid = __commonJS((exports, module) => {
-  var parse3 = require_parse();
-  var valid = (version, options) => {
-    const v = parse3(version, options);
-    return v ? v.version : null;
-  };
-  module.exports = valid;
-});
-
-// node_modules/semver/functions/clean.js
-var require_clean = __commonJS((exports, module) => {
-  var parse3 = require_parse();
-  var clean2 = (version, options) => {
-    const s = parse3(version.trim().replace(/^[=v]+/, ""), options);
-    return s ? s.version : null;
-  };
-  module.exports = clean2;
-});
-
-// node_modules/semver/functions/inc.js
-var require_inc = __commonJS((exports, module) => {
-  var SemVer = require_semver();
-  var inc = (version, release, options, identifier, identifierBase) => {
-    if (typeof options === "string") {
-      identifierBase = identifier;
-      identifier = options;
-      options = undefined;
-    }
-    try {
-      return new SemVer(version instanceof SemVer ? version.version : version, options).inc(release, identifier, identifierBase).version;
-    } catch (er) {
-      return null;
-    }
-  };
-  module.exports = inc;
-});
-
-// node_modules/semver/functions/diff.js
-var require_diff = __commonJS((exports, module) => {
-  var parse3 = require_parse();
-  var diff = (version1, version2) => {
-    const v1 = parse3(version1, null, true);
-    const v2 = parse3(version2, null, true);
-    const comparison = v1.compare(v2);
-    if (comparison === 0) {
-      return null;
-    }
-    const v1Higher = comparison > 0;
-    const highVersion = v1Higher ? v1 : v2;
-    const lowVersion = v1Higher ? v2 : v1;
-    const highHasPre = !!highVersion.prerelease.length;
-    const lowHasPre = !!lowVersion.prerelease.length;
-    if (lowHasPre && !highHasPre) {
-      if (!lowVersion.patch && !lowVersion.minor) {
-        return "major";
-      }
-      if (lowVersion.compareMain(highVersion) === 0) {
-        if (lowVersion.minor && !lowVersion.patch) {
-          return "minor";
-        }
-        return "patch";
-      }
-    }
-    const prefix = highHasPre ? "pre" : "";
-    if (v1.major !== v2.major) {
-      return prefix + "major";
-    }
-    if (v1.minor !== v2.minor) {
-      return prefix + "minor";
-    }
-    if (v1.patch !== v2.patch) {
-      return prefix + "patch";
-    }
-    return "prerelease";
-  };
-  module.exports = diff;
-});
-
-// node_modules/semver/functions/major.js
-var require_major = __commonJS((exports, module) => {
-  var SemVer = require_semver();
-  var major = (a12, loose) => new SemVer(a12, loose).major;
-  module.exports = major;
-});
-
-// node_modules/semver/functions/minor.js
-var require_minor = __commonJS((exports, module) => {
-  var SemVer = require_semver();
-  var minor = (a12, loose) => new SemVer(a12, loose).minor;
-  module.exports = minor;
-});
-
-// node_modules/semver/functions/patch.js
-var require_patch = __commonJS((exports, module) => {
-  var SemVer = require_semver();
-  var patch = (a12, loose) => new SemVer(a12, loose).patch;
-  module.exports = patch;
-});
-
-// node_modules/semver/functions/prerelease.js
-var require_prerelease = __commonJS((exports, module) => {
-  var parse3 = require_parse();
-  var prerelease = (version, options) => {
-    const parsed = parse3(version, options);
-    return parsed && parsed.prerelease.length ? parsed.prerelease : null;
-  };
-  module.exports = prerelease;
-});
-
-// node_modules/semver/functions/compare.js
-var require_compare = __commonJS((exports, module) => {
-  var SemVer = require_semver();
-  var compare = (a12, b, loose) => new SemVer(a12, loose).compare(new SemVer(b, loose));
-  module.exports = compare;
-});
-
-// node_modules/semver/functions/rcompare.js
-var require_rcompare = __commonJS((exports, module) => {
-  var compare = require_compare();
-  var rcompare = (a12, b, loose) => compare(b, a12, loose);
-  module.exports = rcompare;
-});
-
-// node_modules/semver/functions/compare-loose.js
-var require_compare_loose = __commonJS((exports, module) => {
-  var compare = require_compare();
-  var compareLoose = (a12, b) => compare(a12, b, true);
-  module.exports = compareLoose;
-});
-
-// node_modules/semver/functions/compare-build.js
-var require_compare_build = __commonJS((exports, module) => {
-  var SemVer = require_semver();
-  var compareBuild = (a12, b, loose) => {
-    const versionA = new SemVer(a12, loose);
-    const versionB = new SemVer(b, loose);
-    return versionA.compare(versionB) || versionA.compareBuild(versionB);
-  };
-  module.exports = compareBuild;
-});
-
-// node_modules/semver/functions/sort.js
-var require_sort = __commonJS((exports, module) => {
-  var compareBuild = require_compare_build();
-  var sort = (list, loose) => list.sort((a12, b) => compareBuild(a12, b, loose));
-  module.exports = sort;
-});
-
-// node_modules/semver/functions/rsort.js
-var require_rsort = __commonJS((exports, module) => {
-  var compareBuild = require_compare_build();
-  var rsort = (list, loose) => list.sort((a12, b) => compareBuild(b, a12, loose));
-  module.exports = rsort;
-});
-
-// node_modules/semver/functions/gt.js
-var require_gt = __commonJS((exports, module) => {
-  var compare = require_compare();
-  var gt = (a12, b, loose) => compare(a12, b, loose) > 0;
-  module.exports = gt;
-});
-
-// node_modules/semver/functions/lt.js
-var require_lt = __commonJS((exports, module) => {
-  var compare = require_compare();
-  var lt = (a12, b, loose) => compare(a12, b, loose) < 0;
-  module.exports = lt;
-});
-
-// node_modules/semver/functions/eq.js
-var require_eq = __commonJS((exports, module) => {
-  var compare = require_compare();
-  var eq = (a12, b, loose) => compare(a12, b, loose) === 0;
-  module.exports = eq;
-});
-
-// node_modules/semver/functions/neq.js
-var require_neq = __commonJS((exports, module) => {
-  var compare = require_compare();
-  var neq = (a12, b, loose) => compare(a12, b, loose) !== 0;
-  module.exports = neq;
-});
-
-// node_modules/semver/functions/gte.js
-var require_gte = __commonJS((exports, module) => {
-  var compare = require_compare();
-  var gte = (a12, b, loose) => compare(a12, b, loose) >= 0;
-  module.exports = gte;
-});
-
-// node_modules/semver/functions/lte.js
-var require_lte = __commonJS((exports, module) => {
-  var compare = require_compare();
-  var lte = (a12, b, loose) => compare(a12, b, loose) <= 0;
-  module.exports = lte;
-});
-
-// node_modules/semver/functions/cmp.js
-var require_cmp = __commonJS((exports, module) => {
-  var eq = require_eq();
-  var neq = require_neq();
-  var gt = require_gt();
-  var gte = require_gte();
-  var lt = require_lt();
-  var lte = require_lte();
-  var cmp = (a12, op, b, loose) => {
-    switch (op) {
-      case "===":
-        if (typeof a12 === "object") {
-          a12 = a12.version;
-        }
-        if (typeof b === "object") {
-          b = b.version;
-        }
-        return a12 === b;
-      case "!==":
-        if (typeof a12 === "object") {
-          a12 = a12.version;
-        }
-        if (typeof b === "object") {
-          b = b.version;
-        }
-        return a12 !== b;
-      case "":
-      case "=":
-      case "==":
-        return eq(a12, b, loose);
-      case "!=":
-        return neq(a12, b, loose);
-      case ">":
-        return gt(a12, b, loose);
-      case ">=":
-        return gte(a12, b, loose);
-      case "<":
-        return lt(a12, b, loose);
-      case "<=":
-        return lte(a12, b, loose);
-      default:
-        throw new TypeError(`Invalid operator: ${op}`);
-    }
-  };
-  module.exports = cmp;
-});
-
-// node_modules/semver/functions/coerce.js
-var require_coerce = __commonJS((exports, module) => {
-  var SemVer = require_semver();
-  var parse3 = require_parse();
-  var { safeRe: re, t: t3 } = require_re();
-  var coerce2 = (version, options) => {
-    if (version instanceof SemVer) {
-      return version;
-    }
-    if (typeof version === "number") {
-      version = String(version);
-    }
-    if (typeof version !== "string") {
-      return null;
-    }
-    options = options || {};
-    let match = null;
-    if (!options.rtl) {
-      match = version.match(options.includePrerelease ? re[t3.COERCEFULL] : re[t3.COERCE]);
-    } else {
-      const coerceRtlRegex = options.includePrerelease ? re[t3.COERCERTLFULL] : re[t3.COERCERTL];
-      let next;
-      while ((next = coerceRtlRegex.exec(version)) && (!match || match.index + match[0].length !== version.length)) {
-        if (!match || next.index + next[0].length !== match.index + match[0].length) {
-          match = next;
-        }
-        coerceRtlRegex.lastIndex = next.index + next[1].length + next[2].length;
-      }
-      coerceRtlRegex.lastIndex = -1;
-    }
-    if (match === null) {
-      return null;
-    }
-    const major = match[2];
-    const minor = match[3] || "0";
-    const patch = match[4] || "0";
-    const prerelease = options.includePrerelease && match[5] ? `-${match[5]}` : "";
-    const build = options.includePrerelease && match[6] ? `+${match[6]}` : "";
-    return parse3(`${major}.${minor}.${patch}${prerelease}${build}`, options);
-  };
-  module.exports = coerce2;
-});
-
-// node_modules/semver/internal/lrucache.js
-var require_lrucache = __commonJS((exports, module) => {
-  class LRUCache {
-    constructor() {
-      this.max = 1000;
-      this.map = new Map;
-    }
-    get(key) {
-      const value = this.map.get(key);
-      if (value === undefined) {
-        return;
-      } else {
-        this.map.delete(key);
-        this.map.set(key, value);
-        return value;
-      }
-    }
-    delete(key) {
-      return this.map.delete(key);
-    }
-    set(key, value) {
-      const deleted = this.delete(key);
-      if (!deleted && value !== undefined) {
-        if (this.map.size >= this.max) {
-          const firstKey = this.map.keys().next().value;
-          this.delete(firstKey);
-        }
-        this.map.set(key, value);
-      }
-      return this;
-    }
-  }
-  module.exports = LRUCache;
-});
-
-// node_modules/semver/classes/range.js
-var require_range = __commonJS((exports, module) => {
-  var SPACE_CHARACTERS = /\s+/g;
-
-  class Range {
-    constructor(range, options) {
-      options = parseOptions(options);
-      if (range instanceof Range) {
-        if (range.loose === !!options.loose && range.includePrerelease === !!options.includePrerelease) {
-          return range;
-        } else {
-          return new Range(range.raw, options);
-        }
-      }
-      if (range instanceof Comparator) {
-        this.raw = range.value;
-        this.set = [[range]];
-        this.formatted = undefined;
-        return this;
-      }
-      this.options = options;
-      this.loose = !!options.loose;
-      this.includePrerelease = !!options.includePrerelease;
-      this.raw = range.trim().replace(SPACE_CHARACTERS, " ");
-      this.set = this.raw.split("||").map((r2) => this.parseRange(r2.trim())).filter((c) => c.length);
-      if (!this.set.length) {
-        throw new TypeError(`Invalid SemVer Range: ${this.raw}`);
-      }
-      if (this.set.length > 1) {
-        const first = this.set[0];
-        this.set = this.set.filter((c) => !isNullSet(c[0]));
-        if (this.set.length === 0) {
-          this.set = [first];
-        } else if (this.set.length > 1) {
-          for (const c of this.set) {
-            if (c.length === 1 && isAny(c[0])) {
-              this.set = [c];
-              break;
-            }
-          }
-        }
-      }
-      this.formatted = undefined;
-    }
-    get range() {
-      if (this.formatted === undefined) {
-        this.formatted = "";
-        for (let i2 = 0;i2 < this.set.length; i2++) {
-          if (i2 > 0) {
-            this.formatted += "||";
-          }
-          const comps = this.set[i2];
-          for (let k = 0;k < comps.length; k++) {
-            if (k > 0) {
-              this.formatted += " ";
-            }
-            this.formatted += comps[k].toString().trim();
-          }
-        }
-      }
-      return this.formatted;
-    }
-    format() {
-      return this.range;
-    }
-    toString() {
-      return this.range;
-    }
-    parseRange(range) {
-      const memoOpts = (this.options.includePrerelease && FLAG_INCLUDE_PRERELEASE) | (this.options.loose && FLAG_LOOSE);
-      const memoKey = memoOpts + ":" + range;
-      const cached = cache.get(memoKey);
-      if (cached) {
-        return cached;
-      }
-      const loose = this.options.loose;
-      const hr = loose ? re[t3.HYPHENRANGELOOSE] : re[t3.HYPHENRANGE];
-      range = range.replace(hr, hyphenReplace(this.options.includePrerelease));
-      debug2("hyphen replace", range);
-      range = range.replace(re[t3.COMPARATORTRIM], comparatorTrimReplace);
-      debug2("comparator trim", range);
-      range = range.replace(re[t3.TILDETRIM], tildeTrimReplace);
-      debug2("tilde trim", range);
-      range = range.replace(re[t3.CARETTRIM], caretTrimReplace);
-      debug2("caret trim", range);
-      let rangeList = range.split(" ").map((comp) => parseComparator(comp, this.options)).join(" ").split(/\s+/).map((comp) => replaceGTE0(comp, this.options));
-      if (loose) {
-        rangeList = rangeList.filter((comp) => {
-          debug2("loose invalid filter", comp, this.options);
-          return !!comp.match(re[t3.COMPARATORLOOSE]);
-        });
-      }
-      debug2("range list", rangeList);
-      const rangeMap = new Map;
-      const comparators = rangeList.map((comp) => new Comparator(comp, this.options));
-      for (const comp of comparators) {
-        if (isNullSet(comp)) {
-          return [comp];
-        }
-        rangeMap.set(comp.value, comp);
-      }
-      if (rangeMap.size > 1 && rangeMap.has("")) {
-        rangeMap.delete("");
-      }
-      const result = [...rangeMap.values()];
-      cache.set(memoKey, result);
-      return result;
-    }
-    intersects(range, options) {
-      if (!(range instanceof Range)) {
-        throw new TypeError("a Range is required");
-      }
-      return this.set.some((thisComparators) => {
-        return isSatisfiable(thisComparators, options) && range.set.some((rangeComparators) => {
-          return isSatisfiable(rangeComparators, options) && thisComparators.every((thisComparator) => {
-            return rangeComparators.every((rangeComparator) => {
-              return thisComparator.intersects(rangeComparator, options);
-            });
-          });
-        });
-      });
-    }
-    test(version) {
-      if (!version) {
-        return false;
-      }
-      if (typeof version === "string") {
-        try {
-          version = new SemVer(version, this.options);
-        } catch (er) {
-          return false;
-        }
-      }
-      for (let i2 = 0;i2 < this.set.length; i2++) {
-        if (testSet(this.set[i2], version, this.options)) {
-          return true;
-        }
-      }
-      return false;
-    }
-  }
-  module.exports = Range;
-  var LRU = require_lrucache();
-  var cache = new LRU;
-  var parseOptions = require_parse_options();
-  var Comparator = require_comparator();
-  var debug2 = require_debug();
-  var SemVer = require_semver();
-  var {
-    safeRe: re,
-    t: t3,
-    comparatorTrimReplace,
-    tildeTrimReplace,
-    caretTrimReplace
-  } = require_re();
-  var { FLAG_INCLUDE_PRERELEASE, FLAG_LOOSE } = require_constants2();
-  var isNullSet = (c) => c.value === "<0.0.0-0";
-  var isAny = (c) => c.value === "";
-  var isSatisfiable = (comparators, options) => {
-    let result = true;
-    const remainingComparators = comparators.slice();
-    let testComparator = remainingComparators.pop();
-    while (result && remainingComparators.length) {
-      result = remainingComparators.every((otherComparator) => {
-        return testComparator.intersects(otherComparator, options);
-      });
-      testComparator = remainingComparators.pop();
-    }
-    return result;
-  };
-  var parseComparator = (comp, options) => {
-    debug2("comp", comp, options);
-    comp = replaceCarets(comp, options);
-    debug2("caret", comp);
-    comp = replaceTildes(comp, options);
-    debug2("tildes", comp);
-    comp = replaceXRanges(comp, options);
-    debug2("xrange", comp);
-    comp = replaceStars(comp, options);
-    debug2("stars", comp);
-    return comp;
-  };
-  var isX = (id) => !id || id.toLowerCase() === "x" || id === "*";
-  var replaceTildes = (comp, options) => {
-    return comp.trim().split(/\s+/).map((c) => replaceTilde(c, options)).join(" ");
-  };
-  var replaceTilde = (comp, options) => {
-    const r2 = options.loose ? re[t3.TILDELOOSE] : re[t3.TILDE];
-    return comp.replace(r2, (_, M, m2, p, pr) => {
-      debug2("tilde", comp, _, M, m2, p, pr);
-      let ret;
-      if (isX(M)) {
-        ret = "";
-      } else if (isX(m2)) {
-        ret = `>=${M}.0.0 <${+M + 1}.0.0-0`;
-      } else if (isX(p)) {
-        ret = `>=${M}.${m2}.0 <${M}.${+m2 + 1}.0-0`;
-      } else if (pr) {
-        debug2("replaceTilde pr", pr);
-        ret = `>=${M}.${m2}.${p}-${pr} <${M}.${+m2 + 1}.0-0`;
-      } else {
-        ret = `>=${M}.${m2}.${p} <${M}.${+m2 + 1}.0-0`;
-      }
-      debug2("tilde return", ret);
-      return ret;
-    });
-  };
-  var replaceCarets = (comp, options) => {
-    return comp.trim().split(/\s+/).map((c) => replaceCaret(c, options)).join(" ");
-  };
-  var replaceCaret = (comp, options) => {
-    debug2("caret", comp, options);
-    const r2 = options.loose ? re[t3.CARETLOOSE] : re[t3.CARET];
-    const z = options.includePrerelease ? "-0" : "";
-    return comp.replace(r2, (_, M, m2, p, pr) => {
-      debug2("caret", comp, _, M, m2, p, pr);
-      let ret;
-      if (isX(M)) {
-        ret = "";
-      } else if (isX(m2)) {
-        ret = `>=${M}.0.0${z} <${+M + 1}.0.0-0`;
-      } else if (isX(p)) {
-        if (M === "0") {
-          ret = `>=${M}.${m2}.0${z} <${M}.${+m2 + 1}.0-0`;
-        } else {
-          ret = `>=${M}.${m2}.0${z} <${+M + 1}.0.0-0`;
-        }
-      } else if (pr) {
-        debug2("replaceCaret pr", pr);
-        if (M === "0") {
-          if (m2 === "0") {
-            ret = `>=${M}.${m2}.${p}-${pr} <${M}.${m2}.${+p + 1}-0`;
-          } else {
-            ret = `>=${M}.${m2}.${p}-${pr} <${M}.${+m2 + 1}.0-0`;
-          }
-        } else {
-          ret = `>=${M}.${m2}.${p}-${pr} <${+M + 1}.0.0-0`;
-        }
-      } else {
-        debug2("no pr");
-        if (M === "0") {
-          if (m2 === "0") {
-            ret = `>=${M}.${m2}.${p}${z} <${M}.${m2}.${+p + 1}-0`;
-          } else {
-            ret = `>=${M}.${m2}.${p}${z} <${M}.${+m2 + 1}.0-0`;
-          }
-        } else {
-          ret = `>=${M}.${m2}.${p} <${+M + 1}.0.0-0`;
-        }
-      }
-      debug2("caret return", ret);
-      return ret;
-    });
-  };
-  var replaceXRanges = (comp, options) => {
-    debug2("replaceXRanges", comp, options);
-    return comp.split(/\s+/).map((c) => replaceXRange(c, options)).join(" ");
-  };
-  var replaceXRange = (comp, options) => {
-    comp = comp.trim();
-    const r2 = options.loose ? re[t3.XRANGELOOSE] : re[t3.XRANGE];
-    return comp.replace(r2, (ret, gtlt, M, m2, p, pr) => {
-      debug2("xRange", comp, ret, gtlt, M, m2, p, pr);
-      const xM = isX(M);
-      const xm = xM || isX(m2);
-      const xp = xm || isX(p);
-      const anyX = xp;
-      if (gtlt === "=" && anyX) {
-        gtlt = "";
-      }
-      pr = options.includePrerelease ? "-0" : "";
-      if (xM) {
-        if (gtlt === ">" || gtlt === "<") {
-          ret = "<0.0.0-0";
-        } else {
-          ret = "*";
-        }
-      } else if (gtlt && anyX) {
-        if (xm) {
-          m2 = 0;
-        }
-        p = 0;
-        if (gtlt === ">") {
-          gtlt = ">=";
-          if (xm) {
-            M = +M + 1;
-            m2 = 0;
-            p = 0;
-          } else {
-            m2 = +m2 + 1;
-            p = 0;
-          }
-        } else if (gtlt === "<=") {
-          gtlt = "<";
-          if (xm) {
-            M = +M + 1;
-          } else {
-            m2 = +m2 + 1;
-          }
-        }
-        if (gtlt === "<") {
-          pr = "-0";
-        }
-        ret = `${gtlt + M}.${m2}.${p}${pr}`;
-      } else if (xm) {
-        ret = `>=${M}.0.0${pr} <${+M + 1}.0.0-0`;
-      } else if (xp) {
-        ret = `>=${M}.${m2}.0${pr} <${M}.${+m2 + 1}.0-0`;
-      }
-      debug2("xRange return", ret);
-      return ret;
-    });
-  };
-  var replaceStars = (comp, options) => {
-    debug2("replaceStars", comp, options);
-    return comp.trim().replace(re[t3.STAR], "");
-  };
-  var replaceGTE0 = (comp, options) => {
-    debug2("replaceGTE0", comp, options);
-    return comp.trim().replace(re[options.includePrerelease ? t3.GTE0PRE : t3.GTE0], "");
-  };
-  var hyphenReplace = (incPr) => ($0, from, fM, fm, fp, fpr, fb, to, tM, tm, tp, tpr) => {
-    if (isX(fM)) {
-      from = "";
-    } else if (isX(fm)) {
-      from = `>=${fM}.0.0${incPr ? "-0" : ""}`;
-    } else if (isX(fp)) {
-      from = `>=${fM}.${fm}.0${incPr ? "-0" : ""}`;
-    } else if (fpr) {
-      from = `>=${from}`;
-    } else {
-      from = `>=${from}${incPr ? "-0" : ""}`;
-    }
-    if (isX(tM)) {
-      to = "";
-    } else if (isX(tm)) {
-      to = `<${+tM + 1}.0.0-0`;
-    } else if (isX(tp)) {
-      to = `<${tM}.${+tm + 1}.0-0`;
-    } else if (tpr) {
-      to = `<=${tM}.${tm}.${tp}-${tpr}`;
-    } else if (incPr) {
-      to = `<${tM}.${tm}.${+tp + 1}-0`;
-    } else {
-      to = `<=${to}`;
-    }
-    return `${from} ${to}`.trim();
-  };
-  var testSet = (set2, version, options) => {
-    for (let i2 = 0;i2 < set2.length; i2++) {
-      if (!set2[i2].test(version)) {
-        return false;
-      }
-    }
-    if (version.prerelease.length && !options.includePrerelease) {
-      for (let i2 = 0;i2 < set2.length; i2++) {
-        debug2(set2[i2].semver);
-        if (set2[i2].semver === Comparator.ANY) {
-          continue;
-        }
-        if (set2[i2].semver.prerelease.length > 0) {
-          const allowed = set2[i2].semver;
-          if (allowed.major === version.major && allowed.minor === version.minor && allowed.patch === version.patch) {
-            return true;
-          }
-        }
-      }
-      return false;
-    }
-    return true;
-  };
-});
-
-// node_modules/semver/classes/comparator.js
-var require_comparator = __commonJS((exports, module) => {
-  var ANY = Symbol("SemVer ANY");
-
-  class Comparator {
-    static get ANY() {
-      return ANY;
-    }
-    constructor(comp, options) {
-      options = parseOptions(options);
-      if (comp instanceof Comparator) {
-        if (comp.loose === !!options.loose) {
-          return comp;
-        } else {
-          comp = comp.value;
-        }
-      }
-      comp = comp.trim().split(/\s+/).join(" ");
-      debug2("comparator", comp, options);
-      this.options = options;
-      this.loose = !!options.loose;
-      this.parse(comp);
-      if (this.semver === ANY) {
-        this.value = "";
-      } else {
-        this.value = this.operator + this.semver.version;
-      }
-      debug2("comp", this);
-    }
-    parse(comp) {
-      const r2 = this.options.loose ? re[t3.COMPARATORLOOSE] : re[t3.COMPARATOR];
-      const m2 = comp.match(r2);
-      if (!m2) {
-        throw new TypeError(`Invalid comparator: ${comp}`);
-      }
-      this.operator = m2[1] !== undefined ? m2[1] : "";
-      if (this.operator === "=") {
-        this.operator = "";
-      }
-      if (!m2[2]) {
-        this.semver = ANY;
-      } else {
-        this.semver = new SemVer(m2[2], this.options.loose);
-      }
-    }
-    toString() {
-      return this.value;
-    }
-    test(version) {
-      debug2("Comparator.test", version, this.options.loose);
-      if (this.semver === ANY || version === ANY) {
-        return true;
-      }
-      if (typeof version === "string") {
-        try {
-          version = new SemVer(version, this.options);
-        } catch (er) {
-          return false;
-        }
-      }
-      return cmp(version, this.operator, this.semver, this.options);
-    }
-    intersects(comp, options) {
-      if (!(comp instanceof Comparator)) {
-        throw new TypeError("a Comparator is required");
-      }
-      if (this.operator === "") {
-        if (this.value === "") {
-          return true;
-        }
-        return new Range(comp.value, options).test(this.value);
-      } else if (comp.operator === "") {
-        if (comp.value === "") {
-          return true;
-        }
-        return new Range(this.value, options).test(comp.semver);
-      }
-      options = parseOptions(options);
-      if (options.includePrerelease && (this.value === "<0.0.0-0" || comp.value === "<0.0.0-0")) {
-        return false;
-      }
-      if (!options.includePrerelease && (this.value.startsWith("<0.0.0") || comp.value.startsWith("<0.0.0"))) {
-        return false;
-      }
-      if (this.operator.startsWith(">") && comp.operator.startsWith(">")) {
-        return true;
-      }
-      if (this.operator.startsWith("<") && comp.operator.startsWith("<")) {
-        return true;
-      }
-      if (this.semver.version === comp.semver.version && this.operator.includes("=") && comp.operator.includes("=")) {
-        return true;
-      }
-      if (cmp(this.semver, "<", comp.semver, options) && this.operator.startsWith(">") && comp.operator.startsWith("<")) {
-        return true;
-      }
-      if (cmp(this.semver, ">", comp.semver, options) && this.operator.startsWith("<") && comp.operator.startsWith(">")) {
-        return true;
-      }
-      return false;
-    }
-  }
-  module.exports = Comparator;
-  var parseOptions = require_parse_options();
-  var { safeRe: re, t: t3 } = require_re();
-  var cmp = require_cmp();
-  var debug2 = require_debug();
-  var SemVer = require_semver();
-  var Range = require_range();
-});
-
-// node_modules/semver/functions/satisfies.js
-var require_satisfies = __commonJS((exports, module) => {
-  var Range = require_range();
-  var satisfies = (version, range, options) => {
-    try {
-      range = new Range(range, options);
-    } catch (er) {
-      return false;
-    }
-    return range.test(version);
-  };
-  module.exports = satisfies;
-});
-
-// node_modules/semver/ranges/to-comparators.js
-var require_to_comparators = __commonJS((exports, module) => {
-  var Range = require_range();
-  var toComparators = (range, options) => new Range(range, options).set.map((comp) => comp.map((c) => c.value).join(" ").trim().split(" "));
-  module.exports = toComparators;
-});
-
-// node_modules/semver/ranges/max-satisfying.js
-var require_max_satisfying = __commonJS((exports, module) => {
-  var SemVer = require_semver();
-  var Range = require_range();
-  var maxSatisfying = (versions, range, options) => {
-    let max2 = null;
-    let maxSV = null;
-    let rangeObj = null;
-    try {
-      rangeObj = new Range(range, options);
-    } catch (er) {
-      return null;
-    }
-    versions.forEach((v) => {
-      if (rangeObj.test(v)) {
-        if (!max2 || maxSV.compare(v) === -1) {
-          max2 = v;
-          maxSV = new SemVer(max2, options);
-        }
-      }
-    });
-    return max2;
-  };
-  module.exports = maxSatisfying;
-});
-
-// node_modules/semver/ranges/min-satisfying.js
-var require_min_satisfying = __commonJS((exports, module) => {
-  var SemVer = require_semver();
-  var Range = require_range();
-  var minSatisfying = (versions, range, options) => {
-    let min = null;
-    let minSV = null;
-    let rangeObj = null;
-    try {
-      rangeObj = new Range(range, options);
-    } catch (er) {
-      return null;
-    }
-    versions.forEach((v) => {
-      if (rangeObj.test(v)) {
-        if (!min || minSV.compare(v) === 1) {
-          min = v;
-          minSV = new SemVer(min, options);
-        }
-      }
-    });
-    return min;
-  };
-  module.exports = minSatisfying;
-});
-
-// node_modules/semver/ranges/min-version.js
-var require_min_version = __commonJS((exports, module) => {
-  var SemVer = require_semver();
-  var Range = require_range();
-  var gt = require_gt();
-  var minVersion = (range, loose) => {
-    range = new Range(range, loose);
-    let minver = new SemVer("0.0.0");
-    if (range.test(minver)) {
-      return minver;
-    }
-    minver = new SemVer("0.0.0-0");
-    if (range.test(minver)) {
-      return minver;
-    }
-    minver = null;
-    for (let i2 = 0;i2 < range.set.length; ++i2) {
-      const comparators = range.set[i2];
-      let setMin = null;
-      comparators.forEach((comparator) => {
-        const compver = new SemVer(comparator.semver.version);
-        switch (comparator.operator) {
-          case ">":
-            if (compver.prerelease.length === 0) {
-              compver.patch++;
-            } else {
-              compver.prerelease.push(0);
-            }
-            compver.raw = compver.format();
-          case "":
-          case ">=":
-            if (!setMin || gt(compver, setMin)) {
-              setMin = compver;
-            }
-            break;
-          case "<":
-          case "<=":
-            break;
-          default:
-            throw new Error(`Unexpected operation: ${comparator.operator}`);
-        }
-      });
-      if (setMin && (!minver || gt(minver, setMin))) {
-        minver = setMin;
-      }
-    }
-    if (minver && range.test(minver)) {
-      return minver;
-    }
-    return null;
-  };
-  module.exports = minVersion;
-});
-
-// node_modules/semver/ranges/valid.js
-var require_valid2 = __commonJS((exports, module) => {
-  var Range = require_range();
-  var validRange = (range, options) => {
-    try {
-      return new Range(range, options).range || "*";
-    } catch (er) {
-      return null;
-    }
-  };
-  module.exports = validRange;
-});
-
-// node_modules/semver/ranges/outside.js
-var require_outside = __commonJS((exports, module) => {
-  var SemVer = require_semver();
-  var Comparator = require_comparator();
-  var { ANY } = Comparator;
-  var Range = require_range();
-  var satisfies = require_satisfies();
-  var gt = require_gt();
-  var lt = require_lt();
-  var lte = require_lte();
-  var gte = require_gte();
-  var outside = (version, range, hilo, options) => {
-    version = new SemVer(version, options);
-    range = new Range(range, options);
-    let gtfn, ltefn, ltfn, comp, ecomp;
-    switch (hilo) {
-      case ">":
-        gtfn = gt;
-        ltefn = lte;
-        ltfn = lt;
-        comp = ">";
-        ecomp = ">=";
-        break;
-      case "<":
-        gtfn = lt;
-        ltefn = gte;
-        ltfn = gt;
-        comp = "<";
-        ecomp = "<=";
-        break;
-      default:
-        throw new TypeError('Must provide a hilo val of "<" or ">"');
-    }
-    if (satisfies(version, range, options)) {
-      return false;
-    }
-    for (let i2 = 0;i2 < range.set.length; ++i2) {
-      const comparators = range.set[i2];
-      let high = null;
-      let low = null;
-      comparators.forEach((comparator) => {
-        if (comparator.semver === ANY) {
-          comparator = new Comparator(">=0.0.0");
-        }
-        high = high || comparator;
-        low = low || comparator;
-        if (gtfn(comparator.semver, high.semver, options)) {
-          high = comparator;
-        } else if (ltfn(comparator.semver, low.semver, options)) {
-          low = comparator;
-        }
-      });
-      if (high.operator === comp || high.operator === ecomp) {
-        return false;
-      }
-      if ((!low.operator || low.operator === comp) && ltefn(version, low.semver)) {
-        return false;
-      } else if (low.operator === ecomp && ltfn(version, low.semver)) {
-        return false;
-      }
-    }
-    return true;
-  };
-  module.exports = outside;
-});
-
-// node_modules/semver/ranges/gtr.js
-var require_gtr = __commonJS((exports, module) => {
-  var outside = require_outside();
-  var gtr = (version, range, options) => outside(version, range, ">", options);
-  module.exports = gtr;
-});
-
-// node_modules/semver/ranges/ltr.js
-var require_ltr = __commonJS((exports, module) => {
-  var outside = require_outside();
-  var ltr = (version, range, options) => outside(version, range, "<", options);
-  module.exports = ltr;
-});
-
-// node_modules/semver/ranges/intersects.js
-var require_intersects = __commonJS((exports, module) => {
-  var Range = require_range();
-  var intersects = (r1, r2, options) => {
-    r1 = new Range(r1, options);
-    r2 = new Range(r2, options);
-    return r1.intersects(r2, options);
-  };
-  module.exports = intersects;
-});
-
-// node_modules/semver/ranges/simplify.js
-var require_simplify = __commonJS((exports, module) => {
-  var satisfies = require_satisfies();
-  var compare = require_compare();
-  module.exports = (versions, range, options) => {
-    const set2 = [];
-    let first = null;
-    let prev = null;
-    const v = versions.sort((a12, b) => compare(a12, b, options));
-    for (const version of v) {
-      const included = satisfies(version, range, options);
-      if (included) {
-        prev = version;
-        if (!first) {
-          first = version;
-        }
-      } else {
-        if (prev) {
-          set2.push([first, prev]);
-        }
-        prev = null;
-        first = null;
-      }
-    }
-    if (first) {
-      set2.push([first, null]);
-    }
-    const ranges = [];
-    for (const [min, max2] of set2) {
-      if (min === max2) {
-        ranges.push(min);
-      } else if (!max2 && min === v[0]) {
-        ranges.push("*");
-      } else if (!max2) {
-        ranges.push(`>=${min}`);
-      } else if (min === v[0]) {
-        ranges.push(`<=${max2}`);
-      } else {
-        ranges.push(`${min} - ${max2}`);
-      }
-    }
-    const simplified = ranges.join(" || ");
-    const original = typeof range.raw === "string" ? range.raw : String(range);
-    return simplified.length < original.length ? simplified : range;
-  };
-});
-
-// node_modules/semver/ranges/subset.js
-var require_subset = __commonJS((exports, module) => {
-  var Range = require_range();
-  var Comparator = require_comparator();
-  var { ANY } = Comparator;
-  var satisfies = require_satisfies();
-  var compare = require_compare();
-  var subset = (sub, dom, options = {}) => {
-    if (sub === dom) {
-      return true;
-    }
-    sub = new Range(sub, options);
-    dom = new Range(dom, options);
-    let sawNonNull = false;
-    OUTER:
-      for (const simpleSub of sub.set) {
-        for (const simpleDom of dom.set) {
-          const isSub = simpleSubset(simpleSub, simpleDom, options);
-          sawNonNull = sawNonNull || isSub !== null;
-          if (isSub) {
-            continue OUTER;
-          }
-        }
-        if (sawNonNull) {
-          return false;
-        }
-      }
-    return true;
-  };
-  var minimumVersionWithPreRelease = [new Comparator(">=0.0.0-0")];
-  var minimumVersion = [new Comparator(">=0.0.0")];
-  var simpleSubset = (sub, dom, options) => {
-    if (sub === dom) {
-      return true;
-    }
-    if (sub.length === 1 && sub[0].semver === ANY) {
-      if (dom.length === 1 && dom[0].semver === ANY) {
-        return true;
-      } else if (options.includePrerelease) {
-        sub = minimumVersionWithPreRelease;
-      } else {
-        sub = minimumVersion;
-      }
-    }
-    if (dom.length === 1 && dom[0].semver === ANY) {
-      if (options.includePrerelease) {
-        return true;
-      } else {
-        dom = minimumVersion;
-      }
-    }
-    const eqSet = new Set;
-    let gt, lt;
-    for (const c of sub) {
-      if (c.operator === ">" || c.operator === ">=") {
-        gt = higherGT(gt, c, options);
-      } else if (c.operator === "<" || c.operator === "<=") {
-        lt = lowerLT(lt, c, options);
-      } else {
-        eqSet.add(c.semver);
-      }
-    }
-    if (eqSet.size > 1) {
-      return null;
-    }
-    let gtltComp;
-    if (gt && lt) {
-      gtltComp = compare(gt.semver, lt.semver, options);
-      if (gtltComp > 0) {
-        return null;
-      } else if (gtltComp === 0 && (gt.operator !== ">=" || lt.operator !== "<=")) {
-        return null;
-      }
-    }
-    for (const eq of eqSet) {
-      if (gt && !satisfies(eq, String(gt), options)) {
-        return null;
-      }
-      if (lt && !satisfies(eq, String(lt), options)) {
-        return null;
-      }
-      for (const c of dom) {
-        if (!satisfies(eq, String(c), options)) {
-          return false;
-        }
-      }
-      return true;
-    }
-    let higher, lower;
-    let hasDomLT, hasDomGT;
-    let needDomLTPre = lt && !options.includePrerelease && lt.semver.prerelease.length ? lt.semver : false;
-    let needDomGTPre = gt && !options.includePrerelease && gt.semver.prerelease.length ? gt.semver : false;
-    if (needDomLTPre && needDomLTPre.prerelease.length === 1 && lt.operator === "<" && needDomLTPre.prerelease[0] === 0) {
-      needDomLTPre = false;
-    }
-    for (const c of dom) {
-      hasDomGT = hasDomGT || c.operator === ">" || c.operator === ">=";
-      hasDomLT = hasDomLT || c.operator === "<" || c.operator === "<=";
-      if (gt) {
-        if (needDomGTPre) {
-          if (c.semver.prerelease && c.semver.prerelease.length && c.semver.major === needDomGTPre.major && c.semver.minor === needDomGTPre.minor && c.semver.patch === needDomGTPre.patch) {
-            needDomGTPre = false;
-          }
-        }
-        if (c.operator === ">" || c.operator === ">=") {
-          higher = higherGT(gt, c, options);
-          if (higher === c && higher !== gt) {
-            return false;
-          }
-        } else if (gt.operator === ">=" && !satisfies(gt.semver, String(c), options)) {
-          return false;
-        }
-      }
-      if (lt) {
-        if (needDomLTPre) {
-          if (c.semver.prerelease && c.semver.prerelease.length && c.semver.major === needDomLTPre.major && c.semver.minor === needDomLTPre.minor && c.semver.patch === needDomLTPre.patch) {
-            needDomLTPre = false;
-          }
-        }
-        if (c.operator === "<" || c.operator === "<=") {
-          lower = lowerLT(lt, c, options);
-          if (lower === c && lower !== lt) {
-            return false;
-          }
-        } else if (lt.operator === "<=" && !satisfies(lt.semver, String(c), options)) {
-          return false;
-        }
-      }
-      if (!c.operator && (lt || gt) && gtltComp !== 0) {
-        return false;
-      }
-    }
-    if (gt && hasDomLT && !lt && gtltComp !== 0) {
-      return false;
-    }
-    if (lt && hasDomGT && !gt && gtltComp !== 0) {
-      return false;
-    }
-    if (needDomGTPre || needDomLTPre) {
-      return false;
-    }
-    return true;
-  };
-  var higherGT = (a12, b, options) => {
-    if (!a12) {
-      return b;
-    }
-    const comp = compare(a12.semver, b.semver, options);
-    return comp > 0 ? a12 : comp < 0 ? b : b.operator === ">" && a12.operator === ">=" ? b : a12;
-  };
-  var lowerLT = (a12, b, options) => {
-    if (!a12) {
-      return b;
-    }
-    const comp = compare(a12.semver, b.semver, options);
-    return comp < 0 ? a12 : comp > 0 ? b : b.operator === "<" && a12.operator === "<=" ? b : a12;
-  };
-  module.exports = subset;
-});
-
-// node_modules/semver/index.js
-var require_semver2 = __commonJS((exports, module) => {
-  var internalRe = require_re();
-  var constants = require_constants2();
-  var SemVer = require_semver();
-  var identifiers = require_identifiers();
-  var parse3 = require_parse();
-  var valid = require_valid();
-  var clean2 = require_clean();
-  var inc = require_inc();
-  var diff = require_diff();
-  var major = require_major();
-  var minor = require_minor();
-  var patch = require_patch();
-  var prerelease = require_prerelease();
-  var compare = require_compare();
-  var rcompare = require_rcompare();
-  var compareLoose = require_compare_loose();
-  var compareBuild = require_compare_build();
-  var sort = require_sort();
-  var rsort = require_rsort();
-  var gt = require_gt();
-  var lt = require_lt();
-  var eq = require_eq();
-  var neq = require_neq();
-  var gte = require_gte();
-  var lte = require_lte();
-  var cmp = require_cmp();
-  var coerce2 = require_coerce();
-  var Comparator = require_comparator();
-  var Range = require_range();
-  var satisfies = require_satisfies();
-  var toComparators = require_to_comparators();
-  var maxSatisfying = require_max_satisfying();
-  var minSatisfying = require_min_satisfying();
-  var minVersion = require_min_version();
-  var validRange = require_valid2();
-  var outside = require_outside();
-  var gtr = require_gtr();
-  var ltr = require_ltr();
-  var intersects = require_intersects();
-  var simplifyRange = require_simplify();
-  var subset = require_subset();
-  module.exports = {
-    parse: parse3,
-    valid,
-    clean: clean2,
-    inc,
-    diff,
-    major,
-    minor,
-    patch,
-    prerelease,
-    compare,
-    rcompare,
-    compareLoose,
-    compareBuild,
-    sort,
-    rsort,
-    gt,
-    lt,
-    eq,
-    neq,
-    gte,
-    lte,
-    cmp,
-    coerce: coerce2,
-    Comparator,
-    Range,
-    satisfies,
-    toComparators,
-    maxSatisfying,
-    minSatisfying,
-    minVersion,
-    validRange,
-    outside,
-    gtr,
-    ltr,
-    intersects,
-    simplifyRange,
-    subset,
-    SemVer,
-    re: internalRe.re,
-    src: internalRe.src,
-    tokens: internalRe.t,
-    SEMVER_SPEC_VERSION: constants.SEMVER_SPEC_VERSION,
-    RELEASE_TYPES: constants.RELEASE_TYPES,
-    compareIdentifiers: identifiers.compareIdentifiers,
-    rcompareIdentifiers: identifiers.rcompareIdentifiers
-  };
-});
-
-// node_modules/jsonwebtoken/lib/asymmetricKeyDetailsSupported.js
-var require_asymmetricKeyDetailsSupported = __commonJS((exports, module) => {
-  var semver = require_semver2();
-  module.exports = semver.satisfies(process.version, ">=15.7.0");
-});
-
-// node_modules/jsonwebtoken/lib/rsaPssKeyDetailsSupported.js
-var require_rsaPssKeyDetailsSupported = __commonJS((exports, module) => {
-  var semver = require_semver2();
-  module.exports = semver.satisfies(process.version, ">=16.9.0");
-});
-
-// node_modules/jsonwebtoken/lib/validateAsymmetricKey.js
-var require_validateAsymmetricKey = __commonJS((exports, module) => {
-  var ASYMMETRIC_KEY_DETAILS_SUPPORTED = require_asymmetricKeyDetailsSupported();
-  var RSA_PSS_KEY_DETAILS_SUPPORTED = require_rsaPssKeyDetailsSupported();
-  var allowedAlgorithmsForKeys = {
-    ec: ["ES256", "ES384", "ES512"],
-    rsa: ["RS256", "PS256", "RS384", "PS384", "RS512", "PS512"],
-    "rsa-pss": ["PS256", "PS384", "PS512"]
-  };
-  var allowedCurves = {
-    ES256: "prime256v1",
-    ES384: "secp384r1",
-    ES512: "secp521r1"
-  };
-  module.exports = function(algorithm, key) {
-    if (!algorithm || !key)
-      return;
-    const keyType = key.asymmetricKeyType;
-    if (!keyType)
-      return;
-    const allowedAlgorithms = allowedAlgorithmsForKeys[keyType];
-    if (!allowedAlgorithms) {
-      throw new Error(`Unknown key type "${keyType}".`);
-    }
-    if (!allowedAlgorithms.includes(algorithm)) {
-      throw new Error(`"alg" parameter for "${keyType}" key type must be one of: ${allowedAlgorithms.join(", ")}.`);
-    }
-    if (ASYMMETRIC_KEY_DETAILS_SUPPORTED) {
-      switch (keyType) {
-        case "ec":
-          const keyCurve = key.asymmetricKeyDetails.namedCurve;
-          const allowedCurve = allowedCurves[algorithm];
-          if (keyCurve !== allowedCurve) {
-            throw new Error(`"alg" parameter "${algorithm}" requires curve "${allowedCurve}".`);
-          }
-          break;
-        case "rsa-pss":
-          if (RSA_PSS_KEY_DETAILS_SUPPORTED) {
-            const length = parseInt(algorithm.slice(-3), 10);
-            const { hashAlgorithm, mgf1HashAlgorithm, saltLength } = key.asymmetricKeyDetails;
-            if (hashAlgorithm !== `sha${length}` || mgf1HashAlgorithm !== hashAlgorithm) {
-              throw new Error(`Invalid key for this operation, its RSA-PSS parameters do not meet the requirements of "alg" ${algorithm}.`);
-            }
-            if (saltLength !== undefined && saltLength > length >> 3) {
-              throw new Error(`Invalid key for this operation, its RSA-PSS parameter saltLength does not meet the requirements of "alg" ${algorithm}.`);
-            }
-          }
-          break;
-      }
-    }
-  };
-});
-
-// node_modules/jsonwebtoken/lib/psSupported.js
-var require_psSupported = __commonJS((exports, module) => {
-  var semver = require_semver2();
-  module.exports = semver.satisfies(process.version, "^6.12.0 || >=8.0.0");
-});
-
-// node_modules/jsonwebtoken/verify.js
-var require_verify = __commonJS((exports, module) => {
-  var JsonWebTokenError = require_JsonWebTokenError();
-  var NotBeforeError = require_NotBeforeError();
-  var TokenExpiredError = require_TokenExpiredError();
-  var decode4 = require_decode();
-  var timespan = require_timespan();
-  var validateAsymmetricKey = require_validateAsymmetricKey();
-  var PS_SUPPORTED = require_psSupported();
-  var jws = require_jws();
-  var { KeyObject, createSecretKey, createPublicKey } = __require("crypto");
-  var PUB_KEY_ALGS = ["RS256", "RS384", "RS512"];
-  var EC_KEY_ALGS = ["ES256", "ES384", "ES512"];
-  var RSA_KEY_ALGS = ["RS256", "RS384", "RS512"];
-  var HS_ALGS = ["HS256", "HS384", "HS512"];
-  if (PS_SUPPORTED) {
-    PUB_KEY_ALGS.splice(PUB_KEY_ALGS.length, 0, "PS256", "PS384", "PS512");
-    RSA_KEY_ALGS.splice(RSA_KEY_ALGS.length, 0, "PS256", "PS384", "PS512");
-  }
-  module.exports = function(jwtString, secretOrPublicKey, options, callback) {
-    if (typeof options === "function" && !callback) {
-      callback = options;
-      options = {};
-    }
-    if (!options) {
-      options = {};
-    }
-    options = Object.assign({}, options);
-    let done;
-    if (callback) {
-      done = callback;
-    } else {
-      done = function(err2, data) {
-        if (err2)
-          throw err2;
-        return data;
-      };
-    }
-    if (options.clockTimestamp && typeof options.clockTimestamp !== "number") {
-      return done(new JsonWebTokenError("clockTimestamp must be a number"));
-    }
-    if (options.nonce !== undefined && (typeof options.nonce !== "string" || options.nonce.trim() === "")) {
-      return done(new JsonWebTokenError("nonce must be a non-empty string"));
-    }
-    if (options.allowInvalidAsymmetricKeyTypes !== undefined && typeof options.allowInvalidAsymmetricKeyTypes !== "boolean") {
-      return done(new JsonWebTokenError("allowInvalidAsymmetricKeyTypes must be a boolean"));
-    }
-    const clockTimestamp = options.clockTimestamp || Math.floor(Date.now() / 1000);
-    if (!jwtString) {
-      return done(new JsonWebTokenError("jwt must be provided"));
-    }
-    if (typeof jwtString !== "string") {
-      return done(new JsonWebTokenError("jwt must be a string"));
-    }
-    const parts = jwtString.split(".");
-    if (parts.length !== 3) {
-      return done(new JsonWebTokenError("jwt malformed"));
-    }
-    let decodedToken;
-    try {
-      decodedToken = decode4(jwtString, { complete: true });
-    } catch (err2) {
-      return done(err2);
-    }
-    if (!decodedToken) {
-      return done(new JsonWebTokenError("invalid token"));
-    }
-    const header = decodedToken.header;
-    let getSecret;
-    if (typeof secretOrPublicKey === "function") {
-      if (!callback) {
-        return done(new JsonWebTokenError("verify must be called asynchronous if secret or public key is provided as a callback"));
-      }
-      getSecret = secretOrPublicKey;
-    } else {
-      getSecret = function(header2, secretCallback) {
-        return secretCallback(null, secretOrPublicKey);
-      };
-    }
-    return getSecret(header, function(err2, secretOrPublicKey2) {
-      if (err2) {
-        return done(new JsonWebTokenError("error in secret or public key callback: " + err2.message));
-      }
-      const hasSignature = parts[2].trim() !== "";
-      if (!hasSignature && secretOrPublicKey2) {
-        return done(new JsonWebTokenError("jwt signature is required"));
-      }
-      if (hasSignature && !secretOrPublicKey2) {
-        return done(new JsonWebTokenError("secret or public key must be provided"));
-      }
-      if (!hasSignature && !options.algorithms) {
-        return done(new JsonWebTokenError('please specify "none" in "algorithms" to verify unsigned tokens'));
-      }
-      if (secretOrPublicKey2 != null && !(secretOrPublicKey2 instanceof KeyObject)) {
-        try {
-          secretOrPublicKey2 = createPublicKey(secretOrPublicKey2);
-        } catch (_) {
-          try {
-            secretOrPublicKey2 = createSecretKey(typeof secretOrPublicKey2 === "string" ? Buffer.from(secretOrPublicKey2) : secretOrPublicKey2);
-          } catch (_2) {
-            return done(new JsonWebTokenError("secretOrPublicKey is not valid key material"));
-          }
-        }
-      }
-      if (!options.algorithms) {
-        if (secretOrPublicKey2.type === "secret") {
-          options.algorithms = HS_ALGS;
-        } else if (["rsa", "rsa-pss"].includes(secretOrPublicKey2.asymmetricKeyType)) {
-          options.algorithms = RSA_KEY_ALGS;
-        } else if (secretOrPublicKey2.asymmetricKeyType === "ec") {
-          options.algorithms = EC_KEY_ALGS;
-        } else {
-          options.algorithms = PUB_KEY_ALGS;
-        }
-      }
-      if (options.algorithms.indexOf(decodedToken.header.alg) === -1) {
-        return done(new JsonWebTokenError("invalid algorithm"));
-      }
-      if (header.alg.startsWith("HS") && secretOrPublicKey2.type !== "secret") {
-        return done(new JsonWebTokenError(`secretOrPublicKey must be a symmetric key when using ${header.alg}`));
-      } else if (/^(?:RS|PS|ES)/.test(header.alg) && secretOrPublicKey2.type !== "public") {
-        return done(new JsonWebTokenError(`secretOrPublicKey must be an asymmetric key when using ${header.alg}`));
-      }
-      if (!options.allowInvalidAsymmetricKeyTypes) {
-        try {
-          validateAsymmetricKey(header.alg, secretOrPublicKey2);
-        } catch (e) {
-          return done(e);
-        }
-      }
-      let valid;
-      try {
-        valid = jws.verify(jwtString, decodedToken.header.alg, secretOrPublicKey2);
-      } catch (e) {
-        return done(e);
-      }
-      if (!valid) {
-        return done(new JsonWebTokenError("invalid signature"));
-      }
-      const payload = decodedToken.payload;
-      if (typeof payload.nbf !== "undefined" && !options.ignoreNotBefore) {
-        if (typeof payload.nbf !== "number") {
-          return done(new JsonWebTokenError("invalid nbf value"));
-        }
-        if (payload.nbf > clockTimestamp + (options.clockTolerance || 0)) {
-          return done(new NotBeforeError("jwt not active", new Date(payload.nbf * 1000)));
-        }
-      }
-      if (typeof payload.exp !== "undefined" && !options.ignoreExpiration) {
-        if (typeof payload.exp !== "number") {
-          return done(new JsonWebTokenError("invalid exp value"));
-        }
-        if (clockTimestamp >= payload.exp + (options.clockTolerance || 0)) {
-          return done(new TokenExpiredError("jwt expired", new Date(payload.exp * 1000)));
-        }
-      }
-      if (options.audience) {
-        const audiences = Array.isArray(options.audience) ? options.audience : [options.audience];
-        const target = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
-        const match = target.some(function(targetAudience) {
-          return audiences.some(function(audience) {
-            return audience instanceof RegExp ? audience.test(targetAudience) : audience === targetAudience;
-          });
-        });
-        if (!match) {
-          return done(new JsonWebTokenError("jwt audience invalid. expected: " + audiences.join(" or ")));
-        }
-      }
-      if (options.issuer) {
-        const invalid_issuer = typeof options.issuer === "string" && payload.iss !== options.issuer || Array.isArray(options.issuer) && options.issuer.indexOf(payload.iss) === -1;
-        if (invalid_issuer) {
-          return done(new JsonWebTokenError("jwt issuer invalid. expected: " + options.issuer));
-        }
-      }
-      if (options.subject) {
-        if (payload.sub !== options.subject) {
-          return done(new JsonWebTokenError("jwt subject invalid. expected: " + options.subject));
-        }
-      }
-      if (options.jwtid) {
-        if (payload.jti !== options.jwtid) {
-          return done(new JsonWebTokenError("jwt jwtid invalid. expected: " + options.jwtid));
-        }
-      }
-      if (options.nonce) {
-        if (payload.nonce !== options.nonce) {
-          return done(new JsonWebTokenError("jwt nonce invalid. expected: " + options.nonce));
-        }
-      }
-      if (options.maxAge) {
-        if (typeof payload.iat !== "number") {
-          return done(new JsonWebTokenError("iat required when maxAge is specified"));
-        }
-        const maxAgeTimestamp = timespan(options.maxAge, payload.iat);
-        if (typeof maxAgeTimestamp === "undefined") {
-          return done(new JsonWebTokenError('"maxAge" should be a number of seconds or string representing a timespan eg: "1d", "20h", 60'));
-        }
-        if (clockTimestamp >= maxAgeTimestamp + (options.clockTolerance || 0)) {
-          return done(new TokenExpiredError("maxAge exceeded", new Date(maxAgeTimestamp * 1000)));
-        }
-      }
-      if (options.complete === true) {
-        const signature = decodedToken.signature;
-        return done(null, {
-          header,
-          payload,
-          signature
-        });
-      }
-      return done(null, payload);
-    });
-  };
-});
-
-// node_modules/lodash.includes/index.js
-var require_lodash = __commonJS((exports, module) => {
-  var INFINITY = 1 / 0;
-  var MAX_SAFE_INTEGER = 9007199254740991;
-  var MAX_INTEGER = 179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000;
-  var NAN = 0 / 0;
-  var argsTag = "[object Arguments]";
-  var funcTag = "[object Function]";
-  var genTag = "[object GeneratorFunction]";
-  var stringTag = "[object String]";
-  var symbolTag = "[object Symbol]";
-  var reTrim = /^\s+|\s+$/g;
-  var reIsBadHex = /^[-+]0x[0-9a-f]+$/i;
-  var reIsBinary = /^0b[01]+$/i;
-  var reIsOctal = /^0o[0-7]+$/i;
-  var reIsUint = /^(?:0|[1-9]\d*)$/;
-  var freeParseInt = parseInt;
-  function arrayMap(array, iteratee) {
-    var index = -1, length = array ? array.length : 0, result = Array(length);
-    while (++index < length) {
-      result[index] = iteratee(array[index], index, array);
-    }
-    return result;
-  }
-  function baseFindIndex(array, predicate, fromIndex, fromRight) {
-    var length = array.length, index = fromIndex + (fromRight ? 1 : -1);
-    while (fromRight ? index-- : ++index < length) {
-      if (predicate(array[index], index, array)) {
-        return index;
-      }
-    }
-    return -1;
-  }
-  function baseIndexOf(array, value, fromIndex) {
-    if (value !== value) {
-      return baseFindIndex(array, baseIsNaN, fromIndex);
-    }
-    var index = fromIndex - 1, length = array.length;
-    while (++index < length) {
-      if (array[index] === value) {
-        return index;
-      }
-    }
-    return -1;
-  }
-  function baseIsNaN(value) {
-    return value !== value;
-  }
-  function baseTimes(n2, iteratee) {
-    var index = -1, result = Array(n2);
-    while (++index < n2) {
-      result[index] = iteratee(index);
-    }
-    return result;
-  }
-  function baseValues(object, props) {
-    return arrayMap(props, function(key) {
-      return object[key];
-    });
-  }
-  function overArg(func, transform2) {
-    return function(arg) {
-      return func(transform2(arg));
-    };
-  }
-  var objectProto = Object.prototype;
-  var hasOwnProperty = objectProto.hasOwnProperty;
-  var objectToString = objectProto.toString;
-  var propertyIsEnumerable = objectProto.propertyIsEnumerable;
-  var nativeKeys = overArg(Object.keys, Object);
-  var nativeMax = Math.max;
-  function arrayLikeKeys(value, inherited) {
-    var result = isArray(value) || isArguments(value) ? baseTimes(value.length, String) : [];
-    var length = result.length, skipIndexes = !!length;
-    for (var key in value) {
-      if ((inherited || hasOwnProperty.call(value, key)) && !(skipIndexes && (key == "length" || isIndex(key, length)))) {
-        result.push(key);
-      }
-    }
-    return result;
-  }
-  function baseKeys(object) {
-    if (!isPrototype(object)) {
-      return nativeKeys(object);
-    }
-    var result = [];
-    for (var key in Object(object)) {
-      if (hasOwnProperty.call(object, key) && key != "constructor") {
-        result.push(key);
-      }
-    }
-    return result;
-  }
-  function isIndex(value, length) {
-    length = length == null ? MAX_SAFE_INTEGER : length;
-    return !!length && (typeof value == "number" || reIsUint.test(value)) && (value > -1 && value % 1 == 0 && value < length);
-  }
-  function isPrototype(value) {
-    var Ctor = value && value.constructor, proto = typeof Ctor == "function" && Ctor.prototype || objectProto;
-    return value === proto;
-  }
-  function includes(collection, value, fromIndex, guard2) {
-    collection = isArrayLike(collection) ? collection : values(collection);
-    fromIndex = fromIndex && !guard2 ? toInteger(fromIndex) : 0;
-    var length = collection.length;
-    if (fromIndex < 0) {
-      fromIndex = nativeMax(length + fromIndex, 0);
-    }
-    return isString(collection) ? fromIndex <= length && collection.indexOf(value, fromIndex) > -1 : !!length && baseIndexOf(collection, value, fromIndex) > -1;
-  }
-  function isArguments(value) {
-    return isArrayLikeObject(value) && hasOwnProperty.call(value, "callee") && (!propertyIsEnumerable.call(value, "callee") || objectToString.call(value) == argsTag);
-  }
-  var isArray = Array.isArray;
-  function isArrayLike(value) {
-    return value != null && isLength(value.length) && !isFunction2(value);
-  }
-  function isArrayLikeObject(value) {
-    return isObjectLike(value) && isArrayLike(value);
-  }
-  function isFunction2(value) {
-    var tag = isObject2(value) ? objectToString.call(value) : "";
-    return tag == funcTag || tag == genTag;
-  }
-  function isLength(value) {
-    return typeof value == "number" && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
-  }
-  function isObject2(value) {
-    var type = typeof value;
-    return !!value && (type == "object" || type == "function");
-  }
-  function isObjectLike(value) {
-    return !!value && typeof value == "object";
-  }
-  function isString(value) {
-    return typeof value == "string" || !isArray(value) && isObjectLike(value) && objectToString.call(value) == stringTag;
-  }
-  function isSymbol(value) {
-    return typeof value == "symbol" || isObjectLike(value) && objectToString.call(value) == symbolTag;
-  }
-  function toFinite(value) {
-    if (!value) {
-      return value === 0 ? value : 0;
-    }
-    value = toNumber(value);
-    if (value === INFINITY || value === -INFINITY) {
-      var sign = value < 0 ? -1 : 1;
-      return sign * MAX_INTEGER;
-    }
-    return value === value ? value : 0;
-  }
-  function toInteger(value) {
-    var result = toFinite(value), remainder = result % 1;
-    return result === result ? remainder ? result - remainder : result : 0;
-  }
-  function toNumber(value) {
-    if (typeof value == "number") {
-      return value;
-    }
-    if (isSymbol(value)) {
-      return NAN;
-    }
-    if (isObject2(value)) {
-      var other = typeof value.valueOf == "function" ? value.valueOf() : value;
-      value = isObject2(other) ? other + "" : other;
-    }
-    if (typeof value != "string") {
-      return value === 0 ? value : +value;
-    }
-    value = value.replace(reTrim, "");
-    var isBinary = reIsBinary.test(value);
-    return isBinary || reIsOctal.test(value) ? freeParseInt(value.slice(2), isBinary ? 2 : 8) : reIsBadHex.test(value) ? NAN : +value;
-  }
-  function keys(object) {
-    return isArrayLike(object) ? arrayLikeKeys(object) : baseKeys(object);
-  }
-  function values(object) {
-    return object ? baseValues(object, keys(object)) : [];
-  }
-  module.exports = includes;
-});
-
-// node_modules/lodash.isboolean/index.js
-var require_lodash2 = __commonJS((exports, module) => {
-  var boolTag = "[object Boolean]";
-  var objectProto = Object.prototype;
-  var objectToString = objectProto.toString;
-  function isBoolean(value) {
-    return value === true || value === false || isObjectLike(value) && objectToString.call(value) == boolTag;
-  }
-  function isObjectLike(value) {
-    return !!value && typeof value == "object";
-  }
-  module.exports = isBoolean;
-});
-
-// node_modules/lodash.isinteger/index.js
-var require_lodash3 = __commonJS((exports, module) => {
-  var INFINITY = 1 / 0;
-  var MAX_INTEGER = 179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000;
-  var NAN = 0 / 0;
-  var symbolTag = "[object Symbol]";
-  var reTrim = /^\s+|\s+$/g;
-  var reIsBadHex = /^[-+]0x[0-9a-f]+$/i;
-  var reIsBinary = /^0b[01]+$/i;
-  var reIsOctal = /^0o[0-7]+$/i;
-  var freeParseInt = parseInt;
-  var objectProto = Object.prototype;
-  var objectToString = objectProto.toString;
-  function isInteger(value) {
-    return typeof value == "number" && value == toInteger(value);
-  }
-  function isObject2(value) {
-    var type = typeof value;
-    return !!value && (type == "object" || type == "function");
-  }
-  function isObjectLike(value) {
-    return !!value && typeof value == "object";
-  }
-  function isSymbol(value) {
-    return typeof value == "symbol" || isObjectLike(value) && objectToString.call(value) == symbolTag;
-  }
-  function toFinite(value) {
-    if (!value) {
-      return value === 0 ? value : 0;
-    }
-    value = toNumber(value);
-    if (value === INFINITY || value === -INFINITY) {
-      var sign = value < 0 ? -1 : 1;
-      return sign * MAX_INTEGER;
-    }
-    return value === value ? value : 0;
-  }
-  function toInteger(value) {
-    var result = toFinite(value), remainder = result % 1;
-    return result === result ? remainder ? result - remainder : result : 0;
-  }
-  function toNumber(value) {
-    if (typeof value == "number") {
-      return value;
-    }
-    if (isSymbol(value)) {
-      return NAN;
-    }
-    if (isObject2(value)) {
-      var other = typeof value.valueOf == "function" ? value.valueOf() : value;
-      value = isObject2(other) ? other + "" : other;
-    }
-    if (typeof value != "string") {
-      return value === 0 ? value : +value;
-    }
-    value = value.replace(reTrim, "");
-    var isBinary = reIsBinary.test(value);
-    return isBinary || reIsOctal.test(value) ? freeParseInt(value.slice(2), isBinary ? 2 : 8) : reIsBadHex.test(value) ? NAN : +value;
-  }
-  module.exports = isInteger;
-});
-
-// node_modules/lodash.isnumber/index.js
-var require_lodash4 = __commonJS((exports, module) => {
-  var numberTag = "[object Number]";
-  var objectProto = Object.prototype;
-  var objectToString = objectProto.toString;
-  function isObjectLike(value) {
-    return !!value && typeof value == "object";
-  }
-  function isNumber(value) {
-    return typeof value == "number" || isObjectLike(value) && objectToString.call(value) == numberTag;
-  }
-  module.exports = isNumber;
-});
-
-// node_modules/lodash.isplainobject/index.js
-var require_lodash5 = __commonJS((exports, module) => {
-  var objectTag = "[object Object]";
-  function isHostObject(value) {
-    var result = false;
-    if (value != null && typeof value.toString != "function") {
-      try {
-        result = !!(value + "");
-      } catch (e) {}
-    }
-    return result;
-  }
-  function overArg(func, transform2) {
-    return function(arg) {
-      return func(transform2(arg));
-    };
-  }
-  var funcProto = Function.prototype;
-  var objectProto = Object.prototype;
-  var funcToString = funcProto.toString;
-  var hasOwnProperty = objectProto.hasOwnProperty;
-  var objectCtorString = funcToString.call(Object);
-  var objectToString = objectProto.toString;
-  var getPrototype = overArg(Object.getPrototypeOf, Object);
-  function isObjectLike(value) {
-    return !!value && typeof value == "object";
-  }
-  function isPlainObject(value) {
-    if (!isObjectLike(value) || objectToString.call(value) != objectTag || isHostObject(value)) {
-      return false;
-    }
-    var proto = getPrototype(value);
-    if (proto === null) {
-      return true;
-    }
-    var Ctor = hasOwnProperty.call(proto, "constructor") && proto.constructor;
-    return typeof Ctor == "function" && Ctor instanceof Ctor && funcToString.call(Ctor) == objectCtorString;
-  }
-  module.exports = isPlainObject;
-});
-
-// node_modules/lodash.isstring/index.js
-var require_lodash6 = __commonJS((exports, module) => {
-  var stringTag = "[object String]";
-  var objectProto = Object.prototype;
-  var objectToString = objectProto.toString;
-  var isArray = Array.isArray;
-  function isObjectLike(value) {
-    return !!value && typeof value == "object";
-  }
-  function isString(value) {
-    return typeof value == "string" || !isArray(value) && isObjectLike(value) && objectToString.call(value) == stringTag;
-  }
-  module.exports = isString;
-});
-
-// node_modules/lodash.once/index.js
-var require_lodash7 = __commonJS((exports, module) => {
-  var FUNC_ERROR_TEXT = "Expected a function";
-  var INFINITY = 1 / 0;
-  var MAX_INTEGER = 179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000;
-  var NAN = 0 / 0;
-  var symbolTag = "[object Symbol]";
-  var reTrim = /^\s+|\s+$/g;
-  var reIsBadHex = /^[-+]0x[0-9a-f]+$/i;
-  var reIsBinary = /^0b[01]+$/i;
-  var reIsOctal = /^0o[0-7]+$/i;
-  var freeParseInt = parseInt;
-  var objectProto = Object.prototype;
-  var objectToString = objectProto.toString;
-  function before(n2, func) {
-    var result;
-    if (typeof func != "function") {
-      throw new TypeError(FUNC_ERROR_TEXT);
-    }
-    n2 = toInteger(n2);
-    return function() {
-      if (--n2 > 0) {
-        result = func.apply(this, arguments);
-      }
-      if (n2 <= 1) {
-        func = undefined;
-      }
-      return result;
-    };
-  }
-  function once(func) {
-    return before(2, func);
-  }
-  function isObject2(value) {
-    var type = typeof value;
-    return !!value && (type == "object" || type == "function");
-  }
-  function isObjectLike(value) {
-    return !!value && typeof value == "object";
-  }
-  function isSymbol(value) {
-    return typeof value == "symbol" || isObjectLike(value) && objectToString.call(value) == symbolTag;
-  }
-  function toFinite(value) {
-    if (!value) {
-      return value === 0 ? value : 0;
-    }
-    value = toNumber(value);
-    if (value === INFINITY || value === -INFINITY) {
-      var sign = value < 0 ? -1 : 1;
-      return sign * MAX_INTEGER;
-    }
-    return value === value ? value : 0;
-  }
-  function toInteger(value) {
-    var result = toFinite(value), remainder = result % 1;
-    return result === result ? remainder ? result - remainder : result : 0;
-  }
-  function toNumber(value) {
-    if (typeof value == "number") {
-      return value;
-    }
-    if (isSymbol(value)) {
-      return NAN;
-    }
-    if (isObject2(value)) {
-      var other = typeof value.valueOf == "function" ? value.valueOf() : value;
-      value = isObject2(other) ? other + "" : other;
-    }
-    if (typeof value != "string") {
-      return value === 0 ? value : +value;
-    }
-    value = value.replace(reTrim, "");
-    var isBinary = reIsBinary.test(value);
-    return isBinary || reIsOctal.test(value) ? freeParseInt(value.slice(2), isBinary ? 2 : 8) : reIsBadHex.test(value) ? NAN : +value;
-  }
-  module.exports = once;
-});
-
-// node_modules/jsonwebtoken/sign.js
-var require_sign = __commonJS((exports, module) => {
-  var timespan = require_timespan();
-  var PS_SUPPORTED = require_psSupported();
-  var validateAsymmetricKey = require_validateAsymmetricKey();
-  var jws = require_jws();
-  var includes = require_lodash();
-  var isBoolean = require_lodash2();
-  var isInteger = require_lodash3();
-  var isNumber = require_lodash4();
-  var isPlainObject = require_lodash5();
-  var isString = require_lodash6();
-  var once = require_lodash7();
-  var { KeyObject, createSecretKey, createPrivateKey } = __require("crypto");
-  var SUPPORTED_ALGS = ["RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "HS256", "HS384", "HS512", "none"];
-  if (PS_SUPPORTED) {
-    SUPPORTED_ALGS.splice(3, 0, "PS256", "PS384", "PS512");
-  }
-  var sign_options_schema = {
-    expiresIn: { isValid: function(value) {
-      return isInteger(value) || isString(value) && value;
-    }, message: '"expiresIn" should be a number of seconds or string representing a timespan' },
-    notBefore: { isValid: function(value) {
-      return isInteger(value) || isString(value) && value;
-    }, message: '"notBefore" should be a number of seconds or string representing a timespan' },
-    audience: { isValid: function(value) {
-      return isString(value) || Array.isArray(value);
-    }, message: '"audience" must be a string or array' },
-    algorithm: { isValid: includes.bind(null, SUPPORTED_ALGS), message: '"algorithm" must be a valid string enum value' },
-    header: { isValid: isPlainObject, message: '"header" must be an object' },
-    encoding: { isValid: isString, message: '"encoding" must be a string' },
-    issuer: { isValid: isString, message: '"issuer" must be a string' },
-    subject: { isValid: isString, message: '"subject" must be a string' },
-    jwtid: { isValid: isString, message: '"jwtid" must be a string' },
-    noTimestamp: { isValid: isBoolean, message: '"noTimestamp" must be a boolean' },
-    keyid: { isValid: isString, message: '"keyid" must be a string' },
-    mutatePayload: { isValid: isBoolean, message: '"mutatePayload" must be a boolean' },
-    allowInsecureKeySizes: { isValid: isBoolean, message: '"allowInsecureKeySizes" must be a boolean' },
-    allowInvalidAsymmetricKeyTypes: { isValid: isBoolean, message: '"allowInvalidAsymmetricKeyTypes" must be a boolean' }
-  };
-  var registered_claims_schema = {
-    iat: { isValid: isNumber, message: '"iat" should be a number of seconds' },
-    exp: { isValid: isNumber, message: '"exp" should be a number of seconds' },
-    nbf: { isValid: isNumber, message: '"nbf" should be a number of seconds' }
-  };
-  function validate(schema, allowUnknown, object, parameterName) {
-    if (!isPlainObject(object)) {
-      throw new Error('Expected "' + parameterName + '" to be a plain object.');
-    }
-    Object.keys(object).forEach(function(key) {
-      const validator = schema[key];
-      if (!validator) {
-        if (!allowUnknown) {
-          throw new Error('"' + key + '" is not allowed in "' + parameterName + '"');
-        }
-        return;
-      }
-      if (!validator.isValid(object[key])) {
-        throw new Error(validator.message);
-      }
-    });
-  }
-  function validateOptions(options) {
-    return validate(sign_options_schema, false, options, "options");
-  }
-  function validatePayload(payload) {
-    return validate(registered_claims_schema, true, payload, "payload");
-  }
-  var options_to_payload = {
-    audience: "aud",
-    issuer: "iss",
-    subject: "sub",
-    jwtid: "jti"
-  };
-  var options_for_objects = [
-    "expiresIn",
-    "notBefore",
-    "noTimestamp",
-    "audience",
-    "issuer",
-    "subject",
-    "jwtid"
-  ];
-  module.exports = function(payload, secretOrPrivateKey, options, callback) {
-    if (typeof options === "function") {
-      callback = options;
-      options = {};
-    } else {
-      options = options || {};
-    }
-    const isObjectPayload = typeof payload === "object" && !Buffer.isBuffer(payload);
-    const header = Object.assign({
-      alg: options.algorithm || "HS256",
-      typ: isObjectPayload ? "JWT" : undefined,
-      kid: options.keyid
-    }, options.header);
-    function failure(err2) {
-      if (callback) {
-        return callback(err2);
-      }
-      throw err2;
-    }
-    if (!secretOrPrivateKey && options.algorithm !== "none") {
-      return failure(new Error("secretOrPrivateKey must have a value"));
-    }
-    if (secretOrPrivateKey != null && !(secretOrPrivateKey instanceof KeyObject)) {
-      try {
-        secretOrPrivateKey = createPrivateKey(secretOrPrivateKey);
-      } catch (_) {
-        try {
-          secretOrPrivateKey = createSecretKey(typeof secretOrPrivateKey === "string" ? Buffer.from(secretOrPrivateKey) : secretOrPrivateKey);
-        } catch (_2) {
-          return failure(new Error("secretOrPrivateKey is not valid key material"));
-        }
-      }
-    }
-    if (header.alg.startsWith("HS") && secretOrPrivateKey.type !== "secret") {
-      return failure(new Error(`secretOrPrivateKey must be a symmetric key when using ${header.alg}`));
-    } else if (/^(?:RS|PS|ES)/.test(header.alg)) {
-      if (secretOrPrivateKey.type !== "private") {
-        return failure(new Error(`secretOrPrivateKey must be an asymmetric key when using ${header.alg}`));
-      }
-      if (!options.allowInsecureKeySizes && !header.alg.startsWith("ES") && secretOrPrivateKey.asymmetricKeyDetails !== undefined && secretOrPrivateKey.asymmetricKeyDetails.modulusLength < 2048) {
-        return failure(new Error(`secretOrPrivateKey has a minimum key size of 2048 bits for ${header.alg}`));
-      }
-    }
-    if (typeof payload === "undefined") {
-      return failure(new Error("payload is required"));
-    } else if (isObjectPayload) {
-      try {
-        validatePayload(payload);
-      } catch (error) {
-        return failure(error);
-      }
-      if (!options.mutatePayload) {
-        payload = Object.assign({}, payload);
-      }
-    } else {
-      const invalid_options = options_for_objects.filter(function(opt) {
-        return typeof options[opt] !== "undefined";
-      });
-      if (invalid_options.length > 0) {
-        return failure(new Error("invalid " + invalid_options.join(",") + " option for " + typeof payload + " payload"));
-      }
-    }
-    if (typeof payload.exp !== "undefined" && typeof options.expiresIn !== "undefined") {
-      return failure(new Error('Bad "options.expiresIn" option the payload already has an "exp" property.'));
-    }
-    if (typeof payload.nbf !== "undefined" && typeof options.notBefore !== "undefined") {
-      return failure(new Error('Bad "options.notBefore" option the payload already has an "nbf" property.'));
-    }
-    try {
-      validateOptions(options);
-    } catch (error) {
-      return failure(error);
-    }
-    if (!options.allowInvalidAsymmetricKeyTypes) {
-      try {
-        validateAsymmetricKey(header.alg, secretOrPrivateKey);
-      } catch (error) {
-        return failure(error);
-      }
-    }
-    const timestamp = payload.iat || Math.floor(Date.now() / 1000);
-    if (options.noTimestamp) {
-      delete payload.iat;
-    } else if (isObjectPayload) {
-      payload.iat = timestamp;
-    }
-    if (typeof options.notBefore !== "undefined") {
-      try {
-        payload.nbf = timespan(options.notBefore, timestamp);
-      } catch (err2) {
-        return failure(err2);
-      }
-      if (typeof payload.nbf === "undefined") {
-        return failure(new Error('"notBefore" should be a number of seconds or string representing a timespan eg: "1d", "20h", 60'));
-      }
-    }
-    if (typeof options.expiresIn !== "undefined" && typeof payload === "object") {
-      try {
-        payload.exp = timespan(options.expiresIn, timestamp);
-      } catch (err2) {
-        return failure(err2);
-      }
-      if (typeof payload.exp === "undefined") {
-        return failure(new Error('"expiresIn" should be a number of seconds or string representing a timespan eg: "1d", "20h", 60'));
-      }
-    }
-    Object.keys(options_to_payload).forEach(function(key) {
-      const claim = options_to_payload[key];
-      if (typeof options[key] !== "undefined") {
-        if (typeof payload[claim] !== "undefined") {
-          return failure(new Error('Bad "options.' + key + '" option. The payload already has an "' + claim + '" property.'));
-        }
-        payload[claim] = options[key];
-      }
-    });
-    const encoding = options.encoding || "utf8";
-    if (typeof callback === "function") {
-      callback = callback && once(callback);
-      jws.createSign({
-        header,
-        privateKey: secretOrPrivateKey,
-        payload,
-        encoding
-      }).once("error", callback).once("done", function(signature) {
-        if (!options.allowInsecureKeySizes && /^(?:RS|PS)/.test(header.alg) && signature.length < 256) {
-          return callback(new Error(`secretOrPrivateKey has a minimum key size of 2048 bits for ${header.alg}`));
-        }
-        callback(null, signature);
-      });
-    } else {
-      let signature = jws.sign({ header, payload, secret: secretOrPrivateKey, encoding });
-      if (!options.allowInsecureKeySizes && /^(?:RS|PS)/.test(header.alg) && signature.length < 256) {
-        throw new Error(`secretOrPrivateKey has a minimum key size of 2048 bits for ${header.alg}`);
-      }
-      return signature;
-    }
-  };
-});
-
-// node_modules/jsonwebtoken/index.js
-var require_jsonwebtoken = __commonJS((exports, module) => {
-  module.exports = {
-    decode: require_decode(),
-    verify: require_verify(),
-    sign: require_sign(),
-    JsonWebTokenError: require_JsonWebTokenError(),
-    NotBeforeError: require_NotBeforeError(),
-    TokenExpiredError: require_TokenExpiredError()
-  };
 });
 
 // src/scripts/migrate-add-api-base-url.ts
@@ -22802,15 +16542,13 @@ async function setupBanecoCredentials() {
     console.log("\uD83D\uDCDD Creando credenciales de PRUEBA...");
     const testCredential = await bankCredentialsService.create({
       accountNumber: "1041070599",
-      accountType: 1,
       accountName: "Cuenta Test Banco Económico",
       merchantId: "BANECO_TEST_MERCHANT",
       username: "1649710",
       password: "1234",
       encryptionKey: "6F09E3167E1D40829207B01041A65B12",
-      environment: 1,
-      apiBaseUrl: "https://apimktdesa.baneco.com.bo/ApiGateway/",
-      bankBranch: "La Paz"
+      environment: "test",
+      apiBaseUrl: "https://apimktdesa.baneco.com.bo/ApiGateway/"
     });
     console.log(`✅ Credenciales de PRUEBA creadas con ID: ${testCredential.id}`);
     console.log(`   Usuario: ${testCredential.username}`);
@@ -22819,15 +16557,13 @@ async function setupBanecoCredentials() {
     console.log("\uD83D\uDE80 Creando credenciales de PRODUCCIÓN...");
     const prodCredential = await bankCredentialsService.create({
       accountNumber: "5021531650",
-      accountType: 1,
       accountName: "Cuenta Producción Banco Económico",
       merchantId: "BANECO_PROD_MERCHANT",
       username: "A96661050",
       password: "Anarkia41?",
       encryptionKey: "320A7492A2334CDDADD8230D251B917C",
-      environment: 2,
-      apiBaseUrl: "https://apimkt.baneco.com.bo/ApiGateway/",
-      bankBranch: "La Paz"
+      environment: "prod",
+      apiBaseUrl: "https://apimkt.baneco.com.bo/ApiGateway/"
     });
     console.log(`✅ Credenciales de PRODUCCIÓN creadas con ID: ${prodCredential.id}`);
     console.log(`   Usuario: ${prodCredential.username}`);
@@ -22849,7 +16585,7 @@ async function setupBanecoCredentials() {
   }
 }
 var init_setup_bankeco_credentials = __esm(() => {
-  init_third_bank_credentials_service();
+  init_bank_credentials_service();
   if (false) {}
 });
 
@@ -43439,40 +37175,11 @@ var swagger = ({
 // src/index.ts
 init_database();
 
-// src/routes/health.routes.ts
-var health_routes_default = new Elysia({ prefix: "/health" }).get("/", () => {
-  return {
-    success: true,
-    message: "Servidor funcionando correctamente",
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    environment: "development"
-  };
-}, {
-  detail: {
-    tags: ["health"],
-    summary: "Verificar el estado del servidor"
-  }
-}).get("/api", () => {
-  return {
-    success: true,
-    message: "API funcionando correctamente",
-    timestamp: new Date().toISOString(),
-    version: "1.0.0"
-  };
-}, {
-  detail: {
-    tags: ["health"],
-    summary: "Verificar el estado de la API"
-  }
-});
-
 // src/services/auth.service.ts
 init_database();
 
 // src/services/user.service.ts
 init_database();
-init_monitor_service();
 init_error();
 var import_bcrypt = __toESM(require_bcrypt(), 1);
 
@@ -43485,54 +37192,25 @@ class UserService {
       if (existingUser.rowCount && existingUser.rowCount > 0) {
         throw new ApiError("El email ya está registrado", 400);
       }
-      const existingId = await query(`
-        SELECT id FROM users WHERE identification_type = $1 AND identification_number = $2 AND deleted_at IS NULL
-      `, [userData.identificationType, userData.identificationNumber]);
-      if (existingId.rowCount && existingId.rowCount > 0) {
-        throw new ApiError("La identificación ya está registrada", 400);
-      }
-      if (userData.entityType === "company" && userData.businessId) {
-        const existingBusiness = await query(`
-          SELECT id FROM users WHERE business_id = $1 AND deleted_at IS NULL
-        `, [userData.businessId]);
-        if (existingBusiness.rowCount && existingBusiness.rowCount > 0) {
-          throw new ApiError("El business ID ya está registrado", 400);
-        }
-      }
       const hashedPassword = await import_bcrypt.default.hash(userData.password, 10);
       const result = await query(`
         INSERT INTO users (
-          email, password, full_name, business_id, entity_type, identification_type, 
-          identification_number, phone_number, phone_extension, address, role_id, 
-          is_primary_user, parent_user_id, third_bank_credential_id, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'active')
+          email, password, full_name, phone, address, role_id, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, 'active')
         RETURNING id
       `, [
         userData.email,
         hashedPassword,
         userData.fullName,
-        userData.businessId,
-        userData.entityType,
-        userData.identificationType,
-        userData.identificationNumber,
-        userData.phoneNumber,
-        userData.phoneExtension,
+        userData.phone,
         userData.address,
-        userData.roleId,
-        userData.isPrimaryUser || false,
-        userData.parentUserId,
-        userData.bankCredentialId
+        userData.roleId
       ]);
       const userId = result.rows[0].id;
       const user = await this.getUserById(userId);
       if (!user) {
         throw new ApiError("Error al crear usuario", 500);
       }
-      await logActivity("USER_CREATED", {
-        userId: user.id,
-        email: user.email,
-        entityType: user.entityType
-      }, "info", user.id);
       return user;
     } catch (error) {
       throw error;
@@ -43542,12 +37220,8 @@ class UserService {
     try {
       const result = await query(`
         SELECT 
-          u.id, u.email, u.full_name as "fullName", u.business_id as "businessId",
-          u.entity_type as "entityType", u.identification_type as "identificationType",
-          u.identification_number as "identificationNumber", u.phone_number as "phoneNumber",
-          u.phone_extension as "phoneExtension", u.address, u.role_id as "roleId",
-          u.is_primary_user as "isPrimaryUser", u.parent_user_id as "parentUserId",
-          u.third_bank_credential_id as "bankCredentialId", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt",
+          u.id, u.email, u.full_name as "fullName", u.phone, u.address, 
+          u.role_id as "roleId", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt",
           r.name as "roleName"
         FROM users u
         JOIN roles r ON u.role_id = r.id
@@ -43602,20 +37276,10 @@ class UserService {
         whereClause += ` AND u.status = $${paramCount}`;
         params.push(filters.status);
       }
-      if (filters.entityType) {
-        paramCount++;
-        whereClause += ` AND u.entity_type = $${paramCount}`;
-        params.push(filters.entityType);
-      }
       if (filters.roleId) {
         paramCount++;
         whereClause += ` AND u.role_id = $${paramCount}`;
         params.push(filters.roleId);
-      }
-      if (filters.isPrimaryUser !== undefined) {
-        paramCount++;
-        whereClause += ` AND u.is_primary_user = $${paramCount}`;
-        params.push(filters.isPrimaryUser);
       }
       const countResult = await query(`
         SELECT COUNT(*) as total
@@ -43625,12 +37289,8 @@ class UserService {
       const totalCount = parseInt(countResult.rows[0].total);
       const usersResult = await query(`
         SELECT 
-          u.id, u.email, u.full_name as "fullName", u.business_id as "businessId",
-          u.entity_type as "entityType", u.identification_type as "identificationType",
-          u.identification_number as "identificationNumber", u.phone_number as "phoneNumber",
-          u.phone_extension as "phoneExtension", u.address, u.role_id as "roleId",
-          u.is_primary_user as "isPrimaryUser", u.parent_user_id as "parentUserId",
-          u.third_bank_credential_id as "bankCredentialId", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt",
+          u.id, u.email, u.full_name as "fullName", u.phone, u.address, 
+          u.role_id as "roleId", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt",
           r.name as "roleName"
         FROM users u
         JOIN roles r ON u.role_id = r.id
@@ -43653,25 +37313,7 @@ class UserService {
     }
   }
   async getEmployeeUsers(primaryUserId) {
-    try {
-      const result = await query(`
-        SELECT 
-          u.id, u.email, u.full_name as "fullName", u.business_id as "businessId",
-          u.entity_type as "entityType", u.identification_type as "identificationType",
-          u.identification_number as "identificationNumber", u.phone_number as "phoneNumber",
-          u.phone_extension as "phoneExtension", u.address, u.role_id as "roleId",
-          u.is_primary_user as "isPrimaryUser", u.parent_user_id as "parentUserId",
-          u.status, u.created_at as "createdAt", u.updated_at as "updatedAt",
-          r.name as "roleName"
-        FROM users u
-        JOIN roles r ON u.role_id = r.id
-        WHERE u.parent_user_id = $1 AND u.deleted_at IS NULL
-        ORDER BY u.created_at ASC
-      `, [primaryUserId]);
-      return result.rows;
-    } catch (error) {
-      throw error;
-    }
+    return [];
   }
   async updateUser(userId, updateData) {
     try {
@@ -43687,15 +37329,10 @@ class UserService {
         updateFields.push(`full_name = $${paramCount}`);
         params.push(updateData.fullName);
       }
-      if (updateData.phoneNumber !== undefined) {
+      if (updateData.phone !== undefined) {
         paramCount++;
-        updateFields.push(`phone_number = $${paramCount}`);
-        params.push(updateData.phoneNumber);
-      }
-      if (updateData.phoneExtension !== undefined) {
-        paramCount++;
-        updateFields.push(`phone_extension = $${paramCount}`);
-        params.push(updateData.phoneExtension);
+        updateFields.push(`phone = $${paramCount}`);
+        params.push(updateData.phone);
       }
       if (updateData.address !== undefined) {
         paramCount++;
@@ -43725,10 +37362,6 @@ class UserService {
       if (!updatedUser) {
         throw new ApiError("Error al obtener usuario actualizado", 500);
       }
-      await logActivity("USER_UPDATED", {
-        userId: user.id,
-        updatedFields: Object.keys(updateData)
-      }, "info", user.id);
       return updatedUser;
     } catch (error) {
       throw error;
@@ -43749,9 +37382,6 @@ class UserService {
       if (result.rowCount === 0) {
         throw new ApiError("Error al cambiar contraseña", 500);
       }
-      await logActivity("USER_PASSWORD_CHANGED", {
-        userId: user.id
-      }, "info", user.id);
       return true;
     } catch (error) {
       throw error;
@@ -43763,13 +37393,6 @@ class UserService {
       if (!user) {
         throw new ApiError("Usuario no encontrado", 404);
       }
-      if (user.isPrimaryUser) {
-        const employees = await this.getEmployeeUsers(userId);
-        const activeEmployees = employees.filter((emp) => emp.status === "active");
-        if (activeEmployees.length > 0) {
-          throw new ApiError("No se puede eliminar un usuario principal con empleados activos", 400);
-        }
-      }
       const result = await query(`
         UPDATE users 
         SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
@@ -43778,10 +37401,6 @@ class UserService {
       if (result.rowCount === 0) {
         throw new ApiError("Error al eliminar usuario", 500);
       }
-      await logActivity("USER_DELETED", {
-        userId: user.id,
-        email: user.email
-      }, "info", user.id);
       return true;
     } catch (error) {
       throw error;
@@ -43815,8 +37434,9 @@ class UserService {
       `, [userId]);
       stats.totalQRCodes = parseInt(qrResult.rows[0].total);
       const transResult = await query(`
-        SELECT COUNT(*) as total FROM transactions 
-        WHERE user_id = $1 AND deleted_at IS NULL
+        SELECT COUNT(*) as total FROM account_movements am
+        JOIN user_accounts ua ON am.account_id = ua.account_id
+        WHERE ua.user_id = $1 AND am.deleted_at IS NULL
       `, [userId]);
       stats.totalTransactions = parseInt(transResult.rows[0].total);
       if (user.isPrimaryUser) {
@@ -43838,8 +37458,165 @@ var userService = new UserService;
 init_error();
 var import_bcrypt2 = __toESM(require_bcrypt(), 1);
 var import_jsonwebtoken = __toESM(require_jsonwebtoken(), 1);
-init_monitor_service();
 
+// src/services/account.service.ts
+init_database();
+
+class AccountService {
+  async getUserAccounts(userId) {
+    const result = await query(`
+      SELECT 
+        a.id,
+        a.account_number as "accountNumber",
+        a.account_type as "accountType",
+        a.currency,
+        a.balance,
+        a.available_balance as "availableBalance",
+        a.status,
+        a.third_bank_credential_id as "thirdBankCredentialId",
+        a.created_at as "createdAt",
+        a.updated_at as "updatedAt",
+        ua.is_primary as "isPrimary",
+        ua.role as "userRole"
+      FROM accounts a
+      INNER JOIN user_accounts ua ON a.id = ua.account_id
+      WHERE ua.user_id = $1 AND a.status = 'active'
+      ORDER BY ua.is_primary DESC, a.created_at ASC
+    `, [userId]);
+    return result.rows;
+  }
+  async getUserAccount(userId, accountId) {
+    const result = await query(`
+      SELECT 
+        a.id,
+        a.account_number as "accountNumber",
+        a.account_type as "accountType",
+        a.currency,
+        a.balance,
+        a.available_balance as "availableBalance",
+        a.status,
+        a.third_bank_credential_id as "thirdBankCredentialId",
+        a.created_at as "createdAt",
+        a.updated_at as "updatedAt"
+      FROM accounts a
+      INNER JOIN user_accounts ua ON a.id = ua.account_id
+      WHERE ua.user_id = $1 AND a.id = $2 AND a.status = 'active'
+    `, [userId, accountId]);
+    return result.rows[0] || null;
+  }
+  async createAccountMovement(accountId, movementType, amount, description, referenceId, referenceType) {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const balanceResult = await client.query("SELECT balance FROM accounts WHERE id = $1", [accountId]);
+      if (balanceResult.rows.length === 0) {
+        throw new Error("Cuenta no encontrada");
+      }
+      const balanceBefore = balanceResult.rows[0].balance;
+      const balanceAfter = balanceBefore + amount;
+      const movementResult = await client.query(`
+        INSERT INTO account_movements (
+          account_id, movement_type, amount, balance_before, balance_after,
+          description, reference_id, reference_type
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING id
+      `, [accountId, movementType, amount, balanceBefore, balanceAfter, description, referenceId, referenceType]);
+      await client.query("COMMIT");
+      return movementResult.rows[0].id;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+  async getAccountMovements(accountId, limit = 50, offset = 0, startDate, endDate) {
+    let queryText = `
+      SELECT 
+        id,
+        account_id as "accountId",
+        movement_type as "movementType",
+        amount,
+        balance_before as "balanceBefore",
+        balance_after as "balanceAfter",
+        description,
+        reference_id as "referenceId",
+        reference_type as "referenceType",
+        created_at as "createdAt"
+      FROM account_movements 
+      WHERE account_id = $1
+    `;
+    const params = [accountId];
+    let paramIndex = 2;
+    if (startDate) {
+      queryText += ` AND created_at >= $${paramIndex}`;
+      params.push(startDate);
+      paramIndex++;
+    }
+    if (endDate) {
+      queryText += ` AND created_at <= $${paramIndex}`;
+      params.push(endDate);
+      paramIndex++;
+    }
+    queryText += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(limit, offset);
+    const result = await query(queryText, params);
+    return result.rows;
+  }
+  async createAccount(accountNumber, accountType, currency, thirdBankCredentialId) {
+    const result = await query(`
+      INSERT INTO accounts (account_number, account_type, currency, third_bank_credential_id)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id
+    `, [accountNumber, accountType, currency, thirdBankCredentialId]);
+    return result.rows[0].id;
+  }
+  async linkUserToAccount(userId, accountId, role = "viewer", isPrimary = false) {
+    await query(`
+      INSERT INTO user_accounts (user_id, account_id, role, is_primary)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (user_id, account_id) DO UPDATE SET
+        role = EXCLUDED.role,
+        is_primary = EXCLUDED.is_primary
+    `, [userId, accountId, role, isPrimary]);
+  }
+  async getAccountBalance(accountId) {
+    const result = await query(`
+      SELECT 
+        balance,
+        available_balance as "availableBalance"
+      FROM accounts WHERE id = $1
+    `, [accountId]);
+    if (result.rows.length === 0) {
+      throw new Error("Cuenta no encontrada");
+    }
+    return result.rows[0];
+  }
+  async transferBetweenAccounts(fromAccountId, toAccountId, amount, description) {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const fromAccountResult = await client.query("SELECT balance FROM accounts WHERE id = $1 FOR UPDATE", [fromAccountId]);
+      if (fromAccountResult.rows.length === 0) {
+        throw new Error("Cuenta origen no encontrada");
+      }
+      if (fromAccountResult.rows[0].balance < amount) {
+        throw new Error("Balance insuficiente");
+      }
+      await this.createAccountMovement(fromAccountId, "transfer_out", -amount, description || `Transferencia a cuenta ${toAccountId}`, toAccountId.toString(), "internal_transfer");
+      await this.createAccountMovement(toAccountId, "transfer_in", amount, description || `Transferencia desde cuenta ${fromAccountId}`, fromAccountId.toString(), "internal_transfer");
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+}
+var account_service_default = new AccountService;
+
+// src/services/auth.service.ts
 class AuthService {
   async authenticate(credentials) {
     try {
@@ -43860,26 +37637,28 @@ class AuthService {
       if (!isValidPassword) {
         throw new ApiError("Credenciales inválidas", 401);
       }
+      const userAccounts = await account_service_default.getUserAccounts(user.id);
       const { token: accessToken, expiresIn } = this.generateAccessToken(user);
       const { token: refreshToken, expiresIn: refreshExpiresIn } = this.generateRefreshToken(user.id);
       await this.saveAccessToken(user.id, accessToken, expiresIn);
       await this.saveRefreshToken(user.id, refreshToken, refreshExpiresIn);
-      await logActivity("USER_LOGIN", {
-        userId: user.id,
-        email: user.email,
-        ip: "unknown"
-      }, "info", user.id);
       return {
         user: {
           id: user.id,
           email: user.email,
           fullName: user.fullName,
-          businessId: user.businessId,
-          entityType: user.entityType,
           roleName: user.roleName,
-          isPrimaryUser: user.isPrimaryUser,
-          parentUserId: user.parentUserId,
-          status: user.status
+          status: user.status,
+          accounts: userAccounts.map((account) => ({
+            id: account.id,
+            accountNumber: account.accountNumber,
+            accountType: account.accountType,
+            currency: account.currency,
+            balance: account.balance,
+            availableBalance: account.availableBalance,
+            status: account.status,
+            isPrimary: account.isPrimary
+          }))
         },
         accessToken,
         refreshToken
@@ -43969,12 +37748,9 @@ class AuthService {
           id: user.id,
           email: user.email,
           fullName: user.fullName,
-          businessId: user.businessId,
-          entityType: user.entityType,
           roleName: user.roleName,
-          isPrimaryUser: user.isPrimaryUser,
-          parentUserId: user.parentUserId,
-          status: user.status
+          status: user.status,
+          accounts: []
         },
         accessToken,
         newRefreshToken
@@ -44137,7 +37913,6 @@ var authService = new AuthService;
 
 // src/services/otp.service.ts
 init_database();
-init_monitor_service();
 init_error();
 var UNIMTX_API_URL = "https://api.unimtx.com/";
 var ACCESS_KEY_ID = process.env.UNIMTX_ACCESS_KEY_ID || "YOUR_ACCESS_KEY_ID";
@@ -44158,9 +37933,6 @@ class OTPService {
     }
     const data = await response.json();
     await this.saveOTPAttempt(phoneNumber, "SENT", userId, companyId);
-    if (userId && companyId) {
-      await logActivity("OTP_SENT", { phoneNumber, userId }, "info", userId);
-    }
     return data;
   }
   async verifyOTP(phoneNumber, code, userId, companyId) {
@@ -44180,9 +37952,6 @@ class OTPService {
     }
     const data = await response.json();
     await this.saveOTPAttempt(phoneNumber, "VERIFIED", userId, companyId);
-    if (userId && companyId) {
-      await logActivity("OTP_VERIFIED", { phoneNumber, userId }, "info", userId);
-    }
     return data;
   }
   async saveOTPAttempt(phoneNumber, status2, userId, companyId, errorMessage) {
@@ -44458,11 +38227,37 @@ var authRoutes = new Elysia({ prefix: "/auth" }).post("/login", async ({ body, r
     summary: "Revocar todos los tokens del usuario autenticado"
   }
 });
-var auth_routes_default = authRoutes;
+
+// src/routes/health.routes.ts
+var health_routes_default = new Elysia({ prefix: "/health" }).get("/", () => {
+  return {
+    success: true,
+    message: "Servidor funcionando correctamente",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: "development"
+  };
+}, {
+  detail: {
+    tags: ["health"],
+    summary: "Verificar el estado del servidor"
+  }
+}).get("/api", () => {
+  return {
+    success: true,
+    message: "API funcionando correctamente",
+    timestamp: new Date().toISOString(),
+    version: "1.0.0"
+  };
+}, {
+  detail: {
+    tags: ["health"],
+    summary: "Verificar el estado de la API"
+  }
+});
 
 // src/services/apikey.service.ts
 init_database();
-init_monitor_service();
 
 class ApiKeyService {
   async verifyApiKey(apiKey) {
@@ -44542,11 +38337,6 @@ class ApiKeyService {
         JSON.stringify(permissions),
         expiresAt ? new Date(expiresAt) : null
       ]);
-      await logActivity("API_KEY_GENERATED", {
-        apiKeyId: result.rows[0].id,
-        description,
-        expiresAt
-      }, "info", userId);
       return {
         id: result.rows[0].id,
         apiKey,
@@ -44623,10 +38413,6 @@ class ApiKeyService {
         SET status = 'REVOKED', updated_at = CURRENT_TIMESTAMP
         WHERE id = $1
       `, [apiKeyId]);
-      await logActivity("API_KEY_REVOKED", {
-        apiKeyId,
-        apiKey: apiKeyCheck.rows[0].api_key
-      }, "info", userId);
       return {
         id: apiKeyId,
         responseCode: 0,
@@ -44645,7 +38431,6 @@ var apiKeyService = new ApiKeyService;
 var apikey_service_default = apiKeyService;
 
 // src/middlewares/auth.middleware.ts
-init_monitor_service();
 init_database();
 init_error();
 async function verifyTokenInDatabase(token) {
@@ -44693,12 +38478,6 @@ function authMiddleware(options = { type: "jwt", level: "user" }) {
           if (options.level === "admin" && userInfo.role !== "ADMIN" && userInfo.role !== "SUPER_ADMIN") {
             throw new ApiError("Se requiere rol de administrador", 403);
           }
-          await logActivity("TOKEN_USED", {
-            path: context.path,
-            method: context.request.method,
-            ipAddress,
-            userAgent
-          }, "info", userInfo.id);
           return {
             auth: {
               type: "jwt",
@@ -44727,12 +38506,6 @@ function authMiddleware(options = { type: "jwt", level: "user" }) {
           if (options.level === "admin" && !verification.permissions.qr_generate) {
             throw new ApiError("Se requieren permisos de administrador", 403);
           }
-          await logActivity("API_KEY_USED", {
-            path: context.path,
-            method: context.request.method,
-            ipAddress,
-            userAgent
-          }, "info", verification.userId);
           return {
             auth: {
               type: "apikey",
@@ -44758,8 +38531,683 @@ function authMiddleware(options = { type: "jwt", level: "user" }) {
   });
 }
 
-// src/routes/qr.routes.ts
-init_qr_service();
+// src/banks/baneco.api.ts
+var import_node_fetch = __toESM(require_lib4(), 1);
+
+class BanecoApi {
+  apiBaseUrl;
+  aesKey;
+  constructor(apiBaseUrl, aesKey) {
+    this.apiBaseUrl = apiBaseUrl.endsWith("/") ? apiBaseUrl : `${apiBaseUrl}/`;
+    this.aesKey = aesKey;
+  }
+  async encryptText(text, aesKey) {
+    const key = aesKey || this.aesKey;
+    const url = `${this.apiBaseUrl}api/authentication/encrypt?text=${encodeURIComponent(text)}&aesKey=${key}`;
+    console.log({ url });
+    try {
+      const res = await import_node_fetch.default(url, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      });
+      if (!res.ok) {
+        throw new Error(`Error al encriptar texto: ${await res.text() || "Error desconocido"}`);
+      }
+      const data = await res.json();
+      return data;
+    } catch (error) {
+      console.error("Error en encriptación Baneco:", error);
+      throw error;
+    }
+  }
+  async getToken(username, passwordPlain) {
+    try {
+      const encryptedPassword = await this.encryptText(passwordPlain);
+      console.log({ encryptedPassword, username, passwordPlain });
+      const url = `${this.apiBaseUrl}api/authentication/authenticate`;
+      console.log({ url });
+      console.log({ body: JSON.stringify({ userName: username.replace("A", ""), password: encryptedPassword }) });
+      const res = await import_node_fetch.default(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userName: username, password: encryptedPassword })
+      });
+      console.log({ res });
+      if (!res.ok) {
+        throw new Error(`Error de autenticación: ${await res.text() || "Error desconocido"}`);
+      }
+      const data = await res.json();
+      if (data.responseCode !== 0) {
+        throw new Error(`Error de autenticación: ${data.message}`);
+      }
+      return data.token;
+    } catch (error) {
+      console.error("Error obteniendo token Baneco:", error);
+      throw error;
+    }
+  }
+  async generateQr(token, transactionId, accountNumber, amount, options = {}) {
+    try {
+      const encryptedAccount = await this.encryptText(accountNumber);
+      console.log({ encryptedAccount, accountNumber });
+      const payload = {
+        transactionId,
+        accountCredit: encryptedAccount,
+        currency: options.currency || "BOB",
+        amount,
+        description: options.description || "Pago QR",
+        dueDate: options.dueDate || "2025-12-31",
+        singleUse: options.singleUse !== undefined ? options.singleUse : true,
+        modifyAmount: options.modifyAmount !== undefined ? options.modifyAmount : false,
+        branchCode: options.branchCode || "E0001"
+      };
+      const res = await import_node_fetch.default(`${this.apiBaseUrl}api/qrsimple/generateQR`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        throw new Error(`Error generando QR: ${await res.text() || "Error desconocido"}`);
+      }
+      const data = await res.json();
+      if (data.responseCode !== 0) {
+        throw new Error(`Error generando QR: ${data.message}`);
+      }
+      return data;
+    } catch (error) {
+      console.error("Error generando QR Baneco:", error);
+      throw error;
+    }
+  }
+  async cancelQr(token, qrId) {
+    try {
+      const res = await import_node_fetch.default(`${this.apiBaseUrl}api/qrsimple/cancelQR`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ qrId })
+      });
+      if (!res.ok) {
+        throw new Error(`Error cancelando QR: ${await res.text() || "Error desconocido"}`);
+      }
+      const data = await res.json();
+      if (data.responseCode !== 0) {
+        throw new Error(`Error cancelando QR: ${data.message}`);
+      }
+      return data;
+    } catch (error) {
+      console.error("Error cancelando QR Baneco:", error);
+      throw error;
+    }
+  }
+  async getQrStatus(token, qrId) {
+    try {
+      const res = await import_node_fetch.default(`${this.apiBaseUrl}api/qrsimple/v2/statusQR/${qrId}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      if (!res.ok) {
+        throw new Error(`Error consultando estado QR: ${await res.text() || "Error desconocido"}`);
+      }
+      const data = await res.json();
+      if (data.responseCode !== 0) {
+        throw new Error(`Error consultando estado QR: ${data.message}`);
+      }
+      return data;
+    } catch (error) {
+      console.error("Error consultando estado QR Baneco:", error);
+      throw error;
+    }
+  }
+  async getPaidQrsByDate(token, dateStr) {
+    try {
+      const res = await import_node_fetch.default(`${this.apiBaseUrl}api/qrsimple/v2/paidQR/${dateStr}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(`Error consultando QRs pagados: ${await res.text() || "Error desconocido"}`);
+      }
+      if (data.responseCode !== 0) {
+        throw new Error(`Error consultando QRs pagados: ${data.message}`);
+      }
+      return data.paymentList || [];
+    } catch (error) {
+      console.error("Error consultando QRs pagados Baneco:", error);
+      throw error;
+    }
+  }
+}
+var baneco_api_default = BanecoApi;
+
+// src/services/qr.service.ts
+init_database();
+init_error();
+init_bank_credentials_service();
+var BANCO_ECONOMICO_ID = 1;
+
+class QrService {
+  async generate(userId, qrData) {
+    const currency = "BOB";
+    const config = await bankCredentialsService.getByUserId(userId);
+    const banecoApi = new baneco_api_default(config.apiBaseUrl, config.encryptionKey);
+    const client = await pool.connect();
+    await client.query("BEGIN");
+    try {
+      const token = await banecoApi.getToken(config.username, config.password);
+      const qrResponse = await banecoApi.generateQr(token, qrData.transactionId, config.accountNumber, qrData.amount, {
+        description: qrData.description || "",
+        dueDate: qrData.dueDate,
+        singleUse: qrData.singleUse !== false,
+        modifyAmount: qrData.modifyAmount || false,
+        currency
+      });
+      if (qrResponse.responseCode !== 0) {
+        throw new ApiError(`Error al generar QR: ${qrResponse.message}`, 400);
+      }
+      const qrResult = await query(`
+        INSERT INTO qr_codes (
+          qr_id, transaction_id, account_credit, user_id, third_bank_credential_id,
+          environment, currency, amount, description, due_date, single_use, modify_amount, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'active')
+        RETURNING id
+      `, [
+        qrResponse.qrId,
+        qrData.transactionId,
+        config.accountNumber,
+        userId,
+        config.id,
+        config.environment,
+        currency,
+        qrData.amount,
+        qrData.description || "",
+        qrData.dueDate,
+        qrData.singleUse !== false,
+        qrData.modifyAmount || false
+      ]);
+      const qrId = qrResult.rows[0].id;
+      return {
+        qrId: qrResponse.qrId,
+        qrImage: qrResponse.qrImage,
+        transactionId: qrData.transactionId,
+        amount: qrData.amount,
+        currency,
+        description: qrData.description,
+        dueDate: qrData.dueDate,
+        singleUse: qrData.singleUse !== false,
+        modifyAmount: qrData.modifyAmount || false,
+        status: "active"
+      };
+    } catch (error) {
+      throw new ApiError("Error al generar QR: " + (error instanceof Error ? error.message : "Unknown error"), 401);
+    }
+  }
+  async getQRList(userId, filters = {}, page = 1, limit = 20) {
+    const offset = (page - 1) * limit;
+    let whereClause = "WHERE q.user_id = $1 AND q.deleted_at IS NULL";
+    const params = [userId];
+    let paramCount = 1;
+    if (filters.status) {
+      paramCount++;
+      whereClause += ` AND q.status = $${paramCount}`;
+      params.push(filters.status);
+    }
+    if (filters.startDate) {
+      paramCount++;
+      whereClause += ` AND q.due_date >= $${paramCount}`;
+      params.push(filters.startDate);
+    }
+    if (filters.endDate) {
+      paramCount++;
+      whereClause += ` AND q.due_date <= $${paramCount}`;
+      params.push(filters.endDate);
+    }
+    const countQuery = await query(`
+      SELECT COUNT(*) as total
+      FROM qr_codes q
+      ${whereClause}
+    `, params);
+    const totalCount = parseInt(countQuery.rows[0].total);
+    const qrQuery = await query(`
+        SELECT 
+          q.qr_id as "qrId",
+          q.transaction_id as "transactionId",
+          q.created_at as "createdAt",
+          q.due_date as "dueDate",
+          q.currency,
+          q.amount,
+          q.status,
+          q.description,
+          q.single_use as "singleUse",
+          q.modify_amount as "modifyAmount"
+        FROM qr_codes q
+        ${whereClause}
+        ORDER BY q.created_at DESC
+        LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
+      `, [...params, limit, offset]);
+    const qrList = qrQuery.rows.map((row) => ({
+      qrId: row.qrId,
+      transactionId: row.transactionId,
+      createdAt: row.createdAt,
+      dueDate: row.dueDate,
+      currency: row.currency,
+      amount: parseFloat(row.amount),
+      status: row.status,
+      description: row.description,
+      singleUse: row.singleUse,
+      modifyAmount: row.modifyAmount,
+      payments: []
+    }));
+    for (const qr of qrList) {
+      const paymentsQuery = await query(`
+        SELECT 
+          am.reference_id as "transactionId",
+          am.created_at as "paymentDate",
+          'BOB' as currency,
+          am.amount,
+          am.sender_name as "senderName",
+          am.description,
+          am.reference_type as "referenceType"
+        FROM account_movements am
+        WHERE am.qr_id = $1 AND am.deleted_at IS NULL AND am.movement_type = 'qr_payment'
+        ORDER BY am.created_at DESC
+      `, [qr.qrId]);
+      qr.payments = paymentsQuery.rows.map((payment) => {
+        return {
+          qrId: qr.qrId,
+          transactionId: payment.transactionId,
+          paymentDate: payment.paymentDate,
+          paymentTime: "",
+          currency: payment.currency,
+          amount: parseFloat(payment.amount),
+          senderBankCode: "",
+          senderName: payment.senderName || "",
+          senderDocumentId: "",
+          senderAccount: "",
+          description: payment.description
+        };
+      });
+    }
+    return {
+      qrList,
+      totalCount
+    };
+  }
+  async getQRDetails(qrId, bankCredentialId) {
+    try {
+      console.log(`\uD83D\uDD0D getQRDetails: Iniciando con qrId=${qrId}, bankCredentialId=${bankCredentialId}`);
+      console.log("\uD83C\uDFE6 getQRDetails: Consultando estado en Baneco...");
+      let banecoStatus = null;
+      let banecoPayments = [];
+      try {
+        const config = await bankCredentialsService.getById(bankCredentialId);
+        console.log("\uD83D\uDD0D getQRDetails: Configuración bancaria:", config);
+        if (config) {
+          const banecoApi = new baneco_api_default(config.apiBaseUrl, config.encryptionKey);
+          try {
+            const token = await banecoApi.getToken(config.username, config.password);
+            const banecoResponse = await banecoApi.getQrStatus(token, qrId);
+            banecoStatus = banecoResponse.statusQrCode;
+            banecoPayments = banecoResponse.payment || [];
+            console.log(`✅ getQRDetails: Estado en Baneco: ${banecoStatus}, Pagos: ${banecoPayments.length}`);
+          } catch (banecoError) {
+            console.log({ banecoError });
+            console.log(`⚠️ getQRDetails: Error consultando Baneco: ${banecoError instanceof Error ? banecoError.message : "Error desconocido"}`);
+          }
+        } else {
+          console.log("⚠️ getQRDetails: Usuario sin configuración bancaria activa");
+        }
+      } catch (configError) {
+        console.log(`⚠️ getQRDetails: Error obteniendo configuración bancaria: ${configError instanceof Error ? configError.message : "Error desconocido"}`);
+      }
+      console.log("\uD83D\uDDC4️ getQRDetails: Verificando QR en base de datos...");
+      const qrQuery = await query(`
+        SELECT 
+          q.qr_id as "qrId",
+          q.transaction_id as "transactionId",
+          q.created_at as "createdAt",
+          q.due_date as "dueDate",
+          q.currency,
+          q.amount,
+          q.status,
+          q.description,
+          q.single_use as "singleUse",
+          q.modify_amount as "modifyAmount",
+          q.user_id as "userId",
+          q.third_bank_credential_id as "bankCredentialId",
+          q.environment
+        FROM qr_codes q
+        WHERE q.qr_id = $1 AND q.deleted_at IS NULL
+      `, [qrId]);
+      console.log(`\uD83D\uDCCA getQRDetails: Consulta QR completada, filas encontradas: ${qrQuery.rowCount}`);
+      if (qrQuery.rowCount === 0) {
+        console.log("⚠️ getQRDetails: No se encontró el QR");
+        return null;
+      }
+      const qr = qrQuery.rows[0];
+      console.log("✅ getQRDetails: QR encontrado:", qr);
+      const qrItem = {
+        qrId: qr.qrId,
+        transactionId: qr.transactionId,
+        createdAt: qr.createdAt,
+        dueDate: qr.dueDate,
+        currency: qr.currency,
+        amount: parseFloat(qr.amount),
+        status: qr.status,
+        description: qr.description,
+        singleUse: qr.singleUse,
+        modifyAmount: qr.modifyAmount,
+        payments: []
+      };
+      console.log("\uD83C\uDFD7️ getQRDetails: Objeto QR construido:", qrItem);
+      if (banecoStatus !== null) {
+        console.log("\uD83D\uDD04 getQRDetails: Actualizando estado en base de datos según Baneco...");
+        let newStatus = qr.status;
+        if (banecoStatus === 1 && qr.status === "active") {
+          newStatus = "used";
+        } else if (banecoStatus === 9 && qr.status === "active") {
+          newStatus = "cancelled";
+        }
+        if (newStatus !== qr.status) {
+          await query(`
+            UPDATE qr_codes 
+            SET status = $1, updated_at = CURRENT_TIMESTAMP
+            WHERE qr_id = $2
+          `, [newStatus, qrId]);
+          qrItem.status = newStatus;
+          console.log(`✅ getQRDetails: Estado actualizado de '${qr.status}' a '${newStatus}'`);
+        }
+      }
+      if (banecoPayments.length > 0) {
+        console.log(`\uD83D\uDCB3 getQRDetails: Procesando ${banecoPayments.length} pagos de Baneco...`);
+        for (const banecoPayment of banecoPayments) {
+          const existingPaymentQuery = await query(`
+            SELECT id FROM account_movements 
+            WHERE qr_id = $1 AND reference_id = $2 AND deleted_at IS NULL
+          `, [qrId, banecoPayment.transactionId]);
+          if (existingPaymentQuery.rowCount === 0) {
+            const accountQuery = await query(`
+              SELECT a.id, a.balance 
+              FROM accounts a 
+              JOIN qr_codes q ON a.id = q.account_id 
+              WHERE q.qr_id = $1
+            `, [qrId]);
+            if (accountQuery.rows.length === 0) {
+              console.log(`⚠️ getQRDetails: No se encontró cuenta para QR ${qrId}`);
+              continue;
+            }
+            const account = accountQuery.rows[0];
+            const currentBalance = parseFloat(account.balance);
+            const newBalance = currentBalance + parseFloat(banecoPayment.amount);
+            await query(`
+              INSERT INTO account_movements (
+                account_id, movement_type, amount, balance_before, balance_after,
+                description, qr_id, sender_name, reference_id, reference_type, status
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            `, [
+              account.id,
+              "qr_payment",
+              banecoPayment.amount,
+              currentBalance,
+              newBalance,
+              banecoPayment.description || "Pago QR recibido",
+              qrId,
+              banecoPayment.senderName,
+              banecoPayment.transactionId,
+              "qr_payment",
+              "completed"
+            ]);
+            await query(`
+              UPDATE accounts 
+              SET balance = $1, available_balance = $1, updated_at = CURRENT_TIMESTAMP
+              WHERE id = $2
+            `, [newBalance, account.id]);
+            console.log(`✅ getQRDetails: Pago ${banecoPayment.transactionId} insertado`);
+          }
+        }
+      }
+      console.log("\uD83D\uDCB0 getQRDetails: Obteniendo pagos del QR...");
+      const paymentsQuery = await query(`
+        SELECT 
+          am.reference_id as "transactionId",
+          am.created_at as "paymentDate",
+          'BOB' as currency,
+          am.amount,
+          am.sender_name as "senderName",
+          am.description,
+          am.reference_type as "referenceType"
+        FROM account_movements am
+        WHERE am.qr_id = $1 AND am.deleted_at IS NULL AND am.movement_type = 'qr_payment'
+        ORDER BY am.created_at DESC
+      `, [qrId]);
+      console.log(`\uD83D\uDCB3 getQRDetails: Pagos encontrados: ${paymentsQuery.rowCount}`);
+      qrItem.payments = paymentsQuery.rows.map((payment) => {
+        return {
+          qrId: qr.qrId,
+          transactionId: payment.transactionId,
+          paymentDate: payment.paymentDate,
+          paymentTime: "",
+          currency: payment.currency,
+          amount: parseFloat(payment.amount),
+          senderBankCode: "",
+          senderName: payment.senderName || "",
+          senderDocumentId: "",
+          senderAccount: "",
+          description: payment.description
+        };
+      });
+      console.log("\uD83C\uDF89 getQRDetails: Método completado exitosamente");
+      console.log("\uD83D\uDCCB getQRDetails: Flujo ejecutado: Baneco → Base de datos → Actualización → Pagos");
+      return qrItem;
+    } catch (error) {
+      console.error("\uD83D\uDCA5 getQRDetails: Error capturado:", error);
+      console.error("\uD83D\uDCA5 getQRDetails: Stack trace:", error instanceof Error ? error.stack : "No stack trace");
+      throw error;
+    }
+  }
+  async cancelQR(qrId, userId) {
+    const qrQuery = await query(`
+      SELECT q.id, q.status, q.third_bank_credential_id, u.third_bank_credential_id as "userBankCredentialId"
+      FROM qr_codes q
+      JOIN users u ON q.user_id = u.id
+      WHERE q.qr_id = $1 AND q.user_id = $2 AND q.deleted_at IS NULL
+    `, [qrId, userId]);
+    if (qrQuery.rowCount === 0) {
+      throw new ApiError("QR no encontrado o no pertenece a este usuario", 404);
+    }
+    const qr = qrQuery.rows[0];
+    if (qr.status !== "active") {
+      throw new ApiError("Solo se pueden cancelar QRs activos", 400);
+    }
+    if (!qr.userBankCredentialId) {
+      throw new ApiError("El usuario no tiene configuración bancaria asignada", 400);
+    }
+    const config = await bankCredentialsService.getById(qr.userBankCredentialId);
+    if (!config) {
+      throw new ApiError("No se encontró la configuración bancaria del usuario", 400);
+    }
+    if (config.status !== "active") {
+      throw new ApiError("La configuración bancaria del usuario no está activa", 400);
+    }
+    const banecoApi = new baneco_api_default(config.apiBaseUrl, config.encryptionKey);
+    try {
+      const token = await banecoApi.getToken(config.username, config.password);
+      const cancelResponse = await banecoApi.cancelQr(token, qrId);
+      if (cancelResponse.responseCode !== 0) {
+        throw new ApiError(`Error al cancelar QR: ${cancelResponse.message}`, 400);
+      }
+      await query(`
+        UPDATE qr_codes 
+        SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+      `, [qr.id]);
+      return true;
+    } catch (error) {
+      throw error;
+    }
+  }
+  async checkQRStatus(qrId, userId) {
+    const qrQuery = await query(`
+      SELECT 
+        q.qr_id as "qrId",
+        q.transaction_id as "transactionId",
+        q.created_at as "createdAt",
+        q.due_date as "dueDate",
+        q.currency,
+        q.amount,
+        q.status,
+        q.description,
+        q.single_use as "singleUse",
+        q.modify_amount as "modifyAmount",
+        q.user_id as "userId",
+        q.third_bank_credential_id as "bankCredentialId",
+        q.environment
+      FROM qr_codes q
+      WHERE q.qr_id = $1 AND q.deleted_at IS NULL
+    `, [qrId]);
+    if (qrQuery.rowCount === 0) {
+      throw new ApiError("QR no encontrado en la base de datos", 404);
+    }
+    const qr = qrQuery.rows[0];
+    const user = await query(`
+      SELECT id, full_name, third_bank_credential_id FROM users WHERE id = $1 AND deleted_at IS NULL
+    `, [userId]);
+    if (user.rowCount === 0) {
+      throw new ApiError("Usuario no encontrado", 404);
+    }
+    const userData = user.rows[0];
+    if (!userData.third_bank_credential_id) {
+      throw new ApiError("El usuario no tiene configuración bancaria asignada", 400);
+    }
+    const config = await bankCredentialsService.getById(userData.third_bank_credential_id);
+    if (!config) {
+      throw new ApiError("No se encontró la configuración bancaria del usuario", 400);
+    }
+    if (config.status !== "active") {
+      throw new ApiError("La configuración bancaria del usuario no está activa", 400);
+    }
+    const banecoApi = new baneco_api_default(config.apiBaseUrl, config.encryptionKey);
+    try {
+      const token = await banecoApi.getToken(config.username, config.password);
+      const banecoResponse = await banecoApi.getQrStatus(token, qrId);
+      let currentStatus = qr.status;
+      if (banecoResponse.statusQrCode === 1 && qr.status === "active") {
+        currentStatus = "used";
+        await query(`
+          UPDATE qr_codes 
+          SET status = $1, updated_at = CURRENT_TIMESTAMP
+          WHERE qr_id = $2
+        `, [currentStatus, qrId]);
+      } else if (banecoResponse.statusQrCode === 9 && qr.status === "active") {
+        currentStatus = "cancelled";
+        await query(`
+          UPDATE qr_codes 
+          SET status = $1, updated_at = CURRENT_TIMESTAMP
+          WHERE qr_id = $2
+        `, [currentStatus, qrId]);
+      }
+      return {
+        qrId: qr.qrId,
+        qrImage: "",
+        transactionId: qr.transactionId,
+        amount: parseFloat(qr.amount),
+        currency: qr.currency,
+        description: qr.description,
+        dueDate: qr.dueDate,
+        singleUse: qr.singleUse,
+        modifyAmount: qr.modifyAmount,
+        status: currentStatus,
+        payments: banecoResponse.payment || []
+      };
+    } catch (error) {
+      throw new ApiError("Error al verificar estado del QR: " + (error instanceof Error ? error.message : "Unknown error"), 500);
+    }
+  }
+  async banecoQRNotify(data) {
+    const checkQR = await query(`
+      SELECT q.id, q.status, q.transaction_id as "transactionId", q.user_id as "userId" 
+      FROM qr_codes q
+      WHERE q.qr_id = $1
+    `, [data.payment.qrId]);
+    if (checkQR.rowCount === 0) {
+      throw new ApiError("QR no encontrado", 404);
+    }
+    const qrInfo = checkQR.rows[0];
+    if (qrInfo.status !== "active") {
+      throw new ApiError("QR no está activo para pago", 400);
+    }
+    const bankId = BANCO_ECONOMICO_ID;
+    const payment = data.payment;
+    const paymentDate = new Date(payment.paymentDate);
+    const client = await pool.connect();
+    await client.query("BEGIN");
+    try {
+      await client.query(`
+        UPDATE qr_codes 
+        SET status = 'used', updated_at = CURRENT_TIMESTAMP 
+        WHERE id = $1
+      `, [qrInfo.id]);
+      const checkPayment = await client.query(`
+        SELECT id FROM account_movements WHERE qr_id = $1 AND reference_id = $2
+      `, [payment.qrId, payment.transactionId]);
+      if (checkPayment.rowCount === 0) {
+        const accountQuery = await client.query(`
+          SELECT a.id, a.balance 
+          FROM accounts a 
+          JOIN qr_codes q ON a.id = q.account_id 
+          WHERE q.id = $1
+        `, [qrInfo.id]);
+        if (accountQuery.rows.length === 0) {
+          throw new ApiError("No se encontró la cuenta asociada al QR", 500);
+        }
+        const account = accountQuery.rows[0];
+        const currentBalance = parseFloat(account.balance);
+        const newBalance = currentBalance + parseFloat(payment.amount.toString());
+        await client.query(`
+          INSERT INTO account_movements (
+            account_id, movement_type, amount, balance_before, balance_after,
+            description, qr_id, sender_name, reference_id, reference_type, status
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `, [
+          account.id,
+          "qr_payment",
+          payment.amount.toString(),
+          currentBalance,
+          newBalance,
+          payment.description || "Pago QR recibido",
+          payment.qrId,
+          payment.senderName,
+          payment.transactionId,
+          "qr_payment",
+          "completed"
+        ]);
+        await client.query(`
+          UPDATE accounts 
+          SET balance = $1, available_balance = $1, updated_at = CURRENT_TIMESTAMP
+          WHERE id = $2
+        `, [newBalance, account.id]);
+      }
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+}
+var qrService = new QrService;
+var qr_service_default = qrService;
 
 // src/schemas/qr.schemas.ts
 var QRRequestSchema = t.Object({
@@ -44906,857 +39354,10 @@ var qrRoutes = new Elysia({ prefix: "/qr" }).use(authMiddleware({ type: "all", l
     summary: "Listar códigos QR con filtros"
   }
 });
-var qr_routes_default = qrRoutes;
-
-// src/services/transaction.service.ts
-init_database();
-init_monitor_service();
-
-class TransactionService {
-  async listTransactions(companyId, filters = {}, userId) {
-    try {
-      const page = filters.page || 1;
-      const pageSize = filters.pageSize || 20;
-      const offset = (page - 1) * pageSize;
-      let sqlQuery = `
-        SELECT 
-          t.id,
-          t.qr_id as "qrId",
-          t.transaction_id as "transactionId",
-          t.payment_date as "paymentDate",
-          t.currency,
-          t.amount,
-          t.type,
-          t.sender_name as "senderName",
-          t.sender_document_id as "senderDocumentId",
-          t.sender_account as "senderAccount",
-          t.description,
-          t.metadata,
-          t.status,
-          bc.account_name as "bankName",
-          qc.transaction_id as "originalTransactionId"
-        FROM transactions t
-        INNER JOIN third_bank_credentials bc ON t.third_bank_credential_id = bc.id 
-        LEFT JOIN qr_codes qc ON t.qr_id = qc.qr_id
-        WHERE t.user_id = $1
-      `;
-      const queryParams = [companyId];
-      let paramIndex = 2;
-      if (filters.status) {
-        sqlQuery += ` AND t.status = $${paramIndex}`;
-        queryParams.push(filters.status);
-        paramIndex++;
-      }
-      if (filters.type) {
-        sqlQuery += ` AND t.type = $${paramIndex}`;
-        queryParams.push(filters.type);
-        paramIndex++;
-      }
-      if (filters.startDate) {
-        sqlQuery += ` AND t.payment_date >= $${paramIndex}`;
-        queryParams.push(filters.startDate);
-        paramIndex++;
-      }
-      if (filters.endDate) {
-        sqlQuery += ` AND t.payment_date <= $${paramIndex}`;
-        queryParams.push(filters.endDate);
-        paramIndex++;
-      }
-      if (filters.minAmount !== undefined) {
-        sqlQuery += ` AND t.amount >= $${paramIndex}`;
-        queryParams.push(filters.minAmount);
-        paramIndex++;
-      }
-      if (filters.maxAmount !== undefined) {
-        sqlQuery += ` AND t.amount <= $${paramIndex}`;
-        queryParams.push(filters.maxAmount);
-        paramIndex++;
-      }
-      if (filters.bankId) {
-        sqlQuery += ` AND t.third_bank_credential_id = $${paramIndex}`;
-        queryParams.push(filters.bankId);
-        paramIndex++;
-      }
-      sqlQuery += ` ORDER BY t.payment_date DESC`;
-      sqlQuery += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-      queryParams.push(pageSize, offset);
-      const result = await query(sqlQuery, queryParams);
-      let countQuery = `
-        SELECT COUNT(*) as total
-        FROM transactions t
-        WHERE t.user_id = $1
-      `;
-      const countParams = [companyId];
-      let countParamIndex = 2;
-      if (filters.status) {
-        countQuery += ` AND t.status = $${countParamIndex}`;
-        countParams.push(filters.status);
-        countParamIndex++;
-      }
-      if (filters.type) {
-        countQuery += ` AND t.type = $${countParamIndex}`;
-        countParams.push(filters.type);
-        countParamIndex++;
-      }
-      if (filters.startDate) {
-        countQuery += ` AND t.payment_date >= $${countParamIndex}`;
-        countParams.push(filters.startDate);
-        countParamIndex++;
-      }
-      if (filters.endDate) {
-        countQuery += ` AND t.payment_date <= $${countParamIndex}`;
-        countParams.push(filters.endDate);
-        countParamIndex++;
-      }
-      if (filters.minAmount !== undefined) {
-        countQuery += ` AND t.amount >= $${countParamIndex}`;
-        countParams.push(filters.minAmount);
-        countParamIndex++;
-      }
-      if (filters.maxAmount !== undefined) {
-        countQuery += ` AND t.amount <= $${countParamIndex}`;
-        countParams.push(filters.maxAmount);
-        countParamIndex++;
-      }
-      if (filters.bankId) {
-        countQuery += ` AND t.third_bank_credential_id = $${countParamIndex}`;
-        countParams.push(filters.bankId);
-      }
-      const countResult = await query(countQuery, countParams);
-      const totalCount = parseInt(countResult.rows[0].total);
-      const totalPages = Math.ceil(totalCount / pageSize);
-      const transactions = result.rows.map((row) => {
-        let from = undefined;
-        let to = undefined;
-        if (row.type === "incoming") {
-          from = row.senderName;
-        } else if (row.type === "outgoing") {
-          to = row.senderName;
-        }
-        let metadata = {};
-        try {
-          if (row.metadata) {
-            if (typeof row.metadata === "string") {
-              metadata = JSON.parse(row.metadata);
-            } else {
-              metadata = row.metadata;
-            }
-          }
-        } catch (error) {
-          console.error("Error parsing metadata:", error);
-        }
-        metadata = {
-          ...metadata,
-          qrId: row.qrId,
-          senderAccount: row.senderAccount,
-          senderDocumentId: row.senderDocumentId,
-          bankName: row.bankName
-        };
-        return {
-          id: row.transactionId,
-          type: row.type,
-          amount: parseFloat(row.amount),
-          from,
-          to,
-          date: row.paymentDate,
-          status: row.status,
-          reference: row.originalTransactionId || row.qrId,
-          category: "payment",
-          metadata
-        };
-      });
-      if (userId) {
-        await logActivity("TRANSACTIONS_LISTED", {
-          filters,
-          count: transactions.length,
-          totalCount
-        }, "info", userId);
-      }
-      return {
-        transactions,
-        pagination: {
-          page,
-          pageSize,
-          total: totalCount,
-          totalPages
-        },
-        responseCode: 0
-      };
-    } catch (error) {
-      console.error("Error listando transacciones:", error);
-      if (userId) {
-        await logActivity("TRANSACTIONS_LIST_ERROR", {
-          error: error instanceof Error ? error.message : "Error desconocido"
-        }, "error", userId);
-      }
-      return {
-        transactions: [],
-        responseCode: 1,
-        message: error instanceof Error ? error.message : "Error listando transacciones"
-      };
-    }
-  }
-  async getTransactionDetail(companyId, transactionId, userId) {
-    try {
-      const result = await query(`
-        SELECT 
-          t.id,
-          t.qr_id as "qrId",
-          t.transaction_id as "transactionId",
-          t.payment_date as "paymentDate",
-          t.currency,
-          t.amount,
-          t.type,
-          t.sender_name as "senderName",
-          t.sender_document_id as "senderDocumentId",
-          t.sender_account as "senderAccount",
-          t.description,
-          t.metadata,
-          t.status,
-          b.name as "bankName",
-          qc.transaction_id as "originalTransactionId"
-        FROM transactions t
-        LEFT JOIN banks b ON t.bank_id = b.id
-        LEFT JOIN qr_codes qc ON t.qr_id = qc.qr_id
-        WHERE t.company_id = $1 AND t.transaction_id = $2
-      `, [companyId, transactionId]);
-      if (result.rowCount === 0) {
-        return {
-          responseCode: 1,
-          message: "Transacción no encontrada"
-        };
-      }
-      const row = result.rows[0];
-      let from = undefined;
-      let to = undefined;
-      if (row.type === "incoming") {
-        from = row.senderName;
-      } else if (row.type === "outgoing") {
-        to = row.senderName;
-      }
-      let metadata = {};
-      try {
-        if (row.metadata) {
-          if (typeof row.metadata === "string") {
-            metadata = JSON.parse(row.metadata);
-          } else {
-            metadata = row.metadata;
-          }
-        }
-      } catch (error) {
-        console.error("Error parsing metadata:", error);
-      }
-      metadata = {
-        ...metadata,
-        qrId: row.qrId,
-        senderAccount: row.senderAccount,
-        senderDocumentId: row.senderDocumentId,
-        bankName: row.bankName
-      };
-      const transaction = {
-        id: row.transactionId,
-        type: row.type,
-        amount: parseFloat(row.amount),
-        from,
-        to,
-        date: `${row.paymentDate}T${row.paymentTime}`,
-        status: row.status,
-        reference: row.originalTransactionId || row.qrId,
-        category: "payment",
-        metadata
-      };
-      if (userId) {
-        await logActivity("TRANSACTION_VIEWED", {
-          transactionId
-        }, "info", userId);
-      }
-      return {
-        transaction,
-        responseCode: 0
-      };
-    } catch (error) {
-      console.error("Error obteniendo detalle de transacción:", error);
-      if (userId) {
-        await logActivity("TRANSACTION_DETAIL_ERROR", {
-          transactionId,
-          error: error instanceof Error ? error.message : "Error desconocido"
-        }, "error", userId);
-      }
-      return {
-        responseCode: 1,
-        message: error instanceof Error ? error.message : "Error obteniendo detalle de transacción"
-      };
-    }
-  }
-  async getTransactionStats(companyId, periodType, year, month, week, userId) {
-    try {
-      if (periodType === "monthly" && month === undefined) {
-        return {
-          responseCode: 1,
-          message: "Se requiere el mes para estadísticas mensuales"
-        };
-      }
-      if (periodType === "weekly" && week === undefined) {
-        return {
-          responseCode: 1,
-          message: "Se requiere la semana para estadísticas semanales"
-        };
-      }
-      const formatCurrency = (amount) => {
-        return amount.toLocaleString("es-ES", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2
-        });
-      };
-      const getMonthName = (monthIndex) => {
-        const months = [
-          "Enero",
-          "Febrero",
-          "Marzo",
-          "Abril",
-          "Mayo",
-          "Junio",
-          "Julio",
-          "Agosto",
-          "Septiembre",
-          "Octubre",
-          "Noviembre",
-          "Diciembre"
-        ];
-        return months[monthIndex];
-      };
-      let data = [];
-      let startDate;
-      let endDate;
-      let sqlQuery;
-      let queryParams;
-      if (periodType === "yearly") {
-        startDate = new Date(year, 0, 1);
-        endDate = new Date(year, 11, 31);
-        sqlQuery = `
-          SELECT 
-            EXTRACT(MONTH FROM payment_date) as month,
-            SUM(amount) as total_amount,
-            COUNT(*) as count
-          FROM transactions
-          WHERE company_id = $1
-            AND payment_date >= $2
-            AND payment_date <= $3
-          GROUP BY EXTRACT(MONTH FROM payment_date)
-          ORDER BY month
-        `;
-        queryParams = [companyId, startDate.toISOString(), endDate.toISOString()];
-        const result = await query(sqlQuery, queryParams);
-        data = Array.from({ length: 12 }, (_, i2) => {
-          const monthData = result.rows.find((row) => parseInt(row.month) === i2 + 1);
-          const amount = monthData ? parseFloat(monthData.total_amount) : 0;
-          const count = monthData ? parseInt(monthData.count) : 0;
-          return {
-            date: new Date(year, i2, 1),
-            amount,
-            count,
-            formatted: {
-              month: getMonthName(i2),
-              amount: formatCurrency(amount)
-            }
-          };
-        });
-      } else if (periodType === "monthly" && month !== undefined) {
-        startDate = new Date(year, month - 1, 1);
-        endDate = new Date(year, month, 0);
-        sqlQuery = `
-          SELECT 
-            EXTRACT(DAY FROM payment_date) as day,
-            SUM(amount) as total_amount,
-            COUNT(*) as count
-          FROM transactions
-          WHERE company_id = $1
-            AND payment_date >= $2
-            AND payment_date <= $3
-          GROUP BY EXTRACT(DAY FROM payment_date)
-          ORDER BY day
-        `;
-        queryParams = [companyId, startDate.toISOString(), endDate.toISOString()];
-        const result = await query(sqlQuery, queryParams);
-        const daysInMonth = endDate.getDate();
-        data = Array.from({ length: daysInMonth }, (_, i2) => {
-          const dayData = result.rows.find((row) => parseInt(row.day) === i2 + 1);
-          const amount = dayData ? parseFloat(dayData.total_amount) : 0;
-          const count = dayData ? parseInt(dayData.count) : 0;
-          const currentDate = new Date(year, month - 1, i2 + 1);
-          return {
-            date: currentDate,
-            amount,
-            count,
-            formatted: {
-              date: currentDate.toISOString().split("T")[0],
-              day: i2 + 1,
-              month: getMonthName(month - 1).substring(0, 3),
-              amount: formatCurrency(amount)
-            }
-          };
-        });
-      } else if (periodType === "weekly" && week !== undefined) {
-        const firstDayOfYear = new Date(year, 0, 1);
-        startDate = new Date(firstDayOfYear);
-        startDate.setDate(firstDayOfYear.getDate() + (week - 1) * 7);
-        endDate = new Date(startDate);
-        endDate.setDate(startDate.getDate() + 6);
-        sqlQuery = `
-          SELECT 
-            payment_date::date as day,
-            SUM(amount) as total_amount,
-            COUNT(*) as count
-          FROM transactions
-          WHERE company_id = $1
-            AND payment_date >= $2
-            AND payment_date <= $3
-          GROUP BY payment_date::date
-          ORDER BY day
-        `;
-        queryParams = [companyId, startDate.toISOString(), endDate.toISOString()];
-        const result = await query(sqlQuery, queryParams);
-        data = Array.from({ length: 7 }, (_, i2) => {
-          const currentDate = new Date(startDate);
-          currentDate.setDate(startDate.getDate() + i2);
-          const formattedDate = currentDate.toISOString().split("T")[0];
-          const dayData = result.rows.find((row) => row.day.split("T")[0] === formattedDate);
-          const amount = dayData ? parseFloat(dayData.total_amount) : 0;
-          const count = dayData ? parseInt(dayData.count) : 0;
-          return {
-            date: currentDate,
-            amount,
-            count,
-            formatted: {
-              date: formattedDate,
-              day: currentDate.getDate(),
-              month: getMonthName(currentDate.getMonth()).substring(0, 3),
-              amount: formatCurrency(amount)
-            }
-          };
-        });
-      } else {
-        return {
-          responseCode: 1,
-          message: "Tipo de período no válido"
-        };
-      }
-      const totalAmount = data.reduce((sum, item) => sum + item.amount, 0);
-      const totalCount = data.reduce((sum, item) => sum + item.count, 0);
-      const summary = {
-        total: totalAmount,
-        count: totalCount,
-        period: {
-          startDate: startDate.toISOString().split("T")[0],
-          endDate: endDate.toISOString().split("T")[0],
-          type: periodType,
-          year
-        }
-      };
-      if (periodType === "monthly" && month !== undefined) {
-        summary.period.month = month;
-      } else if (periodType === "weekly" && week !== undefined) {
-        summary.period.week = week;
-      }
-      if (userId) {
-        await logActivity("TRANSACTIONS_STATS_VIEWED", {
-          periodType,
-          year,
-          month,
-          week,
-          totalAmount,
-          totalCount
-        }, "info", userId);
-      }
-      const response = {
-        data,
-        summary,
-        responseCode: 0
-      };
-      return response;
-    } catch (error) {
-      console.error("Error obteniendo estadísticas de transacciones:", error);
-      if (userId) {
-        await logActivity("TRANSACTIONS_STATS_ERROR", {
-          periodType,
-          year,
-          month,
-          week,
-          error: error instanceof Error ? error.message : "Error desconocido"
-        }, "error", userId);
-      }
-      return {
-        responseCode: 1,
-        message: error instanceof Error ? error.message : "Error obteniendo estadísticas de transacciones"
-      };
-    }
-  }
-  async createTransaction(companyId, transactionData, userId) {
-    try {
-      if (!transactionData.transactionId || !transactionData.amount || !transactionData.type) {
-        return {
-          responseCode: 1,
-          message: "Faltan datos obligatorios para la transacción"
-        };
-      }
-      const paymentDate = transactionData.paymentDate || new Date;
-      const paymentTime = transactionData.paymentTime || paymentDate.toTimeString().split(" ")[0];
-      const status2 = transactionData.status || "completed";
-      let metadata = null;
-      if (transactionData.metadata) {
-        metadata = JSON.stringify(transactionData.metadata);
-      }
-      const result = await query(`
-        INSERT INTO transactions (
-          qr_id,
-          user_id,
-          third_bank_credential_id,
-          environment,
-          transaction_id,
-          payment_date,
-          currency,
-          amount,
-          type,
-          sender_name,
-          sender_document_id,
-          sender_account,
-          description,
-          metadata,
-          status,
-          created_at,
-          updated_at
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-        )
-        RETURNING transaction_id
-      `, [
-        transactionData.qrId || null,
-        companyId,
-        transactionData.bankId || null,
-        1,
-        transactionData.transactionId,
-        paymentDate,
-        transactionData.currency || "BOB",
-        transactionData.amount,
-        transactionData.type,
-        transactionData.senderName || null,
-        transactionData.senderDocumentId || null,
-        transactionData.senderAccount || null,
-        transactionData.description || null,
-        metadata,
-        status2
-      ]);
-      if (userId) {
-        await logActivity("TRANSACTION_CREATED", {
-          transactionId: transactionData.transactionId,
-          amount: transactionData.amount,
-          type: transactionData.type
-        }, "info", userId);
-      }
-      return {
-        responseCode: 0,
-        message: "Transacción creada exitosamente",
-        transactionId: result.rows[0].transaction_id
-      };
-    } catch (error) {
-      console.error("Error creando transacción:", error);
-      if (userId) {
-        await logActivity("TRANSACTION_CREATE_ERROR", {
-          error: error instanceof Error ? error.message : "Error desconocido"
-        }, "error", userId);
-      }
-      return {
-        responseCode: 1,
-        message: error instanceof Error ? error.message : "Error creando transacción"
-      };
-    }
-  }
-  async getUserBalance(userId) {
-    try {
-      const result = await query(`
-        SELECT 
-          balance,
-          'BOB' as currency,
-          updated_at as "lastUpdated"
-        FROM users 
-        WHERE id = $1 AND deleted_at IS NULL
-      `, [userId]);
-      if (result.rowCount === 0) {
-        return {
-          balance: 0,
-          currency: "BOB",
-          lastUpdated: new Date().toISOString(),
-          responseCode: 1,
-          message: "Usuario no encontrado"
-        };
-      }
-      const user = result.rows[0];
-      return {
-        balance: parseFloat(user.balance),
-        currency: user.currency,
-        lastUpdated: user.lastUpdated,
-        responseCode: 0,
-        message: "Balance obtenido exitosamente"
-      };
-    } catch (error) {
-      console.error("Error obteniendo balance del usuario:", error);
-      return {
-        balance: 0,
-        currency: "BOB",
-        lastUpdated: new Date().toISOString(),
-        responseCode: 1,
-        message: error instanceof Error ? error.message : "Error obteniendo balance"
-      };
-    }
-  }
-  async getUserBalanceHistory(userId, startDate, endDate, page = 1, pageSize = 20) {
-    try {
-      const offset = (page - 1) * pageSize;
-      let whereClause = "WHERE t.user_id = $1 AND t.deleted_at IS NULL";
-      const params = [userId];
-      let paramCount = 1;
-      if (startDate) {
-        paramCount++;
-        whereClause += ` AND t.payment_date >= $${paramCount}`;
-        params.push(startDate);
-      }
-      if (endDate) {
-        paramCount++;
-        whereClause += ` AND t.payment_date <= $${paramCount}`;
-        params.push(endDate);
-      }
-      const result = await query(`
-        SELECT 
-          t.payment_date as date,
-          t.amount,
-          t.type,
-          t.transaction_id as "transactionId",
-          t.description,
-          t.currency
-        FROM transactions t
-        ${whereClause}
-        ORDER BY t.payment_date DESC
-        LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
-      `, [...params, pageSize, offset]);
-      const balanceResult = await query(`
-        SELECT balance FROM users WHERE id = $1 AND deleted_at IS NULL
-      `, [userId]);
-      const currentBalance = balanceResult.rowCount && balanceResult.rowCount > 0 ? parseFloat(balanceResult.rows[0].balance) : 0;
-      const countResult = await query(`
-        SELECT COUNT(*) as total FROM transactions t ${whereClause}
-      `, params);
-      const totalTransactions = parseInt(countResult.rows[0].total);
-      const totalPages = Math.ceil(totalTransactions / pageSize);
-      let runningBalance = currentBalance;
-      const balanceHistory = result.rows.map((row) => {
-        const change = row.type === "incoming" ? row.amount : -row.amount;
-        runningBalance -= change;
-        return {
-          date: row.date,
-          balance: runningBalance,
-          change,
-          transactionId: row.transactionId,
-          type: row.type,
-          description: row.description || ""
-        };
-      }).reverse();
-      return {
-        balanceHistory,
-        currentBalance,
-        totalPages,
-        responseCode: 0,
-        message: "Historial de balance obtenido exitosamente"
-      };
-    } catch (error) {
-      console.error("Error obteniendo historial de balance:", error);
-      return {
-        balanceHistory: [],
-        currentBalance: 0,
-        totalPages: 0,
-        responseCode: 1,
-        message: error instanceof Error ? error.message : "Error obteniendo historial de balance"
-      };
-    }
-  }
-  async recalculateUserBalance(userId) {
-    try {
-      await query("SELECT calculate_user_balance($1)", [userId]);
-      const result = await query(`
-        SELECT balance FROM users WHERE id = $1 AND deleted_at IS NULL
-      `, [userId]);
-      if (result.rowCount === 0) {
-        return {
-          newBalance: 0,
-          responseCode: 1,
-          message: "Usuario no encontrado"
-        };
-      }
-      const newBalance = parseFloat(result.rows[0].balance);
-      return {
-        newBalance,
-        responseCode: 0,
-        message: "Balance recalculado exitosamente"
-      };
-    } catch (error) {
-      console.error("Error recalculando balance del usuario:", error);
-      return {
-        newBalance: 0,
-        responseCode: 1,
-        message: error instanceof Error ? error.message : "Error recalculando balance"
-      };
-    }
-  }
-}
-var transactionService = new TransactionService;
-var transaction_service_default = transactionService;
-
-// src/routes/transactions.routes.ts
-var ResponseSchema3 = t.Object({
-  success: t.Boolean(),
-  message: t.String(),
-  data: t.Optional(t.Any())
-});
-var transactionsRoutes = new Elysia({ prefix: "/transactions" }).use(authMiddleware({ type: "all", level: "user" })).get("/stats/:periodType/:year/:month?/:week?", async ({ params, auth }) => {
-  const companyId = auth.type === "jwt" ? auth.user.companyId : auth.apiKeyInfo.companyId;
-  const userId = auth.type === "jwt" ? auth.user.id : undefined;
-  const periodType = params.periodType;
-  const year = parseInt(params.year);
-  const month = params.month ? parseInt(params.month) : undefined;
-  const week = params.week ? parseInt(params.week) : undefined;
-  const data = await transaction_service_default.getTransactionStats(companyId, periodType, year, month, week, userId);
-  return {
-    success: true,
-    message: "Estadísticas obtenidas exitosamente",
-    data
-  };
-}, {
-  params: t.Object({
-    periodType: t.Union([t.Literal("weekly"), t.Literal("monthly"), t.Literal("yearly")]),
-    year: t.String(),
-    month: t.Optional(t.String()),
-    week: t.Optional(t.String())
-  }),
-  response: ResponseSchema3,
-  detail: {
-    tags: ["transactions"],
-    summary: "Obtener estadísticas de transacciones por período"
-  }
-}).get("/", async ({ query: queryParams, auth }) => {
-  const companyId = auth.type === "jwt" ? auth.user.companyId : auth.apiKeyInfo.companyId;
-  const userId = auth.type === "jwt" ? auth.user.id : undefined;
-  const filters = {
-    startDate: queryParams.startDate,
-    endDate: queryParams.endDate,
-    status: queryParams.status,
-    type: queryParams.type,
-    minAmount: queryParams.minAmount !== undefined ? parseFloat(queryParams.minAmount) : undefined,
-    maxAmount: queryParams.maxAmount !== undefined ? parseFloat(queryParams.maxAmount) : undefined,
-    bankId: queryParams.bankId !== undefined ? parseInt(queryParams.bankId) : undefined,
-    page: queryParams.page !== undefined ? parseInt(queryParams.page) : undefined,
-    pageSize: queryParams.pageSize !== undefined ? parseInt(queryParams.pageSize) : undefined
-  };
-  const data = await transaction_service_default.listTransactions(companyId, filters, userId);
-  return {
-    success: true,
-    message: "Transacciones listadas exitosamente",
-    data
-  };
-}, {
-  query: t.Object({
-    startDate: t.Optional(t.String()),
-    endDate: t.Optional(t.String()),
-    status: t.Optional(t.String()),
-    type: t.Optional(t.String()),
-    minAmount: t.Optional(t.String()),
-    maxAmount: t.Optional(t.String()),
-    bankId: t.Optional(t.String()),
-    page: t.Optional(t.String()),
-    pageSize: t.Optional(t.String())
-  }),
-  response: ResponseSchema3,
-  detail: {
-    tags: ["transactions"],
-    summary: "Listar transacciones con filtros"
-  }
-}).post("/", async ({ body, auth }) => {
-  const companyId = auth.type === "jwt" ? auth.user.companyId : auth.apiKeyInfo.companyId;
-  const userId = auth.type === "jwt" ? auth.user.id : undefined;
-  const data = await transaction_service_default.createTransaction(companyId, body, userId);
-  return {
-    success: true,
-    message: "Transacción creada exitosamente",
-    data
-  };
-}, {
-  body: t.Object({
-    qrId: t.Optional(t.String()),
-    bankId: t.Optional(t.Number()),
-    transactionId: t.String(),
-    paymentDate: t.Optional(t.Any()),
-    paymentTime: t.Optional(t.String()),
-    currency: t.Optional(t.String()),
-    amount: t.Number(),
-    type: t.Union([t.Literal("incoming"), t.Literal("outgoing")]),
-    senderName: t.Optional(t.String()),
-    senderDocumentId: t.Optional(t.String()),
-    senderAccount: t.Optional(t.String()),
-    description: t.Optional(t.String()),
-    metadata: t.Optional(t.Any()),
-    status: t.Optional(t.String())
-  }),
-  response: ResponseSchema3,
-  detail: {
-    tags: ["transactions"],
-    summary: "Crear una nueva transacción"
-  }
-}).get("/:id", async ({ params, auth }) => {
-  const companyId = auth.type === "jwt" ? auth.user.companyId : auth.apiKeyInfo.companyId;
-  const userId = auth.type === "jwt" ? auth.user.id : undefined;
-  const transactionId = params.id;
-  const data = await transaction_service_default.getTransactionDetail(companyId, transactionId, userId);
-  return {
-    success: true,
-    message: "Detalle de transacción obtenido exitosamente",
-    data
-  };
-}, {
-  params: t.Object({
-    id: t.String()
-  }),
-  response: ResponseSchema3,
-  detail: {
-    tags: ["transactions"],
-    summary: "Obtener detalle de una transacción específica"
-  }
-});
-
-// src/routes/admin/users.routes.ts
-init_error();
-var usersRoutes = new Elysia({ prefix: "/users" }).use(authMiddleware({ type: "jwt", level: "admin" })).get("/", async ({ query: query2, auth }) => {
-  try {
-    const { page = 1, limit = 20, search, status: status2, entityType, roleId, isPrimaryUser } = query2;
-    const users = await userService.getUsers({
-      page: parseInt(page),
-      limit: parseInt(limit),
-      search,
-      status: status2,
-      entityType,
-      roleId: roleId ? parseInt(roleId) : undefined,
-      isPrimaryUser: isPrimaryUser === "true"
-    });
-    return {
-      success: true,
-      data: users,
-      pagination: users.pagination
-    };
-  } catch (error) {
-    throw new ApiError(error instanceof Error ? error.message : "Error al listar usuarios", error instanceof ApiError ? error.statusCode : 500);
-  }
-});
 
 // src/routes/apikey.routes.ts
 init_error();
-var ResponseSchema4 = t.Object({
+var ResponseSchema3 = t.Object({
   success: t.Boolean(),
   message: t.String(),
   data: t.Optional(t.Any())
@@ -45798,7 +39399,7 @@ var apiKeyRoutes = new Elysia({ prefix: "/apikeys" }).use(authMiddleware({ type:
   }
 }, {
   body: CreateApiKeySchema,
-  response: ResponseSchema4,
+  response: ResponseSchema3,
   detail: {
     tags: ["apikeys"],
     summary: "Crear nueva API key para el usuario autenticado"
@@ -45849,12 +39450,39 @@ var apiKeyRoutes = new Elysia({ prefix: "/apikeys" }).use(authMiddleware({ type:
   params: t.Object({
     id: t.String()
   }),
-  response: ResponseSchema4,
+  response: ResponseSchema3,
   detail: {
     tags: ["apikeys"],
     summary: "Revocar API key del usuario autenticado"
   }
 });
+
+// src/routes/admin/users.routes.ts
+init_error();
+var usersRoutes = new Elysia({ prefix: "/users" }).use(authMiddleware({ type: "jwt", level: "admin" })).get("/", async ({ query: query2, auth }) => {
+  try {
+    const { page = 1, limit = 20, search, status: status2, entityType, roleId, isPrimaryUser } = query2;
+    const users = await userService.getUsers({
+      page: parseInt(page),
+      limit: parseInt(limit),
+      search,
+      status: status2,
+      entityType,
+      roleId: roleId ? parseInt(roleId) : undefined,
+      isPrimaryUser: isPrimaryUser === "true"
+    });
+    return {
+      success: true,
+      data: users,
+      pagination: users.pagination
+    };
+  } catch (error) {
+    throw new ApiError(error instanceof Error ? error.message : "Error al listar usuarios", error instanceof ApiError ? error.statusCode : 500);
+  }
+});
+
+// src/routes/public.routes.ts
+var publicRoutes = new Elysia().use(health_routes_default);
 
 // src/schemas/baneco.scheamas.ts
 var BANECO_PaymentQRSchema = Type.Object({
@@ -45936,7 +39564,6 @@ var BANECO_AuthResponseSchema = Type.Object({
 });
 
 // src/routes/hooks.route.ts
-init_qr_service();
 init_error();
 var hooksRoutes = new Elysia({ prefix: "/hooks" }).post("/baneco/notifyPayment", async ({ body }) => {
   try {
@@ -45959,10 +39586,228 @@ var hooksRoutes = new Elysia({ prefix: "/hooks" }).post("/baneco/notifyPayment",
     summary: "Recibir notificación de pago de QR desde Baneco"
   }
 });
-var hooks_route_default = hooksRoutes;
+
+// src/routes/accounts.routes.ts
+init_error();
+var ResponseSchema4 = t.Object({
+  success: t.Boolean(),
+  message: t.String(),
+  data: t.Optional(t.Any())
+});
+var accountRoutes = new Elysia({ prefix: "/accounts" }).use(authMiddleware({ type: "all", level: "user" })).get("/", async ({ auth }) => {
+  try {
+    const userId = auth.type === "jwt" ? auth.user.id : auth.apiKeyInfo.userId;
+    const accounts = await account_service_default.getUserAccounts(userId);
+    return {
+      success: true,
+      data: accounts,
+      message: "Cuentas obtenidas exitosamente"
+    };
+  } catch (error) {
+    console.error("Error obteniendo cuentas:", error);
+    throw new ApiError("Error interno del servidor", 500);
+  }
+}, {
+  response: ResponseSchema4,
+  detail: {
+    tags: ["accounts"],
+    summary: "Obtener todas las cuentas del usuario autenticado"
+  }
+}).get("/:id", async ({ params, auth }) => {
+  try {
+    const userId = auth.type === "jwt" ? auth.user.id : auth.apiKeyInfo.userId;
+    const accountId = parseInt(params.id);
+    if (isNaN(accountId)) {
+      throw new ApiError("ID de cuenta inválido", 400);
+    }
+    const account = await account_service_default.getUserAccount(userId, accountId);
+    if (!account) {
+      throw new ApiError("Cuenta no encontrada o no tienes acceso", 404);
+    }
+    return {
+      success: true,
+      data: account,
+      message: "Cuenta obtenida exitosamente"
+    };
+  } catch (error) {
+    console.error("Error obteniendo cuenta:", error);
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError("Error interno del servidor", 500);
+  }
+}, {
+  params: t.Object({
+    id: t.String()
+  }),
+  response: ResponseSchema4,
+  detail: {
+    tags: ["accounts"],
+    summary: "Obtener una cuenta específica del usuario"
+  }
+}).get("/:id/balance", async ({ params, auth }) => {
+  try {
+    const userId = auth.type === "jwt" ? auth.user.id : auth.apiKeyInfo.userId;
+    const accountId = parseInt(params.id);
+    if (isNaN(accountId)) {
+      throw new ApiError("ID de cuenta inválido", 400);
+    }
+    const balance = await account_service_default.getAccountBalance(accountId);
+    return {
+      success: true,
+      data: balance,
+      message: "Balance obtenido exitosamente"
+    };
+  } catch (error) {
+    console.error("Error obteniendo balance:", error);
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError("Error interno del servidor", 500);
+  }
+}, {
+  params: t.Object({
+    id: t.String()
+  }),
+  response: ResponseSchema4,
+  detail: {
+    tags: ["accounts"],
+    summary: "Obtener balance actual de una cuenta"
+  }
+}).get("/:id/movements", async ({ params, query: query2, auth }) => {
+  try {
+    const userId = auth.type === "jwt" ? auth.user.id : auth.apiKeyInfo.userId;
+    const accountId = parseInt(params.id);
+    const page = parseInt(query2.page || "1");
+    const pageSize = parseInt(query2.pageSize || "20");
+    if (isNaN(accountId)) {
+      throw new ApiError("ID de cuenta inválido", 400);
+    }
+    const account = await account_service_default.getUserAccount(userId, accountId);
+    if (!account) {
+      throw new ApiError("Cuenta no encontrada o no tienes acceso", 404);
+    }
+    const offset = (page - 1) * pageSize;
+    const movements = await account_service_default.getAccountMovements(accountId, pageSize, offset);
+    return {
+      success: true,
+      data: movements,
+      pagination: {
+        page,
+        pageSize,
+        total: movements.length
+      },
+      message: "Movimientos obtenidos exitosamente"
+    };
+  } catch (error) {
+    console.error("Error obteniendo movimientos:", error);
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError("Error interno del servidor", 500);
+  }
+}, {
+  params: t.Object({
+    id: t.String()
+  }),
+  query: t.Object({
+    page: t.Optional(t.String()),
+    pageSize: t.Optional(t.String())
+  }),
+  response: ResponseSchema4,
+  detail: {
+    tags: ["accounts"],
+    summary: "Obtener historial de movimientos de una cuenta"
+  }
+}).post("/:id/movements", async ({ params, body, auth }) => {
+  try {
+    const userId = auth.type === "jwt" ? auth.user.id : auth.apiKeyInfo.userId;
+    const accountId = parseInt(params.id);
+    const { movementType, amount, description } = body;
+    if (isNaN(accountId)) {
+      throw new ApiError("ID de cuenta inválido", 400);
+    }
+    if (!movementType || !amount) {
+      throw new ApiError("Tipo de movimiento y monto son requeridos", 400);
+    }
+    const account = await account_service_default.getUserAccount(userId, accountId);
+    if (!account) {
+      throw new ApiError("Cuenta no encontrada o no tienes acceso", 404);
+    }
+    const movementId = await account_service_default.createAccountMovement(accountId, movementType, amount, description);
+    return {
+      success: true,
+      data: { movementId },
+      message: "Movimiento creado exitosamente"
+    };
+  } catch (error) {
+    console.error("Error creando movimiento:", error);
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError("Error interno del servidor", 500);
+  }
+}, {
+  params: t.Object({
+    id: t.String()
+  }),
+  body: t.Object({
+    movementType: t.String(),
+    amount: t.Number(),
+    description: t.Optional(t.String())
+  }),
+  response: ResponseSchema4,
+  detail: {
+    tags: ["accounts"],
+    summary: "Crear un nuevo movimiento en una cuenta"
+  }
+}).post("/:id/transfer", async ({ params, body, auth }) => {
+  try {
+    const userId = auth.type === "jwt" ? auth.user.id : auth.apiKeyInfo.userId;
+    const fromAccountId = parseInt(params.id);
+    const { toAccountId, amount, description } = body;
+    if (isNaN(fromAccountId) || isNaN(toAccountId)) {
+      throw new ApiError("IDs de cuenta inválidos", 400);
+    }
+    if (!amount || amount <= 0) {
+      throw new ApiError("Monto debe ser mayor a 0", 400);
+    }
+    const fromAccount = await account_service_default.getUserAccount(userId, fromAccountId);
+    if (!fromAccount) {
+      throw new ApiError("Cuenta origen no encontrada o no tienes acceso", 404);
+    }
+    const transferId = await account_service_default.transferBetweenAccounts(fromAccountId, toAccountId, amount, description);
+    return {
+      success: true,
+      data: { transferId },
+      message: "Transferencia realizada exitosamente"
+    };
+  } catch (error) {
+    console.error("Error realizando transferencia:", error);
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError("Error interno del servidor", 500);
+  }
+}, {
+  params: t.Object({
+    id: t.String()
+  }),
+  body: t.Object({
+    toAccountId: t.Number(),
+    amount: t.Number(),
+    description: t.Optional(t.String())
+  }),
+  response: ResponseSchema4,
+  detail: {
+    tags: ["accounts"],
+    summary: "Transferir dinero entre cuentas"
+  }
+});
+var accounts_routes_default = accountRoutes;
 
 // src/routes/index.ts
-var routes = new Elysia().use(health_routes_default).use(auth_routes_default).use(qr_routes_default).use(transactionsRoutes).use(usersRoutes).use(apiKeyRoutes).use(hooks_route_default);
+var routes = new Elysia({ prefix: "/api" }).use(publicRoutes).use(hooksRoutes).use(authRoutes).use(health_routes_default).use(qrRoutes).use(apiKeyRoutes).use(accounts_routes_default).use(usersRoutes);
 
 // src/scripts/seed-db.ts
 init_database();
@@ -45974,27 +39819,27 @@ async function seedDatabase() {
     await migrateAddApiBaseUrl2();
     console.log("Insertando roles predefinidos...");
     const superAdminRole = await query(`
-      INSERT INTO roles (name, description, permissions, is_system_role)
-      VALUES ('SUPER_ADMIN', 'Acceso total al sistema', '{"*": true}', true)
+      INSERT INTO roles (name, description, permissions)
+      VALUES ('admin', 'Administrador del sistema', '{"all": true}')
       ON CONFLICT (name) DO UPDATE SET 
-        description = 'Acceso total al sistema',
-        permissions = '{"*": true}'
+        description = 'Administrador del sistema',
+        permissions = '{"all": true}'
       RETURNING id
     `);
-    const companyAdminRole = await query(`
-      INSERT INTO roles (name, description, permissions, is_system_role)
-      VALUES ('COMPANY_ADMIN', 'Administrador de empresa', '{"users": {"create": true, "read": true, "update": true}, "qr_codes": {"create": true, "read": true, "update": true}, "transactions": {"read": true}, "reports": {"read": true}, "third_bank_credentials": {"read": true, "update": true}}', true)
+    const userRole = await query(`
+      INSERT INTO roles (name, description, permissions)
+      VALUES ('user', 'Usuario estándar', '{"basic": true}')
       ON CONFLICT (name) DO UPDATE SET 
-        description = 'Administrador de empresa',
-        permissions = '{"users": {"create": true, "read": true, "update": true}, "qr_codes": {"create": true, "read": true, "update": true}, "transactions": {"read": true}, "reports": {"read": true}, "third_bank_credentials": {"read": true, "update": true}}'
+        description = 'Usuario estándar',
+        permissions = '{"basic": true}'
       RETURNING id
     `);
-    const employeeRole = await query(`
-      INSERT INTO roles (name, description, permissions, is_system_role)
-      VALUES ('EMPLOYEE', 'Empleado con acceso limitado', '{"qr_codes": {"read": true}, "transactions": {"read": true}}', true)
+    const managerRole = await query(`
+      INSERT INTO roles (name, description, permissions)
+      VALUES ('manager', 'Gerente', '{"management": true}')
       ON CONFLICT (name) DO UPDATE SET 
-        description = 'Empleado con acceso limitado',
-        permissions = '{"qr_codes": {"read": true}, "transactions": {"read": true}}'
+        description = 'Gerente',
+        permissions = '{"management": true}'
       RETURNING id
     `);
     console.log("Roles insertados exitosamente");
@@ -46002,103 +39847,106 @@ async function seedDatabase() {
     const { setupBanecoCredentials: setupBanecoCredentials2 } = await Promise.resolve().then(() => (init_setup_bankeco_credentials(), exports_setup_bankeco_credentials));
     const { testCredential, prodCredential } = await setupBanecoCredentials2();
     console.log("Credenciales bancarias configuradas exitosamente");
-    console.log("Creando usuario SUPER_ADMIN...");
-    const superAdminData = {
+    console.log("Creando usuario administrador...");
+    const adminData = {
       email: "admin@pagui.com",
       password: "admin123",
       fullName: "Administrador del Sistema",
-      entityType: "individual",
-      identificationType: "CI",
-      identificationNumber: "12345678",
-      phoneNumber: "76543210",
-      phoneExtension: "123",
-      roleId: superAdminRole.rows[0].id,
-      isPrimaryUser: true,
-      bankCredentialId: prodCredential.id
+      phone: "76543210",
+      address: "La Paz, Bolivia",
+      roleId: superAdminRole.rows[0].id
     };
-    const superAdmin = await userService.createUser(superAdminData);
-    console.log(`Usuario SUPER_ADMIN creado con ID: ${superAdmin.id}`);
-    console.log("Creando empresa de ejemplo...");
-    const companyData = {
-      email: "empresa@example.com",
-      password: "empresa123",
-      fullName: "Empresa Demo S.A.",
-      businessId: "EMP001",
-      entityType: "company",
-      identificationType: "CI",
-      identificationNumber: "87654321",
-      phoneNumber: "65432109",
-      phoneExtension: "456",
-      address: "Av. Principal #123, La Paz",
-      roleId: companyAdminRole.rows[0].id,
-      isPrimaryUser: true,
-      bankCredentialId: prodCredential.id
+    const admin = await userService.createUser(adminData);
+    console.log(`Usuario administrador creado con ID: ${admin.id}`);
+    console.log("Creando usuario de ejemplo...");
+    const userData = {
+      email: "usuario@example.com",
+      password: "usuario123",
+      fullName: "Usuario Demo",
+      phone: "65432109",
+      address: "Santa Cruz, Bolivia",
+      roleId: userRole.rows[0].id
     };
-    const company = await userService.createUser(companyData);
-    console.log(`Empresa creada con ID: ${company.id}`);
-    console.log("Creando empleado de ejemplo...");
-    const employeeData = {
-      email: "empleado@example.com",
-      password: "empleado123",
-      fullName: "Empleado Demo",
-      entityType: "individual",
-      identificationType: "CI",
-      identificationNumber: "11111111",
-      phoneNumber: "55555555",
-      phoneExtension: "789",
-      roleId: employeeRole.rows[0].id,
-      isPrimaryUser: false,
-      parentUserId: company.id,
-      bankCredentialId: testCredential.id
+    const user = await userService.createUser(userData);
+    console.log(`Usuario creado con ID: ${user.id}`);
+    console.log("Creando usuario gerente...");
+    const managerData = {
+      email: "gerente@example.com",
+      password: "gerente123",
+      fullName: "Gerente Demo",
+      phone: "55555555",
+      address: "Cochabamba, Bolivia",
+      roleId: managerRole.rows[0].id
     };
-    const employee = await userService.createUser(employeeData);
-    console.log(`Empleado creado con ID: ${employee.id}`);
+    const manager = await userService.createUser(managerData);
+    console.log(`Gerente creado con ID: ${manager.id}`);
+    console.log("Creando cuentas bancarias...");
+    const adminAccount = await query(`
+      INSERT INTO accounts (account_number, account_type, currency, balance, available_balance, third_bank_credential_id)
+      VALUES ($1, 'business', 'BOB', 10000.00, 10000.00, $2)
+      RETURNING id
+    `, ["ADM001", prodCredential.id]);
+    const userAccount = await query(`
+      INSERT INTO accounts (account_number, account_type, currency, balance, available_balance, third_bank_credential_id)
+      VALUES ($1, 'current', 'BOB', 5000.00, 5000.00, $2)
+      RETURNING id
+    `, ["USR001", testCredential.id]);
+    const managerAccount = await query(`
+      INSERT INTO accounts (account_number, account_type, currency, balance, available_balance, third_bank_credential_id)
+      VALUES ($1, 'business', 'BOB', 7500.00, 7500.00, $2)
+      RETURNING id
+    `, ["MGR001", prodCredential.id]);
+    console.log("Cuentas bancarias creadas exitosamente");
+    console.log("Creando relaciones usuario-cuenta...");
+    await query(`
+      INSERT INTO user_accounts (user_id, account_id, role, is_primary)
+      VALUES ($1, $2, 'owner', true)
+    `, [admin.id, adminAccount.rows[0].id]);
+    await query(`
+      INSERT INTO user_accounts (user_id, account_id, role, is_primary)
+      VALUES ($1, $2, 'owner', true)
+    `, [user.id, userAccount.rows[0].id]);
+    await query(`
+      INSERT INTO user_accounts (user_id, account_id, role, is_primary)
+      VALUES ($1, $2, 'owner', true)
+    `, [manager.id, managerAccount.rows[0].id]);
+    console.log("Relaciones usuario-cuenta creadas exitosamente");
     console.log("Creando API key...");
     const apiKey = generateApiKey2();
-    const permissions = {
-      qr_codes: { create: true, read: true },
-      transactions: { read: true }
-    };
-    const expiresAt = new Date;
-    expiresAt.setFullYear(expiresAt.getFullYear() + 1);
     await query(`
-      INSERT INTO api_keys (api_key, description, user_id, created_by_user_id, permissions, expires_at, status)
-      VALUES ($1, 'API Key de demostración', $2, $3, $4, $5, 'active')
+      INSERT INTO api_keys (api_key, user_id, description, status)
+      VALUES ($1, $2, 'API Key de demostración', 'active')
       ON CONFLICT (api_key) DO NOTHING
-    `, [apiKey, company.id, company.id, JSON.stringify(permissions), expiresAt.toISOString()]);
+    `, [apiKey, user.id]);
     console.log(`API key generada: ${apiKey}`);
     console.log("Creando tokens de autenticación...");
-    const deviceInfos = [
+    const tokens = [
       {
-        ip: "192.168.1.100",
-        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        deviceType: "Desktop - Windows"
+        userId: admin.id,
+        token: generateApiKey2(),
+        expiresAt: new Date(Date.now() + 604800000)
       },
       {
-        ip: "192.168.1.101",
-        userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1",
-        deviceType: "Mobile - iOS"
+        userId: user.id,
+        token: generateApiKey2(),
+        expiresAt: new Date(Date.now() + 2592000000)
       }
     ];
-    for (const device of deviceInfos) {
+    for (const tokenData of tokens) {
       await query(`
-        INSERT INTO auth_tokens (
-          user_id, token_type, token, expires_at, ip_address, user_agent
-        ) VALUES ($1, 'REFRESH_TOKEN', $2, $3, $4, $5)
+        INSERT INTO auth_tokens (user_id, token, expires_at)
+        VALUES ($1, $2, $3)
         ON CONFLICT (token) DO NOTHING
-      `, [
-        company.id,
-        generateApiKey2(),
-        new Date(Date.now() + 2592000000).toISOString(),
-        device.ip,
-        device.userAgent
-      ]);
+      `, [tokenData.userId, tokenData.token, tokenData.expiresAt.toISOString()]);
     }
+    console.log("Tokens de autenticación creados exitosamente");
     console.log("✅ Seed de la base de datos completado exitosamente");
     console.log(`
 \uD83D\uDCCA Resumen del seed:`);
-    console.log(`- Roles: ${(superAdminRole.rowCount || 0) + (companyAdminRole.rowCount || 0) + (employeeRole.rowCount || 0)}`);
-    console.log(`- Usuarios: 3 (SUPER_ADMIN, Empresa, Empleado)`);
+    console.log(`- Roles: 3 (admin, user, manager)`);
+    console.log(`- Usuarios: 3 (Administrador, Usuario, Gerente)`);
+    console.log(`- Cuentas bancarias: 3`);
+    console.log(`- Relaciones usuario-cuenta: 3`);
     console.log(`- Credenciales bancarias: 2 (Test + Producción)`);
     console.log(`- API Keys: 1`);
     console.log(`- Tokens de autenticación: 2`);
@@ -46106,6 +39954,11 @@ async function seedDatabase() {
 \uD83C\uDFE6 Credenciales Bancarias:`);
     console.log(`- Test (ID: ${testCredential.id}): ${testCredential.accountNumber} - ${testCredential.username}`);
     console.log(`- Producción (ID: ${prodCredential.id}): ${prodCredential.accountNumber} - ${prodCredential.username}`);
+    console.log(`
+\uD83D\uDCB0 Cuentas Bancarias:`);
+    console.log(`- Administrador: ${adminAccount.rows[0].id} (ADM001) - BOB 10,000.00`);
+    console.log(`- Usuario: ${userAccount.rows[0].id} (USR001) - BOB 5,000.00`);
+    console.log(`- Gerente: ${managerAccount.rows[0].id} (MGR001) - BOB 7,500.00`);
   } catch (error) {
     console.error("❌ Error durante el seed:", error);
     throw error;
@@ -46123,11 +39976,6 @@ if (false) {}
 
 // src/index.ts
 init_error();
-
-// src/routes/public.routes.ts
-var publicRoutes = new Elysia().use(health_routes_default);
-
-// src/index.ts
 var PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 var app = new Elysia().use(swagger({
   documentation: {
@@ -46142,8 +39990,7 @@ var app = new Elysia().use(swagger({
       { name: "admin", description: "Endpoints de administración" },
       { name: "companies", description: "Endpoints para gestión de empresas" },
       { name: "banks", description: "Endpoints para gestión de bancos" },
-      { name: "api-keys", description: "Endpoints para gestión de API keys" },
-      { name: "transactions", description: "Endpoints para gestión de transacciones" }
+      { name: "api-keys", description: "Endpoints para gestión de API keys" }
     ]
   },
   provider: "swagger-ui"

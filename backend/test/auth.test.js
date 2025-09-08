@@ -26,17 +26,18 @@ describe("Autenticación", () => {
     
     expect(result.success).toBe(true);
     expect(result.data).toHaveProperty("user");
-    expect(result.data).toHaveProperty("accessToken");
+    expect(result.data).toHaveProperty("auth");
+    expect(result.data).toHaveProperty("accounts");
     expect(result.data.user).toHaveProperty("email");
     expect(result.data.user.email).toBe(TEST_CREDENTIALS.email);
+    expect(result.data.auth).toHaveProperty("accessToken");
     
     // Verificar que el usuario tiene cuentas
-    expect(result.data.user).toHaveProperty("accounts");
-    expect(Array.isArray(result.data.user.accounts)).toBe(true);
-    expect(result.data.user.accounts.length).toBeGreaterThan(0);
+    expect(Array.isArray(result.data.accounts)).toBe(true);
+    expect(result.data.accounts.length).toBeGreaterThan(0);
     
     // Verificar estructura de la primera cuenta
-    const firstAccount = result.data.user.accounts[0];
+    const firstAccount = result.data.accounts[0];
     expect(firstAccount).toHaveProperty("id");
     expect(firstAccount).toHaveProperty("accountNumber");
     expect(firstAccount).toHaveProperty("accountType");
@@ -51,7 +52,7 @@ describe("Autenticación", () => {
     expect(firstAccount.currency).toBe("BOB");
     
     // Guardar el token para las demás pruebas
-    authToken = result.data.accessToken;
+    authToken = result.data.auth.accessToken;
     expect(authToken).toBeTruthy();
   });
 
@@ -120,7 +121,7 @@ describe("Autenticación", () => {
     expect(loginResponse.status).toBe(200);
     const loginResult = await loginResponse.json();
     
-    const token = loginResult.data.accessToken;
+    const token = loginResult.data.auth.accessToken;
     
     // Verificar que el token tiene el formato correcto (3 partes separadas por puntos)
     const tokenParts = token.split('.');
@@ -145,7 +146,7 @@ describe("Autenticación", () => {
     expect(response.status).toBe(200);
     const result = await response.json();
     
-    const accounts = result.data.user.accounts;
+    const accounts = result.data.accounts;
     expect(accounts.length).toBeGreaterThan(0);
     
     // Verificar que cada cuenta tiene información financiera válida

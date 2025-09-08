@@ -168,7 +168,25 @@ class QrService {
         qrData.singleUse !== false,
         qrData.modifyAmount || false
       ]);
-      return await this.getByQrId(qrResponse.qrId);
+
+      const qrDetails = await this.getByQrId(qrResponse.qrId);
+
+      // Agregar trabajo de sincronización a la cola
+      try {
+        const paymentQueueService = await import('./payment-queue.service');
+        await paymentQueueService.default.addPaymentSyncJob({
+          qrId: qrResponse.qrId,
+          accountId: accountId,
+          priority: 'high', // Alta prioridad para QRs nuevos
+          delay: 0 // Sin delay, verificar inmediatamente
+        });
+        console.log(`📋 Trabajo de sincronización agregado para QR: ${qrResponse.qrId}`);
+      } catch (queueError) {
+        console.error('Error agregando trabajo a la cola:', queueError);
+        // No fallar la creación del QR si hay error en la cola
+      }
+
+      return qrDetails;
 
     } catch (error) {
       // Activity logging removed

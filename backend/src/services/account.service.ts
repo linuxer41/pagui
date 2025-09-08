@@ -1,4 +1,5 @@
 import { pool, query } from '../config/database';
+import { AccountNumberService } from './account-number.service';
 
 export interface Account {
   id: number;
@@ -57,11 +58,8 @@ export interface AccountMovement {
   accountId: number;
   movementType: string;
   amount: number;
-  balanceBefore: number;
-  balanceAfter: number;
   description: string;
-  referenceId: string;
-  referenceType: string;
+  reference: string;
   createdAt: Date;
 }
 
@@ -232,6 +230,31 @@ class AccountService {
   }
 
   /**
+   * Crear una nueva cuenta con número generado automáticamente
+   */
+  async createAccountWithGeneratedNumber(
+    accountType: string,
+    currency: string,
+    balance: number = 0,
+    availableBalance: number = 0,
+    thirdBankCredentialId?: number
+  ): Promise<Account> {
+    // Generar número de cuenta único desde la base de datos
+    const accountNumber = await AccountNumberService.generateAccountNumber(accountType);
+    
+    console.log(`🏦 Número de cuenta generado: ${accountNumber} (${accountType})`);
+    
+    return this.createAccount(
+      accountNumber,
+      accountType,
+      currency,
+      balance,
+      availableBalance,
+      thirdBankCredentialId
+    );
+  }
+
+  /**
    * Asociar un usuario a una cuenta
    */
   async associateUserToAccount(
@@ -359,9 +382,8 @@ class AccountService {
         am.movement_type as "movementType",
         am.amount,
         am.description,
-        am.reference,
-        am.created_at as "createdAt",
-        am.updated_at as "updatedAt"
+        am.reference_id as "reference",
+        am.created_at as "createdAt"
       FROM account_movements am
       WHERE am.account_id = $1 
         AND am.deleted_at IS NULL
@@ -376,8 +398,7 @@ class AccountService {
       amount: parseFloat(row.amount),
       description: row.description,
       reference: row.reference,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt
+      createdAt: row.createdAt
     }));
 
     return {

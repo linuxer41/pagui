@@ -1,5 +1,6 @@
 import { query } from '../config/database';
 import { userService } from '../services/user.service';
+import { AccountNumberService } from '../services/account-number.service';
 
 export async function seedDatabase() {
   try {
@@ -42,7 +43,7 @@ export async function seedDatabase() {
     
     // Usar el script de setup de Baneco que ya maneja la eliminación de credenciales existentes
     const { setupBanecoCredentials } = await import('./setup-bankeco-credentials');
-    const { testCredential, prodCredential } = await setupBanecoCredentials();
+    const { testCredential, prodCredential, iathingsCredential } = await setupBanecoCredentials();
     
     console.log('Credenciales bancarias configuradas exitosamente');
     
@@ -91,29 +92,64 @@ export async function seedDatabase() {
     const manager = await userService.createUser(managerData);
     console.log(`Gerente creado con ID: ${manager.id}`);
     
+    // 5.1. Crear usuario IATHINGS
+    console.log('Creando usuario IATHINGS...');
+    
+    const iathingsUserData = {
+      email: 'iathings@example.com',
+      password: 'iathings123',
+      fullName: 'IATHINGS EMPRESARIAL',
+      phone: '77777777',
+      address: 'La Paz, Bolivia',
+      roleId: managerRole.rows[0].id
+    };
+    
+    const iathingsUser = await userService.createUser(iathingsUserData);
+    console.log(`Usuario IATHINGS creado con ID: ${iathingsUser.id}`);
+    
     // 6. Crear cuentas bancarias para los usuarios
     console.log('Creando cuentas bancarias...');
+    
+    // Usar números de cuenta fijos para el seed
+    console.log('Usando números de cuenta predefinidos para el seed...');
+    const adminAccountNumber = '100013101'; // Business - Administrador
+    const userAccountNumber = '100011102';  // Current - Usuario
+    const managerAccountNumber = '100013103'; // Business - Gerente
+    const iathingsAccountNumber = '100013104'; // Business - IATHINGS
+    
+    console.log(`   - Administrador: ${adminAccountNumber}`);
+    console.log(`   - Usuario: ${userAccountNumber}`);
+    console.log(`   - Gerente: ${managerAccountNumber}`);
+    console.log(`   - IATHINGS: ${iathingsAccountNumber}`);
+    
     
     // Cuenta para el administrador
     const adminAccount = await query(`
       INSERT INTO accounts (account_number, account_type, currency, balance, available_balance, third_bank_credential_id)
       VALUES ($1, 'business', 'BOB', 10000.00, 10000.00, $2)
       RETURNING id
-    `, ['ADM001', prodCredential.id]);
+    `, [adminAccountNumber, prodCredential.id]);
     
     // Cuenta para el usuario
     const userAccount = await query(`
       INSERT INTO accounts (account_number, account_type, currency, balance, available_balance, third_bank_credential_id)
       VALUES ($1, 'current', 'BOB', 5000.00, 5000.00, $2)
       RETURNING id
-    `, ['USR001', testCredential.id]);
+    `, [userAccountNumber, testCredential.id]);
     
     // Cuenta para el gerente
     const managerAccount = await query(`
       INSERT INTO accounts (account_number, account_type, currency, balance, available_balance, third_bank_credential_id)
       VALUES ($1, 'business', 'BOB', 7500.00, 7500.00, $2)
       RETURNING id
-    `, ['MGR001', prodCredential.id]);
+    `, [managerAccountNumber, prodCredential.id]);
+    
+    // Cuenta para IATHINGS
+    const iathingsAccount = await query(`
+      INSERT INTO accounts (account_number, account_type, currency, balance, available_balance, third_bank_credential_id)
+      VALUES ($1, 'business', 'BOB', 15000.00, 15000.00, $2)
+      RETURNING id
+    `, [iathingsAccountNumber, iathingsCredential.id]);
     
     console.log('Cuentas bancarias creadas exitosamente');
     
@@ -134,6 +170,11 @@ export async function seedDatabase() {
       INSERT INTO user_accounts (user_id, account_id, role, is_primary)
       VALUES ($1, $2, 'owner', true)
     `, [manager.id, managerAccount.rows[0].id]);
+    
+    await query(`
+      INSERT INTO user_accounts (user_id, account_id, role, is_primary)
+      VALUES ($1, $2, 'owner', true)
+    `, [iathingsUser.id, iathingsAccount.rows[0].id]);
     
     console.log('Relaciones usuario-cuenta creadas exitosamente');
     
@@ -181,10 +222,10 @@ export async function seedDatabase() {
     // Resumen de lo creado
     console.log('\n📊 Resumen del seed:');
     console.log(`- Roles: 3 (admin, user, manager)`);
-    console.log(`- Usuarios: 3 (Administrador, Usuario, Gerente)`);
-    console.log(`- Cuentas bancarias: 3`);
-    console.log(`- Relaciones usuario-cuenta: 3`);
-    console.log(`- Credenciales bancarias: 2 (Test + Producción)`);
+    console.log(`- Usuarios: 4 (Administrador, Usuario, Gerente, IATHINGS)`);
+    console.log(`- Cuentas bancarias: 4`);
+    console.log(`- Relaciones usuario-cuenta: 4`);
+    console.log(`- Credenciales bancarias: 3 (Test + Producción + IATHINGS)`);
     console.log(`- API Keys: 1`);
     console.log(`- Tokens de autenticación: 2`);
     
@@ -192,12 +233,14 @@ export async function seedDatabase() {
     console.log('\n🏦 Credenciales Bancarias:');
     console.log(`- Test (ID: ${testCredential.id}): ${testCredential.accountNumber} - ${testCredential.username}`);
     console.log(`- Producción (ID: ${prodCredential.id}): ${prodCredential.accountNumber} - ${prodCredential.username}`);
+    console.log(`- IATHINGS (ID: ${iathingsCredential.id}): ${iathingsCredential.accountNumber} - ${iathingsCredential.username}`);
     
     // Mostrar información de las cuentas
-    console.log('\n💰 Cuentas Bancarias:');
-    console.log(`- Administrador: ${adminAccount.rows[0].id} (ADM001) - BOB 10,000.00`);
-    console.log(`- Usuario: ${userAccount.rows[0].id} (USR001) - BOB 5,000.00`);
-    console.log(`- Gerente: ${managerAccount.rows[0].id} (MGR001) - BOB 7,500.00`);
+    console.log('\n💰 Cuentas del Sistema:');
+    console.log(`- Administrador: ${adminAccount.rows[0].id} (${adminAccountNumber}) - BOB 10,000.00`);
+    console.log(`- Usuario: ${userAccount.rows[0].id} (${userAccountNumber}) - BOB 5,000.00`);
+    console.log(`- Gerente: ${managerAccount.rows[0].id} (${managerAccountNumber}) - BOB 7,500.00`);
+    console.log(`- IATHINGS: ${iathingsAccount.rows[0].id} (${iathingsAccountNumber}) - BOB 15,000.00`);
     
   } catch (error) {
     console.error('❌ Error durante el seed:', error);

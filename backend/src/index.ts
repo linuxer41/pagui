@@ -13,6 +13,9 @@ import { routes } from './routes';
 import { seedDatabase } from './scripts/seed-db';
 import { ApiError } from './utils/error';
 
+// Servicios
+import paymentQueueService from './services/payment-queue.service';
+
 // Variables de entorno
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
@@ -124,13 +127,18 @@ async function start() {
     
     // Flujo normal de inicio del servidor (sin argumentos específicos)
     if (!command) {
-      // Iniciar tareas programadas
-      // initScheduledTasks();
+      // Iniciar sistema de colas de sincronización de pagos
+      console.log(`🔄 Iniciando sistema de colas de sincronización de pagos...`);
+      
+      // Agregar trabajo de limpieza diaria
+      await paymentQueueService.addCleanupJob({ olderThanDays: 7 });
+      console.log(`🧹 Trabajo de limpieza diaria programado`);
       
       // Iniciar servidor
       app.listen(PORT);
       console.log(`🚀 Servidor iniciado en http://localhost:${PORT}`);
       console.log(`📚 Documentación de la API disponible en http://localhost:${PORT}/swagger`);
+      console.log(`🔄 Sistema de colas de pagos activo`);
     } else {
       console.log(`❌ Comando desconocido: ${command}`);
       console.log('Comandos disponibles: init-db, seed');
@@ -141,6 +149,21 @@ async function start() {
     process.exit(1);
   }
 }
+
+// Manejar shutdown graceful
+process.on('SIGINT', async () => {
+  console.log('\n🛑 Recibida señal SIGINT, cerrando aplicación...');
+  await paymentQueueService.close();
+  console.log('✅ Sistema de colas cerrado');
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('\n🛑 Recibida señal SIGTERM, cerrando aplicación...');
+  await paymentQueueService.close();
+  console.log('✅ Sistema de colas cerrado');
+  process.exit(0);
+});
 
 start();
 

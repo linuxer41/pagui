@@ -162,8 +162,6 @@ export class BankCredentialsService {
         WHERE bc.id = $1 AND bc.deleted_at IS NULL
       `, [id]);
       
-      console.log('result',result.rows);
-      
       const credential = result.rows[0];
       if (!credential) {
         throw new ApiError('Credenciales no encontradas', 404);

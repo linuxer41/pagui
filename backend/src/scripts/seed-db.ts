@@ -126,28 +126,28 @@ export async function seedDatabase() {
     // Cuenta para el administrador
     const adminAccount = await query(`
       INSERT INTO accounts (account_number, account_type, currency, balance, available_balance, third_bank_credential_id)
-      VALUES ($1, 'business', 'BOB', 10000.00, 10000.00, $2)
+      VALUES ($1, 'business', 'BOB', 0.00, 0.00, $2)
       RETURNING id
     `, [adminAccountNumber, prodCredential.id]);
     
     // Cuenta para el usuario
     const userAccount = await query(`
       INSERT INTO accounts (account_number, account_type, currency, balance, available_balance, third_bank_credential_id)
-      VALUES ($1, 'current', 'BOB', 5000.00, 5000.00, $2)
+      VALUES ($1, 'current', 'BOB', 0.00, 0.00, $2)
       RETURNING id
     `, [userAccountNumber, testCredential.id]);
     
     // Cuenta para el gerente
     const managerAccount = await query(`
       INSERT INTO accounts (account_number, account_type, currency, balance, available_balance, third_bank_credential_id)
-      VALUES ($1, 'business', 'BOB', 7500.00, 7500.00, $2)
+      VALUES ($1, 'business', 'BOB', 0.00, 0.00, $2)
       RETURNING id
     `, [managerAccountNumber, prodCredential.id]);
     
     // Cuenta para IATHINGS
     const iathingsAccount = await query(`
       INSERT INTO accounts (account_number, account_type, currency, balance, available_balance, third_bank_credential_id)
-      VALUES ($1, 'business', 'BOB', 15000.00, 15000.00, $2)
+      VALUES ($1, 'business', 'BOB', 0.00, 0.00, $2)
       RETURNING id
     `, [iathingsAccountNumber, iathingsCredential.id]);
     
@@ -237,10 +237,10 @@ export async function seedDatabase() {
     
     // Mostrar información de las cuentas
     console.log('\n💰 Cuentas del Sistema:');
-    console.log(`- Administrador: ${adminAccount.rows[0].id} (${adminAccountNumber}) - BOB 10,000.00`);
-    console.log(`- Usuario: ${userAccount.rows[0].id} (${userAccountNumber}) - BOB 5,000.00`);
-    console.log(`- Gerente: ${managerAccount.rows[0].id} (${managerAccountNumber}) - BOB 7,500.00`);
-    console.log(`- IATHINGS: ${iathingsAccount.rows[0].id} (${iathingsAccountNumber}) - BOB 15,000.00`);
+    console.log(`- Administrador: ${adminAccount.rows[0].id} (${adminAccountNumber}) - BOB 0.00`);
+    console.log(`- Usuario: ${userAccount.rows[0].id} (${userAccountNumber}) - BOB 0.00`);
+    console.log(`- Gerente: ${managerAccount.rows[0].id} (${managerAccountNumber}) - BOB 0.00`);
+    console.log(`- IATHINGS: ${iathingsAccount.rows[0].id} (${iathingsAccountNumber}) - BOB 0.00`);
     
   } catch (error) {
     console.error('❌ Error durante el seed:', error);

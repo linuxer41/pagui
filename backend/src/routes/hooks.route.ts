@@ -7,11 +7,12 @@ import { ApiError } from '../utils/error';
 export const hooksRoutes = new Elysia({ prefix: '/hooks' })
 
   // Hook específico para Baneco (usando la misma funcionalidad de notificación)
-  .post('/baneco/notifyPayment', async ({ body, request, headers,  }) => {
+  .post('/baneco/notifyPayment', async ({ body, request, headers, params }) => {
     try {
       console.log('request notifyPayment',request,);
       console.log('body notifyPayment',body, );
       console.log('headers notifyPayment',headers, );
+      console.log('params notifyPayment',params, );
       await qrService.banecoQRNotify(body);
       
       // Respuesta exitosa
@@ -21,9 +22,10 @@ export const hooksRoutes = new Elysia({ prefix: '/hooks' })
       }, );
       return {
         responseCode: 0,
-        message: ""
+        message: "Notificación de pago procesada exitosamente"
       };
     } catch (error) {
+      console.error(error);
       // En caso de error, se devuelve un código diferente de cero
       console.log('response notifyPayment',{
         responseCode: 1,

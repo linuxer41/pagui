@@ -5,6 +5,7 @@ import { BANECO_NotifyPaymentQRRequestSchema, BANECO_NotifyPaymentQRResponseSche
 import { QRRequest } from '../schemas/qr.schemas';
 import { ApiError } from '../utils/error';
 import { bankCredentialsService, BankCredentialsService } from './bank-credentials.service';
+import accountService from './account.service';
 
 // Solo Banco Económico
 const BANCO_ECONOMICO_ID = 1;
@@ -438,35 +439,25 @@ class QrService {
             }
             
             const account = accountQuery.rows[0];
-            const currentBalance = parseFloat(account.balance);
-            const newBalance = currentBalance + parseFloat(banecoPayment.amount);
             
-            // Insertar nuevo movimiento de cuenta
-            await query(`
-              INSERT INTO account_movements (
-                account_id, movement_type, amount, balance_before, balance_after,
-                description, qr_id, sender_name, reference_id, reference_type, status
-              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-            `, [
-              account.id,
-              'qr_payment',
-              banecoPayment.amount,
-              currentBalance,
-              newBalance,
-              banecoPayment.description || 'Pago QR recibido',
-              qrId,
-              banecoPayment.senderName,
-              banecoPayment.transactionId,
-              'qr_payment',
-              'completed'
-            ]);
-            
-            // Actualizar balance de la cuenta
-            await query(`
-              UPDATE accounts 
-              SET balance = $1, available_balance = $1, updated_at = CURRENT_TIMESTAMP
-              WHERE id = $2
-            `, [newBalance, account.id]);
+            // Crear movimiento de cuenta usando el nuevo método con validación de duplicados
+            await accountService.createAccountMovement({
+              accountId: account.id,
+              movementType: 'qr_payment',
+              amount: parseFloat(banecoPayment.amount),
+              description: banecoPayment.description || 'Pago QR recibido',
+              qrId: qrId,
+              transactionId: banecoPayment.transactionId,
+              paymentDate: banecoPayment.paymentDate ? new Date(banecoPayment.paymentDate) : undefined,
+              paymentTime: banecoPayment.paymentTime,
+              currency: banecoPayment.currency,
+              senderName: banecoPayment.senderName,
+              senderDocumentId: banecoPayment.senderDocumentId,
+              senderAccount: banecoPayment.senderAccount,
+              senderBankCode: banecoPayment.senderBankCode,
+              referenceId: banecoPayment.transactionId,
+              referenceType: 'qr_payment'
+            });
             
             console.log(`✅ getQRDetails: Pago ${banecoPayment.transactionId} insertado`);
           }
@@ -792,12 +783,9 @@ class QrService {
       throw new ApiError('QR no está activo para pago', 400);
     }
 
-    // Solo Banco Económico
-    const bankId = BANCO_ECONOMICO_ID;
 
     // Extraer datos del pago de la notificación
     const payment = data.payment;
-    const paymentDate = new Date(payment.paymentDate);
 
     // create db transaction to update qr and payment
     const client = await pool.connect();
@@ -830,35 +818,25 @@ class QrService {
         }
         
         const account = accountQuery.rows[0];
-        const currentBalance = parseFloat(account.balance);
-        const newBalance = currentBalance + parseFloat(payment.amount.toString());
         
-        // Insertar nuevo movimiento de cuenta
-        await client.query(`
-          INSERT INTO account_movements (
-            account_id, movement_type, amount, balance_before, balance_after,
-            description, qr_id, sender_name, reference_id, reference_type, status
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-        `, [
-          account.id,
-          'qr_payment',
-          payment.amount.toString(),
-          currentBalance,
-          newBalance,
-          payment.description || 'Pago QR recibido',
-          payment.qrId,
-          payment.senderName,
-          payment.transactionId,
-          'qr_payment',
-          'completed'
-        ]);
-        
-        // Actualizar balance de la cuenta
-        await client.query(`
-          UPDATE accounts 
-          SET balance = $1, available_balance = $1, updated_at = CURRENT_TIMESTAMP
-          WHERE id = $2
-        `, [newBalance, account.id]);
+        // Crear movimiento de cuenta usando el nuevo método con validación de duplicados
+        await accountService.createAccountMovement({
+          accountId: account.id,
+          movementType: 'qr_payment',
+          amount: parseFloat(payment.amount.toString()),
+          description: payment.description || 'Pago QR recibido',
+          qrId: payment.qrId,
+          transactionId: payment.transactionId,
+          paymentDate: payment.paymentDate ? new Date(payment.paymentDate) : undefined,
+          paymentTime: payment.paymentTime,
+          currency: payment.currency,
+          senderName: payment.senderName,
+          senderDocumentId: payment.senderDocumentId,
+          senderAccount: payment.senderAccount,
+          senderBankCode: payment.senderBankCode,
+          referenceId: payment.transactionId,
+          referenceType: 'qr_payment'
+        });
       }
       
       await client.query('COMMIT');

@@ -41,8 +41,6 @@ export const qrRoutes = new Elysia({ prefix: '/qr' })
       if (userAccounts.length === 0) {
       throw new ApiError('Usuario no tiene cuentas asociadas', 400);
     }
-
-    console.log('userAccounts',userAccounts);
     
     const primaryAccount = userAccounts.find(acc => acc.isPrimary) || userAccounts[0];
     const accountId = primaryAccount.id;

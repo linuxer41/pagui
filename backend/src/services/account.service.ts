@@ -61,6 +61,19 @@ export interface AccountMovement {
   description: string;
   reference: string;
   createdAt: Date;
+  
+  // Campos específicos para QR payments
+  qrId?: string;
+  transactionId?: string;
+  paymentDate?: Date;
+  paymentTime?: string;
+  currency?: string;
+  
+  // Información del remitente
+  senderName?: string;
+  senderDocumentId?: string;
+  senderAccount?: string;
+  senderBankCode?: string;
 }
 
 class AccountService {
@@ -383,7 +396,16 @@ class AccountService {
         am.amount,
         am.description,
         am.reference_id as "reference",
-        am.created_at as "createdAt"
+        am.created_at as "createdAt",
+        am.qr_id as "qrId",
+        am.transaction_id as "transactionId",
+        am.payment_date as "paymentDate",
+        am.payment_time as "paymentTime",
+        am.currency,
+        am.sender_name as "senderName",
+        am.sender_document_id as "senderDocumentId",
+        am.sender_account as "senderAccount",
+        am.sender_bank_code as "senderBankCode"
       FROM account_movements am
       WHERE am.account_id = $1 
         AND am.deleted_at IS NULL
@@ -398,7 +420,16 @@ class AccountService {
       amount: parseFloat(row.amount),
       description: row.description,
       reference: row.reference,
-      createdAt: row.createdAt
+      createdAt: row.createdAt,
+      qrId: row.qrId,
+      transactionId: row.transactionId,
+      paymentDate: row.paymentDate,
+      paymentTime: row.paymentTime,
+      currency: row.currency,
+      senderName: row.senderName,
+      senderDocumentId: row.senderDocumentId,
+      senderAccount: row.senderAccount,
+      senderBankCode: row.senderBankCode
     }));
 
     return {
@@ -435,6 +466,95 @@ class AccountService {
       return currentAmount > 0 ? 100 : 0;
     }
     return Math.round(((currentAmount - previousAmount) / previousAmount) * 100 * 10) / 10;
+  }
+
+  /**
+   * Crear un movimiento de cuenta con validación de duplicados por transaction_id
+   */
+  async createAccountMovement(data: {
+    accountId: number;
+    movementType: string;
+    amount: number;
+    description: string;
+    qrId?: string;
+    transactionId?: string;
+    paymentDate?: Date;
+    paymentTime?: string;
+    currency?: string;
+    senderName?: string;
+    senderDocumentId?: string;
+    senderAccount?: string;
+    senderBankCode?: string;
+    referenceId?: string;
+    referenceType?: string;
+  }): Promise<void> {
+    // Verificar si ya existe un movimiento con el mismo transaction_id
+    if (data.transactionId) {
+      const existingMovement = await query(`
+        SELECT id FROM account_movements 
+        WHERE transaction_id = $1 AND deleted_at IS NULL
+      `, [data.transactionId]);
+
+      if (existingMovement.rowCount && existingMovement.rowCount > 0) {
+        console.log(`⚠️ Movimiento duplicado ignorado - transaction_id: ${data.transactionId}`);
+        return; // Ignorar el movimiento duplicado
+      }
+    }
+
+    // Obtener el balance actual de la cuenta
+    const accountResult = await query(`
+      SELECT balance, available_balance 
+      FROM accounts 
+      WHERE id = $1 AND deleted_at IS NULL
+    `, [data.accountId]);
+
+    if (accountResult.rowCount === 0) {
+      throw new Error('Cuenta no encontrada');
+    }
+
+    const currentBalance = parseFloat(accountResult.rows[0].balance);
+    const currentAvailableBalance = parseFloat(accountResult.rows[0].available_balance);
+    const newBalance = currentBalance + data.amount;
+    const newAvailableBalance = currentAvailableBalance + data.amount;
+
+    // Insertar el movimiento
+    await query(`
+      INSERT INTO account_movements (
+        account_id, movement_type, amount, balance_before, balance_after,
+        description, qr_id, transaction_id, payment_date, payment_time, currency,
+        sender_name, sender_document_id, sender_account, sender_bank_code,
+        reference_id, reference_type
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+      )
+    `, [
+      data.accountId,
+      data.movementType,
+      data.amount,
+      currentBalance,
+      newBalance,
+      data.description,
+      data.qrId,
+      data.transactionId,
+      data.paymentDate,
+      data.paymentTime,
+      data.currency || 'BOB',
+      data.senderName,
+      data.senderDocumentId,
+      data.senderAccount,
+      data.senderBankCode,
+      data.referenceId,
+      data.referenceType
+    ]);
+
+    // Actualizar el balance de la cuenta
+    await query(`
+      UPDATE accounts 
+      SET balance = $1, available_balance = $2, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $3
+    `, [newBalance, newAvailableBalance, data.accountId]);
+
+    console.log(`💰 Movimiento creado: ${data.movementType} - ${data.amount} BOB - Cuenta: ${data.accountId}`);
   }
 }
 

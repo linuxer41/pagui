@@ -111,9 +111,18 @@ CREATE TABLE account_movements (
   balance_after DECIMAL(15, 2) NOT NULL,
   description TEXT,
   
-  -- Campos específicos para QR payments
+  -- Campos específicos para QR payments (notificación de pago)
   qr_id VARCHAR(50),
+  transaction_id VARCHAR(100) UNIQUE, -- ID único de la transacción del banco
+  payment_date TIMESTAMPTZ, -- Fecha del pago
+  payment_time TIME, -- Hora del pago
+  currency VARCHAR(3) DEFAULT 'BOB', -- Moneda del pago
+  
+  -- Información del remitente
   sender_name VARCHAR(255),
+  sender_document_id VARCHAR(50),
+  sender_account VARCHAR(50),
+  sender_bank_code VARCHAR(20),
   
   -- Campos genéricos para referencias
   reference_id VARCHAR(100),
@@ -144,6 +153,7 @@ CREATE TABLE qr_codes (
   modify_amount BOOLEAN NOT NULL DEFAULT false,
   status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'used', 'expired', 'cancelled')),
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   deleted_at TIMESTAMPTZ
 );
 

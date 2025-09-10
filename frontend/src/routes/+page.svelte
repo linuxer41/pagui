@@ -11,12 +11,17 @@
       ClipboardList,
       Clock,
       QrCode,
-      RefreshCw
+      RefreshCw,
+      Wifi,
+      WifiOff,
+      AlertCircle
   } from '@lucide/svelte';
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { cubicOut } from 'svelte/easing';
   import { tweened } from 'svelte/motion';
   import { fade, fly, scale } from 'svelte/transition';
+  import { onSSEEvent, sseConnection, reconnectSSE } from '$lib/services/sseService';
+  import NotificationToast from '$lib/components/NotificationToast.svelte';
 
   
   // Datos de la billetera
@@ -104,6 +109,13 @@
   let allAccounts: any[] = [];
   let selectedAccountId: string = '';
   let accountMovements: any[] = [];
+  
+  // Modal state
+  let showMovementModal = false;
+  let selectedMovement: any = null;
+
+  // Variables para manejar eventos SSE
+  let unsubscribeSSEEvents: (() => void)[] = [];
 
   // Verificar autenticación y cargar datos
   onMount(async () => {
@@ -119,7 +131,54 @@
     } finally {
       loading = false;
     }
+
+    // Configurar listeners de eventos SSE
+    setupSSEListeners();
   });
+
+  // Limpiar listeners al destruir el componente
+  onDestroy(() => {
+    unsubscribeSSEEvents.forEach(unsubscribe => unsubscribe());
+  });
+
+  // Configurar listeners de eventos SSE
+  function setupSSEListeners() {
+    // Escuchar eventos de pago QR
+    const unsubscribePayment = onSSEEvent('qr_payment', (data) => {
+      console.log('Pago recibido en página principal:', data);
+      
+      // Actualizar balance si es de la cuenta actual
+      if (currentAccount && data.currency === wallet.currency) {
+        wallet.balance += data.amount;
+      }
+      
+      // Recargar estadísticas para obtener movimientos actualizados
+      loadAccountStats();
+    });
+
+    // Escuchar eventos de actualización de balance
+    const unsubscribeBalance = onSSEEvent('account_balance_update', (data) => {
+      console.log('Balance actualizado en página principal:', data);
+      
+      // Actualizar balance si es de la cuenta actual
+      if (currentAccount && data.accountId === currentAccount.id) {
+        wallet.balance = data.newAvailableBalance;
+      }
+      
+      // Recargar estadísticas para obtener movimientos actualizados
+      loadAccountStats();
+    });
+
+    // Escuchar eventos de cambio de estado de QR
+    const unsubscribeQRStatus = onSSEEvent('qr_status_change', (data) => {
+      console.log('Estado de QR cambiado en página principal:', data);
+      
+      // Recargar estadísticas si es relevante
+      loadAccountStats();
+    });
+
+    unsubscribeSSEEvents = [unsubscribePayment, unsubscribeBalance, unsubscribeQRStatus];
+  }
 
 
 
@@ -129,6 +188,22 @@
 
   function handleVerPagos() {
     goto('/transactions');
+  }
+  
+  // Función para abrir el modal de detalles del movimiento
+  function openMovementModal(movement: any) {
+    selectedMovement = movement;
+    showMovementModal = true;
+  }
+  
+  // Función para cerrar el modal
+  function closeMovementModal() {
+    showMovementModal = false;
+    selectedMovement = null;
+  }
+
+  function handleReconnectSSE() {
+    reconnectSSE();
   }
   
   // Formatear fecha para mostrar de forma amigable
@@ -241,6 +316,28 @@
             {currentAccount.accountNumber}
           </div>
         {/if}
+        
+        <!-- Indicador de estado de conexión SSE - Integrado en wallet -->
+        <div class="sse-status-indicator">
+          {#if $sseConnection.isConnected}
+            <div class="status-dot connected" title="Notificaciones en tiempo real activas">
+              <Wifi size={8} />
+            </div>
+          {:else if $sseConnection.isConnecting}
+            <div class="status-dot connecting" title="Conectando...">
+              <RefreshCw size={8} class="spinning" />
+            </div>
+          {:else if $sseConnection.error}
+            <div class="status-dot error" title="{$sseConnection.error} - Click para reconectar" on:click={handleReconnectSSE}>
+              <WifiOff size={8} />
+            </div>
+          {:else}
+            <div class="status-dot disconnected" title="Desconectado">
+              <AlertCircle size={8} />
+            </div>
+          {/if}
+        </div>
+        
       </div>
     {/if}
 
@@ -350,19 +447,18 @@
         </div>
       {:else}
         {#each accountMovements.slice(0, 5) as movement, i (movement.id)}
-          <div class="transaction-item" in:fly={{ y: 20, duration: 400, delay: 100 + i * 80 }}>
+          <div class="transaction-item simple" in:fly={{ y: 20, duration: 400, delay: 100 + i * 80 }} on:click={() => openMovementModal(movement)} on:keydown={(e) => e.key === 'Enter' && openMovementModal(movement)} role="button" tabindex="0">
             <div class="transaction-icon incoming">
               <ArrowDownLeft size={18} />
             </div>
             <div class="transaction-details">
-              <div class="transaction-title" style="font-size:0.85rem;">{movement.description || 'Movimiento de cuenta'}</div>
+              <div class="transaction-title">
+                {movement.senderName || movement.description || 'Movimiento de cuenta'}
+              </div>
               <div class="transaction-date">{formatDate(movement.createdAt)}</div>
-              {#if movement.reference}
-                <div class="transaction-reference" style="font-size:0.75rem; color: var(--text-secondary);">Ref: {movement.reference}</div>
-              {/if}
             </div>
             <div class="transaction-amount income">
-              + {getCurrencySymbol(wallet.currency)} <span in:scale={{ duration: 500 }}>{formatCurrency(movement.amount)}</span>
+              + {getCurrencySymbol(movement.currency || wallet.currency)} <span in:scale={{ duration: 500 }}>{formatCurrency(movement.amount)}</span>
             </div>
           </div>
         {/each}
@@ -372,6 +468,105 @@
     {/if}
   </div>
 </div>
+
+<!-- Modal para detalles del movimiento -->
+{#if showMovementModal && selectedMovement}
+  <div class="modal-overlay" on:click={closeMovementModal} on:keydown={(e) => e.key === 'Escape' && closeMovementModal()} role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="0">
+    <div class="modal-content" on:click|stopPropagation role="document" on:keydown={(e) => e.key === 'Escape' && closeMovementModal()}>
+      <div class="modal-header">
+        <h2 id="modal-title">Detalles del Movimiento</h2>
+        <button class="modal-close" on:click={closeMovementModal}>×</button>
+      </div>
+      <div class="modal-body">
+        <div class="movement-details">
+          <!-- Información principal -->
+          <div class="detail-section">
+            <div class="detail-item">
+              <span class="detail-label">Remitente:</span>
+              <span class="detail-value">{selectedMovement.senderName || 'No disponible'}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Descripción:</span>
+              <span class="detail-value">{selectedMovement.description}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Monto:</span>
+              <span class="detail-value amount">+ {getCurrencySymbol(selectedMovement.currency || wallet.currency)} {formatCurrency(selectedMovement.amount)}</span>
+            </div>
+          </div>
+          
+          <!-- Información de la transacción -->
+          <div class="detail-section">
+            <h3>Información de la Transacción</h3>
+            <div class="detail-item">
+              <span class="detail-label">ID de Transacción:</span>
+              <span class="detail-value code">{selectedMovement.transactionId || 'No disponible'}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Referencia:</span>
+              <span class="detail-value code">{selectedMovement.reference || 'No disponible'}</span>
+            </div>
+            {#if selectedMovement.qrId}
+              <div class="detail-item">
+                <span class="detail-label">ID QR:</span>
+                <span class="detail-value code">{selectedMovement.qrId}</span>
+              </div>
+            {/if}
+          </div>
+          
+          <!-- Información del remitente -->
+          {#if selectedMovement.senderAccount || selectedMovement.senderBankCode}
+            <div class="detail-section">
+              <h3>Información del Remitente</h3>
+              {#if selectedMovement.senderAccount}
+                <div class="detail-item">
+                  <span class="detail-label">Cuenta:</span>
+                  <span class="detail-value code">{selectedMovement.senderAccount}</span>
+                </div>
+              {/if}
+              {#if selectedMovement.senderBankCode}
+                <div class="detail-item">
+                  <span class="detail-label">Código de Banco:</span>
+                  <span class="detail-value code">{selectedMovement.senderBankCode.trim()}</span>
+                </div>
+              {/if}
+              {#if selectedMovement.senderDocumentId}
+                <div class="detail-item">
+                  <span class="detail-label">Documento:</span>
+                  <span class="detail-value code">{selectedMovement.senderDocumentId}</span>
+                </div>
+              {/if}
+            </div>
+          {/if}
+          
+          <!-- Fechas y horarios -->
+          <div class="detail-section">
+            <h3>Fechas y Horarios</h3>
+            <div class="detail-item">
+              <span class="detail-label">Fecha de Creación:</span>
+              <span class="detail-value">{formatDate(selectedMovement.createdAt)}</span>
+            </div>
+            {#if selectedMovement.paymentDate}
+              <div class="detail-item">
+                <span class="detail-label">Fecha de Pago:</span>
+                <span class="detail-value">{new Date(selectedMovement.paymentDate).toLocaleDateString('es-ES')}</span>
+              </div>
+            {/if}
+            {#if selectedMovement.paymentTime}
+              <div class="detail-item">
+                <span class="detail-label">Hora de Pago:</span>
+                <span class="detail-value">{selectedMovement.paymentTime}</span>
+              </div>
+            {/if}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Componente de notificaciones -->
+<NotificationToast />
 
 <style>
   /* Estilos para la estructura básica */
@@ -451,6 +646,7 @@
     align-items: center;
     gap: 0.25rem;
     margin-bottom: 1rem;
+    position: relative;
   }
   
   /* Barra de acciones */
@@ -534,6 +730,72 @@
     letter-spacing: 0.05em;
     opacity: 0.7;
   }
+
+  /* Indicador de estado de conexión SSE - Integrado en wallet */
+  .sse-status-indicator {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 10;
+  }
+
+  .status-dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .status-dot.connected {
+    background: rgba(0, 202, 141, 0.15);
+    color: var(--success-color);
+    box-shadow: 0 0 0 2px rgba(0, 202, 141, 0.2);
+  }
+
+  .status-dot.connecting {
+    background: rgba(255, 175, 0, 0.15);
+    color: var(--warning-color);
+    box-shadow: 0 0 0 2px rgba(255, 175, 0, 0.2);
+  }
+
+  .status-dot.error {
+    background: rgba(233, 58, 74, 0.15);
+    color: var(--error-color);
+    box-shadow: 0 0 0 2px rgba(233, 58, 74, 0.2);
+  }
+
+  .status-dot.disconnected {
+    background: rgba(107, 114, 128, 0.15);
+    color: var(--text-secondary);
+    box-shadow: 0 0 0 2px rgba(107, 114, 128, 0.2);
+  }
+
+  .status-dot:hover {
+    transform: scale(1.1);
+  }
+
+  .status-dot.connected:hover {
+    box-shadow: 0 0 0 3px rgba(0, 202, 141, 0.3);
+  }
+
+  .status-dot.error:hover {
+    box-shadow: 0 0 0 3px rgba(233, 58, 74, 0.3);
+  }
+
+  .spinning {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
   
   /* Responsive Wallet Styles */
   @media (max-width: 768px) {
@@ -552,6 +814,16 @@
     
     .wallet-account {
       font-size: 0.75rem;
+    }
+
+    .sse-status-indicator {
+      top: 0.5rem;
+      right: 0.5rem;
+    }
+
+    .status-dot {
+      width: 20px;
+      height: 20px;
     }
   }
 
@@ -810,10 +1082,20 @@
     margin-bottom: 0.5rem;
   }
   
+  .transaction-item.simple {
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
   .transaction-item:hover {
     transform: translateY(-0.125rem);
     box-shadow: var(--shadow-md);
     border-color: var(--primary-color);
+  }
+  
+  .transaction-item.simple:hover {
+    background: linear-gradient(135deg, var(--surface) 0%, rgba(0, 202, 141, 0.02) 100%);
+    border-color: rgba(0, 202, 141, 0.2);
   }
   
   .transaction-icon {
@@ -824,16 +1106,21 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
   }
   
   .transaction-icon.incoming {
-    background: rgba(0, 202, 141, 0.1);
+    background: linear-gradient(135deg, rgba(0, 202, 141, 0.15) 0%, rgba(0, 202, 141, 0.05) 100%);
     color: var(--success-color);
+    border: 1px solid rgba(0, 202, 141, 0.2);
   }
+  
   
   
   .transaction-details {
     flex: 1;
+    min-width: 0;
   }
   
   .transaction-title {
@@ -846,6 +1133,7 @@
   .transaction-date {
     font-size: 0.75rem;
     color: var(--text-secondary);
+    margin-top: 0.25rem;
   }
   
   .transaction-amount {
@@ -1029,6 +1317,163 @@
     
     .movement-skeleton {
       height: 50px;
+    }
+  }
+  
+  /* Estilos del Modal */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+    backdrop-filter: blur(4px);
+  }
+  
+  .modal-content {
+    background: var(--surface);
+    border-radius: 1rem;
+    max-width: 500px;
+    width: 100%;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border-color);
+  }
+  
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+    background: var(--surface);
+    border-radius: 1rem 1rem 0 0;
+  }
+  
+  .modal-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  
+  .modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 0.25rem;
+    transition: all 0.2s ease;
+  }
+  
+  .modal-close:hover {
+    background: var(--border-color);
+    color: var(--text-primary);
+  }
+  
+  .modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+  }
+  
+  .movement-details {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  
+  .detail-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .detail-section h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+  
+  .detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 0.5rem;
+    border: 1px solid var(--border-color);
+  }
+  
+  .detail-label {
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+  }
+  
+  .detail-value {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    text-align: right;
+    max-width: 60%;
+    word-break: break-word;
+  }
+  
+  .detail-value.amount {
+    color: var(--success-color);
+    font-size: 1rem;
+  }
+  
+  .detail-value.code {
+    font-family: 'Courier New', monospace;
+    background: rgba(0, 202, 141, 0.1);
+    color: var(--primary-color);
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.8rem;
+  }
+  
+  @media (max-width: 640px) {
+    .modal-content {
+      margin: 0.5rem;
+      max-height: 90vh;
+    }
+    
+    .modal-header {
+      padding: 1rem;
+      flex-shrink: 0;
+    }
+    
+    .modal-body {
+      padding: 1rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+    
+    .detail-item {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+    
+    .detail-value {
+      max-width: 100%;
+      text-align: left;
     }
   }
 </style>

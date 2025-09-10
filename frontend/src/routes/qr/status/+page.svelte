@@ -13,6 +13,8 @@
       QrCode
   } from '@lucide/svelte';
   import { onMount, onDestroy } from 'svelte';
+  import { onSSEEvent } from '$lib/services/sseService';
+  import NotificationToast from '$lib/components/NotificationToast.svelte';
 
   interface QrStatus {
     qrId: string;
@@ -60,6 +62,7 @@
   let isFirstLoad = true; // Para mostrar placeholders solo en la primera carga
   let showPaymentSuccessDialog = false; // Para mostrar diálogo de pago exitoso
   let paymentData: any = null; // Datos del pago exitoso
+  let unsubscribeSSEEvents: (() => void)[] = []; // Para limpiar listeners SSE
 
   onMount(() => {
     // Obtener el ID del QR desde la URL
@@ -78,6 +81,9 @@
     
     // Iniciar polling automático para verificar pagos
     startPaymentsCheck();
+    
+    // Configurar listeners de eventos SSE
+    setupSSEListeners();
   });
 
   onDestroy(() => {
@@ -86,6 +92,9 @@
     if (countdownInterval) {
       clearInterval(countdownInterval);
     }
+    
+    // Limpiar listeners SSE
+    unsubscribeSSEEvents.forEach(unsubscribe => unsubscribe());
   });
 
 
@@ -202,27 +211,34 @@
     // Reiniciar contador de intentos
     statusCheckAttempts = 0;
     
-    // Iniciar verificación automática cada 3 segundos
-    statusCheckInterval = setInterval(async () => {
-      statusCheckAttempts++;
-      
-      // Verificar si hemos alcanzado el límite de intentos
-      if (statusCheckAttempts >= maxStatusChecks) {
-        console.log('Límite de verificaciones alcanzado');
-        stopPaymentsCheck();
-        return;
+    // Verificar si ya hay pagos al cargar la página
+    checkQRPayments().then(() => {
+      // Si no hay pagos, iniciar polling cada 15 segundos
+      if (!qrPayments || qrPayments.length === 0) {
+        statusCheckInterval = setInterval(async () => {
+          statusCheckAttempts++;
+          
+          // Verificar si hemos alcanzado el límite de intentos
+          if (statusCheckAttempts >= maxStatusChecks) {
+            console.log('Límite de verificaciones alcanzado');
+            stopPaymentsCheck();
+            return;
+          }
+          
+          // Verificar si el QR ha expirado
+          if (countdown <= 0) {
+            console.log('QR expirado, deteniendo verificaciones');
+            stopPaymentsCheck();
+            return;
+          }
+          
+          // Verificar solo pagos
+          await checkQRPayments();
+        }, 15000); // 15 segundos
+      } else {
+        console.log('Ya hay pagos, no se iniciará polling automático');
       }
-      
-      // Verificar si el QR ha expirado
-      if (countdown <= 0) {
-        console.log('QR expirado, deteniendo verificaciones');
-        stopPaymentsCheck();
-        return;
-      }
-      
-      // Verificar solo pagos
-      await checkQRPayments();
-    }, 3000); // 3 segundos
+    });
   }
 
   // Detener verificación automática de pagos
@@ -231,6 +247,56 @@
       clearInterval(statusCheckInterval);
       statusCheckInterval = null;
     }
+  }
+
+  // Configurar listeners de eventos SSE
+  function setupSSEListeners() {
+    // Escuchar eventos de pago QR específicos para este QR
+    const unsubscribePayment = onSSEEvent('qr_payment', (data) => {
+      console.log('Pago recibido en página de estado QR:', data);
+      
+      // Verificar si el pago es para este QR específico
+      if (data.qrId === qrId) {
+        console.log('Pago confirmado para este QR:', data);
+        
+        // Detener polling ya que recibimos el pago por SSE
+        stopPaymentsCheck();
+        
+        // Actualizar datos del pago
+        qrPayments = [data];
+        paymentData = data;
+        
+        // Mostrar diálogo de éxito
+        showPaymentSuccessDialog = true;
+        
+        // Actualizar estado del QR
+        if (qrData) {
+          qrData.status = data.newStatus || 'paid';
+        }
+      }
+    });
+
+    // Escuchar eventos de cambio de estado de QR
+    const unsubscribeQRStatus = onSSEEvent('qr_status_change', (data) => {
+      console.log('Estado de QR cambiado en página de estado:', data);
+      
+      // Verificar si el cambio es para este QR específico
+      if (data.qrId === qrId) {
+        console.log('Estado actualizado para este QR:', data);
+        
+        // Actualizar estado del QR
+        if (qrData) {
+          qrData.status = data.newStatus;
+        }
+        
+        // Si el QR cambió a un estado final, detener polling
+        if (['completed', 'expired', 'cancelled'].includes(data.newStatus)) {
+          stopPaymentsCheck();
+        }
+      }
+    });
+
+    unsubscribeSSEEvents = [unsubscribePayment, unsubscribeQRStatus];
   }
 
   // Formatear tiempo
@@ -582,6 +648,9 @@
     
   </Modal>
 </RouteLayout>
+
+<!-- Componente de notificaciones -->
+<NotificationToast />
 
 <style>
   .page-container {

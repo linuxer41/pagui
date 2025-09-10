@@ -187,6 +187,30 @@ class QrService {
         // No fallar la creación del QR si hay error en la cola
       }
 
+      // Enviar evento de QR creado
+      try {
+        const eventsService = await import('./events.service');
+        eventsService.default.sendToAccount(accountId, {
+          id: `qr_created_${qrResponse.qrId}`,
+          type: 'qr_created',
+          data: {
+            qrId: qrResponse.qrId,
+            transactionId: qrData.transactionId,
+            amount: qrData.amount,
+            currency: currency,
+            description: qrData.description,
+            dueDate: qrData.dueDate,
+            singleUse: qrData.singleUse !== false,
+            modifyAmount: qrData.modifyAmount || false,
+            status: 'active'
+          }
+        });
+        console.log(`📡 Evento QR creado enviado para cuenta ${accountId}`);
+      } catch (eventError) {
+        console.error('Error enviando evento de QR creado:', eventError);
+        // No fallar la creación del QR si hay error en los eventos
+      }
+
       return qrDetails;
 
     } catch (error) {
@@ -768,8 +792,8 @@ class QrService {
   }
 
   async banecoQRNotify(data: Static<typeof BANECO_NotifyPaymentQRRequestSchema>): Promise<void> {
-    const checkQR = await query<{id: number, status: string, transactionId: string, accountId: number}>(`
-      SELECT q.id, q.status, q.transaction_id as "transactionId", q.account_id as "accountId" 
+    const checkQR = await query<{id: number, status: string, transactionId: string, accountId: number, singleUse: boolean}>(`
+      SELECT q.id, q.status, q.transaction_id as "transactionId", q.account_id as "accountId", q.single_use as "singleUse"
       FROM qr_codes q
       WHERE q.qr_id = $1
     `, [data.payment.qrId]);
@@ -839,12 +863,85 @@ class QrService {
         });
       }
       
+      // Actualizar payment_sync_status basado en el tipo de QR
+      await this.updatePaymentSyncStatusAfterPayment(client, payment.qrId, qrInfo.singleUse);
+      
       await client.query('COMMIT');
+
+      // Enviar evento de pago recibido
+      try {
+        const eventsService = await import('./events.service');
+        eventsService.default.sendToAccount(qrInfo.accountId, {
+          id: `qr_payment_${payment.transactionId}`,
+          type: 'qr_payment',
+          data: {
+            qrId: payment.qrId,
+            transactionId: payment.transactionId,
+            amount: parseFloat(payment.amount.toString()),
+            currency: payment.currency,
+            senderName: payment.senderName,
+            senderDocumentId: payment.senderDocumentId,
+            senderAccount: payment.senderAccount,
+            senderBankCode: payment.senderBankCode,
+            description: payment.description,
+            paymentDate: payment.paymentDate,
+            paymentTime: payment.paymentTime,
+            singleUse: qrInfo.singleUse,
+            newStatus: 'used'
+          }
+        });
+        console.log(`📡 Evento pago recibido enviado para cuenta ${qrInfo.accountId}`);
+      } catch (eventError) {
+        console.error('Error enviando evento de pago recibido:', eventError);
+        // No fallar el procesamiento del pago si hay error en los eventos
+      }
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
     } finally {
       client.release();
+    }
+  }
+
+  /**
+   * Actualizar payment_sync_status después de recibir un pago
+   * Determina si el QR debe seguir sincronizando o no basado en su tipo
+   */
+  private async updatePaymentSyncStatusAfterPayment(client: any, qrId: string, singleUse: boolean): Promise<void> {
+    try {
+      let finalStatus: string | null = null;
+      let nextCheck: Date | null = null;
+
+      if (singleUse) {
+        // QR de uso único: ya no necesita más sincronización
+        finalStatus = 'completed';
+        nextCheck = null;
+        console.log(`🔒 QR de uso único ${qrId} completado, no más sincronización`);
+      } else {
+        // QR de múltiples usos: puede seguir recibiendo pagos
+        // Programar próxima verificación en 5 minutos
+        nextCheck = new Date(Date.now() + (5 * 60 * 1000));
+        console.log(`🔄 QR de múltiples usos ${qrId}, próxima verificación en 5 minutos`);
+      }
+
+      // Actualizar o insertar registro en payment_sync_status
+      await client.query(`
+        INSERT INTO payment_sync_status (qr_id, last_checked, next_check, check_count, success, final_status)
+        VALUES ($1, CURRENT_TIMESTAMP, $2, 1, true, $3)
+        ON CONFLICT (qr_id) 
+        DO UPDATE SET 
+          last_checked = CURRENT_TIMESTAMP,
+          next_check = $2,
+          check_count = payment_sync_status.check_count + 1,
+          success = true,
+          final_status = COALESCE($3, payment_sync_status.final_status),
+          updated_at = CURRENT_TIMESTAMP
+      `, [qrId, nextCheck, finalStatus]);
+
+      console.log(`📊 Payment sync status actualizado para QR ${qrId}: final_status=${finalStatus}, next_check=${nextCheck}`);
+    } catch (error) {
+      console.error(`Error actualizando payment_sync_status para QR ${qrId}:`, error);
+      // No lanzar error para no afectar el procesamiento del pago
     }
   }
 } 

@@ -171,6 +171,8 @@ class PaymentSyncService {
       return false; // No hay cambios
     }
 
+    const previousStatus = qrDetails.status;
+
     // Actualizar estado en la base de datos
     await query(`
       UPDATE qr_codes 
@@ -181,6 +183,30 @@ class PaymentSyncService {
     // Si el pago fue completado, crear movimiento de cuenta
     if (bankStatus.status === 'completed' && qrDetails.status !== 'completed') {
       await this.createAccountMovement(qrDetails, bankStatus);
+    }
+
+    // Enviar evento de cambio de estado
+    try {
+      const eventsService = await import('./events.service');
+      eventsService.default.sendToAccount(qrDetails.accountId, {
+        id: `qr_status_change_${qrDetails.id}_${Date.now()}`,
+        type: 'qr_status_change',
+        data: {
+          qrId: qrDetails.id,
+          previousStatus: previousStatus,
+          newStatus: bankStatus.status,
+          amount: qrDetails.amount,
+          currency: qrDetails.currency,
+          description: qrDetails.description,
+          singleUse: qrDetails.singleUse,
+          dueDate: qrDetails.dueDate,
+          syncSource: 'bank_api'
+        }
+      });
+      console.log(`📡 Evento cambio de estado QR enviado para cuenta ${qrDetails.accountId}: ${previousStatus} → ${bankStatus.status}`);
+    } catch (eventError) {
+      console.error('Error enviando evento de cambio de estado QR:', eventError);
+      // No fallar la sincronización si hay error en los eventos
     }
 
     return true;

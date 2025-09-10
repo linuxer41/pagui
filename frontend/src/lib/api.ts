@@ -175,7 +175,15 @@ export interface AccountStats {
     description: string;
     reference: string;
     createdAt: string;
-    updatedAt: string;
+    qrId?: string;
+    transactionId?: string;
+    paymentDate?: string;
+    paymentTime?: string;
+    currency?: string;
+    senderName?: string;
+    senderDocumentId?: string;
+    senderAccount?: string;
+    senderBankCode?: string;
   }[];
 }
 
@@ -637,6 +645,21 @@ class ApiClient {
 
   async getAccountStats(accountId: string, options: RequestOptions = {}): Promise<ApiResponse> {
     return this.get<ApiResponse>(`/accounts/${accountId}/stats`, options);
+  }
+
+  async getQrList(page: number = 1, limit: number = 20, status?: string, startDate?: string, endDate?: string, options: RequestOptions = {}): Promise<ApiResponse> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('page', page.toString());
+    queryParams.append('limit', limit.toString());
+    if (status) queryParams.append('status', status);
+    if (startDate) queryParams.append('startDate', startDate);
+    if (endDate) queryParams.append('endDate', endDate);
+    return this.get<ApiResponse>(`/qr/list?${queryParams.toString()}`, options);
+  }
+
+  // Método para obtener estadísticas de eventos SSE
+  async getSSEStats(options: RequestOptions = {}): Promise<ApiResponse> {
+    return this.get<ApiResponse>('/events/stats', options);
   }
 }
 

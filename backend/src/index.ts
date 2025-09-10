@@ -60,11 +60,14 @@ const app = new Elysia()
     {ApiError}
   )
   .onError(({ code, error, set }) => {
-    console.error('🚨 Error capturado:', {
-      code,
-      message: error.message,
-      stack: error.stack
-    });
+    
+    if (code === 'NOT_FOUND') {
+      set.status = 404;
+      return {
+        success: false,
+        message: 'Not Found'
+      }
+    }
     
     if (code === 'VALIDATION') {
       set.status = 400;
@@ -152,9 +155,44 @@ async function start() {
 
 // Manejar shutdown graceful
 process.on('SIGINT', async () => {
-  console.log('\n🛑 Recibida señal SIGINT, cerrando aplicación...');
-  await paymentQueueService.close();
-  console.log('✅ Sistema de colas cerrado');
+  console.log('🛑 Recibida señal SIGINT, cerrando servidor...');
+  
+  // Cerrar conexiones SSE
+  try {
+    const eventsService = await import('./services/events.service');
+    eventsService.default.closeAll();
+  } catch (error) {
+    console.error('Error cerrando conexiones SSE:', error);
+  }
+  
+  // Cerrar sistema de colas
+  try {
+    await paymentQueueService.close();
+  } catch (error) {
+    console.error('Error cerrando sistema de colas:', error);
+  }
+  
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('🛑 Recibida señal SIGTERM, cerrando servidor...');
+  
+  // Cerrar conexiones SSE
+  try {
+    const eventsService = await import('./services/events.service');
+    eventsService.default.closeAll();
+  } catch (error) {
+    console.error('Error cerrando conexiones SSE:', error);
+  }
+  
+  // Cerrar sistema de colas
+  try {
+    await paymentQueueService.close();
+  } catch (error) {
+    console.error('Error cerrando sistema de colas:', error);
+  }
+  
   process.exit(0);
 });
 

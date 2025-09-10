@@ -555,6 +555,32 @@ class AccountService {
     `, [newBalance, newAvailableBalance, data.accountId]);
 
     console.log(`💰 Movimiento creado: ${data.movementType} - ${data.amount} BOB - Cuenta: ${data.accountId}`);
+
+    // Enviar evento de actualización de balance
+    try {
+      const eventsService = await import('./events.service');
+      eventsService.default.sendToAccount(data.accountId, {
+        id: `balance_update_${Date.now()}_${data.accountId}`,
+        type: 'account_balance_update',
+        data: {
+          accountId: data.accountId,
+          movementType: data.movementType,
+          amount: data.amount,
+          previousBalance: currentBalance,
+          newBalance: newBalance,
+          previousAvailableBalance: currentAvailableBalance,
+          newAvailableBalance: newAvailableBalance,
+          description: data.description,
+          qrId: data.qrId,
+          transactionId: data.transactionId,
+          currency: data.currency || 'BOB'
+        }
+      });
+      console.log(`📡 Evento balance actualizado enviado para cuenta ${data.accountId}`);
+    } catch (eventError) {
+      console.error('Error enviando evento de balance actualizado:', eventError);
+      // No fallar el movimiento si hay error en los eventos
+    }
   }
 }
 

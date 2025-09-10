@@ -6,6 +6,7 @@
       CheckCircle,
       Clock,
       Download,
+      History,
       InfoIcon,
       Loader,
       QrCode,
@@ -213,6 +214,15 @@
             fullWidth
           >
             {loading ? 'Generando...' : 'Generar QR'}
+          </Button>
+          
+          <Button 
+            variant="secondary" 
+            icon={History} 
+            on:click={() => goto('/qr/history')}
+            fullWidth
+          >
+            Ver Historial de QRs
           </Button>
         </div>
       </div>

@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ejemplo Cliente SSE - Sistema de Pagos</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .connected { background-color: #d4edda; color: #155724; }
+        .disconnected { background-color: #f8d7da; color: #721c24; }
+        .connecting { background-color: #fff3cd; color: #856404; }
+        
+        .event {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 5px 0;
+            background-color: #f9f9f9;
+        }
+        .event-header {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .event-data {
+            font-family: monospace;
+            font-size: 12px;
+            background-color: #f0f0f0;
+            padding: 8px;
+            border-radius: 3px;
+            white-space: pre-wrap;
+        }
+        
+        .qr-created { border-left: 4px solid #007bff; }
+        .qr-payment { border-left: 4px solid #28a745; }
+        .qr-status-change { border-left: 4px solid #ffc107; }
+        .account-balance-update { border-left: 4px solid #17a2b8; }
+        .connection { border-left: 4px solid #6c757d; }
+        .heartbeat { border-left: 4px solid #e9ecef; }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        input[type="text"] {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            flex: 1;
+        }
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-connect { background-color: #28a745; color: white; }
+        .btn-disconnect { background-color: #dc3545; color: white; }
+        .btn-clear { background-color: #6c757d; color: white; }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <h1>📡 Cliente SSE - Sistema de Pagos</h1>
+    
+    <div class="container">
+        <h2>🔌 Conexión</h2>
+        <div class="controls">
+            <input type="text" id="tokenInput" placeholder="Ingresa tu API Key o JWT Token..." value="">
+            <select id="authMethodSelect">
+                <option value="api-key">API Key (?api-key=)</option>
+                <option value="jwt-token">JWT Token (?token=)</option>
+                <option value="jwt-header">JWT Header (Authorization)</option>
+            </select>
+            <button id="connectBtn" class="btn-connect">Conectar</button>
+            <button id="disconnectBtn" class="btn-disconnect" disabled>Desconectar</button>
+            <button id="clearBtn" class="btn-clear">Limpiar</button>
+        </div>
+        <div id="status" class="status disconnected">Desconectado</div>
+    </div>
+    
+    <div class="container">
+        <h2>📊 Estadísticas</h2>
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="totalEvents">0</div>
+                <div class="stat-label">Total Eventos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="qrCreated">0</div>
+                <div class="stat-label">QRs Creados</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="qrPayments">0</div>
+                <div class="stat-label">Pagos Recibidos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="balanceUpdates">0</div>
+                <div class="stat-label">Actualizaciones Balance</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <h2>📨 Eventos en Tiempo Real</h2>
+        <div id="eventsContainer"></div>
+    </div>
+
+    <script>
+        class SSEClient {
+            constructor() {
+                this.eventSource = null;
+                this.reader = null;
+                this.isConnected = false;
+                this.eventCounts = {
+                    total: 0,
+                    qr_created: 0,
+                    qr_payment: 0,
+                    account_balance_update: 0
+                };
+                
+                this.initializeElements();
+                this.bindEvents();
+            }
+            
+            initializeElements() {
+                this.tokenInput = document.getElementById('tokenInput');
+                this.authMethodSelect = document.getElementById('authMethodSelect');
+                this.connectBtn = document.getElementById('connectBtn');
+                this.disconnectBtn = document.getElementById('disconnectBtn');
+                this.clearBtn = document.getElementById('clearBtn');
+                this.status = document.getElementById('status');
+                this.eventsContainer = document.getElementById('eventsContainer');
+                
+                // Stats elements
+                this.totalEvents = document.getElementById('totalEvents');
+                this.qrCreated = document.getElementById('qrCreated');
+                this.qrPayments = document.getElementById('qrPayments');
+                this.balanceUpdates = document.getElementById('balanceUpdates');
+            }
+            
+            bindEvents() {
+                this.connectBtn.addEventListener('click', () => this.connect());
+                this.disconnectBtn.addEventListener('click', () => this.disconnect());
+                this.clearBtn.addEventListener('click', () => this.clearEvents());
+            }
+            
+            connect() {
+                const token = this.tokenInput.value.trim();
+                if (!token) {
+                    alert('Por favor ingresa un token válido');
+                    return;
+                }
+                
+                this.updateStatus('connecting', 'Conectando...');
+                this.connectBtn.disabled = true;
+                
+                // Construir URL del endpoint SSE basado en el método de autenticación
+                const baseUrl = window.location.origin;
+                const authMethod = this.authMethodSelect.value;
+                
+                let sseUrl;
+                if (authMethod === 'api-key') {
+                    // Método 1: API Key
+                    sseUrl = `${baseUrl}/events/stream?api-key=${encodeURIComponent(token)}`;
+                    this.eventSource = new EventSource(sseUrl);
+                } else if (authMethod === 'jwt-token') {
+                    // Método 2: JWT Token
+                    sseUrl = `${baseUrl}/events/stream?token=${encodeURIComponent(token)}`;
+                    this.eventSource = new EventSource(sseUrl);
+                } else {
+                    // Método 3: Authorization header (requiere fetch + ReadableStream)
+                    sseUrl = `${baseUrl}/events/stream`;
+                    this.connectWithAuthHeader(sseUrl, token);
+                    return;
+                }
+                
+                // Eventos de conexión
+                this.eventSource.onopen = () => {
+                    this.isConnected = true;
+                    this.updateStatus('connected', 'Conectado exitosamente');
+                    this.connectBtn.disabled = true;
+                    this.disconnectBtn.disabled = false;
+                    console.log('✅ Conexión SSE establecida');
+                };
+                
+                this.eventSource.onerror = (error) => {
+                    this.isConnected = false;
+                    this.updateStatus('disconnected', 'Error de conexión');
+                    this.connectBtn.disabled = false;
+                    this.disconnectBtn.disabled = true;
+                    console.error('❌ Error en conexión SSE:', error);
+                    
+                    // Intentar reconectar después de 5 segundos
+                    setTimeout(() => {
+                        if (!this.isConnected) {
+                            console.log('🔄 Intentando reconectar...');
+                            this.connect();
+                        }
+                    }, 5000);
+                };
+                
+                // Escuchar eventos específicos
+                this.setupEventListeners();
+            }
+            
+            async connectWithAuthHeader(url, token) {
+                try {
+                    const response = await fetch(url, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Accept': 'text/event-stream',
+                            'Cache-Control': 'no-cache'
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    this.reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    
+                    this.isConnected = true;
+                    this.updateStatus('connected', 'Conectado exitosamente (Auth Header)');
+                    this.connectBtn.disabled = true;
+                    this.disconnectBtn.disabled = false;
+                    
+                    // Procesar stream de eventos
+                    this.processEventStream(this.reader, decoder);
+                    
+                } catch (error) {
+                    this.isConnected = false;
+                    this.updateStatus('disconnected', `Error: ${error.message}`);
+                    this.connectBtn.disabled = false;
+                    this.disconnectBtn.disabled = true;
+                    console.error('❌ Error en conexión SSE:', error);
+                }
+            }
+            
+            async processEventStream(reader, decoder) {
+                try {
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        
+                        const chunk = decoder.decode(value);
+                        const lines = chunk.split('\n');
+                        
+                        let eventData = {};
+                        for (const line of lines) {
+                            if (line.startsWith('id: ')) {
+                                eventData.id = line.substring(4);
+                            } else if (line.startsWith('event: ')) {
+                                eventData.type = line.substring(7);
+                            } else if (line.startsWith('data: ')) {
+                                eventData.data = JSON.parse(line.substring(6));
+                            }
+                        }
+                        
+                        if (eventData.type && eventData.data) {
+                            this.handleEvent(eventData.type, eventData.data);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error procesando stream:', error);
+                    this.disconnect();
+                }
+            }
+            
+            handleEvent(type, data) {
+                // Procesar eventos de la misma manera que EventSource
+                if (type === 'connection') {
+                    this.addEvent('connection', 'Conexión Establecida', data);
+                    console.log('🔗 Conexión confirmada:', data);
+                } else if (type === 'heartbeat') {
+                    this.addEvent('heartbeat', 'Latido', data);
+                } else if (type === 'qr_created') {
+                    this.addEvent('qr_created', 'QR Creado', data);
+                    this.updateStats('qr_created');
+                    this.showNotification('Nuevo QR creado', `QR: ${data.qrId} - ${data.amount} ${data.currency}`);
+                } else if (type === 'qr_payment') {
+                    this.addEvent('qr_payment', 'Pago Recibido', data);
+                    this.updateStats('qr_payment');
+                    this.showNotification('Pago Recibido', `${data.amount} ${data.currency} de ${data.senderName}`);
+                } else if (type === 'qr_status_change') {
+                    this.addEvent('qr_status_change', 'Estado QR Cambiado', data);
+                    this.showNotification('Estado QR Cambiado', `${data.previousStatus} → ${data.newStatus}`);
+                } else if (type === 'account_balance_update') {
+                    this.addEvent('account_balance_update', 'Balance Actualizado', data);
+                    this.updateStats('account_balance_update');
+                    this.showNotification('Balance Actualizado', `Nuevo balance: ${data.newBalance} ${data.currency}`);
+                }
+            }
+            
+            setupEventListeners() {
+                // Evento de conexión
+                this.eventSource.addEventListener('connection', (event) => {
+                    const data = JSON.parse(event.data);
+                    this.addEvent('connection', 'Conexión Establecida', data);
+                    console.log('🔗 Conexión confirmada:', data);
+                });
+                
+                // Evento de latido
+                this.eventSource.addEventListener('heartbeat', (event) => {
+                    const data = JSON.parse(event.data);
+                    this.addEvent('heartbeat', 'Latido', data);
+                });
+                
+                // QR creado
+                this.eventSource.addEventListener('qr_created', (event) => {
+                    const data = JSON.parse(event.data);
+                    this.addEvent('qr_created', 'QR Creado', data);
+                    this.updateStats('qr_created');
+                    this.showNotification('Nuevo QR creado', `QR: ${data.qrId} - ${data.amount} ${data.currency}`);
+                });
+                
+                // Pago recibido
+                this.eventSource.addEventListener('qr_payment', (event) => {
+                    const data = JSON.parse(event.data);
+                    this.addEvent('qr_payment', 'Pago Recibido', data);
+                    this.updateStats('qr_payment');
+                    this.showNotification('Pago Recibido', `${data.amount} ${data.currency} de ${data.senderName}`);
+                });
+                
+                // Cambio de estado de QR
+                this.eventSource.addEventListener('qr_status_change', (event) => {
+                    const data = JSON.parse(event.data);
+                    this.addEvent('qr_status_change', 'Estado QR Cambiado', data);
+                    this.showNotification('Estado QR Cambiado', `${data.previousStatus} → ${data.newStatus}`);
+                });
+                
+                // Actualización de balance
+                this.eventSource.addEventListener('account_balance_update', (event) => {
+                    const data = JSON.parse(event.data);
+                    this.addEvent('account_balance_update', 'Balance Actualizado', data);
+                    this.updateStats('account_balance_update');
+                    this.showNotification('Balance Actualizado', `Nuevo balance: ${data.newBalance} ${data.currency}`);
+                });
+            }
+            
+            disconnect() {
+                if (this.eventSource) {
+                    this.eventSource.close();
+                    this.eventSource = null;
+                }
+                
+                if (this.reader) {
+                    this.reader.cancel();
+                    this.reader = null;
+                }
+                
+                this.isConnected = false;
+                this.updateStatus('disconnected', 'Desconectado');
+                this.connectBtn.disabled = false;
+                this.disconnectBtn.disabled = true;
+                console.log('🔌 Conexión SSE cerrada');
+            }
+            
+            addEvent(type, title, data) {
+                const eventElement = document.createElement('div');
+                eventElement.className = `event ${type}`;
+                
+                const timestamp = new Date().toLocaleTimeString();
+                eventElement.innerHTML = `
+                    <div class="event-header">${title} - ${timestamp}</div>
+                    <div class="event-data">${JSON.stringify(data, null, 2)}</div>
+                `;
+                
+                // Agregar al inicio del contenedor
+                this.eventsContainer.insertBefore(eventElement, this.eventsContainer.firstChild);
+                
+                // Limitar a 50 eventos
+                const events = this.eventsContainer.children;
+                if (events.length > 50) {
+                    this.eventsContainer.removeChild(events[events.length - 1]);
+                }
+                
+                this.updateStats('total');
+            }
+            
+            updateStats(type) {
+                this.eventCounts[type]++;
+                this.eventCounts.total++;
+                
+                this.totalEvents.textContent = this.eventCounts.total;
+                this.qrCreated.textContent = this.eventCounts.qr_created;
+                this.qrPayments.textContent = this.eventCounts.qr_payment;
+                this.balanceUpdates.textContent = this.eventCounts.account_balance_update;
+            }
+            
+            updateStatus(type, message) {
+                this.status.className = `status ${type}`;
+                this.status.textContent = message;
+            }
+            
+            clearEvents() {
+                this.eventsContainer.innerHTML = '';
+                this.eventCounts = {
+                    total: 0,
+                    qr_created: 0,
+                    qr_payment: 0,
+                    account_balance_update: 0
+                };
+                this.updateStats('total');
+            }
+            
+            showNotification(title, message) {
+                // Crear notificación visual
+                const notification = document.createElement('div');
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: #28a745;
+                    color: white;
+                    padding: 15px;
+                    border-radius: 5px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                    z-index: 1000;
+                    max-width: 300px;
+                `;
+                notification.innerHTML = `
+                    <strong>${title}</strong><br>
+                    ${message}
+                `;
+                
+                document.body.appendChild(notification);
+                
+                // Remover después de 5 segundos
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 5000);
+            }
+        }
+        
+        // Inicializar cliente SSE cuando se carga la página
+        document.addEventListener('DOMContentLoaded', () => {
+            new SSEClient();
+        });
+    </script>
+</body>
+</html>

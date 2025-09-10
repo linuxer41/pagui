@@ -32,7 +32,7 @@ async function query<T extends QueryResultRow>(text: string, params: any[] = [])
     
     // Log para monitoreo de queries lentos
     if (duration > 100) {
-      console.log('⏱️ Query lento:', { text, duration, rows: res.rowCount });
+      // console.log('⏱️ Query lento:', { text, duration, rows: res.rowCount });
     }
     
     return res;

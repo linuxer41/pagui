@@ -6,6 +6,7 @@
   import { onMount } from 'svelte';
   import { M3 } from "tauri-plugin-m3";
   import '../app.css';
+  import { sseService } from '$lib/services/sseService';
   
   // Verificar token expirado
   onMount(async () => {
@@ -28,6 +29,10 @@
       console.log('--adjust-bottom:', getComputedStyle(document.documentElement).getPropertyValue('--adjust-bottom'));
     }
     await theme.applyTheme($theme);
+    
+    // Inicializar servicio SSE globalmente
+    // El servicio SSE se conectará automáticamente cuando el usuario esté autenticado
+    console.log('SSE Service initialized globally');
   });
   
   // Obtener la ruta actual

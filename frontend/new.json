@@ -1,0 +1,2257 @@
+{
+    "openapi": "3.0.3",
+    "info": {
+    "title": "API de Pagos con QR",
+    "description": "API para generación y gestión de códigos QR de pago",
+    "version": "1.0.0"
+    },
+    "tags": [
+    {
+    "name": "auth",
+    "description": "Endpoints de autenticación"
+    },
+    {
+    "name": "qr",
+    "description": "Endpoints para gestión de códigos QR"
+    },
+    {
+    "name": "admin",
+    "description": "Endpoints de administración"
+    },
+    {
+    "name": "companies",
+    "description": "Endpoints para gestión de empresas"
+    },
+    {
+    "name": "banks",
+    "description": "Endpoints para gestión de bancos"
+    },
+    {
+    "name": "api-keys",
+    "description": "Endpoints para gestión de API keys"
+    }
+    ],
+    "paths": {
+    "/": {
+    "get": {
+    "operationId": "getIndex",
+    "responses": {
+    "200": {}
+    }
+    }
+    },
+    "/hooks/baneco/notifyPayment": {
+    "post": {
+    "parameters": [],
+    "operationId": "postHooksBanecoNotifyPayment",
+    "tags": [
+    "hooks"
+    ],
+    "summary": "Recibir notificación de pago de QR desde Baneco",
+    "requestBody": {
+    "required": true,
+    "content": {
+    "application/json": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "payment": {
+    "type": "object",
+    "properties": {
+    "qrId": {
+    "description": "Identificador único del QR",
+    "type": "string"
+    },
+    "transactionId": {
+    "description": "Número de transacción del banco",
+    "type": "string"
+    },
+    "paymentDate": {
+    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+    "description": "Fecha del pago",
+    "type": "string"
+    },
+    "paymentTime": {
+    "pattern": "^\\d{2}:\\d{2}:\\d{2}$",
+    "description": "Hora del pago (formato HH:mm:ss)",
+    "type": "string"
+    },
+    "currency": {
+    "description": "Moneda del pago (BOB o USD)",
+    "anyOf": [
+    {
+    "const": "BOB",
+    "type": "string"
+    },
+    {
+    "const": "USD",
+    "type": "string"
+    }
+    ]
+    },
+    "amount": {
+    "description": "Importe del pago recibido",
+    "type": "number"
+    },
+    "senderBankCode": {
+    "description": "Código ASFI del banco que origina el pago",
+    "type": "string"
+    },
+    "senderName": {
+    "description": "Nombre o razón social de quien envía el pago",
+    "type": "string"
+    },
+    "senderDocumentId": {
+    "description": "Número de documento (no se usa, retorna cero)",
+    "type": "string"
+    },
+    "senderAccount": {
+    "description": "Cuenta de origen (dato ofuscado)",
+    "type": "string"
+    },
+    "description": {
+    "description": "Glosa del QR",
+    "type": "string"
+    },
+    "branchCode": {
+    "description": "Código de sucursal solicitante",
+    "type": "string"
+    }
+    },
+    "required": [
+    "qrId",
+    "transactionId",
+    "paymentDate",
+    "paymentTime",
+    "currency",
+    "amount",
+    "senderBankCode",
+    "senderName",
+    "senderDocumentId",
+    "senderAccount",
+    "description"
+    ]
+    }
+    },
+    "required": [
+    "payment"
+    ],
+    "noValidate": true,
+    "additionalProperties": false
+    }
+    },
+    "multipart/form-data": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "payment": {
+    "type": "object",
+    "properties": {
+    "qrId": {
+    "description": "Identificador único del QR",
+    "type": "string"
+    },
+    "transactionId": {
+    "description": "Número de transacción del banco",
+    "type": "string"
+    },
+    "paymentDate": {
+    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+    "description": "Fecha del pago",
+    "type": "string"
+    },
+    "paymentTime": {
+    "pattern": "^\\d{2}:\\d{2}:\\d{2}$",
+    "description": "Hora del pago (formato HH:mm:ss)",
+    "type": "string"
+    },
+    "currency": {
+    "description": "Moneda del pago (BOB o USD)",
+    "anyOf": [
+    {
+    "const": "BOB",
+    "type": "string"
+    },
+    {
+    "const": "USD",
+    "type": "string"
+    }
+    ]
+    },
+    "amount": {
+    "description": "Importe del pago recibido",
+    "type": "number"
+    },
+    "senderBankCode": {
+    "description": "Código ASFI del banco que origina el pago",
+    "type": "string"
+    },
+    "senderName": {
+    "description": "Nombre o razón social de quien envía el pago",
+    "type": "string"
+    },
+    "senderDocumentId": {
+    "description": "Número de documento (no se usa, retorna cero)",
+    "type": "string"
+    },
+    "senderAccount": {
+    "description": "Cuenta de origen (dato ofuscado)",
+    "type": "string"
+    },
+    "description": {
+    "description": "Glosa del QR",
+    "type": "string"
+    },
+    "branchCode": {
+    "description": "Código de sucursal solicitante",
+    "type": "string"
+    }
+    },
+    "required": [
+    "qrId",
+    "transactionId",
+    "paymentDate",
+    "paymentTime",
+    "currency",
+    "amount",
+    "senderBankCode",
+    "senderName",
+    "senderDocumentId",
+    "senderAccount",
+    "description"
+    ]
+    }
+    },
+    "required": [
+    "payment"
+    ],
+    "noValidate": true,
+    "additionalProperties": false
+    }
+    },
+    "text/plain": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "payment": {
+    "type": "object",
+    "properties": {
+    "qrId": {
+    "description": "Identificador único del QR",
+    "type": "string"
+    },
+    "transactionId": {
+    "description": "Número de transacción del banco",
+    "type": "string"
+    },
+    "paymentDate": {
+    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+    "description": "Fecha del pago",
+    "type": "string"
+    },
+    "paymentTime": {
+    "pattern": "^\\d{2}:\\d{2}:\\d{2}$",
+    "description": "Hora del pago (formato HH:mm:ss)",
+    "type": "string"
+    },
+    "currency": {
+    "description": "Moneda del pago (BOB o USD)",
+    "anyOf": [
+    {
+    "const": "BOB",
+    "type": "string"
+    },
+    {
+    "const": "USD",
+    "type": "string"
+    }
+    ]
+    },
+    "amount": {
+    "description": "Importe del pago recibido",
+    "type": "number"
+    },
+    "senderBankCode": {
+    "description": "Código ASFI del banco que origina el pago",
+    "type": "string"
+    },
+    "senderName": {
+    "description": "Nombre o razón social de quien envía el pago",
+    "type": "string"
+    },
+    "senderDocumentId": {
+    "description": "Número de documento (no se usa, retorna cero)",
+    "type": "string"
+    },
+    "senderAccount": {
+    "description": "Cuenta de origen (dato ofuscado)",
+    "type": "string"
+    },
+    "description": {
+    "description": "Glosa del QR",
+    "type": "string"
+    },
+    "branchCode": {
+    "description": "Código de sucursal solicitante",
+    "type": "string"
+    }
+    },
+    "required": [
+    "qrId",
+    "transactionId",
+    "paymentDate",
+    "paymentTime",
+    "currency",
+    "amount",
+    "senderBankCode",
+    "senderName",
+    "senderDocumentId",
+    "senderAccount",
+    "description"
+    ]
+    }
+    },
+    "required": [
+    "payment"
+    ],
+    "noValidate": true,
+    "additionalProperties": false
+    }
+    }
+    }
+    },
+    "responses": {
+    "200": {}
+    }
+    }
+    },
+    "/auth/login": {
+    "post": {
+    "parameters": [],
+    "responses": {
+    "200": {
+    "content": {
+    "application/json": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "multipart/form-data": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "text/plain": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    }
+    }
+    }
+    },
+    "operationId": "postAuthLogin",
+    "tags": [
+    "auth"
+    ],
+    "summary": "Autenticar usuario y obtener token JWT",
+    "requestBody": {
+    "required": true,
+    "content": {
+    "application/json": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "email": {
+    "type": "string"
+    },
+    "password": {
+    "type": "string"
+    }
+    },
+    "required": [
+    "email",
+    "password"
+    ],
+    "additionalProperties": false
+    }
+    },
+    "multipart/form-data": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "email": {
+    "type": "string"
+    },
+    "password": {
+    "type": "string"
+    }
+    },
+    "required": [
+    "email",
+    "password"
+    ],
+    "additionalProperties": false
+    }
+    },
+    "text/plain": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "email": {
+    "type": "string"
+    },
+    "password": {
+    "type": "string"
+    }
+    },
+    "required": [
+    "email",
+    "password"
+    ],
+    "additionalProperties": false
+    }
+    }
+    }
+    }
+    }
+    },
+    "/auth/forgot-password": {
+    "post": {
+    "parameters": [],
+    "operationId": "postAuthForgot-password",
+    "tags": [
+    "auth"
+    ],
+    "summary": "Solicitar restablecimiento de contraseña",
+    "requestBody": {
+    "required": true,
+    "content": {
+    "application/json": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "email": {
+    "type": "string"
+    }
+    },
+    "required": [
+    "email"
+    ]
+    }
+    },
+    "multipart/form-data": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "email": {
+    "type": "string"
+    }
+    },
+    "required": [
+    "email"
+    ]
+    }
+    },
+    "text/plain": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "email": {
+    "type": "string"
+    }
+    },
+    "required": [
+    "email"
+    ]
+    }
+    }
+    }
+    },
+    "responses": {
+    "200": {}
+    }
+    }
+    },
+    "/auth/reset-password": {
+    "post": {
+    "parameters": [],
+    "operationId": "postAuthReset-password",
+    "tags": [
+    "auth"
+    ],
+    "summary": "Restablecer contraseña con token",
+    "requestBody": {
+    "required": true,
+    "content": {
+    "application/json": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "token": {
+    "type": "string"
+    },
+    "newPassword": {
+    "type": "string"
+    }
+    },
+    "required": [
+    "token",
+    "newPassword"
+    ]
+    }
+    },
+    "multipart/form-data": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "token": {
+    "type": "string"
+    },
+    "newPassword": {
+    "type": "string"
+    }
+    },
+    "required": [
+    "token",
+    "newPassword"
+    ]
+    }
+    },
+    "text/plain": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "token": {
+    "type": "string"
+    },
+    "newPassword": {
+    "type": "string"
+    }
+    },
+    "required": [
+    "token",
+    "newPassword"
+    ]
+    }
+    }
+    }
+    },
+    "responses": {
+    "200": {}
+    }
+    }
+    },
+    "/auth/change-password": {
+    "post": {
+    "parameters": [],
+    "operationId": "postAuthChange-password",
+    "tags": [
+    "auth"
+    ],
+    "summary": "Cambiar contraseña del usuario autenticado",
+    "requestBody": {
+    "required": true,
+    "content": {
+    "application/json": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "currentPassword": {
+    "type": "string"
+    },
+    "newPassword": {
+    "type": "string"
+    }
+    },
+    "required": [
+    "currentPassword",
+    "newPassword"
+    ]
+    }
+    },
+    "multipart/form-data": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "currentPassword": {
+    "type": "string"
+    },
+    "newPassword": {
+    "type": "string"
+    }
+    },
+    "required": [
+    "currentPassword",
+    "newPassword"
+    ]
+    }
+    },
+    "text/plain": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "currentPassword": {
+    "type": "string"
+    },
+    "newPassword": {
+    "type": "string"
+    }
+    },
+    "required": [
+    "currentPassword",
+    "newPassword"
+    ]
+    }
+    }
+    }
+    },
+    "responses": {
+    "200": {}
+    }
+    }
+    },
+    "/auth/send-otp": {
+    "post": {
+    "parameters": [],
+    "operationId": "postAuthSend-otp",
+    "tags": [
+    "auth"
+    ],
+    "summary": "Enviar código OTP al número de teléfono",
+    "requestBody": {
+    "required": true,
+    "content": {
+    "application/json": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "phoneNumber": {
+    "type": "string"
+    }
+    },
+    "required": [
+    "phoneNumber"
+    ]
+    }
+    },
+    "multipart/form-data": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "phoneNumber": {
+    "type": "string"
+    }
+    },
+    "required": [
+    "phoneNumber"
+    ]
+    }
+    },
+    "text/plain": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "phoneNumber": {
+    "type": "string"
+    }
+    },
+    "required": [
+    "phoneNumber"
+    ]
+    }
+    }
+    }
+    },
+    "responses": {
+    "200": {}
+    }
+    }
+    },
+    "/auth/verify-otp": {
+    "post": {
+    "parameters": [],
+    "operationId": "postAuthVerify-otp",
+    "tags": [
+    "auth"
+    ],
+    "summary": "Verificar código OTP",
+    "requestBody": {
+    "required": true,
+    "content": {
+    "application/json": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "phoneNumber": {
+    "type": "string"
+    },
+    "code": {
+    "type": "string"
+    }
+    },
+    "required": [
+    "phoneNumber",
+    "code"
+    ]
+    }
+    },
+    "multipart/form-data": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "phoneNumber": {
+    "type": "string"
+    },
+    "code": {
+    "type": "string"
+    }
+    },
+    "required": [
+    "phoneNumber",
+    "code"
+    ]
+    }
+    },
+    "text/plain": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "phoneNumber": {
+    "type": "string"
+    },
+    "code": {
+    "type": "string"
+    }
+    },
+    "required": [
+    "phoneNumber",
+    "code"
+    ]
+    }
+    }
+    }
+    },
+    "responses": {
+    "200": {}
+    }
+    }
+    },
+    "/auth/tokens": {
+    "get": {
+    "operationId": "getAuthTokens",
+    "tags": [
+    "auth"
+    ],
+    "summary": "Obtener todos los tokens del usuario autenticado",
+    "responses": {
+    "200": {}
+    }
+    }
+    },
+    "/auth/revoke-token/{tokenId}": {
+    "post": {
+    "operationId": "postAuthRevoke-tokenByTokenId",
+    "tags": [
+    "auth"
+    ],
+    "summary": "Revocar un token específico",
+    "parameters": [
+    {
+    "schema": {
+    "type": "string"
+    },
+    "in": "path",
+    "name": "tokenId",
+    "required": true
+    }
+    ],
+    "responses": {
+    "200": {}
+    }
+    }
+    },
+    "/auth/revoke-all-tokens": {
+    "post": {
+    "operationId": "postAuthRevoke-all-tokens",
+    "tags": [
+    "auth"
+    ],
+    "summary": "Revocar todos los tokens del usuario autenticado",
+    "responses": {
+    "200": {}
+    }
+    }
+    },
+    "/health/": {
+    "get": {
+    "operationId": "getHealth",
+    "tags": [
+    "health"
+    ],
+    "summary": "Verificar el estado del servidor",
+    "responses": {
+    "200": {}
+    }
+    }
+    },
+    "/health/api": {
+    "get": {
+    "operationId": "getHealthApi",
+    "tags": [
+    "health"
+    ],
+    "summary": "Verificar el estado de la API",
+    "responses": {
+    "200": {}
+    }
+    }
+    },
+    "/qr/generate": {
+    "post": {
+    "parameters": [],
+    "responses": {
+    "200": {
+    "content": {
+    "application/json": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "multipart/form-data": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "text/plain": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    }
+    }
+    }
+    },
+    "operationId": "postQrGenerate",
+    "tags": [
+    "qr"
+    ],
+    "summary": "Generar código QR",
+    "requestBody": {
+    "required": true,
+    "content": {
+    "application/json": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "transactionId": {
+    "type": "string"
+    },
+    "amount": {
+    "type": "number"
+    },
+    "description": {
+    "type": "string"
+    },
+    "bankId": {
+    "default": 1,
+    "type": "number"
+    },
+    "dueDate": {
+    "type": "string"
+    },
+    "singleUse": {
+    "default": false,
+    "type": "boolean"
+    },
+    "modifyAmount": {
+    "default": false,
+    "type": "boolean"
+    }
+    },
+    "required": [
+    "transactionId",
+    "amount",
+    "dueDate"
+    ]
+    }
+    },
+    "multipart/form-data": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "transactionId": {
+    "type": "string"
+    },
+    "amount": {
+    "type": "number"
+    },
+    "description": {
+    "type": "string"
+    },
+    "bankId": {
+    "default": 1,
+    "type": "number"
+    },
+    "dueDate": {
+    "type": "string"
+    },
+    "singleUse": {
+    "default": false,
+    "type": "boolean"
+    },
+    "modifyAmount": {
+    "default": false,
+    "type": "boolean"
+    }
+    },
+    "required": [
+    "transactionId",
+    "amount",
+    "dueDate"
+    ]
+    }
+    },
+    "text/plain": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "transactionId": {
+    "type": "string"
+    },
+    "amount": {
+    "type": "number"
+    },
+    "description": {
+    "type": "string"
+    },
+    "bankId": {
+    "default": 1,
+    "type": "number"
+    },
+    "dueDate": {
+    "type": "string"
+    },
+    "singleUse": {
+    "default": false,
+    "type": "boolean"
+    },
+    "modifyAmount": {
+    "default": false,
+    "type": "boolean"
+    }
+    },
+    "required": [
+    "transactionId",
+    "amount",
+    "dueDate"
+    ]
+    }
+    }
+    }
+    }
+    }
+    },
+    "/qr/list": {
+    "get": {
+    "parameters": [
+    {
+    "schema": {
+    "type": "string"
+    },
+    "in": "query",
+    "name": "page",
+    "required": false
+    },
+    {
+    "schema": {
+    "type": "string"
+    },
+    "in": "query",
+    "name": "limit",
+    "required": false
+    },
+    {
+    "schema": {
+    "type": "string"
+    },
+    "in": "query",
+    "name": "status",
+    "required": false
+    },
+    {
+    "schema": {
+    "type": "string"
+    },
+    "in": "query",
+    "name": "startDate",
+    "required": false
+    },
+    {
+    "schema": {
+    "type": "string"
+    },
+    "in": "query",
+    "name": "endDate",
+    "required": false
+    }
+    ],
+    "responses": {
+    "200": {
+    "content": {
+    "application/json": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "multipart/form-data": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "text/plain": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    }
+    }
+    }
+    },
+    "operationId": "getQrList",
+    "tags": [
+    "qr"
+    ],
+    "summary": "Obtener lista de QRs de una cuenta"
+    }
+    },
+    "/qr/{id}": {
+    "get": {
+    "parameters": [
+    {
+    "schema": {
+    "type": "string"
+    },
+    "in": "path",
+    "name": "id",
+    "required": true
+    }
+    ],
+    "responses": {
+    "200": {
+    "content": {
+    "application/json": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "multipart/form-data": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "text/plain": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    }
+    }
+    }
+    },
+    "operationId": "getQrById",
+    "tags": [
+    "qr"
+    ],
+    "summary": "Obtener detalles del QR (imagen y información básica)"
+    },
+    "delete": {
+    "parameters": [
+    {
+    "schema": {
+    "type": "string"
+    },
+    "in": "path",
+    "name": "id",
+    "required": true
+    }
+    ],
+    "responses": {
+    "200": {
+    "content": {
+    "application/json": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "multipart/form-data": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "text/plain": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    }
+    }
+    }
+    },
+    "operationId": "deleteQrById",
+    "tags": [
+    "qr"
+    ],
+    "summary": "Cancelar QR"
+    }
+    },
+    "/qr/{id}/payments": {
+    "get": {
+    "parameters": [
+    {
+    "schema": {
+    "type": "string"
+    },
+    "in": "path",
+    "name": "id",
+    "required": true
+    }
+    ],
+    "responses": {
+    "200": {
+    "content": {
+    "application/json": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "multipart/form-data": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "text/plain": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    }
+    }
+    }
+    },
+    "operationId": "getQrByIdPayments",
+    "tags": [
+    "qr"
+    ],
+    "summary": "Obtener pagos del QR desde Baneco"
+    }
+    },
+    "/accounts/": {
+    "get": {
+    "responses": {
+    "200": {
+    "content": {
+    "application/json": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "multipart/form-data": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "text/plain": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    }
+    }
+    }
+    },
+    "operationId": "getAccounts",
+    "tags": [
+    "accounts"
+    ],
+    "summary": "Obtener todas las cuentas del usuario autenticado"
+    }
+    },
+    "/accounts/{id}": {
+    "get": {
+    "parameters": [
+    {
+    "schema": {
+    "type": "string"
+    },
+    "in": "path",
+    "name": "id",
+    "required": true
+    }
+    ],
+    "responses": {
+    "200": {
+    "content": {
+    "application/json": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "multipart/form-data": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "text/plain": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    }
+    }
+    }
+    },
+    "operationId": "getAccountsById",
+    "tags": [
+    "accounts"
+    ],
+    "summary": "Obtener una cuenta específica del usuario"
+    }
+    },
+    "/accounts/{id}/movements": {
+    "get": {
+    "parameters": [
+    {
+    "schema": {
+    "type": "string"
+    },
+    "in": "path",
+    "name": "id",
+    "required": true
+    },
+    {
+    "schema": {
+    "type": "string"
+    },
+    "in": "query",
+    "name": "page",
+    "required": false
+    },
+    {
+    "schema": {
+    "type": "string"
+    },
+    "in": "query",
+    "name": "pageSize",
+    "required": false
+    }
+    ],
+    "responses": {
+    "200": {
+    "content": {
+    "application/json": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "multipart/form-data": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "text/plain": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    }
+    }
+    }
+    },
+    "operationId": "getAccountsByIdMovements",
+    "tags": [
+    "accounts"
+    ],
+    "summary": "Obtener movimientos de una cuenta específica"
+    }
+    },
+    "/accounts/{id}/stats": {
+    "get": {
+    "parameters": [
+    {
+    "schema": {
+    "type": "string"
+    },
+    "in": "path",
+    "name": "id",
+    "required": true
+    }
+    ],
+    "responses": {
+    "200": {
+    "content": {
+    "application/json": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "multipart/form-data": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "text/plain": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    }
+    }
+    }
+    },
+    "operationId": "getAccountsByIdStats",
+    "tags": [
+    "accounts"
+    ],
+    "summary": "Obtener estadísticas de recaudaciones de una cuenta"
+    }
+    },
+    "/apikeys/": {
+    "post": {
+    "parameters": [],
+    "responses": {
+    "200": {
+    "content": {
+    "application/json": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "multipart/form-data": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "text/plain": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    }
+    }
+    }
+    },
+    "operationId": "postApikeys",
+    "tags": [
+    "apikeys"
+    ],
+    "summary": "Crear nueva API key para el usuario autenticado",
+    "requestBody": {
+    "required": true,
+    "content": {
+    "application/json": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "description": {
+    "type": "string"
+    },
+    "permissions": {
+    "type": "object",
+    "properties": {
+    "qr_generate": {
+    "type": "boolean"
+    },
+    "qr_status": {
+    "type": "boolean"
+    },
+    "qr_cancel": {
+    "type": "boolean"
+    }
+    },
+    "required": [
+    "qr_generate",
+    "qr_status",
+    "qr_cancel"
+    ]
+    },
+    "expiresAt": {
+    "type": "string"
+    }
+    },
+    "required": [
+    "description",
+    "permissions"
+    ]
+    }
+    },
+    "multipart/form-data": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "description": {
+    "type": "string"
+    },
+    "permissions": {
+    "type": "object",
+    "properties": {
+    "qr_generate": {
+    "type": "boolean"
+    },
+    "qr_status": {
+    "type": "boolean"
+    },
+    "qr_cancel": {
+    "type": "boolean"
+    }
+    },
+    "required": [
+    "qr_generate",
+    "qr_status",
+    "qr_cancel"
+    ]
+    },
+    "expiresAt": {
+    "type": "string"
+    }
+    },
+    "required": [
+    "description",
+    "permissions"
+    ]
+    }
+    },
+    "text/plain": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "description": {
+    "type": "string"
+    },
+    "permissions": {
+    "type": "object",
+    "properties": {
+    "qr_generate": {
+    "type": "boolean"
+    },
+    "qr_status": {
+    "type": "boolean"
+    },
+    "qr_cancel": {
+    "type": "boolean"
+    }
+    },
+    "required": [
+    "qr_generate",
+    "qr_status",
+    "qr_cancel"
+    ]
+    },
+    "expiresAt": {
+    "type": "string"
+    }
+    },
+    "required": [
+    "description",
+    "permissions"
+    ]
+    }
+    }
+    }
+    }
+    },
+    "get": {
+    "operationId": "getApikeys",
+    "tags": [
+    "apikeys"
+    ],
+    "summary": "Listar API keys del usuario autenticado",
+    "responses": {
+    "200": {}
+    }
+    }
+    },
+    "/apikeys/{id}": {
+    "delete": {
+    "parameters": [
+    {
+    "schema": {
+    "type": "string"
+    },
+    "in": "path",
+    "name": "id",
+    "required": true
+    }
+    ],
+    "responses": {
+    "200": {
+    "content": {
+    "application/json": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "multipart/form-data": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "text/plain": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    }
+    }
+    }
+    },
+    "operationId": "deleteApikeysById",
+    "tags": [
+    "apikeys"
+    ],
+    "summary": "Revocar API key del usuario autenticado"
+    }
+    },
+    "/admin/accounts/": {
+    "get": {
+    "responses": {
+    "200": {
+    "content": {
+    "application/json": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "multipart/form-data": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "text/plain": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    }
+    }
+    }
+    },
+    "operationId": "getAdminAccounts",
+    "tags": [
+    "admin",
+    "accounts"
+    ],
+    "summary": "Listar todas las cuentas (solo admin)"
+    },
+    "post": {
+    "parameters": [],
+    "responses": {
+    "200": {
+    "content": {
+    "application/json": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "multipart/form-data": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    },
+    "text/plain": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "success": {
+    "type": "boolean"
+    },
+    "message": {
+    "type": "string"
+    },
+    "data": {}
+    },
+    "required": [
+    "success",
+    "message"
+    ]
+    }
+    }
+    }
+    }
+    },
+    "operationId": "postAdminAccounts",
+    "tags": [
+    "admin",
+    "accounts"
+    ],
+    "summary": "Crear una nueva cuenta con usuario owner",
+    "requestBody": {
+    "required": true,
+    "content": {
+    "application/json": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "accountNumber": {
+    "type": "string"
+    },
+    "accountType": {
+    "type": "string"
+    },
+    "currency": {
+    "type": "string"
+    },
+    "balance": {
+    "type": "number"
+    },
+    "availableBalance": {
+    "type": "number"
+    },
+    "thirdBankCredentialId": {
+    "type": "number"
+    },
+    "userEmail": {
+    "type": "string"
+    },
+    "userFullName": {
+    "type": "string"
+    },
+    "userPhone": {
+    "type": "string"
+    },
+    "userAddress": {
+    "type": "string"
+    }
+    },
+    "required": [
+    "accountNumber",
+    "accountType",
+    "currency",
+    "balance",
+    "availableBalance",
+    "userEmail",
+    "userFullName"
+    ]
+    }
+    },
+    "multipart/form-data": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "accountNumber": {
+    "type": "string"
+    },
+    "accountType": {
+    "type": "string"
+    },
+    "currency": {
+    "type": "string"
+    },
+    "balance": {
+    "type": "number"
+    },
+    "availableBalance": {
+    "type": "number"
+    },
+    "thirdBankCredentialId": {
+    "type": "number"
+    },
+    "userEmail": {
+    "type": "string"
+    },
+    "userFullName": {
+    "type": "string"
+    },
+    "userPhone": {
+    "type": "string"
+    },
+    "userAddress": {
+    "type": "string"
+    }
+    },
+    "required": [
+    "accountNumber",
+    "accountType",
+    "currency",
+    "balance",
+    "availableBalance",
+    "userEmail",
+    "userFullName"
+    ]
+    }
+    },
+    "text/plain": {
+    "schema": {
+    "type": "object",
+    "properties": {
+    "accountNumber": {
+    "type": "string"
+    },
+    "accountType": {
+    "type": "string"
+    },
+    "currency": {
+    "type": "string"
+    },
+    "balance": {
+    "type": "number"
+    },
+    "availableBalance": {
+    "type": "number"
+    },
+    "thirdBankCredentialId": {
+    "type": "number"
+    },
+    "userEmail": {
+    "type": "string"
+    },
+    "userFullName": {
+    "type": "string"
+    },
+    "userPhone": {
+    "type": "string"
+    },
+    "userAddress": {
+    "type": "string"
+    }
+    },
+    "required": [
+    "accountNumber",
+    "accountType",
+    "currency",
+    "balance",
+    "availableBalance",
+    "userEmail",
+    "userFullName"
+    ]
+    }
+    }
+    }
+    }
+    }
+    }
+    },
+    "components": {
+    "schemas": {}
+    }
+    }

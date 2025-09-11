@@ -6,6 +6,7 @@ import type {
   QRGenerationAPIResponse, 
   QRStatusAPIResponse, 
   QRCancellationAPIResponse,
+  QRPaymentsAPIResponse,
   ServerResponse
 } from '$lib/types/api';
 import type { 
@@ -45,6 +46,7 @@ export const load = async ({ params, url }) => {
       color: empresa.color,
       gradiente: empresa.gradiente,
       instrucciones: empresa.instrucciones,
+      webUrl: empresa.webUrl,
     },
     // Solo incluir abonado si se pasó por URL
     ...(abonado && { abonado }),
@@ -437,36 +439,54 @@ export const actions = {
       // Para EMPSAAT, usar la API real de QR
       if (slug === 'empsaat') {
         try {
-          // Llamar a la API real de QR
-          const qrApiResponse = await fetch('https://pagui-api.iathings.com/generate-qr', {
+          // Calcular fecha de vencimiento (7 días desde ahora)
+          const dueDate = new Date();
+          dueDate.setDate(dueDate.getDate() + 7);
+          const dueDateISO = dueDate.toISOString();
+
+          // Llamar a la API real de QR según documentación
+          const qrApiResponse = await fetch('https://pagui-api.iathings.com/qr/generate', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              'Authorization': `Bearer ${empresa.apiKey}` // Usar API key de la empresa
             },
             body: JSON.stringify({
+              transactionId: transactionId,
               amount: monto,
               description: descripcion,
-              transactionId: transactionId,
-              accountNumber: numeroCuenta
+              bankId: 1, // Default según documentación
+              dueDate: dueDateISO,
+              singleUse: false, // Default según documentación
+              modifyAmount: false // Default según documentación
             })
           });
 
           if (!qrApiResponse.ok) {
-            throw new Error(`API QR error: ${qrApiResponse.status}`);
+            const errorData = await qrApiResponse.json().catch(() => ({}));
+            throw new Error(`API QR error: ${qrApiResponse.status} - ${errorData.message || 'Error desconocido'}`);
           }
 
           const qrData = await qrApiResponse.json();
           
+          if (!qrData.success) {
+            return fail(400, {
+              success: false,
+              error: qrData.message || 'Error al generar QR',
+              codigo: qrData.codigo
+            });
+          }
+          
           return {
             success: true,
-            data: qrData,
+            data: qrData.data,
             mensaje: 'QR generado correctamente'
           };
         } catch (apiError) {
           console.error('Error llamando API de QR:', apiError);
           return fail(500, {
             success: false,
-            error: 'Error al generar QR desde la API externa'
+            error: `Error al generar QR: ${apiError instanceof Error ? apiError.message : 'Error desconocido'}`
           });
         }
       }
@@ -518,29 +538,40 @@ export const actions = {
       // Para EMPSAAT, usar la API real para verificar estado
       if (slug === 'empsaat') {
         try {
-          // Llamar a la API real para verificar estado del QR
-          const statusApiResponse = await fetch(`https://pagui-api.iathings.com/check-qr-status/${qrId}`, {
+          // Llamar a la API real para verificar estado del QR según documentación
+          const statusApiResponse = await fetch(`https://pagui-api.iathings.com/qr/${qrId}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
+              'Authorization': `Bearer ${empresa.apiKey}` // Usar API key de la empresa
             }
           });
 
           if (!statusApiResponse.ok) {
-            throw new Error(`API QR Status error: ${statusApiResponse.status}`);
+            const errorData = await statusApiResponse.json().catch(() => ({}));
+            throw new Error(`API QR Status error: ${statusApiResponse.status} - ${errorData.message || 'Error desconocido'}`);
           }
 
           const statusData = await statusApiResponse.json();
           
+          if (!statusData.success) {
+            return fail(400, {
+              success: false,
+              error: statusData.message || 'Error al verificar estado del QR',
+              codigo: statusData.codigo
+            });
+          }
+          
           return {
             success: true,
-            data: statusData
+            data: statusData.data,
+            mensaje: 'Estado del QR obtenido correctamente'
           };
         } catch (apiError) {
           console.error('Error verificando estado QR:', apiError);
           return fail(500, {
             success: false,
-            error: 'Error al verificar estado del QR desde la API externa'
+            error: `Error al verificar estado del QR: ${apiError instanceof Error ? apiError.message : 'Error desconocido'}`
           });
         }
       }
@@ -591,30 +622,40 @@ export const actions = {
       // Para EMPSAAT, usar la API real para cancelar QR
       if (slug === 'empsaat') {
         try {
-          // Llamar a la API real para cancelar el QR
-          const cancelApiResponse = await fetch(`https://pagui-api.iathings.com/cancel-qr/${qrId}`, {
-            method: 'POST',
+          // Llamar a la API real para cancelar el QR según documentación
+          const cancelApiResponse = await fetch(`https://pagui-api.iathings.com/qr/${qrId}`, {
+            method: 'DELETE',
             headers: {
               'Content-Type': 'application/json',
+              'Authorization': `Bearer ${empresa.apiKey}` // Usar API key de la empresa
             }
           });
 
           if (!cancelApiResponse.ok) {
-            throw new Error(`API QR Cancel error: ${cancelApiResponse.status}`);
+            const errorData = await cancelApiResponse.json().catch(() => ({}));
+            throw new Error(`API QR Cancel error: ${cancelApiResponse.status} - ${errorData.message || 'Error desconocido'}`);
           }
 
           const cancelData = await cancelApiResponse.json();
           
+          if (!cancelData.success) {
+            return fail(400, {
+              success: false,
+              error: cancelData.message || 'Error al cancelar QR',
+              codigo: cancelData.codigo
+            });
+          }
+          
           return {
             success: true,
-            data: cancelData,
+            data: cancelData.data,
             mensaje: 'QR cancelado correctamente'
           };
         } catch (apiError) {
           console.error('Error cancelando QR:', apiError);
           return fail(500, {
             success: false,
-            error: 'Error al cancelar QR desde la API externa'
+            error: `Error al cancelar QR: ${apiError instanceof Error ? apiError.message : 'Error desconocido'}`
           });
         }
       }
@@ -625,6 +666,90 @@ export const actions = {
       });
     } catch (error) {
       console.error('Error cancelando QR:', error);
+      return fail(500, {
+        success: false,
+        error: 'Error interno del servidor'
+      });
+    }
+  },
+
+  // Acción para obtener pagos de un QR específico
+  obtenerPagosQR: async ({ request, params }) => {
+    const { slug } = params;
+    
+    if (!slug) {
+      return fail(400, { 
+        success: false, 
+        error: 'Empresa no proporcionada' 
+      });
+    }
+
+    const empresa = getEmpresaConfig(slug);
+    if (!empresa) {
+      return fail(404, {
+        success: false,
+        error: `La empresa ${slug} no existe o no está configurada`
+      });
+    }
+    
+    try {
+      const formData = await request.formData();
+      const qrId = formData.get('qrId')?.toString() || '';
+      
+      if (!qrId) {
+        return fail(400, {
+          success: false,
+          error: 'ID de QR requerido'
+        });
+      }
+      
+      // Para EMPSAAT, usar la API real para obtener pagos
+      if (slug === 'empsaat') {
+        try {
+          // Llamar a la API real para obtener pagos del QR según documentación
+          const paymentsApiResponse = await fetch(`https://pagui-api.iathings.com/qr/${qrId}/payments`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${empresa.apiKey}` // Usar API key de la empresa
+            }
+          });
+
+          if (!paymentsApiResponse.ok) {
+            const errorData = await paymentsApiResponse.json().catch(() => ({}));
+            throw new Error(`API QR Payments error: ${paymentsApiResponse.status} - ${errorData.message || 'Error desconocido'}`);
+          }
+
+          const paymentsData = await paymentsApiResponse.json();
+          
+          if (!paymentsData.success) {
+            return fail(400, {
+              success: false,
+              error: paymentsData.message || 'Error al obtener pagos del QR',
+              codigo: paymentsData.codigo
+            });
+          }
+          
+          return {
+            success: true,
+            data: paymentsData.data,
+            mensaje: 'Pagos del QR obtenidos correctamente'
+          };
+        } catch (apiError) {
+          console.error('Error obteniendo pagos QR:', apiError);
+          return fail(500, {
+            success: false,
+            error: `Error al obtener pagos del QR: ${apiError instanceof Error ? apiError.message : 'Error desconocido'}`
+          });
+        }
+      }
+      
+      return fail(501, {
+        success: false,
+        error: `Obtención de pagos QR para ${empresa.nombre} no implementada aún`
+      });
+    } catch (error) {
+      console.error('Error obteniendo pagos QR:', error);
       return fail(500, {
         success: false,
         error: 'Error interno del servidor'

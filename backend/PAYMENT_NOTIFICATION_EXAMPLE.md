@@ -134,3 +134,4 @@ El sistema ahora puede:
 - Mostrar información detallada del remitente en el historial
 - Mantener balances precisos
 - Proporcionar estadísticas completas de recaudaciones
+

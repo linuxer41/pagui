@@ -10,23 +10,26 @@
 <svelte:head>
   <title>Empresas - Pagui Recaudaciones</title>
   <meta name="description" content="Encuentra tu empresa y paga tu cuenta de forma segura" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 </svelte:head>
 
-<!-- Header -->
-<header class="header" style="background: var(--gradient-hero)">
-  <div class="container">
-    <div class="header-content">
-      <h1 class="title">Empresas Disponibles</h1>
-      <p class="subtitle">Selecciona tu empresa para buscar y pagar tu cuenta</p>
+<!-- Header simple -->
+<div class="simple-header">
+  <div class="header-content">
+    <div class="header-left">
+      <h1 class="page-title">Empresas Disponibles</h1>
+      <p class="page-subtitle">Selecciona tu empresa para buscar y pagar tu cuenta</p>
     </div>
   </div>
-</header>
+</div>
 
-<!-- Contenido principal -->
-<main class="main-content">
-  <div class="container">
-    <div class="empresas-grid">
-      {#if empresas.length > 0}
+<!-- Contenido principal centrado -->
+<div class="main-content">
+  <div class="empresas-container">
+    {#if empresas.length > 0}
+      <div class="empresas-grid">
         {#each empresas as empresa}
           {#if empresa}
             <a href="/recaudaciones/{empresa.id}" class="empresa-card">
@@ -58,43 +61,19 @@
             </a>
           {/if}
         {/each}
-      {:else}
-        <div class="no-empresas">
-          <div class="no-empresas-icon">🏢</div>
-          <h3>No hay empresas disponibles</h3>
-          <p>Por el momento no hay empresas configuradas en el sistema.</p>
-        </div>
-      {/if}
-    </div>
-    
-    <!-- Información adicional -->
-    <section class="info-section">
-      <h2>¿Cómo funciona?</h2>
-      <div class="steps-grid">
-        <div class="step-card">
-          <div class="step-number">1</div>
-          <h4>Selecciona tu empresa</h4>
-          <p>Busca tu empresa en la lista de empresas disponibles</p>
-        </div>
-        
-        <div class="step-card">
-          <div class="step-number">2</div>
-          <h4>Ingresa tu código</h4>
-          <p>Ingresa el código de cliente que te proporcionó la empresa</p>
-        </div>
-        
-        <div class="step-card">
-          <div class="step-number">3</div>
-          <h4>Revisa y paga</h4>
-          <p>Revisa los detalles de tu cuenta y realiza el pago de forma segura</p>
-        </div>
       </div>
-    </section>
+    {:else}
+      <div class="no-empresas">
+        <div class="no-empresas-icon">🏢</div>
+        <h3>No hay empresas disponibles</h3>
+        <p>Por el momento no hay empresas configuradas en el sistema.</p>
+      </div>
+    {/if}
   </div>
-</main>
+</div>
 
 <style>
-  /* Estilos globales */
+  /* Reset y estilos base */
   * {
     margin: 0;
     padding: 0;
@@ -104,112 +83,121 @@
   body {
     font-family: 'Inter', 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     line-height: 1.6;
-    color: rgb(var(--gray-900));
-    background: rgb(var(--gray-50));
+    color: #1a202c;
+    background: #f8fafc;
   }
   
-  .container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 var(--space);
-  }
-  
-  /* Header */
-  .header {
-    padding: var(--space-3xl) 0;
-    color: rgb(var(--white));
+  /* Header simple */
+  .simple-header {
+    background: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 3rem 2rem;
     text-align: center;
   }
   
   .header-content {
-    max-width: 600px;
+    max-width: 800px;
     margin: 0 auto;
   }
   
-  .title {
+  .page-title {
     font-size: 3rem;
     font-weight: 700;
-    margin-bottom: var(--space);
+    color: #1a202c;
+    margin-bottom: 1rem;
   }
   
-  .subtitle {
+  .page-subtitle {
     font-size: 1.25rem;
-    opacity: 0.9;
+    color: #718096;
+    font-weight: 400;
   }
   
   /* Contenido principal */
   .main-content {
-    padding: var(--space-3xl) 0;
+    padding: 3rem 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
   }
   
   /* Grid de empresas */
+  .empresas-container {
+    width: 100%;
+  }
+  
   .empresas-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-    gap: var(--space-xl);
-    margin-bottom: var(--space-3xl);
+    gap: 2rem;
   }
   
   .empresa-card {
-    background: rgb(var(--white));
-    border-radius: var(--radius-xl);
-    padding: var(--space-xl);
-    box-shadow: var(--shadow-lg);
-    border: 1px solid rgb(var(--gray-200));
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 2rem;
     text-decoration: none;
     color: inherit;
-    transition: var(--transition);
+    transition: all 0.3s ease;
     display: flex;
     flex-direction: column;
-    gap: var(--space-lg);
+    gap: 1.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
   }
   
   .empresa-card:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-xl);
+    transform: translateY(-8px);
+    box-shadow: 0 20px 25px rgba(0, 0, 0, 0.1);
+    border-color: #cbd5e0;
   }
   
   .empresa-header {
     display: flex;
     align-items: center;
-    gap: var(--space-lg);
+    gap: 1.5rem;
   }
   
   .empresa-logo {
-    width: 60px;
-    height: 60px;
-    border-radius: var(--radius-lg);
+    width: 70px;
+    height: 70px;
+    border-radius: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 2rem;
     flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  .empresa-info {
+    flex: 1;
   }
   
   .empresa-nombre {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: var(--space-xs);
-    color: rgb(var(--gray-900));
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: #1a202c;
   }
   
   .empresa-descripcion {
-    color: rgb(var(--gray-600));
-    font-size: 0.9rem;
+    color: #718096;
+    font-size: 1rem;
+    line-height: 1.5;
   }
   
   .empresa-details {
     display: flex;
     flex-direction: column;
-    gap: var(--space-sm);
+    gap: 1rem;
   }
   
   .detail-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: var(--space-sm) 0;
-    border-bottom: 1px solid rgb(var(--gray-100));
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #f7fafc;
   }
   
   .detail-item:last-child {
@@ -217,14 +205,14 @@
   }
   
   .detail-label {
-    font-weight: 500;
-    color: rgb(var(--gray-600));
+    font-weight: 600;
+    color: #718096;
     font-size: 0.9rem;
   }
   
   .detail-value {
-    font-weight: 600;
-    color: rgb(var(--gray-900));
+    font-weight: 700;
+    color: #2d3748;
     font-size: 0.9rem;
   }
   
@@ -232,134 +220,127 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: var(--space-md);
-    background: rgb(var(--primary) / 0.1);
-    border-radius: var(--radius-lg);
+    padding: 1rem 1.5rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
     margin-top: auto;
+    color: white;
   }
   
   .action-text {
-    font-weight: 600;
-    color: rgb(var(--primary));
+    font-weight: 700;
+    font-size: 1rem;
   }
   
   .action-icon {
-    font-size: 1.2rem;
-    color: rgb(var(--primary));
-    transition: var(--transition);
+    font-size: 1.25rem;
+    transition: transform 0.3s ease;
   }
   
   .empresa-card:hover .action-icon {
-    transform: translateX(4px);
+    transform: translateX(6px);
   }
   
-  /* Sección de información */
-  .info-section {
-    text-align: center;
-  }
-  
-  .info-section h2 {
-    font-size: 2rem;
-    font-weight: 600;
-    margin-bottom: var(--space-2xl);
-    color: rgb(var(--gray-900));
-  }
-  
-  .steps-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: var(--space-xl);
-  }
-  
-  .step-card {
-    background: rgb(var(--white));
-    padding: var(--space-xl);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow);
-    border: 1px solid rgb(var(--gray-200));
-    text-align: center;
-  }
-  
-  .step-number {
-    width: 50px;
-    height: 50px;
-    background: var(--gradient-primary);
-    color: rgb(var(--white));
-    border-radius: var(--radius-full);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin: 0 auto var(--space-lg);
-  }
-  
-  .step-card h4 {
-    font-size: 1.2rem;
-    font-weight: 600;
-    margin-bottom: var(--space);
-    color: rgb(var(--gray-900));
-  }
-  
-  .step-card p {
-    color: rgb(var(--gray-600));
-    line-height: 1.6;
-  }
-
   /* No empresas */
   .no-empresas {
     text-align: center;
-    padding: var(--space-3xl) 0;
-    color: rgb(var(--gray-600));
+    padding: 4rem 2rem;
+    color: #718096;
   }
-
+  
   .no-empresas-icon {
     font-size: 4rem;
-    margin-bottom: var(--space);
+    margin-bottom: 1.5rem;
   }
-
+  
   .no-empresas h3 {
-    font-size: 1.8rem;
-    font-weight: 600;
-    margin-bottom: var(--space-xs);
-    color: rgb(var(--gray-900));
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: #2d3748;
   }
-
+  
   .no-empresas p {
-    font-size: 1rem;
+    font-size: 1.125rem;
     line-height: 1.6;
   }
   
-  /* Responsive */
+  /* Responsive Design */
+  @media (max-width: 1024px) {
+    .empresas-grid {
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+    }
+  }
+  
   @media (max-width: 768px) {
-    .container {
-      padding: 0 var(--space-md);
+    .simple-header {
+      padding: 2rem 1.5rem;
     }
     
-    .title {
-      font-size: 2rem;
+    .page-title {
+      font-size: 2.5rem;
     }
     
-    .subtitle {
-      font-size: 1.1rem;
+    .page-subtitle {
+      font-size: 1.125rem;
+    }
+    
+    .main-content {
+      padding: 2rem 1.5rem;
     }
     
     .empresas-grid {
       grid-template-columns: 1fr;
+      gap: 1.5rem;
     }
     
     .empresa-card {
-      padding: var(--space-lg);
+      padding: 1.5rem;
     }
     
     .empresa-header {
       flex-direction: column;
       text-align: center;
-      gap: var(--space);
+      gap: 1rem;
     }
     
-    .steps-grid {
-      grid-template-columns: 1fr;
+    .empresa-logo {
+      width: 80px;
+      height: 80px;
+      font-size: 2.5rem;
+    }
+    
+    .empresa-nombre {
+      font-size: 1.25rem;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .simple-header {
+      padding: 1.5rem 1rem;
+    }
+    
+    .page-title {
+      font-size: 2rem;
+    }
+    
+    .page-subtitle {
+      font-size: 1rem;
+    }
+    
+    .main-content {
+      padding: 1.5rem 1rem;
+    }
+    
+    .empresa-card {
+      padding: 1.25rem;
+    }
+    
+    .empresa-logo {
+      width: 60px;
+      height: 60px;
+      font-size: 2rem;
     }
   }
 </style>

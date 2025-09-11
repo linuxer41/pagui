@@ -1,4 +1,5 @@
 import { query } from '../config/database';
+import { generateApiKey } from '../services/apikey.service';
 import { userService } from '../services/user.service';
 import { AccountNumberService } from '../services/account-number.service';
 
@@ -178,18 +179,36 @@ export async function seedDatabase() {
     
     console.log('Relaciones usuario-cuenta creadas exitosamente');
     
-    // 8. Crear API key para el usuario
-    console.log('Creando API key...');
+    // 8. Crear API keys para cada cuenta
+    console.log('Creando API keys para cada cuenta...');
     
-    const apiKey = generateApiKey();
+    const accounts = [
+      { id: adminAccount.rows[0].id, name: 'Admin' },
+      { id: userAccount.rows[0].id, name: 'Usuario' },
+      { id: managerAccount.rows[0].id, name: 'Gerente' },
+      { id: iathingsAccount.rows[0].id, name: 'IATHINGS' }
+    ];
     
-    await query(`
-      INSERT INTO api_keys (api_key, user_id, description, status)
-      VALUES ($1, $2, 'API Key de demostración', 'active')
-      ON CONFLICT (api_key) DO NOTHING
-    `, [apiKey, user.id]);
+    const apiKeys: Array<{ account: string; apiKey: string }> = [];
     
-    console.log(`API key generada: ${apiKey}`);
+    for (const account of accounts) {
+      const apiKey = generateApiKey();
+      
+      await query(`
+        INSERT INTO api_keys (api_key, account_id, description, permissions, status)
+        VALUES ($1, $2, $3, $4, 'active')
+        ON CONFLICT (api_key) DO NOTHING
+      `, [apiKey, account.id, `API Key para cuenta ${account.name}`, JSON.stringify({
+        qr_generate: true,
+        qr_status: true,
+        qr_cancel: true
+      })]);
+      
+      apiKeys.push({ account: account.name, apiKey });
+      console.log(`API key generada para ${account.name}: ${apiKey}`);
+    }
+    
+    console.log('Todas las API keys generadas exitosamente');
     
     // 9. Crear tokens de autenticación de ejemplo
     console.log('Creando tokens de autenticación...');
@@ -246,16 +265,6 @@ export async function seedDatabase() {
     console.error('❌ Error durante el seed:', error);
     throw error;
   }
-}
-
-// Función para generar API keys aleatorias
-function generateApiKey(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let result = '';
-  for (let i = 0; i < 32; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
 }
 
 // Ejecutar seed si se llama directamente

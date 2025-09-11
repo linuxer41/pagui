@@ -10,8 +10,8 @@
     QRStatusAPIResponse,
     QRCancellationAPIResponse
   } from '$lib/types/api';
-     import { onDestroy, onMount } from 'svelte';
-   import '../../../lib/theme.css';
+  import { onDestroy, onMount } from 'svelte';
+  import '../../../lib/theme.css';
   
   // Importar los componentes
   import FormularioBusqueda from '$lib/components/recaudaciones/FormularioBusqueda.svelte';
@@ -52,6 +52,7 @@
     color: string;
     gradiente: string;
     instrucciones: string;
+    webUrl: string;
     usaQR?: boolean;
     apiKey?: string;
   }
@@ -603,203 +604,645 @@
   });
 </script>
 
-<div class="empresa-page" style="--empresa-color: {empresa.color}; --empresa-gradiente: {empresa.gradiente}">
-     <!-- Header de la empresa -->
-   <div class="header">
-     <div class="header-content">
-       <div class="logo">{empresa.logo}</div>
-       <div class="company-info">
-         <h1 class="company-name">{empresa.nombre}</h1>
-         <p class="company-description">{empresa.descripcion}</p>
-       </div>
-     </div>
-   </div>
+<svelte:head>
+  <title>{empresa.nombre} - Pagui Recaudaciones</title>
+  <meta name="description" content="Paga tu cuenta de {empresa.nombre} de forma segura y rápida" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+</svelte:head>
 
-     <!-- Contenido principal -->
-   <div class="content">
-    {#if searchResult?.success && searchResult?.data}
-              <!-- Mostrar deuda encontrada -->
-       <div class="debt-content">
-        
-        
-        <!-- Componente de lista de deudas (diferente para cada empresa) -->
-        {#if slug === 'empsaat'}
-          <EmpsaatDeudasDisplay
-            data={searchResult?.data}
-            cliente={cliente}
-            {isGeneratingQR}
-            {isLoading}
-            {qrGenerado}
-            {error}
-            generarQR={generarQREmpsaat}
-            {pagarServicios}
-            {obtenerInfoAbonado}
-          />
+<div class="dashboard-layout">
+  <!-- Panel izquierdo (oscuro) -->
+  <aside class="sidebar">
+    <div class="sidebar-content">
+      <!-- Información de la empresa -->
+      <div class="company-section">
+        <div class="company-info-sidebar">
+          <div class="company-logo-sidebar" style="background: white">
+            {#if empresa.logo && empresa.logo.includes('.png')}
+              <img src="/{empresa.logo}" alt="Logo {empresa.nombre}" class="company-logo-image" />
+            {:else}
+              <span class="logo-text">{empresa.logo}</span>
+            {/if}
+          </div>
+          <div class="company-details-sidebar">
+            <h2 class="company-name-sidebar">{empresa.nombre}</h2>
+            <p class="company-description-sidebar">{empresa.descripcion}</p>
+            <div class="company-status">
+              <div class="status-dot"></div>
+              <span>Sistema Activo</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Footer -->
+      <div class="sidebar-footer">
+        <a href={empresa.webUrl} class="return-link">
+          <span class="return-icon">←</span>
+          <span>Volver a {empresa.slug.toUpperCase()}</span>
+        </a>
+        <div class="powered-by">
+          <span>Powered by</span>
+          <strong>Pagui</strong>
+        </div>
+        <div class="footer-links">
+          <a href="#" class="footer-link">Términos</a>
+          <a href="#" class="footer-link">Privacidad</a>
+        </div>
+      </div>
+    </div>
+  </aside>
+  
+  <!-- Panel derecho (claro) -->
+  <main class="main-content">
+    <div class="content-wrapper">
+      <!-- Header con iconos de seguridad -->
+      <div class="dashboard-header">
+        <div class="header-content">
+          {#if empresa.logo && empresa.logo.includes('.png')}
+            <div class="header-logo">
+              <img src="/{empresa.logo}" alt="Logo {empresa.nombre}" class="header-logo-image" />
+            </div>
+          {/if}
+          <div class="security-badges">
+            <div class="security-badge">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                <path d="M9 12l2 2 4-4"/>
+              </svg>
+              <span>Seguro</span>
+            </div>
+            <div class="security-badge">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <circle cx="12" cy="16" r="1"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+              <span>Protegido</span>
+            </div>
+            <div class="security-badge">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 12l2 2 4-4"/>
+                <path d="M21 12c-1 0-3-1-3-3s2-3 3-3 3 1 3 3-2 3-3 3"/>
+                <path d="M3 12c1 0 3-1 3-3s-2-3-3-3-3 1-3 3 2 3 3 3"/>
+                <path d="M12 3c0 1-1 3-3 3s-3-2-3-3 1-3 3-3 3 2 3 3"/>
+                <path d="M12 21c0-1 1-3 3-3s3 2 3 3-1 3-3 3-3-2-3-3"/>
+              </svg>
+              <span>Verificado</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contenido principal -->
+      <div class="main-content-area">
+        {#if searchResult?.success && searchResult?.data}
+          <!-- Componente de lista de deudas -->
+          <div class="content-section">
+            <h2 class="section-title">OPCIONES DE PAGO</h2>
+            <div class="payment-content">
+              {#if slug === 'empsaat'}
+                <EmpsaatDeudasDisplay
+                  data={searchResult?.data}
+                  cliente={cliente}
+                  {isGeneratingQR}
+                  {isLoading}
+                  {qrGenerado}
+                  {error}
+                  generarQR={generarQREmpsaat}
+                  {pagarServicios}
+                  {obtenerInfoAbonado}
+                />
+              {:else}
+                <ListaDeudas
+                  deudas={searchResult?.deudas || []}
+                  {isGeneratingQR}
+                  {isLoading}
+                  {qrGenerado}
+                  {error}
+                  {generarQR}
+                  {pagarServicios}
+                />
+              {/if}
+              
+              <!-- Componente para mostrar el QR generado -->
+              {#if qrGenerado}
+                <QRDisplay
+                  qrGenerado={qrGenerado}
+                  qrStatus={qrStatus}
+                  deuda={{}}
+                  {pollingInterval}
+                  {descargarQR}
+                  {compartirQR}
+                />
+              {/if}
+            </div>
+          </div>
         {:else}
-          <ListaDeudas
-            deudas={searchResult?.deudas || []}
-            {isGeneratingQR}
-            {isLoading}
-            {qrGenerado}
-            {error}
-            {generarQR}
-            {pagarServicios}
-          />
-        {/if}
-        
-        <!-- Componente para mostrar el QR generado para cada deuda -->
-        {#if qrGenerado}
-          <QRDisplay
-            qrGenerado={qrGenerado}
-            qrStatus={qrStatus}
-            deuda={{}}
-            {pollingInterval}
-            {descargarQR}
-            {compartirQR}
-          />
+          <!-- Formulario de búsqueda -->
+          <div class="content-section">
+            <h2 class="section-title">BÚSQUEDA DE ABONADO</h2>
+            <div class="search-content">
+              <FormularioBusqueda
+                bind:codigoClienteInput
+                {isLoading}
+                {searchResult}
+                {error}
+                instrucciones={empresa.instrucciones}
+                onBuscar={buscarCuenta}
+              />
+            </div>
+          </div>
         {/if}
       </div>
-         {:else}
-      <!-- Formulario de búsqueda -->
-      <FormularioBusqueda
-        bind:codigoClienteInput
-        {isLoading}
-        {searchResult}
-        {error}
-        instrucciones={empresa.instrucciones}
-        onBuscar={buscarCuenta}
-      />
-            {/if}
-             </div>
+    </div>
+  </main>
 </div>
 
- <style>
-  /* Estos estilos se han movido a los componentes individuales */
-   
-   .empresa-page {
-     min-height: 100vh;
-     background: linear-gradient(135deg, var(--empresa-gradiente));
-     color: var(--text-primary);
-     position: relative;
-     overflow-x: hidden;
-   }
-  
-     .empresa-page::before {
-     content: '';
-     position: absolute;
-     top: 0;
-     left: 0;
-     right: 0;
-     bottom: 0;
-     background: 
-       radial-gradient(circle at 20% 80%, #ffffff 0%, transparent 50%),
-       radial-gradient(circle at 80% 20%, #ffffff 0%, transparent 50%);
-     opacity: 0.1;
-     pointer-events: none;
-   }
-   
-   .header {
-     background: rgba(var(--white), 0.95);
-     backdrop-filter: blur(10px);
-     border-bottom: 1px solid var(--border-color);
-     padding: 1.25rem 1.5rem;
-     position: relative;
-     z-index: 10;
-     box-shadow: var(--shadow-sm);
-   }
-  
-     .header-content {
-     display: flex;
-     align-items: center;
-     gap: 1rem;
-     max-width: 800px;
-     margin: 0 auto;
-   }
-   
-   .logo {
-     font-size: 2rem;
-     background: var(--gradient-primary);
-     border-radius: var(--radius-full);
-     width: 55px;
-     height: 55px;
-     display: flex;
-     align-items: center;
-     justify-content: center;
-     border: 2px solid rgba(var(--white), 0.8);
-     box-shadow: var(--shadow);
-     animation: float 3s ease-in-out infinite;
-   }
-  
-     @keyframes float {
-     0%, 100% { transform: translateY(0px); }
-     50% { transform: translateY(-5px); }
-   }
-  
-           .company-name {
-     font-size: 1.6rem;
-     font-weight: 600;
-     margin: 0 0 0.25rem 0;
-     color: var(--text-primary);
-   }
-   
-   .company-description {
-     font-size: 0.8rem;
-     margin: 0;
-     color: var(--text-secondary);
-     line-height: 1.3;
-   }
-  
-     .content {
-     max-width: 800px;
-     margin: 0 auto;
-     padding: 1rem;
-     position: relative;
-     z-index: 10;
-   }
-  
-        .debt-content {
-     text-align: center;
-   }
-   
-   /* Efectos de partículas flotantes */
-  .empresa-page::after {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-image: 
-      radial-gradient(circle at 25% 25%, #ffffff 0%, transparent 50%),
-      radial-gradient(circle at 75% 75%, #ffffff 0%, transparent 50%);
-    opacity: 0.05;
-    pointer-events: none;
-    z-index: 1;
+<style>
+  /* Variables CSS */
+  :root {
+    --color-primary: #667eea;
+    --color-primary-dark: #5a67d8;
+    --color-primary-light: #a5b4fc;
+    --color-secondary: #764ba2;
+    --color-success: #22c55e;
+    --color-warning: #f59e0b;
+    --color-error: #ef4444;
+    --color-text-primary: #1a1a1a;
+    --color-text-secondary: #666666;
+    --color-text-muted: #999999;
+    --color-bg-primary: #ffffff;
+    --color-bg-secondary: #f8fafc;
+    --color-bg-dark: #000000;
+    --color-border: #e5e5e5;
+    --color-border-light: #f5f5f5;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+  }
+
+  /* Reset y estilos base */
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
   }
   
-     @media (max-width: 768px) {
-     .header {
-       padding: 0.75rem 1rem;
-     }
-     
-     .header-content {
-       flex-direction: column;
-       text-align: center;
-       gap: 0.75rem;
-     }
-     
-     .logo {
-       width: 45px;
-       height: 45px;
-       font-size: 1.8rem;
-     }
-     
-     .company-name {
-       font-size: 1.4rem;
-     }
-     
-     .content {
-       padding: 0.75rem;
-     }
-   }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.5;
+    color: var(--color-text-primary);
+    background: var(--color-bg-primary);
+  }
+  
+  .dashboard-layout {
+    display: flex;
+    min-height: 100vh;
+    background: var(--color-bg-primary);
+  }
+  
+  /* Panel izquierdo (oscuro) - Estilo Cursor/Stripe */
+  .sidebar {
+    width: 320px;
+    background: var(--color-bg-dark);
+    color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    height: 100%;
+    left: 0;
+    top: 0;
+    z-index: 100;
+    border-right: 1px solid #333333;
+  }
+  
+  .sidebar-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 2rem 1.5rem;
+  }
+  
+  
+  /* Información de la empresa en sidebar */
+  .company-section {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .company-info-sidebar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 1rem;
+  }
+  
+  .company-logo-sidebar {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+  }
+  
+  .company-logo-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 8px;
+  }
+  
+  .company-details-sidebar h2 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: #ffffff;
+    margin-bottom: 0.5rem;
+  }
+  
+  .company-details-sidebar p {
+    font-size: 0.875rem;
+    color: #cccccc;
+    line-height: 1.4;
+    margin-bottom: 1rem;
+  }
+  
+  .company-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-success);
+  }
+  
+  .company-status .status-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--color-success);
+    border-radius: 50%;
+  }
+  
+  
+  /* Footer del sidebar */
+  .sidebar-footer {
+    margin-top: auto;
+  }
+  
+  .return-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #ffffff;
+    text-decoration: none;
+    font-size: 0.875rem;
+    margin-bottom: 2rem;
+    transition: color 0.2s ease;
+  }
+  
+  .return-link:hover {
+    color: #cccccc;
+  }
+  
+  .return-icon {
+    font-size: 0.875rem;
+  }
+  
+  .powered-by {
+    font-size: 0.75rem;
+    color: #888888;
+    margin-bottom: 0.5rem;
+  }
+  
+  .powered-by strong {
+    color: #ffffff;
+    font-weight: 600;
+  }
+  
+  .footer-links {
+    display: flex;
+    gap: 1rem;
+  }
+  
+  .footer-link {
+    color: #888888;
+    text-decoration: none;
+    font-size: 0.75rem;
+    transition: color 0.2s ease;
+  }
+  
+  .footer-link:hover {
+    color: #ffffff;
+  }
+  
+  /* Panel derecho (claro) */
+  .main-content {
+    flex: 1;
+    margin-left: 320px;
+    background: #ffffff;
+    overflow-y: auto;
+  }
+  
+  .content-wrapper {
+    min-height: 100vh;
+    padding: 0;
+  }
+  
+  /* Header del dashboard */
+  .dashboard-header {
+    background: var(--color-bg-primary);
+    border-bottom: 1px solid var(--color-border);
+    padding: 1.5rem 2rem;
+  }
+  
+  .header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  
+  .header-content {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  
+  .header-logo {
+    display: flex;
+    align-items: center;
+  }
+  
+  .header-logo-image {
+    height: 40px;
+    width: auto;
+    object-fit: contain;
+  }
+  
+  .security-badges {
+    display: flex;
+    gap: 0.375rem;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .security-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.375rem 0.5rem;
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+    border-radius: var(--radius-sm);
+    color: var(--color-success);
+    font-size: 0.7rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+  }
+  
+  .security-badge:hover {
+    background: rgba(34, 197, 94, 0.15);
+    transform: translateY(-1px);
+  }
+  
+  .security-badge svg {
+    flex-shrink: 0;
+  }
+  
+  /* Contenido principal */
+  .main-content-area {
+    padding: 2rem;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  
+  .content-section {
+    margin-bottom: 2rem;
+  }
+  
+  .section-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 1rem;
+  }
+  
+  
+  .payment-content {
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
+  }
+  
+  .search-content {
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
+  }
+  
+  
+  /* Responsive Design */
+  @media (max-width: 1200px) {
+    .sidebar {
+      width: 280px;
+    }
+    
+    .main-content {
+      margin-left: 280px;
+    }
+    
+    .main-content-area {
+      padding: 1.5rem;
+    }
+  }
+  
+  @media (max-width: 1024px) {
+    .sidebar {
+      width: 260px;
+    }
+    
+    .main-content {
+      margin-left: 260px;
+    }
+    
+    .main-content-area {
+      padding: 1.25rem;
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .dashboard-layout {
+      flex-direction: column;
+    }
+    
+    .sidebar {
+      position: relative;
+      width: 100%;
+      height: auto;
+      order: 2;
+    }
+    
+    .sidebar-content {
+      padding: 1.25rem 1rem;
+      flex-direction: row;
+      align-items: center;
+      gap: 1rem;
+    }
+    
+    .main-content {
+      margin-left: 0;
+      order: 1;
+    }
+    
+    
+    .sidebar-footer {
+      margin-top: 0;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    
+    .return-link {
+      margin-bottom: 0;
+      font-size: 0.8rem;
+    }
+    
+    .powered-by {
+      margin-bottom: 0;
+      font-size: 0.7rem;
+    }
+    
+    .footer-links {
+      display: none;
+    }
+    
+    .dashboard-header {
+      padding: 1rem 1.5rem;
+    }
+    
+    .header-content {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+    
+    .header-right {
+      align-self: flex-end;
+    }
+    
+    .company-info {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+    
+    .company-details h1 {
+      font-size: 1.25rem;
+    }
+    
+    .company-details p {
+      font-size: 0.8rem;
+    }
+    
+    .security-badges {
+      gap: 0.25rem;
+      flex-wrap: wrap;
+    }
+    
+    .security-badge {
+      padding: 0.25rem 0.375rem;
+      font-size: 0.65rem;
+    }
+    
+    .main-content-area {
+      padding: 1rem;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .sidebar-content {
+      padding: 1rem 0.75rem;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    
+    
+    .sidebar-footer {
+      gap: 0.5rem;
+    }
+    
+    .return-link {
+      font-size: 0.75rem;
+    }
+    
+    .powered-by {
+      font-size: 0.65rem;
+    }
+    
+    .dashboard-header {
+      padding: 0.75rem 1rem;
+    }
+    
+    .company-details h1 {
+      font-size: 1.125rem;
+    }
+    
+    .company-details p {
+      font-size: 0.75rem;
+    }
+    
+    .security-badge {
+      padding: 0.2rem 0.3rem;
+      font-size: 0.6rem;
+    }
+    
+    .main-content-area {
+      padding: 0.75rem;
+    }
+    
+    .content-section {
+      margin-bottom: 1.5rem;
+    }
+    
+    .account-info,
+    .payment-content,
+    .search-content,
+    .company-details-section {
+      padding: 1rem;
+    }
+    
+    .status-indicator {
+      padding: 0.375rem 0.75rem;
+      font-size: 0.75rem;
+    }
+  }
 </style>

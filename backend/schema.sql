@@ -193,10 +193,13 @@ CREATE TABLE auth_tokens (
 CREATE TABLE api_keys (
   id SERIAL PRIMARY KEY,
   api_key VARCHAR(64) UNIQUE NOT NULL,
-  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   description TEXT,
+  permissions JSONB NOT NULL DEFAULT '{"qr_generate": false, "qr_status": false, "qr_cancel": false}',
+  expires_at TIMESTAMPTZ,
   status VARCHAR(20) NOT NULL DEFAULT 'active',
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   deleted_at TIMESTAMPTZ
 );
 
@@ -229,6 +232,11 @@ CREATE INDEX idx_qr_codes_third_bank_credential ON qr_codes(third_bank_credentia
 CREATE INDEX idx_payment_sync_qr_id ON payment_sync_status(qr_id);
 CREATE INDEX idx_payment_sync_next_check ON payment_sync_status(next_check);
 CREATE INDEX idx_payment_sync_last_checked ON payment_sync_status(last_checked);
+
+-- Índices de API keys
+CREATE INDEX idx_api_keys_account ON api_keys(account_id);
+CREATE INDEX idx_api_keys_status ON api_keys(status);
+CREATE INDEX idx_api_keys_expires_at ON api_keys(expires_at);
 
 -- ========================================
 -- 9. FUNCIONES DE NEGOCIO

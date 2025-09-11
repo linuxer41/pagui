@@ -39,7 +39,7 @@ interface JWTAuthData {
 interface APIKeyAuthData {
   type: 'apikey';
   apiKeyInfo: {
-    userId: number;
+    accountId: number;
     bankCredentialId: number;
     permissions: Record<string, any>;
     apiKey: string;
@@ -156,7 +156,7 @@ export function authMiddleware<T extends 'jwt' | 'apikey' | 'all'>(
           // Verify API key
           const verification = await apiKeyService.verifyApiKey(apiKey);
           
-          if (verification.isValid && verification.userId && verification.permissions) {
+          if (verification.isValid && verification.accountId && verification.permissions) {
             // If admin level required, verify admin permissions in the API key
             if (options.level === 'admin' && !verification.permissions.qr_generate) {
               throw new ApiError('Se requieren permisos de administrador', 403);
@@ -169,7 +169,7 @@ export function authMiddleware<T extends 'jwt' | 'apikey' | 'all'>(
               auth: {
                 type: 'apikey',
                 apiKeyInfo: {
-                  userId: verification.userId,
+                  accountId: verification.accountId,
                   bankCredentialId: verification.bankCredentialId,
                   permissions: verification.permissions,
                   apiKey: apiKey // Incluir la API key original

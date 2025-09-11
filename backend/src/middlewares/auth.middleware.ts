@@ -10,6 +10,8 @@ interface ApiKeyPermissions {
   qr_generate: boolean;
   qr_status: boolean;
   qr_cancel: boolean;
+  qr_list: boolean;
+  qr_payments: boolean;
 }
 
 // Tipos para datos de autenticación

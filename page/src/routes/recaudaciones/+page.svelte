@@ -5,13 +5,20 @@
   
   // Usar las empresas del servidor
   const { empresas } = data;
+
+  // Función para manejar errores de imagen
+  function handleImageError(event) {
+    if (event.target) {
+      event.target.src = '/favicon.png';
+    }
+  }
 </script>
 
 <svelte:head>
   <title>Empresas - Pagui Recaudaciones</title>
   <meta name="description" content="Encuentra tu empresa y paga tu cuenta de forma segura" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 </svelte:head>
 
@@ -35,7 +42,16 @@
             <a href="/recaudaciones/{empresa.id}" class="empresa-card">
               <div class="empresa-header">
                 <div class="empresa-logo" style="background: {empresa.color}">
-                  <span class="logo-icon">{empresa.logo}</span>
+                  {#if empresa.logo && empresa.logo.includes('.png')}
+                    <img 
+                      src="/{empresa.logo}" 
+                      alt="Logo {empresa.nombre}" 
+                      class="logo-image"
+                      on:error={handleImageError}
+                    />
+                  {:else}
+                    <span class="logo-icon">{empresa.logo || '🏢'}</span>
+                  {/if}
                 </div>
                 <div class="empresa-info">
                   <h3 class="empresa-nombre">{empresa.nombre}</h3>
@@ -167,6 +183,18 @@
     font-size: 2rem;
     flex-shrink: 0;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+  }
+
+  .logo-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 12px;
+  }
+
+  .logo-icon {
+    font-size: 2rem;
   }
   
   .empresa-info {

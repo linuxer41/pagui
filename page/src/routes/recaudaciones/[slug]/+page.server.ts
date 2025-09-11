@@ -1,6 +1,7 @@
 import { getEmpresaConfig, getConfiguracionPagui } from '$lib/config/empresas';
 import { validarApiKeyEmpresa, verificarPermisoEmpresa, validarParametrosQR } from '$lib/utils/empresaUtils';
 import { EmpsaatService } from '$lib/services/EmpsaatService';
+import { PaguiAPI } from '$lib/services/PaguiAPI';
 import { fail, error } from '@sveltejs/kit';
 import type { 
   QRGenerationAPIResponse, 
@@ -448,36 +449,28 @@ export const actions = {
             });
           }
 
+          // Crear instancia de PaguiAPI
+          const paguiAPI = new PaguiAPI({
+            apiKey: paguiConfig.apiKey,
+            baseUrl: paguiConfig.baseUrl
+          });
+
           // Calcular fecha de vencimiento (7 días desde ahora)
           const dueDate = new Date();
           dueDate.setDate(dueDate.getDate() + 7);
           const dueDateISO = dueDate.toISOString();
 
-          // Llamar a la API real de QR según documentación
-          const qrApiResponse = await fetch(`${paguiConfig.baseUrl}/qr/generate`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${paguiConfig.apiKey}` // Usar API key de Pagui
-            },
-            body: JSON.stringify({
-              transactionId: transactionId,
-              amount: monto,
-              description: descripcion,
-              bankId: 1, // Default según documentación
-              dueDate: dueDateISO,
-              singleUse: false, // Default según documentación
-              modifyAmount: false // Default según documentación
-            })
+          // Generar QR usando la clase PaguiAPI
+          const qrData = await paguiAPI.generarQR({
+            transactionId,
+            amount: monto,
+            description: descripcion,
+            bankId: 1,
+            dueDate: dueDateISO,
+            singleUse: false,
+            modifyAmount: false
           });
-
-          if (!qrApiResponse.ok) {
-            const errorData = await qrApiResponse.json().catch(() => ({}));
-            throw new Error(`API QR error: ${qrApiResponse.status} - ${errorData.message || 'Error desconocido'}`);
-          }
-
-          const qrData = await qrApiResponse.json();
-          
+          // console.log('qrData', qrData);
           if (!qrData.success) {
             return fail(400, {
               success: false,
@@ -556,21 +549,14 @@ export const actions = {
             });
           }
 
-          // Llamar a la API real para verificar estado del QR según documentación
-          const statusApiResponse = await fetch(`${paguiConfig.baseUrl}/qr/${qrId}`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${paguiConfig.apiKey}` // Usar API key de Pagui
-            }
+          // Crear instancia de PaguiAPI
+          const paguiAPI = new PaguiAPI({
+            apiKey: paguiConfig.apiKey,
+            baseUrl: paguiConfig.baseUrl
           });
 
-          if (!statusApiResponse.ok) {
-            const errorData = await statusApiResponse.json().catch(() => ({}));
-            throw new Error(`API QR Status error: ${statusApiResponse.status} - ${errorData.message || 'Error desconocido'}`);
-          }
-
-          const statusData = await statusApiResponse.json();
+          // Verificar estado del QR usando la clase PaguiAPI
+          const statusData = await paguiAPI.verificarEstadoQR(qrId);
           
           if (!statusData.success) {
             return fail(400, {
@@ -649,21 +635,14 @@ export const actions = {
             });
           }
 
-          // Llamar a la API real para cancelar el QR según documentación
-          const cancelApiResponse = await fetch(`${paguiConfig.baseUrl}/qr/${qrId}`, {
-            method: 'DELETE',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${paguiConfig.apiKey}` // Usar API key de Pagui
-            }
+          // Crear instancia de PaguiAPI
+          const paguiAPI = new PaguiAPI({
+            apiKey: paguiConfig.apiKey,
+            baseUrl: paguiConfig.baseUrl
           });
 
-          if (!cancelApiResponse.ok) {
-            const errorData = await cancelApiResponse.json().catch(() => ({}));
-            throw new Error(`API QR Cancel error: ${cancelApiResponse.status} - ${errorData.message || 'Error desconocido'}`);
-          }
-
-          const cancelData = await cancelApiResponse.json();
+          // Cancelar QR usando la clase PaguiAPI
+          const cancelData = await paguiAPI.cancelarQR(qrId);
           
           if (!cancelData.success) {
             return fail(400, {
@@ -742,21 +721,14 @@ export const actions = {
             });
           }
 
-          // Llamar a la API real para obtener pagos del QR según documentación
-          const paymentsApiResponse = await fetch(`${paguiConfig.baseUrl}/qr/${qrId}/payments`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${paguiConfig.apiKey}` // Usar API key de Pagui
-            }
+          // Crear instancia de PaguiAPI
+          const paguiAPI = new PaguiAPI({
+            apiKey: paguiConfig.apiKey,
+            baseUrl: paguiConfig.baseUrl
           });
 
-          if (!paymentsApiResponse.ok) {
-            const errorData = await paymentsApiResponse.json().catch(() => ({}));
-            throw new Error(`API QR Payments error: ${paymentsApiResponse.status} - ${errorData.message || 'Error desconocido'}`);
-          }
-
-          const paymentsData = await paymentsApiResponse.json();
+          // Obtener pagos del QR usando la clase PaguiAPI
+          const paymentsData = await paguiAPI.obtenerPagosQR(qrId);
           
           if (!paymentsData.success) {
             return fail(400, {

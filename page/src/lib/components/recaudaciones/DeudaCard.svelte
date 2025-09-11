@@ -60,8 +60,13 @@
   </div>
   
   <div class="debt-action">
+    <!-- Si hay QR generado, mostrar indicador -->
+    {#if qrGenerado}
+      <div class="qr-generated-indicator">
+        <span class="qr-text">QR generado - Escanea para pagar</span>
+      </div>
     <!-- Si es deuda de agua, permitir pagar la más antigua primero -->
-    {#if deuda?.tipo === 'agua' || !deuda?.tipo}
+    {:else if deuda?.tipo === 'agua' || !deuda?.tipo}
       {#if permitirPagar}
         <button class="btn-pay" on:click={() => generarQR(deuda)} disabled={isGeneratingQR}>
           {#if isGeneratingQR}
@@ -222,6 +227,25 @@
     background: rgba(var(--warning), 0.1);
     color: rgb(var(--warning));
     border-color: rgb(var(--warning));
+  }
+
+  /* Indicador de QR generado */
+  .qr-generated-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 1rem;
+    background: rgba(var(--success), 0.1);
+    border: 1px solid rgba(var(--success), 0.3);
+    border-radius: var(--radius);
+    margin: 0.5rem 0;
+  }
+
+  .qr-text {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: rgb(var(--success));
+    text-align: center;
   }
   
   .debt-status.pagado {

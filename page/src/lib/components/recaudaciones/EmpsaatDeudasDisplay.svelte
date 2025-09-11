@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { CreditCardIcon, RefreshCwIcon } from 'svelte-feather-icons';
+  import { CreditCardIcon, RefreshCwIcon, XIcon } from 'svelte-feather-icons';
   
   // Interface para la respuesta de la API de EMPSAAT
   interface EmpsaatApiResponse {
@@ -39,6 +39,7 @@
   export let generarQR: (deudaAgua: any) => void = () => {};
   export let pagarServicios: (deudas: any[], total: number) => void = () => {};
   export let obtenerInfoAbonado: (abonado: string) => void = () => {};
+  export let limpiarCliente: () => void = () => {};
   
   
 </script>
@@ -49,18 +50,27 @@
     <div class="client-info">
       <div class="client-header">
         <h2>Información del Cliente</h2>
-        <button 
-          class="btn-sync-icon" 
-          on:click={() => obtenerInfoAbonado(cliente.numeroCuenta)}
-          disabled={isLoading}
-          title="Actualizar información del cliente"
-        >
-          {#if isLoading}
-            <span class="spinner"></span>
-          {:else}
-            <RefreshCwIcon size="18" />
-          {/if}
-        </button>
+        <div class="client-actions">
+          <button 
+            class="btn-sync-icon" 
+            on:click={() => obtenerInfoAbonado(cliente.numeroCuenta)}
+            disabled={isLoading}
+            title="Actualizar información del cliente"
+          >
+            {#if isLoading}
+              <span class="spinner"></span>
+            {:else}
+              <RefreshCwIcon size="18" />
+            {/if}
+          </button>
+          <button 
+            class="btn-clear-icon" 
+            on:click={limpiarCliente}
+            title="Limpiar información y volver a buscar"
+          >
+            <XIcon size="18" />
+          </button>
+        </div>
       </div>
       <div class="client-details">
         <p><strong>Nombre:</strong> {cliente.nombre || 'Cliente'}</p>
@@ -106,7 +116,7 @@
           </div>
           
           <div class="debt-action">
-            {#if index === 0 && !deuda.fechaPago}
+            {#if index === 0 && !deuda.fechaPago && !qrGenerado}
               <button class="btn-pay" on:click={() => { console.log('Llamando generarQR con:', deuda); generarQR(deuda); }} disabled={isGeneratingQR}>
                 {#if isGeneratingQR}
                   <span class="spinner"></span>
@@ -116,9 +126,13 @@
                   Pagar Bs. {deuda.importeFactura.toFixed(2)}
                 {/if}
               </button>
-            {:else if !deuda.fechaPago}
+            {:else if !deuda.fechaPago && !qrGenerado}
               <div class="debt-waiting">
                 <span class="waiting-text">Paga primero la factura anterior</span>
+              </div>
+            {:else if qrGenerado}
+              <div class="qr-generated-indicator">
+                <span class="qr-text">QR generado - Escanea para pagar</span>
               </div>
             {/if}
           </div>
@@ -528,6 +542,12 @@
     color: var(--text-primary);
   }
 
+  .client-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
   .btn-sync-icon {
     display: flex;
     align-items: center;
@@ -562,5 +582,48 @@
     transform: none;
     box-shadow: var(--shadow-sm);
     color: var(--text-primary);
+  }
+
+  /* Indicador de QR generado */
+  .qr-generated-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 1rem;
+    background: rgba(var(--success), 0.1);
+    border: 1px solid rgba(var(--success), 0.3);
+    border-radius: var(--radius);
+    margin: 0.5rem 0;
+  }
+
+  .qr-text {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: rgb(var(--success));
+    text-align: center;
+  }
+
+  .btn-clear-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    background: var(--background-tertiary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-sm);
+    flex-shrink: 0;
+  }
+
+  .btn-clear-icon:hover {
+    background: #fee2e2;
+    transform: translateY(-1px);
+    box-shadow: var(--shadow);
+    color: #dc2626;
+    border-color: #fecaca;
   }
 </style>

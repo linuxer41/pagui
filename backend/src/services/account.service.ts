@@ -131,6 +131,21 @@ class AccountService {
   }
 
   /**
+   * Obtener el usuario asociado a una cuenta
+   */
+  async getAccountUser(accountId: number): Promise<{ userId: number } | null> {
+    const result = await query<{ userId: number }>(`
+      SELECT ua.user_id as "userId"
+      FROM user_accounts ua
+      INNER JOIN accounts a ON ua.account_id = a.id
+      WHERE a.id = $1 AND a.status = 'active' AND ua.deleted_at IS NULL
+      LIMIT 1
+    `, [accountId]);
+
+    return result.rows[0] || null;
+  }
+
+  /**
    * Obtener movimientos de una cuenta con paginación
    */
   async getAccountMovements(
@@ -180,7 +195,7 @@ class AccountService {
     queryText += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(limit, offset);
     
-    const result = await query(queryText, params);
+    const result = await query<AccountMovement>(queryText, params);
     const totalPages = Math.ceil(total / limit);
     
     const response = {

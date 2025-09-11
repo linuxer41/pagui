@@ -136,6 +136,65 @@
       isLoading = false;
     }
   }
+
+  // Función para obtener información del abonado (para el botón de sincronización)
+  async function obtenerInfoAbonado(numeroCuenta: string) {
+    if (!numeroCuenta) return;
+    
+    isLoading = true;
+    error = null;
+    
+    try {
+      const formData = new FormData();
+      formData.append('abonado', numeroCuenta);
+      
+      const response = await fetch(`?/obtenerAbonado`, {
+        method: 'POST',
+        body: formData
+      });
+
+      const actionResult: ActionResult = deserialize(await response.text());
+      
+      if (actionResult.type === 'success' && actionResult.data) {
+        // Actualizar la información del cliente
+        cliente = actionResult.data.abonado;
+        
+        // Recargar las deudas
+        await buscarCuenta();
+      } else if (actionResult.type === 'failure') {
+        error = actionResult.data?.error || 'Error al obtener información del abonado';
+        if (actionResult.data?.codigo) {
+          error += ` (${actionResult.data.codigo})`;
+        }
+      } else {
+        error = 'Error inesperado al obtener información del abonado';
+      }
+      
+      if (actionResult) applyAction(actionResult);
+      
+    } catch (err) {
+      console.error('Error en obtenerInfoAbonado:', err);
+      error = 'Error de conexión. Intenta nuevamente.';
+    } finally {
+      isLoading = false;
+    }
+  }
+
+  // Función para limpiar la información del cliente y volver al formulario de búsqueda
+  function limpiarCliente() {
+    cliente = undefined;
+    searchResult = null;
+    error = null;
+    qrGenerado = null;
+    qrStatus = null;
+    codigoClienteInput = '';
+    
+    // Limpiar polling si está activo
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+      pollingInterval = null;
+    }
+  }
   
   // Función para generar QR específica para EMPSAAT
   async function generarQREmpsaat(deudaAgua: any) {
@@ -437,68 +496,6 @@
     }
   }
 
-  // Función para obtener información detallada del abonado
-  async function obtenerInfoAbonado(numeroAbonado: string) {
-    if (!numeroAbonado) {
-      error = 'Número de abonado no proporcionado';
-      return;
-    }
-
-    // Activar loader
-    isLoading = true;
-    error = null;
-
-    try {
-      const formData = new FormData();
-      formData.append('abonado', numeroAbonado);
-
-      const response = await fetch(`?/obtenerAbonado`, {
-        method: 'POST',
-        body: formData
-      });
-
-      const actionResult: ActionResult = deserialize(await response.text());
-
-      if (actionResult.type === 'success' && actionResult.data) {
-        // Actualizar información del cliente
-        if (cliente) {
-          cliente = {
-            ...cliente,
-            ...actionResult.data.abonado
-          };
-        } else {
-          // Si no hay cliente, crear uno nuevo
-          cliente = {
-            nombre: actionResult.data.abonado.nombre || 'Cliente',
-            numeroCuenta: numeroAbonado,
-            ...actionResult.data.abonado
-          };
-        }
-        
-        // Mostrar mensaje de éxito si es necesario
-        console.log('Información de abonado obtenida:', actionResult.data.mensaje);
-      } else if (actionResult.type === 'failure') {
-        if (actionResult.data?.error) {
-          error = actionResult.data.error;
-          if (actionResult.data?.codigo) {
-            error += ` (${actionResult.data.codigo})`;
-          }
-        } else {
-          error = 'Error al obtener información del abonado';
-        }
-      } else {
-        error = 'Error inesperado al obtener información del abonado';
-      }
-
-      // Aplicar la acción del resultado
-      if (actionResult) applyAction(actionResult);
-    } catch (err) {
-      console.error('Error en obtenerInfoAbonado:', err);
-      error = 'Error de conexión. Intenta nuevamente.';
-    } finally {
-      isLoading = false;
-    }
-  }
   
   // Función para limpiar la búsqueda y volver al estado inicial
   function limpiarBusqueda() {
@@ -608,7 +605,7 @@
   <title>{empresa.nombre} - Pagui Recaudaciones</title>
   <meta name="description" content="Paga tu cuenta de {empresa.nombre} de forma segura y rápida" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 </svelte:head>
 
@@ -714,6 +711,7 @@
                   generarQR={generarQREmpsaat}
                   {pagarServicios}
                   {obtenerInfoAbonado}
+                  {limpiarCliente}
                 />
               {:else}
                 <ListaDeudas
@@ -732,7 +730,27 @@
                 <QRDisplay
                   qrGenerado={qrGenerado}
                   qrStatus={qrStatus}
-                  deuda={{}}
+                  deuda={cliente ? {
+                    id: cliente.numeroCuenta?.toString(),
+                    monto: qrGenerado.amount,
+                    descripcion: (qrGenerado as any).description || 'Pago de servicios',
+                    fecha: new Date(),
+                    estado: 'pendiente',
+                    numeroCuenta: cliente.numeroCuenta?.toString(),
+                    volumenConsumo: cliente.volumenConsumo,
+                    tipo: 'agua' as const,
+                    nombreCliente: cliente.nombre
+                  } : {
+                    id: '',
+                    monto: 0,
+                    descripcion: '',
+                    fecha: new Date(),
+                    estado: 'pendiente',
+                    numeroCuenta: '',
+                    volumenConsumo: 0,
+                    tipo: 'agua' as const,
+                    nombreCliente: ''
+                  }}
                   {pollingInterval}
                   {descargarQR}
                   {compartirQR}

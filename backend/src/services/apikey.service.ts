@@ -1,4 +1,4 @@
-import { query, generateApiKey } from '../config/database';
+import { query } from '../config/database';
 
 interface ApiKeyPermissions {
   qr_generate: boolean;
@@ -11,7 +11,7 @@ interface ApiKeyResponse {
   apiKey?: string;
   description?: string;
   permissions?: ApiKeyPermissions;
-  userId?: number;
+  accountId?: number;
   expiresAt?: string | null;
   status?: string;
   createdAt?: string;
@@ -22,10 +22,23 @@ interface ApiKeyResponse {
 
 class ApiKeyService {
   
+  // Función para generar API keys aleatorias
+  private generateApiKeyString(): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    const length = 40;
+    
+    for (let i = 0; i < length; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    
+    return `pg_${result}`;
+  }
+  
   // Verificar si una API key es válida
   async verifyApiKey(apiKey: string): Promise<{
     isValid: boolean;
-    userId?: number;
+    accountId?: number;
     bankCredentialId?: number;
     permissions?: ApiKeyPermissions;
   }> {
@@ -33,13 +46,13 @@ class ApiKeyService {
       const result = await query(`
         SELECT 
           ak.id, 
-          ak.user_id as "userId", 
+          ak.account_id as "accountId", 
           ak.permissions, 
           ak.expires_at as "expiresAt", 
           ak.status,
-          u.third_bank_credential_id as "bankCredentialId"
+          a.third_bank_credential_id as "bankCredentialId"
         FROM api_keys ak
-        INNER JOIN users u ON ak.user_id = u.id
+        INNER JOIN accounts a ON ak.account_id = a.id
         WHERE ak.api_key = $1 AND ak.deleted_at IS NULL
       `, [apiKey]);
       
@@ -69,7 +82,7 @@ class ApiKeyService {
       // API key válida
       return {
         isValid: true,
-        userId: apiKeyData.userId,
+        accountId: apiKeyData.accountId,
         bankCredentialId: apiKeyData.bankCredentialId,
         permissions: apiKeyData.permissions
       };
@@ -92,44 +105,41 @@ class ApiKeyService {
   
   // Generar una nueva API key
   async generateApiKey(
-    userId: number,
+    accountId: number,
     description: string,
     permissions: ApiKeyPermissions,
-    expiresAt?: string | null,
-    createdByUserId?: number
+    expiresAt?: string | null
   ): Promise<ApiKeyResponse> {
     try {
-      // Verificar que el usuario exista
-      const userCheck = await query('SELECT id FROM users WHERE id = $1 AND deleted_at IS NULL', [userId]);
+      // Verificar que la cuenta exista
+      const accountCheck = await query('SELECT id FROM accounts WHERE id = $1 AND deleted_at IS NULL', [accountId]);
       
-      if (userCheck.rowCount === 0) {
+      if (accountCheck.rowCount === 0) {
         return {
           responseCode: 1,
-          message: 'Usuario no encontrado'
+          message: 'Cuenta no encontrada'
         };
       }
       
       // Generar una nueva API key
-      const apiKey = generateApiKey();
+      const apiKey = this.generateApiKeyString();
       
       // Guardar en la base de datos
       const result = await query(`
         INSERT INTO api_keys (
           api_key, 
           description, 
-          user_id, 
-          created_by_user_id,
+          account_id,
           permissions, 
           expires_at,
           status
         ) 
-        VALUES ($1, $2, $3, $4, $5, $6, 'active')
+        VALUES ($1, $2, $3, $4, $5, 'active')
         RETURNING id, created_at
       `, [
         apiKey,
         description,
-        userId,
-        createdByUserId || userId,
+        accountId,
         JSON.stringify(permissions),
         expiresAt ? new Date(expiresAt) : null
       ]);
@@ -142,7 +152,7 @@ class ApiKeyService {
         apiKey,
         description,
         permissions,
-        userId,
+        accountId,
         expiresAt,
         status: 'active',
         createdAt: result.rows[0].created_at,
@@ -159,8 +169,8 @@ class ApiKeyService {
     }
   }
   
-  // Listar API keys de un usuario
-  async listApiKeys(userId: number): Promise<{
+  // Listar API keys de una cuenta
+  async listApiKeys(accountId: number): Promise<{
     apiKeys: any[];
     responseCode: number;
     message: string;
@@ -176,10 +186,10 @@ class ApiKeyService {
           status, 
           created_at
         FROM api_keys
-        WHERE user_id = $1 AND deleted_at IS NULL
+        WHERE account_id = $1 AND deleted_at IS NULL
         AND status = 'active'
         ORDER BY created_at DESC
-      `, [userId]);
+      `, [accountId]);
       
       return {
         apiKeys: result.rows.map(row => ({
@@ -206,19 +216,19 @@ class ApiKeyService {
   }
   
   // Revocar API key
-  async revokeApiKey(apiKeyId: number, userId: number, revokedByUserId?: number): Promise<ApiKeyResponse> {
+  async revokeApiKey(apiKeyId: number, accountId: number): Promise<ApiKeyResponse> {
     try {
-      // Verificar que la API key pertenezca al usuario
+      // Verificar que la API key pertenezca a la cuenta
       const apiKeyCheck = await query(`
         SELECT id, api_key
         FROM api_keys
-        WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
-      `, [apiKeyId, userId]);
+        WHERE id = $1 AND account_id = $2 AND deleted_at IS NULL
+      `, [apiKeyId, accountId]);
       
       if (apiKeyCheck.rowCount === 0) {
         return {
           responseCode: 1,
-          message: 'API key no encontrada o no pertenece al usuario'
+          message: 'API key no encontrada o no pertenece a la cuenta'
         };
       }
       
@@ -249,4 +259,18 @@ class ApiKeyService {
 }
 
 export const apiKeyService = new ApiKeyService();
+
+// Función pública para generar API keys (para uso en scripts)
+export function generateApiKey(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  const length = 40;
+  
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  
+  return `pg_${result}`;
+}
+
 export default apiKeyService; 

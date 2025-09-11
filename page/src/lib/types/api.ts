@@ -3,14 +3,18 @@
 // Tipos para la respuesta de generación de QR de la API externa
 export interface QRGenerationData {
   qrId: string;
-  qrImage: string;
+  qrImage?: string; // Imagen del QR en base64 (opcional según documentación)
+  qrCode?: string;  // Código del QR (alternativo)
+  qrUrl?: string;   // URL del QR (alternativo)
   transactionId: string;
   amount: number;
-  currency: string;
+  currency?: string; // Opcional según documentación
   dueDate: string;
   singleUse: boolean;
   modifyAmount: boolean;
   status: 'active' | 'inactive' | 'expired' | 'cancelled';
+  createdAt?: string;
+  expiresAt?: string;
 }
 
 export interface QRGenerationAPIResponse {
@@ -27,12 +31,11 @@ export interface QRStatusData {
   currency?: string;
   dueDate?: string;
   transactionId?: string;
-  accountNumber?: string;
-  accountName?: string;
   description?: string;
   singleUse?: boolean;
   modifyAmount?: boolean;
   createdAt?: string;
+  expiresAt?: string;
   payments?: PaymentData[];
 }
 
@@ -71,6 +74,13 @@ export interface QRCancellationAPIResponse {
   data: QRCancellationData;
 }
 
+// Tipos para la respuesta de pagos de QR
+export interface QRPaymentsAPIResponse {
+  success: boolean;
+  message: string;
+  data: PaymentData[];
+}
+
 // Tipos para respuestas de error de la API
 export interface APIErrorResponse {
   success: false;
@@ -95,60 +105,9 @@ export interface ServerFailResponse {
 // Union type para todas las respuestas del servidor
 export type ServerResponse<T = any> = ServerSuccessResponse<T> | ServerFailResponse;
 
-export interface QRData {
-  qrId: string;
-  transactionId: string;
-  monto: number;
-  descripcion: string;
-  empresa: string;
-  fechaCreacion: string;
-  estado: 'pendiente' | 'pagado' | 'expirado' | 'cancelado';
-}
-
-export interface EstadoQR {
-  qrId: string;
-  estado: 'pendiente' | 'pagado' | 'expirado' | 'cancelado';
-  fechaActualizacion: string;
-  empresa: string;
-}
-
-// Tipos para errores de validación
-export interface ValidationError {
+// Tipos para respuestas de error de la API
+export interface APIErrorResponse {
+  success: false;
+  error: string;
   codigo: string;
-  mensaje: string;
-  descripcion: string;
-  solucion: string;
-  tipo: 'error' | 'warning' | 'info';
-}
-
-// Tipos para respuestas de validación
-export interface ValidationResult<T = any> {
-  valido: boolean;
-  data?: T;
-  error?: ValidationError;
-  mensaje: string;
-}
-
-// Respuestas específicas para cada operación
-export interface GenerarQRResponse {
-  success: boolean;
-  qrData?: QRData;
-  error?: string;
-  codigo?: string;
-  mensaje?: string;
-}
-
-export interface ConsultarEstadoResponse {
-  success: boolean;
-  estadoQR?: EstadoQR;
-  error?: string;
-  codigo?: string;
-  mensaje?: string;
-}
-
-export interface AnularQRResponse {
-  success: boolean;
-  error?: string;
-  codigo?: string;
-  mensaje?: string;
 }

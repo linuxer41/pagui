@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { CreditCardIcon } from 'svelte-feather-icons';
+  import { CreditCardIcon, RefreshCwIcon } from 'svelte-feather-icons';
   
   // Interface para la respuesta de la API de EMPSAAT
   interface EmpsaatApiResponse {
@@ -47,22 +47,24 @@
   <!-- Información del cliente -->
   {#if cliente}
     <div class="client-info">
-      <h2>Información del Cliente</h2>
-      <div class="client-details">
-        <p><strong>Nombre:</strong> {cliente.nombre || 'Cliente'}</p>
-        <p><strong>Número de Cuenta:</strong> {cliente.numeroCuenta}</p>
+      <div class="client-header">
+        <h2>Información del Cliente</h2>
         <button 
-          class="btn-update-info" 
+          class="btn-sync-icon" 
           on:click={() => obtenerInfoAbonado(cliente.numeroCuenta)}
           disabled={isLoading}
+          title="Actualizar información del cliente"
         >
           {#if isLoading}
             <span class="spinner"></span>
-            Actualizando...
           {:else}
-            Actualizar Información
+            <RefreshCwIcon size="18" />
           {/if}
         </button>
+      </div>
+      <div class="client-details">
+        <p><strong>Nombre:</strong> {cliente.nombre || 'Cliente'}</p>
+        <p><strong>Número de Cuenta:</strong> {cliente.numeroCuenta}</p>
       </div>
     </div>
   {/if}
@@ -512,30 +514,53 @@
     font-weight: 600;
   }
 
-  .btn-update-info {
-    background: var(--gradient-primary);
-    color: white;
-    border: none;
-    border-radius: var(--radius-md);
-    padding: 0.75rem 1.5rem;
-    font-size: 0.9rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    align-self: flex-start;
+  .client-header {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    justify-content: space-between;
+    margin-bottom: 1rem;
   }
 
-  .btn-update-info:hover {
+  .client-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .btn-sync-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    background: var(--background-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-sm);
+    flex-shrink: 0;
+  }
+
+  .btn-sync-icon:hover {
+    background: var(--background-secondary);
     transform: translateY(-1px);
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow);
+    color: var(--accent-color);
   }
 
-  .btn-update-info:disabled {
+  .btn-sync-icon:disabled {
     opacity: 0.6;
     cursor: not-allowed;
     transform: none;
+  }
+
+  .btn-sync-icon:disabled:hover {
+    background: var(--background-tertiary);
+    transform: none;
+    box-shadow: var(--shadow-sm);
+    color: var(--text-primary);
   }
 </style>

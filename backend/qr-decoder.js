@@ -129,3 +129,4 @@ if (result) {
 } else {
   console.log('\n❌ No se pudo decodificar el código QR');
 }
+

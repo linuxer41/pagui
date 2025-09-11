@@ -2,6 +2,7 @@ import { Elysia, t } from 'elysia';
 import { apiKeyService } from '../services/apikey.service';
 import { authMiddleware } from '../middlewares/auth.middleware';
 import { ApiError } from '../utils/error';
+import { query } from '../config/database';
 
 const ResponseSchema = t.Object({
   success: t.Boolean(),
@@ -24,7 +25,7 @@ const CreateApiKeySchema = t.Object({
 export const apiKeyRoutes = new Elysia({ prefix: '/apikeys' })
   .use(authMiddleware({ type: 'jwt', level: 'user' }))
   
-  // POST /apikeys - Crear nueva API key para el usuario autenticado
+  // POST /apikeys - Crear nueva API key para la cuenta primaria del usuario autenticado
   .post('/', async ({ body, auth }) => {
     try {
       // Verificar que el usuario esté autenticado
@@ -32,13 +33,25 @@ export const apiKeyRoutes = new Elysia({ prefix: '/apikeys' })
         throw new ApiError('No autorizado', 401);
       }
 
-      // Crear la API key para el usuario autenticado
+      // Obtener la cuenta primaria del usuario
+      const accountResult = await query(`
+        SELECT ua.account_id
+        FROM user_accounts ua
+        WHERE ua.user_id = $1 AND ua.is_primary = true
+      `, [auth.user.id]);
+
+      if (accountResult.rowCount === 0) {
+        throw new ApiError('No se encontró cuenta primaria para el usuario', 404);
+      }
+
+      const accountId = accountResult.rows[0].account_id;
+
+      // Crear la API key para la cuenta primaria
       const result = await apiKeyService.generateApiKey(
-        auth.user.id, // Usuario autenticado
+        accountId,
         body.description,
         body.permissions,
-        body.expiresAt,
-        auth.user.id // Usuario que crea la API key
+        body.expiresAt
       );
 
       if (result.responseCode !== 0) {
@@ -53,7 +66,7 @@ export const apiKeyRoutes = new Elysia({ prefix: '/apikeys' })
           apiKey: result.apiKey,
           description: result.description,
           permissions: result.permissions,
-          userId: result.userId,
+          accountId: result.accountId,
           expiresAt: result.expiresAt,
           status: result.status,
           createdAt: result.createdAt
@@ -74,7 +87,7 @@ export const apiKeyRoutes = new Elysia({ prefix: '/apikeys' })
     }
   })
 
-  // GET /apikeys - Listar API keys del usuario autenticado (sin paginación)
+  // GET /apikeys - Listar API keys de la cuenta primaria del usuario autenticado
   .get('/', async ({ auth }) => {
     try {
       // Verificar que el usuario esté autenticado
@@ -82,8 +95,21 @@ export const apiKeyRoutes = new Elysia({ prefix: '/apikeys' })
         throw new ApiError('No autorizado', 401);
       }
 
-      // Listar API keys del usuario autenticado
-      const result = await apiKeyService.listApiKeys(auth.user.id);
+      // Obtener la cuenta primaria del usuario
+      const accountResult = await query(`
+        SELECT ua.account_id
+        FROM user_accounts ua
+        WHERE ua.user_id = $1 AND ua.is_primary = true
+      `, [auth.user.id]);
+
+      if (accountResult.rowCount === 0) {
+        throw new ApiError('No se encontró cuenta primaria para el usuario', 404);
+      }
+
+      const accountId = accountResult.rows[0].account_id;
+
+      // Listar API keys de la cuenta primaria
+      const result = await apiKeyService.listApiKeys(accountId);
 
       if (result.responseCode !== 0) {
         throw new ApiError(result.message, 400);
@@ -109,7 +135,7 @@ export const apiKeyRoutes = new Elysia({ prefix: '/apikeys' })
     }
   })
 
-  // DELETE /apikeys/:id - Revocar API key del usuario autenticado
+  // DELETE /apikeys/:id - Revocar API key de la cuenta primaria del usuario autenticado
   .delete('/:id', async ({ params, auth }) => {
     try {
       const apiKeyId = parseInt(params.id);
@@ -119,11 +145,23 @@ export const apiKeyRoutes = new Elysia({ prefix: '/apikeys' })
         throw new ApiError('No autorizado', 401);
       }
 
-      // Revocar la API key (verificar que pertenezca al usuario)
+      // Obtener la cuenta primaria del usuario
+      const accountResult = await query(`
+        SELECT ua.account_id
+        FROM user_accounts ua
+        WHERE ua.user_id = $1 AND ua.is_primary = true
+      `, [auth.user.id]);
+
+      if (accountResult.rowCount === 0) {
+        throw new ApiError('No se encontró cuenta primaria para el usuario', 404);
+      }
+
+      const accountId = accountResult.rows[0].account_id;
+
+      // Revocar la API key (verificar que pertenezca a la cuenta)
       const result = await apiKeyService.revokeApiKey(
         apiKeyId,
-        auth.user.id, // Usuario autenticado
-        auth.user.id  // Usuario que revoca
+        accountId
       );
 
       if (result.responseCode !== 0) {

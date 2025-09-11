@@ -12,161 +12,141 @@
   export let onBuscar: () => void;
 </script>
 
-<div class="search-content">
-  <div class="search-header">
-    <h2>Consulta tus Facturas</h2>
-    <p class="instructions">{instrucciones}</p>
-  </div>
-  
+<div class="search-form-container">
   <form class="search-form" on:submit|preventDefault={onBuscar}>
-    <div class="input-group">
-      <label for="codigoCliente">Código de Cliente</label>
-      <input
-        id="codigoCliente"
-        type="text"
-        bind:value={codigoClienteInput}
-        placeholder="Código de cliente (ej: CLI001, MED001, AUTO001)"
-        required
-        disabled={isLoading}
-      />
-    </div>
+    <input
+      id="codigoCliente"
+      type="text"
+      bind:value={codigoClienteInput}
+      placeholder="Número de cliente o abonado"
+      class="form-input"
+      required
+      disabled={isLoading}
+    />
     
-    <button type="submit" class="btn-search" disabled={isLoading}>
+    <button type="submit" class="search-button" disabled={isLoading}>
       {#if isLoading}
-        <span class="spinner"></span>
-        Buscando...
+        <span class="button-spinner"></span>
       {:else}
-        <SearchIcon size="16" />
-        Buscar Cuenta
+        <SearchIcon size="18" />
       {/if}
     </button>
   </form>
   
   {#if error}
-    <div class="error-message">
-      <AlertCircleIcon size="14" />
-      {error}
+    <div class="alert alert-error">
+      <AlertCircleIcon size="16" />
+      <span>{error}</span>
     </div>
   {/if}
     
   {#if searchResult && searchResult.success}
-    <div class="success-message">
-      <CheckCircleIcon size="14" />
-      {searchResult.mensaje}
+    <div class="alert alert-success">
+      <CheckCircleIcon size="16" />
+      <span>{searchResult.mensaje}</span>
     </div>
   {/if}
    
   {#if searchResult && !searchResult.success}
-   <div class="error-message">
-     <AlertCircleIcon size="14" />
-     {searchResult.error}
+   <div class="alert alert-error">
+     <AlertCircleIcon size="16" />
+     <span>{searchResult.error}</span>
    </div>
   {/if}
 </div>
 
 <style>
-  .search-content {
-    text-align: center;
+  /* Variables CSS para consistencia */
+  :root {
+    --color-primary: #667eea;
+    --color-primary-dark: #5a67d8;
+    --color-primary-light: #a5b4fc;
+    --color-success: #22c55e;
+    --color-error: #ef4444;
+    --color-text-primary: #1a1a1a;
+    --color-text-secondary: #666666;
+    --color-text-muted: #999999;
+    --color-bg-primary: #ffffff;
+    --color-border: #e5e5e5;
+    --color-border-light: #f5f5f5;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
   }
-  
-  .search-header h2 {
-    font-size: 1.3rem;
-    font-weight: 600;
-    margin: 0 0 0.5rem 0;
-    color: var(--text-primary);
-    text-align: center;
-  }
-  
-  .instructions {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    margin: 0 0 1rem 0;
-    line-height: 1.3;
-    text-align: center;
+
+  .search-form-container {
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
   }
   
   .search-form {
     display: flex;
-    flex-direction: column;
     gap: 0.75rem;
-    max-width: 350px;
-    margin: 0 auto;
-  }
-  
-  .input-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  
-  .input-group label {
-    font-weight: 500;
-    color: var(--text-secondary);
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.2px;
-  }
-  
-  .input-group input {
-    padding: 0.75rem 1rem;
-    border: 2px solid var(--border-color);
-    border-radius: var(--radius);
-    font-size: 0.9rem;
-    background: var(--background-primary);
-    color: var(--text-primary);
-    transition: var(--transition);
-    font-weight: 500;
-    box-shadow: var(--shadow-sm);
-  }
-  
-  .input-group input::placeholder {
-    color: var(--text-secondary);
-  }
-  
-  .input-group input:focus {
-    outline: none;
-    border-color: rgb(var(--primary));
-    background: var(--background-primary);
-    box-shadow: var(--shadow);
-    transform: translateY(-1px);
-  }
-  
-  .btn-search {
-    display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.5rem;
-    border-radius: var(--radius);
-    font-weight: 600;
-    font-size: 0.9rem;
-    text-decoration: none;
-    border: none;
-    cursor: pointer;
-    transition: var(--transition);
+  }
+  
+  .form-input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    transition: all 0.2s ease;
+    font-weight: 400;
+  }
+  
+  .form-input::placeholder {
+    color: var(--color-text-muted);
+    font-weight: 400;
+  }
+  
+  .form-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+  }
+  
+  .form-input:disabled {
+    background: #f8f9fa;
+    color: var(--color-text-muted);
+    cursor: not-allowed;
+  }
+  
+  .search-button {
+    display: flex;
+    align-items: center;
     justify-content: center;
-    background: var(--gradient-primary);
-    color: rgb(var(--white));
-    box-shadow: var(--shadow);
+    width: 44px;
+    height: 44px;
+    border: none;
+    border-radius: var(--radius-md);
+    background: var(--color-primary);
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
   }
   
-  .btn-search:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-hover);
-    background: var(--gradient-secondary);
+  .search-button:hover:not(:disabled) {
+    background: var(--color-primary-dark);
   }
   
-  .btn-search:disabled {
+  .search-button:disabled {
     opacity: 0.6;
     cursor: not-allowed;
-    transform: none;
   }
   
-  .spinner {
-    width: 16px;
-    height: 16px;
-    border: 2px solid rgba(var(--gray-200), 0.3);
-    border-top: 2px solid rgb(var(--primary));
-    border-radius: var(--radius-full);
+  .button-spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top: 2px solid white;
+    border-radius: 50%;
     animation: spin 1s linear infinite;
   }
   
@@ -175,33 +155,52 @@
     to { transform: rotate(360deg); }
   }
   
-  .error-message {
+  .alert {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    background: rgba(var(--error), 0.1);
-    color: rgb(var(--error));
-    padding: 0.75rem 1rem;
-    border-radius: var(--radius);
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    font-weight: 500;
     margin-top: 1rem;
-    font-weight: 600;
-    font-size: 0.85rem;
-    border: 2px solid rgba(var(--error), 0.2);
     box-shadow: var(--shadow-sm);
   }
   
-  .success-message {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: rgba(var(--success), 0.1);
-    color: rgb(var(--success));
-    padding: 0.75rem 1rem;
-    border-radius: var(--radius);
-    margin-top: 1rem;
-    font-weight: 600;
-    font-size: 0.85rem;
-    border: 2px solid rgba(var(--success), 0.2);
-    box-shadow: var(--shadow-sm);
+  .alert-error {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--color-error);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+  }
+  
+  .alert-success {
+    background: rgba(34, 197, 94, 0.1);
+    color: var(--color-success);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+  }
+  
+  .alert span {
+    flex: 1;
+  }
+  
+  /* Responsive */
+  @media (max-width: 768px) {
+    .search-form-container {
+      max-width: 100%;
+    }
+    
+    .search-form {
+      gap: 0.5rem;
+    }
+    
+    .form-input {
+      padding: 0.625rem 0.875rem;
+      font-size: 0.8rem;
+    }
+    
+    .search-button {
+      width: 40px;
+      height: 40px;
+    }
   }
 </style>

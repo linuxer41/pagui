@@ -50,11 +50,11 @@ class EventsService {
     try {
       const result = await query(`
         SELECT 
-          ak.user_id,
-          ua.account_id,
+          ak.account_id,
+          ua.user_id,
           ak.status as token_status
         FROM api_keys ak
-        JOIN user_accounts ua ON ak.user_id = ua.user_id
+        JOIN user_accounts ua ON ak.account_id = ua.account_id
         WHERE ak.api_key = $1 
           AND ak.status = 'active'
           AND ak.deleted_at IS NULL

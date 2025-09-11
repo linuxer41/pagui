@@ -50,8 +50,10 @@ describe('API Keys Endpoints', () => {
       expect(result.data).toBeDefined();
       expect(result.data.id).toBeDefined();
       expect(result.data.apiKey).toBeDefined();
+      expect(result.data.apiKey).toMatch(/^pg_/); // Debe tener prefijo pg_
       expect(result.data.description).toBe(apiKeyData.description);
       expect(result.data.permissions).toEqual(apiKeyData.permissions);
+      expect(result.data.accountId).toBeDefined(); // Debe tener accountId en lugar de userId
       expect(result.data.status).toBe('active');
       expect(result.data.createdAt).toBeDefined();
 
@@ -244,8 +246,8 @@ describe('API Keys Endpoints', () => {
 
     it('debería rechazar revocación de API key de otro usuario', async () => {
       // Intentar revocar una API key que no pertenece al usuario
-      // (asumiendo que el ID 1 no pertenece al usuario de prueba)
-      const response = await fetch(`${BASE_URL}/apikeys/1`, {
+      // (usando un ID que definitivamente no existe)
+      const response = await fetch(`${BASE_URL}/apikeys/99999`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${authToken}`
@@ -253,6 +255,71 @@ describe('API Keys Endpoints', () => {
       });
 
       expect([400, 403, 404]).toContain(response.status);
+    }, TIMEOUT);
+  });
+
+  describe('Validaciones de Formato de API Key', () => {
+    it('debería generar API keys con prefijo pg_', async () => {
+      const apiKeyData = {
+        description: 'API Key para validar formato',
+        permissions: {
+          qr_generate: true,
+          qr_status: true,
+          qr_cancel: true
+        }
+      };
+
+      const response = await fetch(`${BASE_URL}/apikeys`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify(apiKeyData)
+      });
+
+      expect(response.status).toBe(200);
+      const result = await response.json();
+      
+      expect(result.data.apiKey).toMatch(/^pg_[A-Za-z0-9]{40}$/);
+      expect(result.data.apiKey.length).toBe(43); // pg_ + 40 caracteres
+    }, TIMEOUT);
+
+    it('debería generar API keys únicas', async () => {
+      const apiKeyData = {
+        description: 'API Key para test de unicidad',
+        permissions: {
+          qr_generate: true,
+          qr_status: true,
+          qr_cancel: true
+        }
+      };
+
+      // Crear múltiples API keys
+      const responses = await Promise.all([
+        fetch(`${BASE_URL}/apikeys`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify(apiKeyData)
+        }),
+        fetch(`${BASE_URL}/apikeys`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify({ ...apiKeyData, description: 'API Key 2' })
+        })
+      ]);
+
+      const results = await Promise.all(responses.map(r => r.json()));
+      
+      expect(results[0].data.apiKey).not.toBe(results[1].data.apiKey);
+      expect(results[0].data.apiKey).toMatch(/^pg_/);
+      expect(results[1].data.apiKey).toMatch(/^pg_/);
     }, TIMEOUT);
   });
 

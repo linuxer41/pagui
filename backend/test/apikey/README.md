@@ -6,16 +6,37 @@ Este directorio contiene las pruebas automatizadas para los endpoints de gestió
 ## Archivos de Test
 
 ### `apikey.test.js`
-Tests principales que cubren todas las funcionalidades de API Keys:
+Tests de integración que cubren los endpoints de API Keys:
 
 - **Creación de API Keys** (`POST /apikeys`)
 - **Listado de API Keys** (`GET /apikeys`)
 - **Revocación de API Keys** (`DELETE /apikeys/:id`)
 - **Validaciones de permisos**
+- **Validaciones de formato (prefijo pg_)**
 - **Manejo de errores**
 
+### `apikey-service.test.js`
+Tests unitarios del servicio de API Keys:
+
+- **Generación de API keys** con prefijo `pg_`
+- **Verificación de API keys**
+- **Validación de permisos**
+- **Listado por cuenta**
+- **Revocación de API keys**
+- **Manejo de errores del servicio**
+
+### `apikey-auth.test.js`
+Tests de autenticación con API Keys:
+
+- **Autenticación con header X-API-Key**
+- **Validación de formato de API key**
+- **API keys expiradas**
+- **API keys revocadas**
+- **Validación de permisos en autenticación**
+- **Múltiples API keys por cuenta**
+
 ### `run-apikey-tests.js`
-Script dedicado para ejecutar solo los tests de API Keys.
+Script dedicado para ejecutar todos los tests de API Keys.
 
 ## Cobertura de Tests
 
@@ -38,16 +59,38 @@ Script dedicado para ejecutar solo los tests de API Keys.
 - ✅ Rechazar revocación sin autenticación
 - ✅ Rechazar revocación de API key de otro usuario
 
-### 4. Validaciones
+### 4. Validaciones de Formato
+- ✅ Validar prefijo `pg_` en API keys
+- ✅ Validar longitud correcta (43 caracteres: pg_ + 40)
+- ✅ Validar caracteres permitidos (A-Z, a-z, 0-9)
+- ✅ Verificar unicidad de API keys
 - ✅ Aceptar todos los permisos en true
 - ✅ Aceptar todos los permisos en false
 - ✅ Validar formato de fecha de expiración
 - ✅ Manejar datos malformados
 
-### 5. Seguridad
+### 5. Autenticación con API Keys
+- ✅ Autenticación con header X-API-Key
+- ✅ Validación de formato correcto
+- ✅ Rechazo de API keys inválidas
+- ✅ Manejo de API keys expiradas
+- ✅ Manejo de API keys revocadas
+- ✅ Validación de permisos en autenticación
+- ✅ Múltiples API keys por cuenta
+
+### 6. Servicio de API Keys
+- ✅ Generación de API keys con prefijo
+- ✅ Verificación de API keys válidas
+- ✅ Validación de permisos específicos
+- ✅ Listado por cuenta (no por usuario)
+- ✅ Revocación de API keys
+- ✅ Manejo de errores del servicio
+
+### 7. Seguridad
 - ✅ Verificar autenticación JWT requerida
 - ✅ Verificar que usuarios solo accedan a sus propias API keys
 - ✅ Validar permisos de usuario
+- ✅ Relación con cuentas en lugar de usuarios
 
 ## Ejecución de Tests
 

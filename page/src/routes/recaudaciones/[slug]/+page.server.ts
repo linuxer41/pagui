@@ -1,4 +1,4 @@
-import { getEmpresaConfig } from '$lib/config/empresas';
+import { getEmpresaConfig, getConfiguracionPagui } from '$lib/config/empresas';
 import { validarApiKeyEmpresa, verificarPermisoEmpresa, validarParametrosQR } from '$lib/utils/empresaUtils';
 import { EmpsaatService } from '$lib/services/EmpsaatService';
 import { fail, error } from '@sveltejs/kit';
@@ -439,17 +439,26 @@ export const actions = {
       // Para EMPSAAT, usar la API real de QR
       if (slug === 'empsaat') {
         try {
+          // Obtener configuración de Pagui
+          const paguiConfig = getConfiguracionPagui(slug);
+          if (!paguiConfig.apiKey || !paguiConfig.baseUrl) {
+            return fail(500, {
+              success: false,
+              error: 'Configuración de Pagui no encontrada'
+            });
+          }
+
           // Calcular fecha de vencimiento (7 días desde ahora)
           const dueDate = new Date();
           dueDate.setDate(dueDate.getDate() + 7);
           const dueDateISO = dueDate.toISOString();
 
           // Llamar a la API real de QR según documentación
-          const qrApiResponse = await fetch('https://pagui-api.iathings.com/qr/generate', {
+          const qrApiResponse = await fetch(`${paguiConfig.baseUrl}/qr/generate`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${empresa.apiKey}` // Usar API key de la empresa
+              'Authorization': `Bearer ${paguiConfig.apiKey}` // Usar API key de Pagui
             },
             body: JSON.stringify({
               transactionId: transactionId,
@@ -538,12 +547,21 @@ export const actions = {
       // Para EMPSAAT, usar la API real para verificar estado
       if (slug === 'empsaat') {
         try {
+          // Obtener configuración de Pagui
+          const paguiConfig = getConfiguracionPagui(slug);
+          if (!paguiConfig.apiKey || !paguiConfig.baseUrl) {
+            return fail(500, {
+              success: false,
+              error: 'Configuración de Pagui no encontrada'
+            });
+          }
+
           // Llamar a la API real para verificar estado del QR según documentación
-          const statusApiResponse = await fetch(`https://pagui-api.iathings.com/qr/${qrId}`, {
+          const statusApiResponse = await fetch(`${paguiConfig.baseUrl}/qr/${qrId}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${empresa.apiKey}` // Usar API key de la empresa
+              'Authorization': `Bearer ${paguiConfig.apiKey}` // Usar API key de Pagui
             }
           });
 
@@ -622,12 +640,21 @@ export const actions = {
       // Para EMPSAAT, usar la API real para cancelar QR
       if (slug === 'empsaat') {
         try {
+          // Obtener configuración de Pagui
+          const paguiConfig = getConfiguracionPagui(slug);
+          if (!paguiConfig.apiKey || !paguiConfig.baseUrl) {
+            return fail(500, {
+              success: false,
+              error: 'Configuración de Pagui no encontrada'
+            });
+          }
+
           // Llamar a la API real para cancelar el QR según documentación
-          const cancelApiResponse = await fetch(`https://pagui-api.iathings.com/qr/${qrId}`, {
+          const cancelApiResponse = await fetch(`${paguiConfig.baseUrl}/qr/${qrId}`, {
             method: 'DELETE',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${empresa.apiKey}` // Usar API key de la empresa
+              'Authorization': `Bearer ${paguiConfig.apiKey}` // Usar API key de Pagui
             }
           });
 
@@ -706,12 +733,21 @@ export const actions = {
       // Para EMPSAAT, usar la API real para obtener pagos
       if (slug === 'empsaat') {
         try {
+          // Obtener configuración de Pagui
+          const paguiConfig = getConfiguracionPagui(slug);
+          if (!paguiConfig.apiKey || !paguiConfig.baseUrl) {
+            return fail(500, {
+              success: false,
+              error: 'Configuración de Pagui no encontrada'
+            });
+          }
+
           // Llamar a la API real para obtener pagos del QR según documentación
-          const paymentsApiResponse = await fetch(`https://pagui-api.iathings.com/qr/${qrId}/payments`, {
+          const paymentsApiResponse = await fetch(`${paguiConfig.baseUrl}/qr/${qrId}/payments`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${empresa.apiKey}` // Usar API key de la empresa
+              'Authorization': `Bearer ${paguiConfig.apiKey}` // Usar API key de Pagui
             }
           });
 

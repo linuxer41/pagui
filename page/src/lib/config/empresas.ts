@@ -160,3 +160,12 @@ export function getConfiguracionQR(slug: string) {
   const empresa = getEmpresaConfig(slug);
   return empresa?.configuracionQR || null;
 }
+
+// Función para obtener configuración de Pagui de una empresa
+export function getConfiguracionPagui(slug: string) {
+  const empresa = getEmpresaConfig(slug);
+  return {
+    apiKey: empresa?.paguiApikey || null,
+    baseUrl: empresa?.paguiBaseUrl || null
+  };
+}

@@ -32,30 +32,41 @@ async function checkServerHealth() {
 
 // Ejecutar tests
 async function runTests() {
-  const testPath = join(__dirname, 'apikey', 'apikey.test.js');
+  const testFiles = [
+    join(__dirname, 'apikey', 'apikey.test.js'),
+    join(__dirname, 'apikey', 'apikey-service.test.js'),
+    join(__dirname, 'apikey', 'apikey-auth.test.js')
+  ];
   
-  console.log(`📁 Ejecutando tests desde: ${testPath}\n`);
+  console.log('📁 Ejecutando tests de API Keys...\n');
   
-  const testProcess = spawn('bun', ['test', testPath, '--timeout', '30000'], {
-    stdio: 'inherit',
-    shell: true
-  });
-
-  testProcess.on('close', (code) => {
-    console.log(`\n🏁 Tests completados con código de salida: ${code}`);
+  for (const testPath of testFiles) {
+    console.log(`🔍 Ejecutando: ${testPath}\n`);
     
-    if (code === 0) {
-      console.log('🎉 ¡Todos los tests de API Keys pasaron exitosamente!');
-    } else {
-      console.log('💥 Algunos tests de API Keys fallaron');
-      process.exit(code);
-    }
-  });
+    const testProcess = spawn('bun', ['test', testPath, '--timeout', '30000'], {
+      stdio: 'inherit',
+      shell: true
+    });
 
-  testProcess.on('error', (error) => {
-    console.error('❌ Error ejecutando tests:', error);
-    process.exit(1);
-  });
+    await new Promise((resolve, reject) => {
+      testProcess.on('close', (code) => {
+        if (code === 0) {
+          console.log(`✅ Tests completados exitosamente: ${testPath}\n`);
+          resolve();
+        } else {
+          console.log(`❌ Tests fallaron en: ${testPath}\n`);
+          reject(new Error(`Tests fallaron con código ${code}`));
+        }
+      });
+
+      testProcess.on('error', (error) => {
+        console.error(`❌ Error ejecutando tests en ${testPath}:`, error);
+        reject(error);
+      });
+    });
+  }
+  
+  console.log('🎉 ¡Todos los tests de API Keys pasaron exitosamente!');
 }
 
 // Función principal

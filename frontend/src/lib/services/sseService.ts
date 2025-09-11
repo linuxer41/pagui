@@ -123,14 +123,21 @@ class SSEService {
     const authStore = get(auth);
     if (!authStore?.token) {
       console.warn('No API key available for SSE connection');
+      sseConnection.update(state => ({
+        ...state,
+        isConnecting: false,
+        error: 'No hay token de autenticación'
+      }));
       return;
     }
 
     // Evitar múltiples conexiones
     if (this.eventSource && this.eventSource.readyState !== EventSource.CLOSED) {
+      console.log('SSE already connected, skipping');
       return;
     }
 
+    console.log('Connecting to SSE...');
     sseConnection.update(state => ({
       ...state,
       isConnecting: true,
@@ -139,6 +146,7 @@ class SSEService {
 
     try {
       const url = `${API_URL}/events/stream?token=${authStore.token}`;
+      console.log('SSE URL:', url);
       this.eventSource = new EventSource(url);
 
       this.setupEventListeners();
@@ -188,16 +196,19 @@ class SSEService {
       // Actualizar store de eventos de pago
       qrPaymentEvents.update(events => [data, ...events.slice(0, 9)]); // Mantener últimos 10
       
-      // Agregar notificación
-      this.addNotification({
-        id: `payment_${data.transactionId}_${Date.now()}`,
-        type: 'payment',
-        title: 'Pago Recibido',
-        message: `Has recibido ${data.currency} ${data.amount.toFixed(2)} de ${data.senderName}`,
-        data,
-        timestamp: new Date().toISOString(),
-        read: false
-      });
+      // Solo agregar notificación si no estamos en la página de estado del QR
+      // La página de estado del QR maneja el pago con su propio modal
+      if (!this.isOnQRStatusPage()) {
+        this.addNotification({
+          id: `payment_${data.transactionId}_${Date.now()}`,
+          type: 'payment',
+          title: 'Pago Recibido',
+          message: `Has recibido ${data.currency} ${data.amount.toFixed(2)} de ${data.senderName}`,
+          data,
+          timestamp: new Date().toISOString(),
+          read: false
+        });
+      }
 
       // Emitir evento personalizado para que las páginas puedan reaccionar
       this.emitCustomEvent('qr_payment', data);
@@ -352,6 +363,11 @@ class SSEService {
     });
   }
 
+  private isOnQRStatusPage(): boolean {
+    if (!browser) return false;
+    return window.location.pathname.startsWith('/qr/status');
+  }
+
   private emitCustomEvent(type: string, data: any): void {
     if (!browser) return;
     
@@ -362,6 +378,8 @@ class SSEService {
   }
 
   disconnect(): void {
+    console.log('Disconnecting SSE...');
+    
     if (this.eventSource) {
       this.eventSource.close();
       this.eventSource = null;
@@ -376,7 +394,8 @@ class SSEService {
       ...state,
       isConnected: false,
       isConnecting: false,
-      connectionId: null
+      connectionId: null,
+      error: null
     }));
 
     this.reconnectAttempts = 0;
@@ -440,10 +459,24 @@ export function onSSEEvent(eventType: string, callback: (data: any) => void): ()
 
   // Exportar función para reconectar manualmente
 export function reconnectSSE(): void {
+  console.log('Manual reconnection requested');
+  
+  // Actualizar estado a conectando
+  sseConnection.update(state => ({
+    ...state,
+    isConnecting: true,
+    error: null
+  }));
+  
+  // Desconectar primero
   sseService.disconnect();
+  
   // Resetear contador de intentos para reconexión manual
   sseService.resetReconnectAttempts();
+  
+  // Reconectar después de un breve delay
   setTimeout(() => {
+    console.log('Attempting manual reconnection...');
     sseService.connect();
   }, 1000);
 }

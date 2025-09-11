@@ -29,7 +29,8 @@
   $: transactionId = deuda ? `txn_${deuda.numeroCuenta || ''}_${deuda.monto}` : '';
   
   // Indica si este componente debe mostrar el QR
-  $: mostrarQR = qrGenerado && qrGenerado.transactionId === transactionId;
+  // Simplificado: mostrar el QR si existe, sin comparar transactionId
+  $: mostrarQR = qrGenerado && qrGenerado.qrImage;
 </script>
 
 {#if mostrarQR && qrGenerado && qrGenerado.qrImage}

@@ -11,8 +11,8 @@
   // Contar notificaciones no leídas
   $: unreadCount = $notifications.filter(n => !n.read).length;
   
-  // Mostrar estado de conexión si hay error
-  $: showConnectionStatus = $sseConnection.error && !$sseConnection.isConnected;
+  // Mostrar estado de conexión si hay error (siempre visible pero discreto)
+  $: showConnectionStatus = !$sseConnection.isConnected;
 
   // Mostrar notificación automáticamente cuando llega una nueva
   $: if ($notifications.length > 0 && !$notifications[0].read) {
@@ -162,22 +162,20 @@
   </div>
 {/if}
 
-<!-- Indicador de estado de conexión -->
+<!-- Indicador discreto de estado de conexión -->
 {#if showConnectionStatus}
-  <div class="connection-status" in:fly={{ y: -100, duration: 300 }}>
-    <div class="connection-content">
-      <div class="connection-icon">
-        <WifiOff size={20} />
-      </div>
-      <div class="connection-text">
-        <div class="connection-title">Conexión perdida</div>
-        <div class="connection-message">{$sseConnection.error}</div>
-      </div>
-      <button class="reconnect-button" on:click={handleReconnect}>
-        <Wifi size={16} />
-        Reconectar
-      </button>
-    </div>
+  <div class="connection-indicator" class:connecting={$sseConnection.isConnecting} class:error={$sseConnection.error}>
+    <div class="indicator-dot"></div>
+    {#if $sseConnection.isConnecting}
+      <span class="indicator-text">Conectando...</span>
+    {:else if $sseConnection.error}
+      <span class="indicator-text">Sin conexión</span>
+    {:else}
+      <span class="indicator-text">Desconectado</span>
+    {/if}
+    <button class="reconnect-btn" on:click={handleReconnect} title="Reconectar">
+      <Wifi size={14} />
+    </button>
   </div>
 {/if}
 
@@ -422,87 +420,90 @@
     font-size: 0.875rem;
   }
 
-  /* Indicador de estado de conexión */
-  .connection-status {
+  /* Indicador discreto de estado de conexión */
+  .connection-indicator {
     position: fixed;
-    top: 1rem;
+    bottom: 1rem;
     right: 1rem;
     z-index: 1002;
-    max-width: 400px;
-    background: var(--surface);
-    border-radius: 0.75rem;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-    border: 1px solid var(--error-color);
-    border-left: 4px solid var(--error-color);
-    overflow: hidden;
-  }
-
-  .connection-content {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 1rem;
-  }
-
-  .connection-icon {
-    flex-shrink: 0;
-    width: 2rem;
-    height: 2rem;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(233, 58, 74, 0.1);
-    color: var(--error-color);
-  }
-
-  .connection-text {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .connection-title {
-    font-weight: 600;
-    color: var(--text-primary);
-    font-size: 0.875rem;
-    margin-bottom: 0.25rem;
-  }
-
-  .connection-message {
-    color: var(--text-secondary);
-    font-size: 0.8rem;
-    line-height: 1.4;
-  }
-
-  .reconnect-button {
-    background: var(--primary-color);
-    color: white;
-    border: none;
+    gap: 0.5rem;
     padding: 0.5rem 0.75rem;
-    border-radius: 0.5rem;
-    font-size: 0.8rem;
+    background: var(--surface);
+    border-radius: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--border-color);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+  }
+
+  .connection-indicator.connecting {
+    border-color: var(--warning-color);
+    background: rgba(255, 175, 0, 0.05);
+  }
+
+  .connection-indicator.error {
+    border-color: var(--error-color);
+    background: rgba(233, 58, 74, 0.05);
+  }
+
+  .indicator-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--text-secondary);
+    transition: all 0.3s ease;
+  }
+
+  .connection-indicator.connecting .indicator-dot {
+    background: var(--warning-color);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  .connection-indicator.error .indicator-dot {
+    background: var(--error-color);
+  }
+
+  .indicator-text {
     font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .reconnect-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
     cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 0.25rem;
     transition: all 0.2s ease;
     display: flex;
     align-items: center;
-    gap: 0.25rem;
-    flex-shrink: 0;
+    justify-content: center;
   }
 
-  .reconnect-button:hover {
-    background: var(--primary-dark);
-    transform: translateY(-1px);
+  .reconnect-btn:hover {
+    background: var(--background-secondary);
+    color: var(--text-primary);
   }
 
-  .reconnect-button:active {
-    transform: translateY(0);
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.5;
+      transform: scale(0.8);
+    }
   }
 
   @media (max-width: 640px) {
     .notification-toast,
-    .notifications-panel,
-    .connection-status {
+    .notifications-panel {
       right: 0.5rem;
       left: 0.5rem;
       max-width: none;
@@ -512,15 +513,15 @@
       width: auto;
     }
 
-    .connection-content {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.5rem;
+    .connection-indicator {
+      bottom: 0.5rem;
+      right: 0.5rem;
+      font-size: 0.7rem;
+      padding: 0.4rem 0.6rem;
     }
 
-    .reconnect-button {
-      align-self: stretch;
-      justify-content: center;
+    .indicator-text {
+      display: none;
     }
   }
 </style>

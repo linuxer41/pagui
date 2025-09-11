@@ -4,6 +4,8 @@ interface ApiKeyPermissions {
   qr_generate: boolean;
   qr_status: boolean;
   qr_cancel: boolean;
+  qr_list: boolean;
+  qr_payments: boolean;
 }
 
 interface ApiKeyResponse {

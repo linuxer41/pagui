@@ -31,7 +31,13 @@ export const qrRoutes = new Elysia({ prefix: '/qr' })
       if (!hasPermission) {
         throw new ApiError('API Key no tiene permisos para generar QR', 403);
       }
-      userId = auth.apiKeyInfo!.userId;
+      // For API key auth, we need to get the user associated with the account
+      const accountId = auth.apiKeyInfo!.accountId;
+      const accountUser = await accountService.getAccountUser(accountId);
+      if (!accountUser) {
+        throw new ApiError('No se encontró usuario asociado a la cuenta', 404);
+      }
+      userId = accountUser.userId;
     } else {
       throw new ApiError('No autorizado', 401);
     }
@@ -75,7 +81,13 @@ export const qrRoutes = new Elysia({ prefix: '/qr' })
       if (!hasPermission) {
         throw new ApiError('API Key no tiene permisos para listar QRs', 403);
       }
-      userId = auth.apiKeyInfo!.userId;
+      // For API key auth, we need to get the user associated with the account
+      const accountId = auth.apiKeyInfo!.accountId;
+      const accountUser = await accountService.getAccountUser(accountId);
+      if (!accountUser) {
+        throw new ApiError('No se encontró usuario asociado a la cuenta', 404);
+      }
+      userId = accountUser.userId;
     } else {
       throw new ApiError('No autorizado', 401);
     }
@@ -138,7 +150,13 @@ export const qrRoutes = new Elysia({ prefix: '/qr' })
       if (!hasPermission) {
         throw new ApiError('API Key no tiene permisos para verificar estado de QR', 403);
       }
-      userId = auth.apiKeyInfo!.userId;
+      // For API key auth, we need to get the user associated with the account
+      const accountId = auth.apiKeyInfo!.accountId;
+      const accountUser = await accountService.getAccountUser(accountId);
+      if (!accountUser) {
+        throw new ApiError('No se encontró usuario asociado a la cuenta', 404);
+      }
+      userId = accountUser.userId;
     } else {
       throw new ApiError('No autorizado', 401);
     }
@@ -184,7 +202,13 @@ export const qrRoutes = new Elysia({ prefix: '/qr' })
       if (!hasPermission) {
         throw new ApiError('API Key no tiene permisos para obtener pagos de QR', 403);
       }
-      userId = auth.apiKeyInfo!.userId;
+      // For API key auth, we need to get the user associated with the account
+      const accountId = auth.apiKeyInfo!.accountId;
+      const accountUser = await accountService.getAccountUser(accountId);
+      if (!accountUser) {
+        throw new ApiError('No se encontró usuario asociado a la cuenta', 404);
+      }
+      userId = accountUser.userId;
     } else {
       throw new ApiError('No autorizado', 401);
     }
@@ -233,7 +257,13 @@ export const qrRoutes = new Elysia({ prefix: '/qr' })
       if (!hasPermission) {
         throw new ApiError('API Key no tiene permisos para cancelar QR', 403);
       }
-      userId = auth.apiKeyInfo!.userId;
+      // For API key auth, we need to get the user associated with the account
+      const accountId = auth.apiKeyInfo!.accountId;
+      const accountUser = await accountService.getAccountUser(accountId);
+      if (!accountUser) {
+        throw new ApiError('No se encontró usuario asociado a la cuenta', 404);
+      }
+      userId = accountUser.userId;
     } else {
       throw new ApiError('No autorizado', 401);
     }

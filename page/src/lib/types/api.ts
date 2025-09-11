@@ -8,6 +8,7 @@ export interface QRGenerationData {
   qrUrl?: string;   // URL del QR (alternativo)
   transactionId: string;
   amount: number;
+  description?: string; // Descripción del pago
   currency?: string; // Opcional según documentación
   dueDate: string;
   singleUse: boolean;
@@ -21,6 +22,7 @@ export interface QRGenerationAPIResponse {
   success: boolean;
   message: string;
   data: QRGenerationData;
+  codigo?: string;
 }
 
 // Tipos para la respuesta de verificación de estado de la API externa
@@ -58,6 +60,7 @@ export interface QRStatusAPIResponse {
   success: boolean;
   message: string;
   data: QRStatusData;
+  codigo?: string;
 }
 
 // Tipos para la respuesta de cancelación de QR de la API externa
@@ -72,6 +75,7 @@ export interface QRCancellationAPIResponse {
   success: boolean;
   message: string;
   data: QRCancellationData;
+  codigo?: string;
 }
 
 // Tipos para la respuesta de pagos de QR
@@ -79,6 +83,7 @@ export interface QRPaymentsAPIResponse {
   success: boolean;
   message: string;
   data: PaymentData[];
+  codigo?: string;
 }
 
 // Tipos para respuestas de error de la API

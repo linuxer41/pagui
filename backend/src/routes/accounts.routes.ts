@@ -3,6 +3,22 @@ import { authMiddleware } from '../middlewares/auth.middleware';
 import accountService from '../services/account.service';
 import { ApiError } from '../utils/error';
 
+// Helper function to get userId from auth data
+async function getUserIdFromAuth(auth: any): Promise<number> {
+  if (auth.type === 'jwt') {
+    return auth.user!.id;
+  } else if (auth.type === 'apikey') {
+    const accountId = auth.apiKeyInfo!.accountId;
+    const accountUser = await accountService.getAccountUser(accountId);
+    if (!accountUser) {
+      throw new ApiError('No se encontró usuario asociado a la cuenta', 404);
+    }
+    return accountUser.userId;
+  } else {
+    throw new ApiError('No autorizado', 401);
+  }
+}
+
 const ResponseSchema = t.Object({
   success: t.Boolean(),
   message: t.String(),
@@ -16,7 +32,7 @@ const accountRoutes = new Elysia({ prefix: '/accounts' })
   // Obtener todas las cuentas del usuario autenticado (sin paginación)
   .get('/', async ({ auth }) => {
     try {
-      const userId = auth.type === 'jwt' ? auth.user!.id : auth.apiKeyInfo!.userId;
+      const userId = await getUserIdFromAuth(auth);
       const accounts = await accountService.getUserAccounts(userId);
       
       return {
@@ -39,7 +55,7 @@ const accountRoutes = new Elysia({ prefix: '/accounts' })
   // Obtener una cuenta específica del usuario
   .get('/:id', async ({ params, auth }) => {
     try {
-      const userId = auth.type === 'jwt' ? auth.user!.id : auth.apiKeyInfo!.userId;
+      const userId = await getUserIdFromAuth(auth);
       const accountId = parseInt(params.id);
       
       if (isNaN(accountId)) {
@@ -78,7 +94,7 @@ const accountRoutes = new Elysia({ prefix: '/accounts' })
   // Obtener historial de movimientos de una cuenta
   .get('/:id/movements', async ({ params, query, auth }) => {
     try {
-      const userId = auth.type === 'jwt' ? auth.user!.id : auth.apiKeyInfo!.userId;
+      const userId = await getUserIdFromAuth(auth);
       const accountId = parseInt(params.id);
       const page = parseInt(query.page || '1');
       const pageSize = parseInt(query.pageSize || '20');
@@ -136,7 +152,7 @@ const accountRoutes = new Elysia({ prefix: '/accounts' })
   // Obtener estadísticas de recaudaciones de una cuenta
   .get('/:id/stats', async ({ params, auth }) => {
     try {
-      const userId = auth.type === 'jwt' ? auth.user!.id : auth.apiKeyInfo!.userId;
+      const userId = await getUserIdFromAuth(auth);
       const accountId = parseInt(params.id);
       
       if (isNaN(accountId)) {

@@ -1378,85 +1378,17 @@
       width: 100%;
       height: auto;
     }
-    
+    .company-section {
+      margin-bottom: 0.25rem;
+      border: none;
+    }
+
     .sidebar-content {
-      padding: 1.25rem 1rem;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 1rem;
+      padding: 0.25rem;
     }
-    
-    .company-info {
-      width: 100%;
-      justify-content: flex-start;
-    }
-    
+
     .return-link {
-      justify-content: flex-start;
-      width: 100%;
-    }
-    
-    .main-content {
-      /* Grid area ya definido */
-    }
-    
-    
-    .sidebar-footer {
-      margin-top: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 1rem;
-    }
-    
-    .return-link {
-      margin-bottom: 0;
-      font-size: 0.8rem;
-    }
-    
-    .powered-by {
-      margin-bottom: 0;
-      font-size: 0.7rem;
-      text-align: left;
-    }
-    
-    
-    .dashboard-header {
-      padding: 1rem 1.5rem;
-    }
-    
-    .header-content {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 1rem;
-    }
-    
-    .header-right {
-      align-self: flex-end;
-    }
-    
-    .company-info {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.5rem;
-    }
-    
-    .company-details h1 {
-      font-size: 1.25rem;
-    }
-    
-    .company-details p {
-      font-size: 0.8rem;
-    }
-    
-    .security-badges {
-      gap: 0.25rem;
-      flex-wrap: wrap;
-    }
-    
-    .security-badge {
-      padding: 0.25rem 0.375rem;
-      font-size: 0.65rem;
+      margin-bottom: 0.5rem;
     }
     
     .main-content-area {
@@ -1558,7 +1490,7 @@
     justify-content: flex-start;
     gap: 0.25rem;
     text-align: left;
-    margin-top: 0.5rem;
+    margin-top: 0.25rem;
   }
   
   .mobile-security-badge-unified .security-icons {
@@ -1642,7 +1574,7 @@
 
   .mobile-security-badge-unified .security-message {
     color: #059669;
-    font-size: 0.6rem;
+    font-size: 0.55rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;

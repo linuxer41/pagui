@@ -217,20 +217,14 @@
         
         // Crear descripción basada en las deudas seleccionadas
         let descripcion = '';
-        const deudasAgua = deudas.filter(d => d.tipo === 'agua');
-        const deudasServicios = deudas.filter(d => d.tipo === 'servicio');
         
-        if (deudasAgua.length > 0) {
-          const deudaAgua = deudasAgua[0]; // Usar la primera deuda de agua para la descripción
-          const fechaEmision = new Date(deudaAgua.emision);
-          const nombreMes = fechaEmision.toLocaleDateString('es-BO', { month: 'long' });
-          const año = fechaEmision.getFullYear();
-          descripcion += `Pago mes ${nombreMes} ${año} - Consumo ${deudaAgua.consumoM3} m³ - Lectura ${deudaAgua.lectura} - Factura #${deudaAgua.factura}`;
-        }
-        
-        if (deudasServicios.length > 0) {
-          if (descripcion) descripcion += ' + ';
-          descripcion += `Servicios adicionales (${deudasServicios.length} servicio${deudasServicios.length > 1 ? 's' : ''})`;
+        if (deudas.length === 1) {
+          // Si es solo una deuda, mostrar su descripción o período
+          const deuda = deudas[0];
+          descripcion = deuda.titulo; // Usar el título que ya contiene la descripción o período
+        } else {
+          // Si son más de una deuda, mostrar el conteo
+          descripcion = `Pago de ${deudas.length} deudas Empsaat`;
         }
         
         formData.append('descripcion', descripcion);

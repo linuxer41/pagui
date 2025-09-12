@@ -1,5 +1,24 @@
 <script lang="ts">
-  import { CreditCardIcon, RefreshCwIcon, XIcon } from 'svelte-feather-icons';
+  import { RefreshCwIcon, XIcon } from 'svelte-feather-icons';
+  
+  // Componente SVG para QR Code
+  const QrCodeIcon = (props: {size?: number, color?: string}) => {
+    return `
+      <svg width="${props.size || 16}" height="${props.size || 16}" viewBox="0 0 24 24" fill="none" stroke="${props.color || 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="5" height="5"/>
+        <rect x="3" y="16" width="5" height="5"/>
+        <rect x="16" y="3" width="5" height="5"/>
+        <path d="M21 16h-3v3h3v-3z"/>
+        <path d="M21 21h.01"/>
+        <path d="M12 7v3"/>
+        <path d="M12 12h.01"/>
+        <path d="M12 16h.01"/>
+        <path d="M16 12h.01"/>
+        <path d="M16 16h.01"/>
+        <path d="M12 12h.01"/>
+      </svg>
+    `;
+  };
   
   // Interface para la respuesta de la API de EMPSAAT
   interface EmpsaatApiResponse {
@@ -122,8 +141,8 @@
                   <span class="spinner"></span>
                   Generando QR...
                 {:else}
-                  <CreditCardIcon size="16" />
-                  Pagar Bs. {deuda.importeFactura.toFixed(2)}
+                  {@html QrCodeIcon({size: 16, color: '#ffffff'})}
+                  Pagar por QR Bs. {deuda.importeFactura.toFixed(2)}
                 {/if}
               </button>
             {:else if !deuda.fechaPago && !qrGenerado}
@@ -161,7 +180,7 @@
               <span class="spinner"></span>
               Procesando...
             {:else}
-              <CreditCardIcon size="16" />
+              {@html QrCodeIcon({size: 16, color: '#ffffff'})}
               Pagar Todos los Servicios (Bs. {(data?.totales?.totalServicios || 0).toFixed(2)})
             {/if}
           </button>
@@ -192,7 +211,7 @@
                 <span class="spinner"></span>
                 Procesando...
               {:else}
-                <CreditCardIcon size="16" />
+                {@html QrCodeIcon({size: 16, color: '#ffffff'})}
                 Pagar Servicio
               {/if}
             </button>
@@ -427,8 +446,9 @@
   }
   
   .btn-pay {
-    background: var(--gradient-secondary);
-    color: rgb(var(--white));
+    background: var(--color-bg-dark);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ffffff;
   }
   
   .btn-pay-service {
@@ -436,7 +456,14 @@
     color: rgb(var(--white));
   }
   
-  .btn-pay:hover, .btn-pay-service:hover {
+  .btn-pay:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+  
+  .btn-pay-service:hover {
     transform: translateY(-1px);
     box-shadow: var(--shadow-hover);
   }
@@ -496,43 +523,44 @@
 
   /* Estilos para información del cliente */
   .client-info {
-    background: var(--white);
-    border-radius: var(--radius-lg);
-    padding: 1.5rem;
+    background: transparent;
+    padding: 0;
     margin-bottom: 1.5rem;
-    box-shadow: var(--shadow);
-    border: 1px solid var(--border-color);
   }
 
   .client-info h2 {
-    margin: 0 0 1rem 0;
-    color: var(--text-primary);
-    font-size: 1.25rem;
-    font-weight: 600;
+    margin: 0 0 0.75rem 0;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
 
   .client-details {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
 
   .client-details p {
     margin: 0;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    line-height: 1.4;
+    font-weight: 500;
   }
 
   .client-details strong {
-    color: var(--text-primary);
-    font-weight: 600;
+    color: var(--text-secondary);
+    font-weight: 500;
   }
 
   .client-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
   }
 
   .client-header h2 {

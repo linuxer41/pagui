@@ -11,6 +11,7 @@
     QRCancellationAPIResponse
   } from '$lib/types/api';
   import { onDestroy, onMount } from 'svelte';
+  import { ShieldIcon, LockIcon, CheckCircleIcon, SearchIcon } from 'svelte-feather-icons';
   import '../../../lib/theme.css';
   
   // Importar los componentes
@@ -212,7 +213,12 @@
       if (empresa.usaQR) {
         const formData = new FormData();
         formData.append('monto', deudaAgua.importeFactura.toString());
-        formData.append('descripcion', `Consumo agua (${deudaAgua.consumoM3} m³) - Factura #${deudaAgua.factura}`);
+        // Crear descripción más detallada con mes
+        const fechaEmision = new Date(deudaAgua.emision);
+        const nombreMes = fechaEmision.toLocaleDateString('es-BO', { month: 'long' });
+        const año = fechaEmision.getFullYear();
+        const descripcion = `Pago mes ${nombreMes} ${año} - Consumo ${deudaAgua.consumoM3} m³ - Lectura ${deudaAgua.lectura} - Factura #${deudaAgua.factura}`;
+        formData.append('descripcion', descripcion);
         formData.append('transactionId', `txn_${deudaAgua.abonado}_${deudaAgua.factura}_${deudaAgua.importeFactura}`);
         formData.append('numeroCuenta', deudaAgua.abonado.toString());
         
@@ -277,7 +283,12 @@
      if (empresa.usaQR) {
       const formData = new FormData();
       formData.append('monto', deuda.monto.toString());
-      formData.append('descripcion', deuda.descripcion);
+      // Mejorar descripción si es posible
+      let descripcion = deuda.descripcion;
+      if (deuda.tipo === 'agua' && deuda.volumenConsumo) {
+        descripcion = `Pago agua - Consumo ${deuda.volumenConsumo} m³ - ${deuda.descripcion}`;
+      }
+      formData.append('descripcion', descripcion);
        formData.append('transactionId', `txn_${deuda.numeroCuenta || ''}_${deuda.monto}`);
        formData.append('numeroCuenta', deuda.numeroCuenta?.toString() || '');
       
@@ -610,8 +621,8 @@
 </svelte:head>
 
 <div class="dashboard-layout">
-  <!-- Panel izquierdo (oscuro) -->
-  <aside class="sidebar">
+  <!-- Panel izquierdo (oscuro) - Desktop -->
+  <aside class="sidebar desktop-only">
     <div class="sidebar-content">
       <!-- Información de la empresa -->
       <div class="company-section">
@@ -628,77 +639,102 @@
             <p class="company-description-sidebar">{empresa.descripcion}</p>
             <div class="company-status">
               <div class="status-dot"></div>
-              <span>Sistema Activo</span>
             </div>
+          </div>
+        </div>
+        
+        <!-- Badges de seguridad en sidebar -->
+        <div class="sidebar-security-badges">
+          <div class="sidebar-security-badge">
+            <ShieldIcon size="12" />
+            <span>Seguro</span>
+          </div>
+          <div class="sidebar-security-badge">
+            <LockIcon size="12" />
+            <span>Protegido</span>
+          </div>
+          <div class="sidebar-security-badge">
+            <CheckCircleIcon size="12" />
+            <span>Verificado</span>
           </div>
         </div>
       </div>
       
       <!-- Footer -->
       <div class="sidebar-footer">
-        <a href={empresa.webUrl} class="return-link">
+        <a href="https://iathings.com" class="return-link">
           <span class="return-icon">←</span>
           <span>Volver a {empresa.slug.toUpperCase()}</span>
         </a>
         <div class="powered-by">
-          <span>Powered by</span>
+          <span>Desarrollado por</span>
           <strong>Pagui</strong>
-        </div>
-        <div class="footer-links">
-          <a href="#" class="footer-link">Términos</a>
-          <a href="#" class="footer-link">Privacidad</a>
         </div>
       </div>
     </div>
   </aside>
   
-  <!-- Panel derecho (claro) -->
-  <main class="main-content">
-    <div class="content-wrapper">
-      <!-- Header con iconos de seguridad -->
-      <div class="dashboard-header">
-        <div class="header-content">
+  <!-- Header móvil (sidebar convertido) -->
+  <header class="mobile-header mobile-only">
+    <div class="mobile-header-content">
+      <!-- Información de la empresa -->
+      <div class="mobile-company-info">
+        <div class="mobile-company-logo">
           {#if empresa.logo && empresa.logo.includes('.png')}
-            <div class="header-logo">
-              <img src="/{empresa.logo}" alt="Logo {empresa.nombre}" class="header-logo-image" />
-            </div>
+            <img src="/{empresa.logo}" alt="Logo {empresa.nombre}" class="mobile-logo-image" />
+          {:else}
+            <span class="mobile-logo-text">{empresa.logo}</span>
           {/if}
-          <div class="security-badges">
-            <div class="security-badge">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                <path d="M9 12l2 2 4-4"/>
-              </svg>
-              <span>Seguro</span>
-            </div>
-            <div class="security-badge">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                <circle cx="12" cy="16" r="1"/>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-              </svg>
-              <span>Protegido</span>
-            </div>
-            <div class="security-badge">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M9 12l2 2 4-4"/>
-                <path d="M21 12c-1 0-3-1-3-3s2-3 3-3 3 1 3 3-2 3-3 3"/>
-                <path d="M3 12c1 0 3-1 3-3s-2-3-3-3-3 1-3 3 2 3 3 3"/>
-                <path d="M12 3c0 1-1 3-3 3s-3-2-3-3 1-3 3-3 3 2 3 3"/>
-                <path d="M12 21c0-1 1-3 3-3s3 2 3 3-1 3-3 3-3-2-3-3"/>
-              </svg>
-              <span>Verificado</span>
-            </div>
+        </div>
+        <div class="mobile-company-details">
+          <h2 class="mobile-company-name">{empresa.nombre}</h2>
+          <p class="mobile-company-description">{empresa.descripcion}</p>
+          <div class="mobile-company-status">
+            <div class="status-dot"></div>
           </div>
         </div>
       </div>
-
+      
+      <!-- Badges de seguridad -->
+      <div class="mobile-security-badges">
+        <div class="security-badge">
+          <ShieldIcon size="12" />
+          <span>Seguro</span>
+        </div>
+        <div class="security-badge">
+          <LockIcon size="12" />
+          <span>Protegido</span>
+        </div>
+        <div class="security-badge">
+          <CheckCircleIcon size="12" />
+          <span>Verificado</span>
+        </div>
+      </div>
+      
+      <!-- Footer móvil -->
+      <div class="mobile-footer">
+        <a href="https://iathings.com" class="mobile-return-link">
+          <span class="return-icon">←</span>
+          <span>Volver a {empresa.slug.toUpperCase()}</span>
+        </a>
+        <div class="mobile-powered-by">
+          <span>Desarrollado por</span>
+          <strong>Pagui</strong>
+        </div>
+      </div>
+    </div>
+  </header>
+  
+  <!-- Panel derecho (claro) -->
+  <main class="main-content">
+    <div class="content-wrapper">
+      <!-- Header vacío - Solo Desktop -->
       <!-- Contenido principal -->
       <div class="main-content-area">
         {#if searchResult?.success && searchResult?.data}
           <!-- Componente de lista de deudas -->
           <div class="content-section">
-            <h2 class="section-title">OPCIONES DE PAGO</h2>
+            <h2 class="section-title">FACTURAS PENDIENTES</h2>
             <div class="payment-content">
               {#if slug === 'empsaat'}
                 <EmpsaatDeudasDisplay
@@ -759,9 +795,63 @@
             </div>
           </div>
         {:else}
+          <!-- Panel de pasos del proceso -->
+          <div class="content-section">
+            <div class="process-steps">
+              <div class="step">
+                <div class="step-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <path d="m21 21-4.35-4.35"></path>
+                  </svg>
+                </div>
+                <div class="step-content">
+                  <span class="step-title">Buscar</span>
+                </div>
+              </div>
+              
+              <div class="step-connector"></div>
+              
+              <div class="step">
+                <div class="step-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="5" height="5"></rect>
+                    <rect x="3" y="16" width="5" height="5"></rect>
+                    <rect x="16" y="3" width="5" height="5"></rect>
+                    <path d="M21 16h-3v3h3v-3z"></path>
+                    <path d="M21 21h.01"></path>
+                    <path d="M12 7v3"></path>
+                    <path d="M12 12h.01"></path>
+                    <path d="M12 16h.01"></path>
+                    <path d="M16 12h.01"></path>
+                    <path d="M16 16h.01"></path>
+                  </svg>
+                </div>
+                <div class="step-content">
+                  <span class="step-title">Generar QR</span>
+                </div>
+              </div>
+              
+              <div class="step-connector"></div>
+              
+              <div class="step">
+                <div class="step-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                    <path d="M2 17l10 5 10-5"></path>
+                    <path d="M2 12l10 5 10-5"></path>
+                  </svg>
+                </div>
+                <div class="step-content">
+                  <span class="step-title">Pagar</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
           <!-- Formulario de búsqueda -->
           <div class="content-section">
-            <h2 class="section-title">BÚSQUEDA DE ABONADO</h2>
+            <h2 class="section-title">BUSCAR DEUDAS</h2>
             <div class="search-content">
               <FormularioBusqueda
                 bind:codigoClienteInput
@@ -827,7 +917,7 @@
   
   /* Panel izquierdo (oscuro) - Estilo Cursor/Stripe */
   .sidebar {
-    width: 320px;
+    width: 30%;
     background: var(--color-bg-dark);
     color: #ffffff;
     display: flex;
@@ -850,10 +940,10 @@
   
   /* Información de la empresa en sidebar */
   .company-section {
-    margin-bottom: 2rem;
-    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
     background: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
+    border-radius: 6px;
     border: 1px solid rgba(255, 255, 255, 0.1);
   }
   
@@ -862,20 +952,20 @@
     flex-direction: column;
     align-items: center;
     text-align: center;
-    gap: 1rem;
+    gap: 0.5rem;
   }
   
   .company-logo-sidebar {
-    width: 60px;
-    height: 60px;
-    border-radius: 12px;
+    width: 45px;
+    height: 45px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.75rem;
+    font-size: 1.25rem;
     color: white;
     font-weight: 600;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     overflow: hidden;
   }
   
@@ -887,30 +977,24 @@
   }
   
   .company-details-sidebar h2 {
-    font-size: 1.15rem;
+    font-size: 0.95rem;
     font-weight: 600;
     color: #ffffff;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
   }
   
   .company-details-sidebar p {
-    font-size: 0.875rem;
+    font-size: 0.75rem;
     color: #cccccc;
-    line-height: 1.4;
-    margin-bottom: 1rem;
+    line-height: 1.3;
+    margin-bottom: 0.5rem;
   }
   
   .company-status {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    background: rgba(34, 197, 94, 0.1);
-    border: 1px solid rgba(34, 197, 94, 0.3);
-    border-radius: var(--radius-sm);
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--color-success);
+    justify-content: center;
+    margin-top: 0.5rem;
   }
   
   .company-status .status-dot {
@@ -918,6 +1002,45 @@
     height: 8px;
     background: var(--color-success);
     border-radius: 50%;
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+  }
+
+  /* Badges de seguridad en sidebar */
+  .sidebar-security-badges {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    margin-top: 1rem;
+    justify-content: center;
+  }
+
+  .sidebar-security-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.5rem;
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    border-radius: 4px;
+    color: #059669;
+    font-size: 0.65rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    min-width: fit-content;
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .sidebar-security-badge:hover {
+    background: rgba(34, 197, 94, 0.25);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(34, 197, 94, 0.2);
+  }
+
+  .sidebar-security-badge svg {
+    flex-shrink: 0;
+    color: #059669;
   }
   
   
@@ -933,12 +1056,37 @@
     color: #ffffff;
     text-decoration: none;
     font-size: 0.875rem;
+    font-weight: 500;
     margin-bottom: 2rem;
-    transition: color 0.2s ease;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .return-link::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transition: left 0.5s ease;
+  }
+  
+  .return-link:hover::before {
+    left: 100%;
   }
   
   .return-link:hover {
-    color: #cccccc;
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.25);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
   
   .return-icon {
@@ -947,37 +1095,25 @@
   
   .powered-by {
     font-size: 0.75rem;
-    color: #888888;
-    margin-bottom: 0.5rem;
+    color: #cccccc;
+    margin-bottom: 0.75rem;
+    text-align: center;
   }
   
   .powered-by strong {
     color: #ffffff;
-    font-weight: 600;
+    font-weight: 700;
+    margin-left: 0.25rem;
   }
   
-  .footer-links {
-    display: flex;
-    gap: 1rem;
-  }
-  
-  .footer-link {
-    color: #888888;
-    text-decoration: none;
-    font-size: 0.75rem;
-    transition: color 0.2s ease;
-  }
-  
-  .footer-link:hover {
-    color: #ffffff;
-  }
   
   /* Panel derecho (claro) */
   .main-content {
     flex: 1;
-    margin-left: 320px;
+    margin-left: 30%;
     background: #ffffff;
     overflow-y: auto;
+    width: 70%;
   }
   
   .content-wrapper {
@@ -989,15 +1125,7 @@
   .dashboard-header {
     background: var(--color-bg-primary);
     border-bottom: 1px solid var(--color-border);
-    padding: 1.5rem 2rem;
-  }
-  
-  .header-content {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    max-width: 1000px;
-    margin: 0 auto;
+    padding: 0.5rem 2rem;
   }
   
   .header-content {
@@ -1006,114 +1134,194 @@
     align-items: center;
     max-width: 1000px;
     margin: 0 auto;
+    min-height: 20px;
   }
   
-  .header-logo {
-    display: flex;
-    align-items: center;
-  }
-  
-  .header-logo-image {
-    height: 40px;
-    width: auto;
-    object-fit: contain;
-  }
-  
-  .security-badges {
-    display: flex;
-    gap: 0.375rem;
-    align-items: center;
-    justify-content: center;
-  }
-  
-  .security-badge {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.375rem 0.5rem;
-    background: rgba(34, 197, 94, 0.1);
-    border: 1px solid rgba(34, 197, 94, 0.2);
-    border-radius: var(--radius-sm);
-    color: var(--color-success);
-    font-size: 0.7rem;
-    font-weight: 500;
-    transition: all 0.2s ease;
-    white-space: nowrap;
-  }
-  
-  .security-badge:hover {
-    background: rgba(34, 197, 94, 0.15);
-    transform: translateY(-1px);
-  }
-  
-  .security-badge svg {
-    flex-shrink: 0;
-  }
   
   /* Contenido principal */
   .main-content-area {
     padding: 2rem;
-    max-width: 1000px;
-    margin: 0 auto;
+    width: 100%;
+    background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+    min-height: calc(100vh - 80px);
+    animation: fadeInUp 0.6s ease-out;
+  }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
   
   .content-section {
-    margin-bottom: 2rem;
+    margin-bottom: 3rem;
+    background: transparent;
+    padding: 0;
+    animation: slideInUp 0.5s ease-out;
+    animation-fill-mode: both;
+  }
+
+  .content-section:nth-child(1) {
+    animation-delay: 0.1s;
+  }
+
+  .content-section:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  .content-section:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+
+  @keyframes slideInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
   
   .section-title {
-    font-size: 0.75rem;
-    font-weight: 600;
+    font-size: 0.875rem;
+    font-weight: 500;
     color: var(--color-text-secondary);
+    margin-bottom: 1rem;
+    text-align: center;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    margin-bottom: 1rem;
+  }
+
+  /* Panel de pasos del proceso */
+  .process-steps {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin: 2rem 0;
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.4);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+  }
+
+  .step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    position: relative;
+    min-width: 80px;
+  }
+
+  .step:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+  }
+
+  .step-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    color: white;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  }
+
+  .step:hover .step-icon {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+  }
+
+  .step-content {
+    text-align: center;
+  }
+
+  .step-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .step-connector {
+    width: 40px;
+    height: 2px;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    border-radius: 1px;
+    position: relative;
+    margin: 0 0.5rem;
+  }
+
+  .step-connector::after {
+    content: '';
+    position: absolute;
+    right: -4px;
+    top: -3px;
+    width: 8px;
+    height: 8px;
+    background: #8b5cf6;
+    border-radius: 50%;
   }
   
   
   .payment-content {
-    background: var(--color-bg-primary);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    padding: 1.5rem;
-    box-shadow: var(--shadow-sm);
+    background: transparent;
+    padding: 0;
   }
   
   .search-content {
-    background: var(--color-bg-primary);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    padding: 1.5rem;
-    box-shadow: var(--shadow-sm);
+    background: transparent;
+    padding: 0;
   }
   
   
   /* Responsive Design */
   @media (max-width: 1200px) {
     .sidebar {
-      width: 280px;
+      width: 30%;
     }
     
     .main-content {
-      margin-left: 280px;
+      margin-left: 30%;
+      width: 70%;
     }
     
     .main-content-area {
       padding: 1.5rem;
+      width: 100%;
     }
   }
   
   @media (max-width: 1024px) {
     .sidebar {
-      width: 260px;
+      width: 30%;
     }
     
     .main-content {
-      margin-left: 260px;
+      margin-left: 30%;
+      width: 70%;
     }
     
     .main-content-area {
       padding: 1.25rem;
+      width: 100%;
     }
   }
   
@@ -1159,9 +1367,6 @@
       font-size: 0.7rem;
     }
     
-    .footer-links {
-      display: none;
-    }
     
     .dashboard-header {
       padding: 1rem 1.5rem;
@@ -1203,6 +1408,7 @@
     
     .main-content-area {
       padding: 1rem;
+      width: 100%;
     }
   }
   
@@ -1248,19 +1454,287 @@
     }
     
     .content-section {
-      margin-bottom: 1.5rem;
+      margin-bottom: 2rem;
+      padding: 0;
+    }
+
+    .process-steps {
+      padding: 1rem;
+      margin: 1rem 0;
+    }
+
+    .step {
+      padding: 0.5rem;
+      min-width: 60px;
+    }
+
+    .step-icon {
+      width: 36px;
+      height: 36px;
+    }
+
+    .step-title {
+      font-size: 0.65rem;
+    }
+
+    .step-connector {
+      width: 20px;
+      margin: 0 0.25rem;
+    }
+
+    .step-connector::after {
+      width: 6px;
+      height: 6px;
+      right: -3px;
+      top: -2px;
     }
     
     .account-info,
     .payment-content,
     .search-content,
     .company-details-section {
-      padding: 1rem;
+      padding: 0;
     }
     
     .status-indicator {
       padding: 0.375rem 0.75rem;
       font-size: 0.75rem;
+    }
+  }
+
+  /* Clases de visibilidad responsive */
+  .desktop-only {
+    display: block;
+  }
+  
+  .mobile-only {
+    display: none;
+  }
+
+  /* Header móvil */
+  .mobile-header {
+    background: var(--color-bg-dark);
+    padding: 1rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .mobile-header-content {
+    max-width: 100%;
+    margin: 0 auto;
+  }
+
+  .mobile-company-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .mobile-company-logo {
+    flex-shrink: 0;
+    background: white;
+    padding: 0.5rem;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .mobile-logo-image {
+    height: 35px;
+    width: auto;
+    object-fit: contain;
+    border-radius: 4px;
+  }
+
+  .mobile-logo-text {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #333333;
+  }
+
+  .mobile-company-details {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mobile-company-name {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #ffffff;
+    margin: 0 0 0.25rem 0;
+    line-height: 1.2;
+  }
+
+  .mobile-company-description {
+    font-size: 0.75rem;
+    color: #cccccc;
+    margin: 0 0 0.5rem 0;
+    line-height: 1.3;
+  }
+
+  .mobile-company-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mobile-security-badges {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+
+  .mobile-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .mobile-return-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #ffffff;
+    text-decoration: none;
+    font-size: 0.8rem;
+    font-weight: 500;
+    padding: 0.5rem 0.75rem;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .mobile-return-link::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transition: left 0.5s ease;
+  }
+
+  .mobile-return-link:hover::before {
+    left: 100%;
+  }
+
+  .mobile-return-link:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.25);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .mobile-powered-by {
+    font-size: 0.7rem;
+    color: #cccccc;
+    text-align: center;
+  }
+
+  .mobile-powered-by strong {
+    color: #ffffff;
+    font-weight: 700;
+    margin-left: 0.25rem;
+  }
+
+  .security-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.5rem;
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    border-radius: 4px;
+    color: #059669;
+    font-size: 0.65rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    min-width: fit-content;
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .security-badge:hover {
+    background: rgba(34, 197, 94, 0.25);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(34, 197, 94, 0.2);
+  }
+
+  .security-badge svg {
+    flex-shrink: 0;
+    color: #059669;
+  }
+
+  /* Responsive breakpoints */
+  @media (max-width: 768px) {
+    .desktop-only {
+      display: none !important;
+    }
+    
+    .mobile-only {
+      display: block !important;
+    }
+
+    .dashboard-layout {
+      flex-direction: column;
+    }
+
+    .main-content {
+      margin-left: 0;
+    }
+
+    .content-wrapper {
+      padding: 0;
+    }
+
+    .main-content-area {
+      padding: 1rem;
+      width: 100%;
+    }
+
+    .mobile-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .mobile-security-badges {
+      justify-content: center;
+    }
+
+    .security-badge {
+      font-size: 0.7rem;
+      padding: 0.375rem 0.5rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .mobile-company-info {
+      flex-direction: column;
+      text-align: center;
+      gap: 0.75rem;
+    }
+
+    .mobile-company-details {
+      text-align: center;
+    }
+
+    .mobile-security-badges {
+      justify-content: center;
+    }
+
+    .security-badge {
+      font-size: 0.65rem;
+      padding: 0.25rem 0.375rem;
     }
   }
 </style>

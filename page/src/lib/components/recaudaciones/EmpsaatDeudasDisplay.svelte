@@ -242,27 +242,39 @@
 <div class="debt-list-container">
   <!-- Navegación y información del cliente -->
   <div class="debt-header">
-    <button 
-      class="btn-back" 
-      on:click={() => goToPreviousStep()}
-      title="Volver al paso anterior"
-    >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="15,18 9,12 15,6"></polyline>
-      </svg>
-      Volver
-    </button>
+    <div class="header-top">
+      <button 
+        class="btn-back" 
+        on:click={() => goToPreviousStep()}
+        title="Volver al paso anterior"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15,18 9,12 15,6"></polyline>
+        </svg>
+        Volver
+      </button>
+      <h2 class="debt-list-title">Lista de Deudas</h2>
+    </div>
     
     {#if cliente}
       <div class="client-summary">
         <div class="client-name">{cliente.nombre || 'Cliente'}</div>
         <div class="client-details">
-          <div class="client-account">Cuenta: {cliente.numeroCuenta}</div>
+          <div class="client-account">
+            <span class="label">Abonado:</span>
+            <span class="value">{cliente.numeroCuenta}</span>
+          </div>
           {#if cliente.numeroMedidor}
-            <div class="client-meter">Medidor: {cliente.numeroMedidor}</div>
+            <div class="client-meter">
+              <span class="label">Número de Medidor:</span>
+              <span class="value">{cliente.numeroMedidor}</span>
+            </div>
           {/if}
           {#if cliente.numeroAbonado}
-            <div class="client-subscriber">Abonado: {cliente.numeroAbonado}</div>
+            <div class="client-subscriber">
+              <span class="label">Código de Cliente:</span>
+              <span class="value">{cliente.numeroAbonado}</span>
+            </div>
           {/if}
         </div>
       </div>
@@ -381,7 +393,7 @@
   .section-total .label {
     font-weight: 500;
     color: var(--text-secondary);
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     text-transform: uppercase;
     letter-spacing: 0.2px;
   }
@@ -407,7 +419,7 @@
   }
   
   .notice-text {
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     color: #d97706;
     font-weight: 500;
     display: flex;
@@ -434,7 +446,7 @@
     padding: 0.5rem 1rem;
     border-radius: 6px;
     font-weight: 600;
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     cursor: pointer;
     transition: all 0.2s ease;
     justify-content: center;
@@ -610,7 +622,7 @@
   
   
   .debt-consumo {
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     color: rgba(0, 0, 0, 0.6);
     font-weight: 400;
     display: flex;
@@ -814,7 +826,7 @@
   }
   
   .waiting-text {
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     color: var(--text-secondary);
     font-weight: 500;
   }
@@ -900,7 +912,7 @@
     }
     
     .debt-consumo {
-      font-size: 0.8rem;
+      font-size: 0.9rem;
     }
     
     .debt-amount {
@@ -937,17 +949,49 @@
 
 
   .debt-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
     margin: 0;
     padding: 0;
     background: transparent;
     border: none;
   }
   
+  .header-top {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .btn-back {
+    background: transparent;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    color: #000000;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+  }
+  
+  .btn-back:hover {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.3);
+  }
+  
+  .debt-list-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #000000;
+    margin: 0;
+  }
+  
   .client-summary {
-    text-align: right;
+    text-align: left;
   }
   
   .client-name {
@@ -966,9 +1010,27 @@
   .client-account,
   .client-meter,
   .client-subscriber {
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     color: rgba(0, 0, 0, 0.7);
     line-height: 1.3;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .client-account .label,
+  .client-meter .label,
+  .client-subscriber .label {
+    font-weight: 600;
+    color: rgba(0, 0, 0, 0.8);
+    min-width: 120px;
+  }
+  
+  .client-account .value,
+  .client-meter .value,
+  .client-subscriber .value {
+    font-weight: 400;
+    color: rgba(0, 0, 0, 0.6);
   }
 
 

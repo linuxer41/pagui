@@ -199,9 +199,9 @@
   }
   
   // Función para generar QR específica para EMPSAAT
-  async function generarQREmpsaat(deudaAgua: any) {
-    console.log('generarQREmpsaat llamada con:', deudaAgua);
-    if (!deudaAgua) return;
+  async function generarQREmpsaat(deudas: any[], total: number) {
+    console.log('generarQREmpsaat llamada con:', deudas, 'total:', total);
+    if (!deudas || deudas.length === 0) return;
     
     // Activar loader del botón
     isGeneratingQR = true;
@@ -213,15 +213,29 @@
     try {
       if (empresa.usaQR) {
         const formData = new FormData();
-        formData.append('monto', deudaAgua.importeFactura.toString());
-        // Crear descripción más detallada con mes
-        const fechaEmision = new Date(deudaAgua.emision);
-        const nombreMes = fechaEmision.toLocaleDateString('es-BO', { month: 'long' });
-        const año = fechaEmision.getFullYear();
-        const descripcion = `Pago mes ${nombreMes} ${año} - Consumo ${deudaAgua.consumoM3} m³ - Lectura ${deudaAgua.lectura} - Factura #${deudaAgua.factura}`;
+        formData.append('monto', total.toString());
+        
+        // Crear descripción basada en las deudas seleccionadas
+        let descripcion = '';
+        const deudasAgua = deudas.filter(d => d.tipo === 'agua');
+        const deudasServicios = deudas.filter(d => d.tipo === 'servicio');
+        
+        if (deudasAgua.length > 0) {
+          const deudaAgua = deudasAgua[0]; // Usar la primera deuda de agua para la descripción
+          const fechaEmision = new Date(deudaAgua.emision);
+          const nombreMes = fechaEmision.toLocaleDateString('es-BO', { month: 'long' });
+          const año = fechaEmision.getFullYear();
+          descripcion += `Pago mes ${nombreMes} ${año} - Consumo ${deudaAgua.consumoM3} m³ - Lectura ${deudaAgua.lectura} - Factura #${deudaAgua.factura}`;
+        }
+        
+        if (deudasServicios.length > 0) {
+          if (descripcion) descripcion += ' + ';
+          descripcion += `Servicios adicionales (${deudasServicios.length} servicio${deudasServicios.length > 1 ? 's' : ''})`;
+        }
+        
         formData.append('descripcion', descripcion);
-        formData.append('transactionId', `txn_${deudaAgua.abonado}_${deudaAgua.factura}_${deudaAgua.importeFactura}`);
-        formData.append('numeroCuenta', deudaAgua.abonado.toString());
+        formData.append('transactionId', `txn_${cliente?.numeroCuenta}_${Date.now()}_${total}`);
+        formData.append('numeroCuenta', cliente?.numeroCuenta?.toString() || '');
         
         const response = await fetch(`?/generarQR`, {
           method: 'POST',
@@ -619,10 +633,38 @@
     currentStep = 3; // Paso 3: QR generado, listo para pagar
   }
 
-  $: if (qrStatus?.status === 'paid' || qrStatus?.status === 'completed') {
+  $: if (qrStatus?.status === 'paid' || qrStatus?.status === 'used') {
     currentStep = 4; // Paso 4: Pago completado
   }
 
+  // Funciones de navegación de pasos
+  function goToPreviousStep() {
+    if (currentStep > 1) {
+      currentStep = currentStep - 1;
+      
+      // Limpiar estado según el paso
+      if (currentStep === 1) {
+        // Volver al paso 1: limpiar búsqueda
+        searchResult = null;
+        cliente = undefined;
+        qrGenerado = null;
+        qrStatus = null;
+        detenerPollingEstado();
+      } else if (currentStep === 2) {
+        // Volver al paso 2: limpiar QR
+        qrGenerado = null;
+        qrStatus = null;
+        detenerPollingEstado();
+      }
+    }
+  }
+  
+  function goToNextStep() {
+    if (currentStep < 3) {
+      currentStep = currentStep + 1;
+    }
+  }
+  
   // Limpiar intervalo cuando se desmonte el componente
   onDestroy(() => {
     detenerPollingEstado();
@@ -822,142 +864,67 @@
             </div>
           </div>
           
-          <!-- Componente de lista de deudas -->
+          <!-- Componente de lista de deudas o QR -->
           <div class="content-section">
-            <h2 class="section-title">FACTURAS PENDIENTES</h2>
-            <div class="payment-content">
-              {#if slug === 'empsaat'}
-                <EmpsaatDeudasDisplay
-                  data={searchResult?.data}
-                  cliente={cliente}
-                  {isGeneratingQR}
-                  {isLoading}
-                  {qrGenerado}
-                  {error}
-                  generarQR={generarQREmpsaat}
-                  {pagarServicios}
-                  {obtenerInfoAbonado}
-                  {limpiarCliente}
-                />
-              {:else}
-                <ListaDeudas
-                  deudas={searchResult?.deudas || []}
-                  {isGeneratingQR}
-                  {isLoading}
-                  {qrGenerado}
-                  {error}
-                  {generarQR}
-                  {pagarServicios}
-                />
-              {/if}
-              
-              <!-- Componente para mostrar el QR generado -->
-              {#if qrGenerado}
-                <!-- Panel de pasos del proceso -->
-                <div class="content-section">
-                  <div class="process-steps">
-                    <div class="step {currentStep >= 1 ? 'active' : ''} {currentStep > 1 ? 'completed' : ''}">
-                      <div class="step-icon">
-                        {#if currentStep > 1}
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="20,6 9,17 4,12"></polyline>
-                          </svg>
-                        {:else}
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="11" cy="11" r="8"></circle>
-                            <path d="m21 21-4.35-4.35"></path>
-                          </svg>
-                        {/if}
-                      </div>
-                      <div class="step-content">
-                        <span class="step-title">1. Buscar Deudas</span>
-                        <span class="step-description">Ingresa tu número de cuenta</span>
-                      </div>
-                    </div>
-                    
-                    <div class="step-connector {currentStep > 1 ? 'active' : ''}"></div>
-                    
-                    <div class="step {currentStep >= 2 ? 'active' : ''} {currentStep > 2 ? 'completed' : ''}">
-                      <div class="step-icon">
-                        {#if currentStep > 2}
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="20,6 9,17 4,12"></polyline>
-                          </svg>
-                        {:else}
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="3" y="3" width="5" height="5"></rect>
-                            <rect x="3" y="16" width="5" height="5"></rect>
-                            <rect x="16" y="3" width="5" height="5"></rect>
-                            <path d="M21 16h-3v3h3v-3z"></path>
-                            <path d="M21 21h.01"></path>
-                            <path d="M12 7v3"></path>
-                            <path d="M12 12h.01"></path>
-                            <path d="M12 16h.01"></path>
-                            <path d="M16 12h.01"></path>
-                            <path d="M16 16h.01"></path>
-                          </svg>
-                        {/if}
-                      </div>
-                      <div class="step-content">
-                        <span class="step-title">2. Generar QR</span>
-                        <span class="step-description">Selecciona facturas a pagar</span>
-                      </div>
-                    </div>
-                    
-                    <div class="step-connector {currentStep > 2 ? 'active' : ''}"></div>
-                    
-                    <div class="step {currentStep >= 3 ? 'active' : ''} {currentStep > 3 ? 'completed' : ''}">
-                      <div class="step-icon">
-                        {#if currentStep > 3}
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="20,6 9,17 4,12"></polyline>
-                          </svg>
-                        {:else}
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
-                            <path d="M2 17l10 5 10-5"></path>
-                            <path d="M2 12l10 5 10-5"></path>
-                          </svg>
-                        {/if}
-                      </div>
-                      <div class="step-content">
-                        <span class="step-title">3. Realizar Pago</span>
-                        <span class="step-description">Escanea QR y paga</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <QRDisplay
-                  qrGenerado={qrGenerado}
-                  qrStatus={qrStatus}
-                  deuda={cliente ? {
-                    id: cliente.numeroCuenta?.toString(),
-                    monto: qrGenerado.amount,
-                    descripcion: (qrGenerado as any).description || 'Pago de servicios',
-                    fecha: new Date(),
-                    estado: 'pendiente',
-                    numeroCuenta: cliente.numeroCuenta?.toString(),
-                    volumenConsumo: cliente.volumenConsumo,
-                    tipo: 'agua' as const,
-                    nombreCliente: cliente.nombre
-                  } : {
-                    id: '',
-                    monto: 0,
-                    descripcion: '',
-                    fecha: new Date(),
-                    estado: 'pendiente',
-                    numeroCuenta: '',
-                    volumenConsumo: 0,
-                    tipo: 'agua' as const,
-                    nombreCliente: ''
-                  }}
-                  {pollingInterval}
-                  {descargarQR}
-                  {compartirQR}
-                />
-              {/if}
-            </div>
+            {#if qrGenerado}
+              <QRDisplay
+                qrGenerado={qrGenerado}
+                qrStatus={qrStatus}
+                deuda={cliente ? {
+                  id: cliente.numeroCuenta?.toString(),
+                  monto: qrGenerado.amount,
+                  descripcion: (qrGenerado as any).description || 'Pago de servicios',
+                  fecha: new Date(),
+                  estado: 'pendiente',
+                  numeroCuenta: cliente.numeroCuenta?.toString(),
+                  volumenConsumo: cliente.volumenConsumo,
+                  tipo: 'agua' as const,
+                  nombreCliente: cliente.nombre
+                } : {
+                  id: '',
+                  monto: 0,
+                  descripcion: '',
+                  fecha: new Date(),
+                  estado: 'pendiente',
+                  numeroCuenta: '',
+                  volumenConsumo: 0,
+                  tipo: 'agua' as const,
+                  nombreCliente: ''
+                }}
+                {pollingInterval}
+                {descargarQR}
+                {compartirQR}
+                {goToPreviousStep}
+              />
+            {:else}
+              <!-- Lista de deudas cuando no hay QR -->
+              <div class="payment-content">
+                {#if slug === 'empsaat'}
+                  <EmpsaatDeudasDisplay
+                    data={searchResult?.data}
+                    cliente={cliente}
+                    {isGeneratingQR}
+                    {isLoading}
+                    {qrGenerado}
+                    {error}
+                    generarQR={generarQREmpsaat}
+                    {obtenerInfoAbonado}
+                    {limpiarCliente}
+                    {goToPreviousStep}
+                  />
+                {:else}
+                  <ListaDeudas
+                    deudas={searchResult?.deudas || []}
+                    {isGeneratingQR}
+                    {isLoading}
+                    {qrGenerado}
+                    {error}
+                    {generarQR}
+                    {goToPreviousStep}
+                  />
+                {/if}
+              </div>
+            {/if}
           </div>
         {:else}
           <!-- Panel de pasos del proceso -->
@@ -1318,7 +1285,7 @@
   }
   
   .content-section {
-    margin-bottom: 3rem;
+    margin-bottom: 1.5rem;
     background: transparent;
     padding: 0;
   }
@@ -1334,38 +1301,31 @@
     letter-spacing: 0.05em;
   }
 
-  /* Panel de pasos del proceso */
+  /* Panel de pasos del proceso - Estilo unificado compacto */
   .process-steps {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0;
-    margin: 2rem 0;
-    padding: 1.5rem;
-    background: rgba(255, 255, 255, 0.4);
-    border-radius: 16px;
+    margin: 0.5rem 0;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.2);
     backdrop-filter: blur(10px);
-  }
-
-  /* Panel de pasos menos prominente cuando estamos en búsqueda */
-  .process-steps.search-view {
     opacity: 0.8;
     transform: scale(0.95);
-    margin: 1rem 0;
-    padding: 1rem;
-    background: rgba(255, 255, 255, 0.3);
   }
 
   .step {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.75rem;
-    padding: 1.25rem 1rem;
-    border-radius: 12px;
+    gap: 0.5rem;
+    padding: 0.75rem 0.5rem;
+    border-radius: 8px;
     position: relative;
-    min-width: 100px;
+    min-width: 80px;
   }
 
   .step:hover {
@@ -1377,12 +1337,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     background: linear-gradient(135deg, #3b82f6, #8b5cf6);
     color: white;
     border-radius: 50%;
-    box-shadow: 0 3px 8px rgba(59, 130, 246, 0.3);
+    box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
   }
 
   .step-icon svg {
@@ -1403,22 +1363,22 @@
     text-align: center;
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.15rem;
   }
 
   .step-title {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--color-text-primary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    line-height: 1.2;
+    line-height: 1.1;
   }
-
+  
   .step-description {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: var(--color-text-secondary);
-    line-height: 1.3;
+    line-height: 1.2;
     font-weight: 400;
   }
 
@@ -1497,12 +1457,12 @@
   }
 
   .step-connector {
-    width: 40px;
+    width: 30px;
     height: 2px;
     background: linear-gradient(90deg, #3b82f6, #8b5cf6);
     border-radius: 1px;
     position: relative;
-    margin: 0 0.5rem;
+    margin: 0 0.25rem;
   }
 
   .step-connector::after {
@@ -1727,44 +1687,44 @@
     }
     
     .content-section {
-      margin-bottom: 2rem;
+      margin-bottom: 1rem;
       padding: 0;
     }
 
     .process-steps {
-      padding: 1rem;
-      margin: 1rem 0;
+      padding: 0.75rem;
+      margin: 0.5rem 0;
     }
 
     .step {
-      padding: 0.75rem 0.5rem;
-      min-width: 70px;
-      gap: 0.5rem;
+      padding: 0.5rem 0.25rem;
+      min-width: 60px;
+      gap: 0.25rem;
     }
 
     .step-icon {
-      width: 28px;
-      height: 28px;
+      width: 24px;
+      height: 24px;
     }
 
     .step-title {
-      font-size: 0.7rem;
+      font-size: 0.65rem;
     }
 
     .step-description {
-      font-size: 0.6rem;
+      font-size: 0.55rem;
     }
 
     .step-connector {
-      width: 20px;
-      margin: 0 0.25rem;
+      width: 15px;
+      margin: 0 0.15rem;
     }
 
     .step-connector::after {
-      width: 6px;
-      height: 6px;
-      right: -3px;
-      top: -2px;
+      width: 4px;
+      height: 4px;
+      right: -2px;
+      top: -1px;
     }
 
     .search-section {

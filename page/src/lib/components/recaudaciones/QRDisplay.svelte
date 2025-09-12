@@ -24,6 +24,7 @@
   // Funciones que se propagarán desde el padre
   export let descargarQR: (qrImage: string, qrId: string) => Promise<void> = async () => {};
   export let compartirQR: (qrImage: string, qrId: string) => Promise<void> = async () => {};
+  export let goToPreviousStep: () => void = () => {};
   
   // ID de transacción para asociar QR a deuda específica
   $: transactionId = deuda ? `txn_${deuda.numeroCuenta || ''}_${deuda.monto}` : '';
@@ -70,9 +71,17 @@
 
   <!-- Elemento visible para el usuario -->
   <div class="qr-generated">
-    <div class="qr-info">
-      <span class="qr-id">QR: {qrGenerado.qrId}</span>
-      <span class="qr-status">Estado: {qrGenerado.status}</span>
+    <div class="qr-header">
+      <button 
+        class="btn-back" 
+        on:click={() => goToPreviousStep()}
+        title="Volver al paso anterior"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15,18 9,12 15,6"></polyline>
+        </svg>
+        Volver
+      </button>
     </div>
     <img 
       src="data:image/png;base64,{qrGenerado.qrImage}" 
@@ -135,12 +144,12 @@
     
     <!-- Botones de acción del QR -->
     <div class="qr-actions">
-      <button class="btn-download" on:click={() => descargarQR(qrGenerado.qrImage, qrGenerado.qrId)}>
+      <button class="btn-download" on:click={() => descargarQR(qrGenerado.qrImage || '', qrGenerado.qrId || '')}>
         <DownloadIcon size="16" />
         Descargar
       </button>
       
-      <button class="btn-share" on:click={() => compartirQR(qrGenerado.qrImage, qrGenerado.qrId)}>
+      <button class="btn-share" on:click={() => compartirQR(qrGenerado.qrImage || '', qrGenerado.qrId || '')}>
         <Share2Icon size="16" />
         Compartir
       </button>
@@ -152,55 +161,54 @@
   /* Estilos para el QR generado */
   .qr-generated {
     margin-top: 1rem;
-    padding: 1rem;
-    background: var(--background-tertiary);
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
+    padding: 2rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
     text-align: center;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   }
   
-  .qr-info {
+  .qr-header {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
-    margin-bottom: 0.75rem;
-    font-size: 0.7rem;
-    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
   }
   
-  .qr-id {
-    font-weight: 500;
-  }
-  
-  .qr-status {
-    text-transform: capitalize;
-    padding: 0.2rem 0.4rem;
-    border-radius: 3px;
-    background: var(--background-secondary);
-    border: 1px solid var(--border-color);
-  }
   
   .qr-image {
-    width: 300px;
-    height: 300px;
-    border: 2px solid var(--border-color);
-    border-radius: 8px;
-    margin: 0.5rem 0;
+    width: 280px;
+    height: 280px;
+    border: 3px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    margin: 1rem 0;
     background: white;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease;
+  }
+  
+  .qr-image:hover {
+    transform: scale(1.02);
   }
   
   .qr-details {
-    margin-top: 0.75rem;
-    font-size: 0.75rem;
-    color: var(--text-secondary);
+    margin-top: 1.5rem;
+    font-size: 0.8rem;
+    color: rgba(0, 0, 0, 0.8);
+    background: rgba(255, 255, 255, 0.1);
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
   }
   
   .qr-detail-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.25rem 0;
-    border-bottom: 1px solid rgba(var(--gray-200), 0.3);
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
   }
   
   .qr-detail-item:last-child {
@@ -209,16 +217,16 @@
   
   .detail-label {
     font-weight: 500;
-    color: var(--text-secondary);
-    font-size: 0.7rem;
+    color: rgba(0, 0, 0, 0.6);
+    font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.1px;
   }
   
   .detail-value {
     font-weight: 600;
-    color: var(--text-primary);
-    font-size: 0.75rem;
+    color: #000000;
+    font-size: 0.8rem;
     text-align: right;
     max-width: 60%;
     word-break: break-word;
@@ -230,27 +238,27 @@
     flex-direction: column;
     align-items: center;
     gap: 1rem;
-    margin-top: 1rem;
-    padding: 1rem;
-    background: transparent;
-    border: none;
-    border-radius: 0;
-    box-shadow: none;
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
   }
   
   .loader-spinner {
     width: 40px;
     height: 40px;
-    border: 3px solid rgba(var(--gray-200), 0.3);
-    border-top: 3px solid rgb(var(--primary));
-    border-radius: var(--radius-full);
+    border: 3px solid rgba(255, 255, 255, 0.2);
+    border-top: 3px solid #10b981;
+    border-radius: 50%;
     animation: spin 1s linear infinite;
   }
   
   .loader-text {
     font-size: 0.9rem;
     font-weight: 500;
-    color: var(--text-secondary);
+    color: rgba(0, 0, 0, 0.8);
     text-align: center;
   }
   
@@ -261,90 +269,117 @@
   
   /* Estilos para el pago exitoso */
   .payment-success {
-    margin-top: 1rem;
-    padding: 1.5rem;
-    background: rgba(var(--success), 0.05);
-    border: 2px solid rgba(var(--success), 0.2);
-    border-radius: var(--radius);
+    margin-top: 1.5rem;
+    padding: 2rem;
+    background: rgba(5, 150, 105, 0.1);
+    border: 2px solid rgba(5, 150, 105, 0.3);
+    border-radius: 12px;
     text-align: center;
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 8px 32px rgba(5, 150, 105, 0.1);
+    backdrop-filter: blur(10px);
   }
   
   .success-icon {
     margin-bottom: 1rem;
-    color: rgb(var(--success));
+    color: #10b981;
   }
   
   .success-message-qr h4 {
-    font-size: 1.1rem;
+    font-size: 1.2rem;
     font-weight: 600;
-    color: rgb(var(--success));
+    color: #10b981;
     margin: 0 0 1rem 0;
   }
   
   .payment-details {
     text-align: left;
-    background: rgba(var(--success), 0.1);
-    padding: 1rem;
-    border-radius: var(--radius);
-    border: 1px solid rgba(var(--success), 0.2);
+    background: rgba(5, 150, 105, 0.15);
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid rgba(5, 150, 105, 0.3);
   }
   
   .payment-details p {
-    font-size: 0.85rem;
-    color: var(--text-primary);
-    margin: 0.25rem 0;
-    line-height: 1.4;
+    font-size: 0.9rem;
+    color: rgba(0, 0, 0, 0.9);
+    margin: 0.5rem 0;
+    line-height: 1.5;
   }
   
   .payment-details strong {
-    color: rgb(var(--success));
+    color: #10b981;
     font-weight: 600;
   }
   
   /* Botones de acción del QR */
   .qr-actions {
     display: flex;
-    gap: 0.75rem;
+    gap: 1rem;
     justify-content: center;
-    margin-top: 1rem;
+    margin-top: 2rem;
+  }
+  
+  .btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: transparent;
+    color: #000000;
+  }
+  
+  .btn-back:hover {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.5);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   }
   
   .btn-download, .btn-share {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    border: none;
-    border-radius: var(--radius);
-    font-weight: 500;
-    font-size: 0.8rem;
+    padding: 0.75rem 1.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
     cursor: pointer;
-    transition: var(--transition);
+    transition: all 0.2s ease;
     text-decoration: none;
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
   }
   
   .btn-download {
-    background: rgb(var(--primary));
-    color: rgb(var(--white));
+    background: var(--color-bg-dark);
+    color: #ffffff;
   }
   
   .btn-download:hover {
-    background: rgb(var(--primary-dark));
-    transform: translateY(-1px);
-    box-shadow: var(--shadow);
+    background: rgba(0, 0, 0, 0.8);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
   }
   
   .btn-share {
-    background: rgb(var(--secondary));
-    color: rgb(var(--white));
+    background: transparent;
+    color: #000000;
+    border: 1px solid rgba(0, 0, 0, 0.3);
   }
   
   .btn-share:hover {
-    background: rgb(var(--secondary-dark));
-    transform: translateY(-1px);
-    box-shadow: var(--shadow);
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
   }
   
   /* Estilos para el elemento de descarga minimalista */
@@ -400,5 +435,37 @@
     font-size: 0.9rem;
     font-weight: 600;
     color: var(--text-primary);
+  }
+  
+  /* Responsive para móvil */
+  @media (max-width: 768px) {
+    .qr-generated {
+      padding: 1.5rem;
+      margin-top: 0.5rem;
+    }
+    
+    .qr-image {
+      width: 250px;
+      height: 250px;
+    }
+    
+    .qr-actions {
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    
+    .btn-download, .btn-share {
+      width: 100%;
+      justify-content: center;
+    }
+    
+    
+    .qr-details {
+      padding: 0.75rem;
+    }
+    
+    .payment-details {
+      padding: 1rem;
+    }
   }
 </style>

@@ -72,17 +72,16 @@
     position: relative;
     display: flex;
     align-items: center;
-    background: rgba(255, 255, 255, 0.8);
+    background: transparent;
     border-radius: 8px;
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(0, 0, 0, 0.2);
     overflow: hidden;
-    backdrop-filter: blur(5px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
   }
 
   .input-group:focus-within {
-    border-color: var(--color-bg-dark);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-color: #000000;
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
   }
   
   .form-input {
@@ -91,18 +90,18 @@
     border: none;
     background: transparent;
     font-size: 0.875rem;
-    color: #1a1a1a;
+    color: #000000;
     font-weight: 400;
     outline: none;
   }
   
   .form-input::placeholder {
-    color: #666666;
+    color: rgba(0, 0, 0, 0.6);
     font-weight: 400;
   }
   
   .form-input:disabled {
-    color: var(--color-text-secondary);
+    color: rgba(0, 0, 0, 0.38);
     cursor: not-allowed;
   }
   
@@ -113,12 +112,13 @@
     width: 40px;
     height: 40px;
     border: none;
-    background: var(--color-bg-dark);
+    background: #000000;
     color: white;
     cursor: pointer;
     flex-shrink: 0;
     margin: 3px;
     border-radius: 6px;
+    transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
   }
   
   .search-button:hover:not(:disabled) {
@@ -126,9 +126,9 @@
   }
   
   .search-button:disabled {
-    opacity: 0.6;
+    opacity: 0.38;
     cursor: not-allowed;
-    transform: none;
+    background: rgba(0, 0, 0, 0.12);
   }
   
   .button-spinner {
@@ -149,25 +149,26 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
+    padding: 0.75rem;
     border-radius: 6px;
     font-size: 0.8rem;
     font-weight: 400;
-    margin-top: 0.5rem;
-    background: rgba(255, 255, 255, 0.9);
+    margin-top: 0.75rem;
+    background: rgba(0, 0, 0, 0.02);
     border: 1px solid rgba(0, 0, 0, 0.1);
+    transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
   }
   
   .message-error {
     color: #dc2626;
-    border-color: rgba(220, 38, 38, 0.15);
-    background: rgba(254, 226, 226, 0.6);
+    border-color: rgba(220, 38, 38, 0.2);
+    background: rgba(254, 226, 226, 0.3);
   }
   
   .message-success {
     color: #059669;
-    border-color: rgba(5, 150, 105, 0.15);
-    background: rgba(220, 252, 231, 0.6);
+    border-color: rgba(5, 150, 105, 0.2);
+    background: rgba(220, 252, 231, 0.3);
   }
   
   .message span {
@@ -196,9 +197,9 @@
     }
 
     .message {
-      padding: 0.5rem 0.625rem;
+      padding: 0.625rem;
       font-size: 0.75rem;
-      margin-top: 0.375rem;
+      margin-top: 0.5rem;
     }
   }
 </style>

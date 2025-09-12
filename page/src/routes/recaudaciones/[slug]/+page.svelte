@@ -695,32 +695,26 @@
           </div>
         </div>
         
-        <!-- Badges de seguridad en sidebar -->
-        <div class="sidebar-security-badges">
-          <div class="sidebar-security-badge">
-            <ShieldIcon size="12" />
-            <span>Seguro</span>
+        <!-- Badge de seguridad unificado en sidebar -->
+        <div class="sidebar-security-badge-unified">
+          <div class="security-icons">
+            <ShieldIcon size="14" />
+            <LockIcon size="14" />
+            <CheckCircleIcon size="14" />
           </div>
-          <div class="sidebar-security-badge">
-            <LockIcon size="12" />
-            <span>Protegido</span>
-          </div>
-          <div class="sidebar-security-badge">
-            <CheckCircleIcon size="12" />
-            <span>Verificado</span>
-          </div>
+          <span class="security-message">Pago 100% Seguro y Protegido</span>
         </div>
       </div>
       
       <!-- Footer -->
       <div class="sidebar-footer">
-        <a href="https://iathings.com" class="return-link">
+        <a href={empresa.webUrl} class="return-link">
           <span class="return-icon">←</span>
           <span>Volver a {empresa.slug.toUpperCase()}</span>
         </a>
         <div class="powered-by">
           <span>Desarrollado por</span>
-          <strong>Pagui</strong>
+          <strong>IATHINGS</strong>
         </div>
       </div>
     </div>
@@ -746,31 +740,25 @@
         </div>
       </div>
       
-      <!-- Badges de seguridad -->
-      <div class="mobile-security-badges">
-        <div class="security-badge">
-          <ShieldIcon size="12" />
-          <span>Seguro</span>
+      <!-- Badge de seguridad unificado -->
+      <div class="mobile-security-badge-unified">
+        <div class="security-icons">
+          <ShieldIcon size="14" />
+          <LockIcon size="14" />
+          <CheckCircleIcon size="14" />
         </div>
-        <div class="security-badge">
-          <LockIcon size="12" />
-          <span>Protegido</span>
-        </div>
-        <div class="security-badge">
-          <CheckCircleIcon size="12" />
-          <span>Verificado</span>
-        </div>
+        <span class="security-message">Pago 100% Seguro y Protegido</span>
       </div>
       
       <!-- Footer móvil -->
       <div class="mobile-footer">
-        <a href="https://iathings.com" class="mobile-return-link">
+        <a href={empresa.webUrl} class="mobile-return-link">
           <span class="return-icon">←</span>
           <span>Volver a {empresa.slug.toUpperCase()}</span>
         </a>
         <div class="mobile-powered-by">
           <span>Desarrollado por</span>
-          <strong>Pagui</strong>
+          <strong>IATHINGS</strong>
         </div>
       </div>
     </div>
@@ -1361,7 +1349,7 @@
   }
 
   .step-title {
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     font-weight: 600;
     color: var(--color-text-primary);
     text-transform: uppercase;
@@ -1370,7 +1358,7 @@
   }
   
   .step-description {
-    font-size: 0.65rem;
+    font-size: 0.7rem;
     color: var(--color-text-secondary);
     line-height: 1.2;
     font-weight: 400;
@@ -1702,11 +1690,11 @@
     }
 
     .step-title {
-      font-size: 0.65rem;
+      font-size: 0.8rem;
     }
 
     .step-description {
-      font-size: 0.55rem;
+      font-size: 0.7rem;
     }
 
     .step-connector {

@@ -151,7 +151,7 @@
     gap: 0.5rem;
     padding: 0.75rem;
     border-radius: 6px;
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     font-weight: 400;
     margin-top: 0.75rem;
     background: rgba(0, 0, 0, 0.02);
@@ -187,7 +187,7 @@
     
     .form-input {
       padding: 0.625rem 0.875rem;
-      font-size: 0.8rem;
+      font-size: 0.9rem;
     }
     
     .search-button {

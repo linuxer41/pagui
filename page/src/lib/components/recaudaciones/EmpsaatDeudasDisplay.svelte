@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { RefreshCwIcon, XIcon, CheckIcon, SquareIcon, CheckSquareIcon } from 'svelte-feather-icons';
+  import { RefreshCwIcon, XIcon, CheckIcon, SquareIcon, CheckSquareIcon, DropletIcon, StarIcon } from 'svelte-feather-icons';
   
   // Componente SVG para QR Code
   const QrCodeIcon = (props: {size?: number, color?: string}) => {
@@ -80,8 +80,12 @@
           tipo: 'servicio',
           tipoLabel: 'Servicio',
           titulo: deuda.descripcion || deuda.detalle || 'Servicio adicional',
-          subtitulo: `Solicitud #${deuda.noSolicitud || deuda.idServicio || deuda.id || currentIndex + 1}`,
-          periodo: deuda.fecha ? new Date(deuda.fecha).toLocaleDateString('es-BO', { year: 'numeric', month: 'long' }).replace(' de ', ' ') : '-',
+          subtitulo: `#${deuda.noSolicitud || deuda.idServicio || deuda.id || currentIndex + 1}`,
+          periodo: deuda.fecha ? `Fecha de solicitud: ${new Date(deuda.fecha).toLocaleDateString('es-BO', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+          })}` : 'Fecha de solicitud: -',
           monto: deuda.costo || deuda.monto || 0,
           icono: 'service',
           index: currentIndex++
@@ -112,6 +116,12 @@
     
     return deudas;
   })();
+  
+  // Seleccionar automáticamente la primera deuda si hay deudas disponibles
+  $: if (deudasUnificadas.length > 0 && deudasSeleccionadas.length === 0) {
+    // Seleccionar la primera deuda automáticamente
+    seleccionarDeuda(deudasUnificadas[0]);
+  }
   
   // Función para seleccionar/deseleccionar deuda con lógica secuencial
   function toggleDeuda(deuda: any) {
@@ -273,13 +283,9 @@
         <div class="debt-icon-container">
           <div class="debt-icon" class:service-icon={deuda.icono === 'service'}>
             {#if deuda.icono === 'service'}
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-              </svg>
+              <StarIcon size="20" />
             {:else}
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
-              </svg>
+              <DropletIcon size="20" />
             {/if}
           </div>
           <div class="debt-type-label">{deuda.tipoLabel}</div>
@@ -301,13 +307,11 @@
             <div class="debt-amount">Bs. {deuda.monto.toFixed(2)}</div>
             <div class="debt-action">
               <div class="checkbox-indicator">
-                <div class="checkbox" class:checked={isCheckboxActive(deuda)} class:disabled={!isDebtEnabled(deuda)}>
-                  {#if isCheckboxActive(deuda)}
-                    <CheckSquareIcon size="16" />
-                  {:else}
-                    <SquareIcon size="16" />
-                  {/if}
-                </div>
+                {#if deudasSeleccionadas.includes(deuda)}
+                  <CheckSquareIcon size="16" />
+                {:else}
+                  <SquareIcon size="16" />
+                {/if}
               </div>
             </div>
           </div>
@@ -334,7 +338,7 @@
           Generando QR...
         {:else}
           {@html QrCodeIcon({size: 16, color: '#ffffff'})}
-          Pagar {deudasSeleccionadas.length} deuda{deudasSeleccionadas.length > 1 ? 's' : ''} seleccionada{deudasSeleccionadas.length > 1 ? 's' : ''}
+          Pagar {deudasSeleccionadas.length} deuda{deudasSeleccionadas.length > 1 ? 's' : ''}
         {/if}
       </button>
     </div>
@@ -864,7 +868,7 @@
     
     .debt-amount {
       text-align: right;
-      font-size: 0.9rem;
+      font-size: 1rem;
     }
     
     .debt-action {
@@ -880,6 +884,48 @@
     
     .summary-info {
       align-items: center;
+    }
+    
+    /* Aumentar fuentes en móvil */
+    .debt-title {
+      font-size: 1rem;
+    }
+    
+    .debt-subtitle {
+      font-size: 0.9rem;
+    }
+    
+    .debt-period {
+      font-size: 0.9rem;
+    }
+    
+    .debt-consumo {
+      font-size: 0.8rem;
+    }
+    
+    .debt-amount {
+      font-size: 1rem;
+    }
+    
+    .summary-label {
+      font-size: 1rem;
+    }
+    
+    .summary-amount {
+      font-size: 1.2rem;
+    }
+    
+    .client-name {
+      font-size: 1.1rem;
+    }
+    
+    .client-info {
+      font-size: 0.9rem;
+    }
+    
+    .client-meter,
+    .client-subscriber {
+      font-size: 0.9rem;
     }
     
     .btn-pay-total {

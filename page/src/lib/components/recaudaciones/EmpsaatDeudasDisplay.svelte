@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { RefreshCwIcon, XIcon, CheckIcon } from 'svelte-feather-icons';
+  import { RefreshCwIcon, XIcon, CheckIcon, SquareIcon, CheckSquareIcon } from 'svelte-feather-icons';
   
   // Componente SVG para QR Code
   const QrCodeIcon = (props: {size?: number, color?: string}) => {
@@ -70,37 +70,42 @@
     if (!data) return [];
     
     const deudas: any[] = [];
+    let currentIndex = 0;
     
     // Agregar servicios primero (prioritarios)
     if (data.deudasServicios) {
-      data.deudasServicios.forEach((deuda, index) => {
+      data.deudasServicios.forEach((deuda) => {
         deudas.push({
           ...deuda,
           tipo: 'servicio',
           tipoLabel: 'Servicio',
           titulo: deuda.descripcion || deuda.detalle || 'Servicio adicional',
-          subtitulo: `Solicitud #${deuda.noSolicitud || deuda.idServicio || deuda.id || index + 1}`,
+          subtitulo: `Solicitud #${deuda.noSolicitud || deuda.idServicio || deuda.id || currentIndex + 1}`,
           periodo: deuda.fecha ? new Date(deuda.fecha).toLocaleDateString('es-BO', { year: 'numeric', month: 'long' }).replace(' de ', ' ') : '-',
           monto: deuda.costo || deuda.monto || 0,
           icono: 'service',
-          index: index
+          index: currentIndex++
         });
       });
     }
     
-    // Agregar agua después
+    // Agregar agua después, ordenadas por fecha (más antigua primero)
     if (data.deudasAgua) {
-      data.deudasAgua.forEach((deuda, index) => {
+      const deudasAguaOrdenadas = [...data.deudasAgua].sort((a, b) => {
+        return new Date(a.emision).getTime() - new Date(b.emision).getTime();
+      });
+      
+      deudasAguaOrdenadas.forEach((deuda) => {
         deudas.push({
           ...deuda,
           tipo: 'agua',
           tipoLabel: 'Consumo',
           titulo: new Date(deuda.emision).toLocaleDateString('es-BO', { year: 'numeric', month: 'long' }).replace(' de ', ' '),
           subtitulo: `${deuda.consumoM3} m³`,
-          periodo: `Solicitud: ${new Date(deuda.emision).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric' })}`,
+          periodo: `Factura #${deuda.factura || 'N/A'}`,
           monto: deuda.importeFactura,
           icono: 'water',
-          index: index
+          index: currentIndex++
         });
       });
     }
@@ -108,19 +113,48 @@
     return deudas;
   })();
   
-  // Función para alternar selección de deuda basada en el array unificado
+  // Función para seleccionar/deseleccionar deuda con lógica secuencial
   function toggleDeuda(deuda: any) {
+    // Solo se puede interactuar si está habilitada
+    if (!isDebtEnabled(deuda)) {
+      return;
+    }
+    
+    // Si la deuda ya está seleccionada, deseleccionarla
+    if (isDeudaSeleccionada(deuda)) {
+      deseleccionarDeuda(deuda);
+      return;
+    }
+    
+    // Si la deuda no está seleccionada, verificar si se puede seleccionar
+    if (!canSelectDeuda(deuda)) {
+      return;
+    }
+    
+    // Seleccionar la deuda actual
+    seleccionarDeuda(deuda);
+  }
+  
+  // Función para seleccionar una deuda
+  function seleccionarDeuda(deuda: any) {
+    deudasSeleccionadas.push(deuda);
+    recalcularTotal();
+  }
+  
+  // Función para deseleccionar una deuda
+  function deseleccionarDeuda(deuda: any) {
     const index = deudasSeleccionadas.findIndex(d => 
       d.factura === deuda.factura && d.tipo === deuda.tipo
     );
     
     if (index > -1) {
       deudasSeleccionadas.splice(index, 1);
-    } else {
-      deudasSeleccionadas.push(deuda);
+      recalcularTotal();
     }
-    
-    // Recalcular total usando el monto del array unificado
+  }
+  
+  // Función para recalcular el total
+  function recalcularTotal() {
     totalSeleccionado = deudasSeleccionadas.reduce((sum, deuda) => {
       return sum + deuda.monto;
     }, 0);
@@ -135,61 +169,41 @@
     );
   }
   
-  // Función para verificar si una deuda puede ser seleccionada (basada en array unificado)
+  // Función para verificar si una deuda puede ser seleccionada
   function canSelectDeuda(deuda: any) {
-    const deudasDelMismoTipo = getDeudasPorTipo(deuda.tipo);
-    const deudasDelOtroTipo = getDeudasPorTipo(deuda.tipo === 'agua' ? 'servicio' : 'agua');
-    const hayDeudasOtroTipoSeleccionadas = deudasSeleccionadas.some(d => d.tipo !== deuda.tipo);
-    
-    if (deuda.tipo === 'agua') {
-      // Para agua, solo se puede seleccionar si no hay servicios pendientes
-      // O si todos los servicios están seleccionados
-      const serviciosPendientes = deudasDelOtroTipo.length;
-      const serviciosSeleccionados = getDeudasSeleccionadasPorTipo('servicio').length;
-      
-      if (serviciosPendientes > 0 && serviciosSeleccionados < serviciosPendientes) {
-        return false; // No se puede seleccionar agua si hay servicios sin seleccionar
-      }
-      
-      // No se puede seleccionar agua si ya hay servicios seleccionados (pero no todos)
-      if (hayDeudasOtroTipoSeleccionadas && serviciosSeleccionados < serviciosPendientes) {
-        return false;
-      }
-      
-      // Lógica de orden: solo se puede seleccionar la más antigua (index 0)
-      // o si ya está seleccionada la anterior
-      if (deuda.index === 0) {
-        return true; // La primera siempre se puede seleccionar
-      }
-      
-      // Para las siguientes, solo si la anterior está seleccionada
-      const deudaAnterior = deudasDelMismoTipo[deuda.index - 1];
-      if (deudaAnterior) {
-        return isDeudaSeleccionada(deudaAnterior);
-      }
-      
-      return false;
+    // Si ya está seleccionada, se puede deseleccionar (toggle)
+    if (isDeudaSeleccionada(deuda)) {
+      return true;
     }
     
-    // Para servicios
-    // No se puede seleccionar servicios si ya hay agua seleccionada
-    if (hayDeudasOtroTipoSeleccionadas) {
-      return false;
+    // Solo se puede seleccionar si está habilitada
+    return isDebtEnabled(deuda);
+  }
+  
+  // Función para verificar si una deuda debe estar habilitada para selección
+  function isDebtEnabled(deuda: any) {
+    // Si ya está seleccionada, se puede deseleccionar
+    if (isDeudaSeleccionada(deuda)) {
+      return true;
     }
     
-    // Solo se puede seleccionar la más antigua (index 0)
-    // o si ya está seleccionada la anterior
+    // Solo se puede seleccionar la primera deuda (index 0) o la siguiente en orden
     if (deuda.index === 0) {
       return true; // La primera siempre se puede seleccionar
     }
     
     // Para las siguientes, solo si la anterior está seleccionada
-    const deudaAnterior = deudasDelMismoTipo[deuda.index - 1];
+    const deudaAnterior = deudasUnificadas[deuda.index - 1];
     if (deudaAnterior) {
       return isDeudaSeleccionada(deudaAnterior);
     }
     
     return false;
+  }
+  
+  // Función para verificar si una deuda debe mostrar el checkbox como activo
+  function isCheckboxActive(deuda: any) {
+    return isDeudaSeleccionada(deuda);
   }
   
   // Funciones auxiliares basadas en el array unificado
@@ -255,7 +269,7 @@
   <!-- Lista unificada de deudas -->
   <div class="debt-list">
     {#each deudasUnificadas as deuda (deuda.factura || deuda.idServicio || deuda.id)}
-      <div class="debt-item" class:selected={isDeudaSeleccionada(deuda)} class:disabled={!canSelectDeuda(deuda)} on:click={() => canSelectDeuda(deuda) && toggleDeuda(deuda)}>
+      <div class="debt-item" class:selected={isDeudaSeleccionada(deuda)} class:disabled={!isDebtEnabled(deuda)} on:click={() => toggleDeuda(deuda)}>
         <div class="debt-icon-container">
           <div class="debt-icon" class:service-icon={deuda.icono === 'service'}>
             {#if deuda.icono === 'service'}
@@ -287,9 +301,11 @@
             <div class="debt-amount">Bs. {deuda.monto.toFixed(2)}</div>
             <div class="debt-action">
               <div class="checkbox-indicator">
-                <div class="checkbox" class:checked={isDeudaSeleccionada(deuda)} class:disabled={!canSelectDeuda(deuda)}>
-                  {#if isDeudaSeleccionada(deuda)}
-                    <CheckIcon size="12" />
+                <div class="checkbox" class:checked={isCheckboxActive(deuda)} class:disabled={!isDebtEnabled(deuda)}>
+                  {#if isCheckboxActive(deuda)}
+                    <CheckSquareIcon size="16" />
+                  {:else}
+                    <SquareIcon size="16" />
                   {/if}
                 </div>
               </div>
@@ -318,7 +334,7 @@
           Generando QR...
         {:else}
           {@html QrCodeIcon({size: 16, color: '#ffffff'})}
-          Pagar {deudasSeleccionadas.length} deuda{deudasSeleccionadas.length > 1 ? 's' : ''}
+          Pagar {deudasSeleccionadas.length} deuda{deudasSeleccionadas.length > 1 ? 's' : ''} seleccionada{deudasSeleccionadas.length > 1 ? 's' : ''}
         {/if}
       </button>
     </div>
@@ -525,10 +541,12 @@
   
   .debt-item.selected {
     background: rgba(0, 0, 0, 0.08);
+    cursor: default;
   }
   
   .debt-item.selected:hover {
-    background: rgba(0, 0, 0, 0.12);
+    background: rgba(0, 0, 0, 0.08);
+    cursor: default;
   }
   
   .debt-item.disabled {
@@ -539,6 +557,7 @@
   
   .debt-item.disabled:hover {
     background: transparent;
+    cursor: not-allowed;
   }
   
   .debt-main {
@@ -576,6 +595,7 @@
     width: 56px;
     box-sizing: border-box;
   }
+  
   
   .debt-number {
     font-weight: 500;
@@ -639,34 +659,38 @@
   }
   
   .checkbox {
-    width: 18px;
-    height: 18px;
-    border: 2px solid rgba(0, 0, 0, 0.3);
-    border-radius: 3px;
+    width: 20px;
+    height: 20px;
+    border: none;
+    border-radius: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
     cursor: pointer;
     background: transparent;
+    color: rgba(0, 0, 0, 0.6);
   }
   
   .checkbox.checked {
     background: #000000;
-    border-color: #000000;
     color: white;
   }
   
   .checkbox.disabled {
     background: transparent;
-    border-color: rgba(0, 0, 0, 0.12);
+    color: rgba(0, 0, 0, 0.12);
     cursor: not-allowed;
     opacity: 0.38;
   }
   
   .checkbox:hover:not(.disabled) {
-    border-color: rgba(0, 0, 0, 0.5);
+    color: rgba(0, 0, 0, 0.8);
     background: rgba(0, 0, 0, 0.04);
+  }
+  
+  .checkbox.checked:hover {
+    background: rgba(0, 0, 0, 0.8);
   }
   
   .payment-summary {

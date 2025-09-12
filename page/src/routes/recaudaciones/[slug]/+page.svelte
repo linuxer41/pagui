@@ -81,7 +81,7 @@
   let qrStatus: QRStatusData | null = null;
   let pollingInterval: any = null;
   let isGeneratingQR = false; // Variable para controlar el estado de carga del botón de pagar
-  
+  let currentStep = 1; // Variable para controlar el paso actual del proceso
   
   // Función para buscar cuenta usando el patrón correcto de SvelteKit
   async function buscarCuenta() {
@@ -189,6 +189,7 @@
     qrGenerado = null;
     qrStatus = null;
     codigoClienteInput = '';
+    currentStep = 1; // Resetear al paso 1
     
     // Limpiar polling si está activo
     if (pollingInterval) {
@@ -516,6 +517,7 @@
     qrGenerado = null;
     qrStatus = null;
     infoAbonadoObtenida = false;
+    currentStep = 1; // Resetear al paso 1
     detenerPollingEstado();
   }
   
@@ -604,6 +606,21 @@
   $: if (searchResult?.success && searchResult?.data && slug === 'empsaat' && cliente?.numeroCuenta && !infoAbonadoObtenida) {
     infoAbonadoObtenida = true;
     obtenerInfoAbonado(cliente.numeroCuenta);
+  }
+
+  // Actualizar el paso actual según el estado del proceso
+  $: if (searchResult?.success && searchResult?.data) {
+    currentStep = 2; // Paso 2: Vista de deudas
+  } else {
+    currentStep = 1; // Paso 1: Búsqueda
+  }
+
+  $: if (qrGenerado) {
+    currentStep = 3; // Paso 3: QR generado, listo para pagar
+  }
+
+  $: if (qrStatus?.status === 'paid' || qrStatus?.status === 'completed') {
+    currentStep = 4; // Paso 4: Pago completado
   }
 
   // Limpiar intervalo cuando se desmonte el componente
@@ -732,6 +749,81 @@
       <!-- Contenido principal -->
       <div class="main-content-area">
         {#if searchResult?.success && searchResult?.data}
+          <!-- Panel de pasos del proceso -->
+          <div class="content-section">
+            <div class="process-steps">
+              <div class="step {currentStep >= 1 ? 'active' : ''} {currentStep > 1 ? 'completed' : ''}">
+                <div class="step-icon">
+                  {#if currentStep > 1}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20,6 9,17 4,12"></polyline>
+                    </svg>
+                  {:else}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="11" cy="11" r="8"></circle>
+                      <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                  {/if}
+                </div>
+                <div class="step-content">
+                  <span class="step-title">1. Buscar Deudas</span>
+                  <span class="step-description">Ingresa tu número de cuenta</span>
+                </div>
+              </div>
+              
+              <div class="step-connector {currentStep > 1 ? 'active' : ''}"></div>
+              
+              <div class="step {currentStep >= 2 ? 'active' : ''} {currentStep > 2 ? 'completed' : ''}">
+                <div class="step-icon">
+                  {#if currentStep > 2}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20,6 9,17 4,12"></polyline>
+                    </svg>
+                  {:else}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="3" y="3" width="5" height="5"></rect>
+                      <rect x="3" y="16" width="5" height="5"></rect>
+                      <rect x="16" y="3" width="5" height="5"></rect>
+                      <path d="M21 16h-3v3h3v-3z"></path>
+                      <path d="M21 21h.01"></path>
+                      <path d="M12 7v3"></path>
+                      <path d="M12 12h.01"></path>
+                      <path d="M12 16h.01"></path>
+                      <path d="M16 12h.01"></path>
+                      <path d="M16 16h.01"></path>
+                    </svg>
+                  {/if}
+                </div>
+                <div class="step-content">
+                  <span class="step-title">2. Generar QR</span>
+                  <span class="step-description">Selecciona facturas a pagar</span>
+                </div>
+              </div>
+              
+              <div class="step-connector {currentStep > 2 ? 'active' : ''}"></div>
+              
+              <div class="step {currentStep >= 3 ? 'active' : ''} {currentStep > 3 ? 'completed' : ''}">
+                <div class="step-icon">
+                  {#if currentStep > 3}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20,6 9,17 4,12"></polyline>
+                    </svg>
+                  {:else}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                      <path d="M2 17l10 5 10-5"></path>
+                      <path d="M2 12l10 5 10-5"></path>
+                    </svg>
+                  {/if}
+                </div>
+                <div class="step-content">
+                  <span class="step-title">3. Realizar Pago</span>
+                  <span class="step-description">Escanea QR y paga</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
           <!-- Componente de lista de deudas -->
           <div class="content-section">
             <h2 class="section-title">FACTURAS PENDIENTES</h2>
@@ -763,6 +855,81 @@
               
               <!-- Componente para mostrar el QR generado -->
               {#if qrGenerado}
+                <!-- Panel de pasos del proceso -->
+                <div class="content-section">
+                  <div class="process-steps">
+                    <div class="step {currentStep >= 1 ? 'active' : ''} {currentStep > 1 ? 'completed' : ''}">
+                      <div class="step-icon">
+                        {#if currentStep > 1}
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20,6 9,17 4,12"></polyline>
+                          </svg>
+                        {:else}
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <path d="m21 21-4.35-4.35"></path>
+                          </svg>
+                        {/if}
+                      </div>
+                      <div class="step-content">
+                        <span class="step-title">1. Buscar Deudas</span>
+                        <span class="step-description">Ingresa tu número de cuenta</span>
+                      </div>
+                    </div>
+                    
+                    <div class="step-connector {currentStep > 1 ? 'active' : ''}"></div>
+                    
+                    <div class="step {currentStep >= 2 ? 'active' : ''} {currentStep > 2 ? 'completed' : ''}">
+                      <div class="step-icon">
+                        {#if currentStep > 2}
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20,6 9,17 4,12"></polyline>
+                          </svg>
+                        {:else}
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="5" height="5"></rect>
+                            <rect x="3" y="16" width="5" height="5"></rect>
+                            <rect x="16" y="3" width="5" height="5"></rect>
+                            <path d="M21 16h-3v3h3v-3z"></path>
+                            <path d="M21 21h.01"></path>
+                            <path d="M12 7v3"></path>
+                            <path d="M12 12h.01"></path>
+                            <path d="M12 16h.01"></path>
+                            <path d="M16 12h.01"></path>
+                            <path d="M16 16h.01"></path>
+                          </svg>
+                        {/if}
+                      </div>
+                      <div class="step-content">
+                        <span class="step-title">2. Generar QR</span>
+                        <span class="step-description">Selecciona facturas a pagar</span>
+                      </div>
+                    </div>
+                    
+                    <div class="step-connector {currentStep > 2 ? 'active' : ''}"></div>
+                    
+                    <div class="step {currentStep >= 3 ? 'active' : ''} {currentStep > 3 ? 'completed' : ''}">
+                      <div class="step-icon">
+                        {#if currentStep > 3}
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20,6 9,17 4,12"></polyline>
+                          </svg>
+                        {:else}
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                            <path d="M2 17l10 5 10-5"></path>
+                            <path d="M2 12l10 5 10-5"></path>
+                          </svg>
+                        {/if}
+                      </div>
+                      <div class="step-content">
+                        <span class="step-title">3. Realizar Pago</span>
+                        <span class="step-description">Escanea QR y paga</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
                 <QRDisplay
                   qrGenerado={qrGenerado}
                   qrStatus={qrStatus}
@@ -798,60 +965,84 @@
           <!-- Panel de pasos del proceso -->
           <div class="content-section">
             <div class="process-steps">
-              <div class="step">
+              <div class="step {currentStep >= 1 ? 'active' : ''} {currentStep > 1 ? 'completed' : ''}">
                 <div class="step-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="11" cy="11" r="8"></circle>
-                    <path d="m21 21-4.35-4.35"></path>
-                  </svg>
+                  {#if currentStep > 1}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20,6 9,17 4,12"></polyline>
+                    </svg>
+                  {:else}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="11" cy="11" r="8"></circle>
+                      <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                  {/if}
                 </div>
                 <div class="step-content">
-                  <span class="step-title">Buscar</span>
+                  <span class="step-title">1. Buscar Deudas</span>
+                  <span class="step-description">Ingresa tu número de cuenta</span>
                 </div>
               </div>
               
-              <div class="step-connector"></div>
+              <div class="step-connector {currentStep > 1 ? 'active' : ''}"></div>
               
-              <div class="step">
+              <div class="step {currentStep >= 2 ? 'active' : ''} {currentStep > 2 ? 'completed' : ''}">
                 <div class="step-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="3" width="5" height="5"></rect>
-                    <rect x="3" y="16" width="5" height="5"></rect>
-                    <rect x="16" y="3" width="5" height="5"></rect>
-                    <path d="M21 16h-3v3h3v-3z"></path>
-                    <path d="M21 21h.01"></path>
-                    <path d="M12 7v3"></path>
-                    <path d="M12 12h.01"></path>
-                    <path d="M12 16h.01"></path>
-                    <path d="M16 12h.01"></path>
-                    <path d="M16 16h.01"></path>
-                  </svg>
+                  {#if currentStep > 2}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20,6 9,17 4,12"></polyline>
+                    </svg>
+                  {:else}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="3" y="3" width="5" height="5"></rect>
+                      <rect x="3" y="16" width="5" height="5"></rect>
+                      <rect x="16" y="3" width="5" height="5"></rect>
+                      <path d="M21 16h-3v3h3v-3z"></path>
+                      <path d="M21 21h.01"></path>
+                      <path d="M12 7v3"></path>
+                      <path d="M12 12h.01"></path>
+                      <path d="M12 16h.01"></path>
+                      <path d="M16 12h.01"></path>
+                      <path d="M16 16h.01"></path>
+                    </svg>
+                  {/if}
                 </div>
                 <div class="step-content">
-                  <span class="step-title">Generar QR</span>
+                  <span class="step-title">2. Generar QR</span>
+                  <span class="step-description">Selecciona facturas a pagar</span>
                 </div>
               </div>
               
-              <div class="step-connector"></div>
+              <div class="step-connector {currentStep > 2 ? 'active' : ''}"></div>
               
-              <div class="step">
+              <div class="step {currentStep >= 3 ? 'active' : ''} {currentStep > 3 ? 'completed' : ''}">
                 <div class="step-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
-                    <path d="M2 17l10 5 10-5"></path>
-                    <path d="M2 12l10 5 10-5"></path>
-                  </svg>
+                  {#if currentStep > 3}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20,6 9,17 4,12"></polyline>
+                    </svg>
+                  {:else}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                      <path d="M2 17l10 5 10-5"></path>
+                      <path d="M2 12l10 5 10-5"></path>
+                    </svg>
+                  {/if}
                 </div>
                 <div class="step-content">
-                  <span class="step-title">Pagar</span>
+                  <span class="step-title">3. Realizar Pago</span>
+                  <span class="step-description">Escanea QR y paga</span>
                 </div>
               </div>
             </div>
           </div>
           
           <!-- Formulario de búsqueda -->
-          <div class="content-section">
-            <h2 class="section-title">BUSCAR DEUDAS</h2>
+          <div class="content-section search-section">
+            <div class="search-header">
+              <h2 class="search-title">BUSCAR DEUDAS</h2>
+              <p class="search-subtitle">Ingresa tu número de cliente o abonado para consultar tus facturas pendientes</p>
+            </div>
             <div class="search-content">
               <FormularioBusqueda
                 bind:codigoClienteInput
@@ -1217,12 +1408,12 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.5rem;
-    padding: 1rem;
+    gap: 0.75rem;
+    padding: 1.25rem 1rem;
     border-radius: 12px;
     transition: all 0.3s ease;
     position: relative;
-    min-width: 80px;
+    min-width: 100px;
   }
 
   .step:hover {
@@ -1234,30 +1425,101 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 48px;
-    height: 48px;
+    width: 36px;
+    height: 36px;
     background: linear-gradient(135deg, #3b82f6, #8b5cf6);
     color: white;
     border-radius: 50%;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    box-shadow: 0 3px 8px rgba(59, 130, 246, 0.3);
   }
 
   .step:hover .step-icon {
-    transform: scale(1.1);
-    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
   }
 
   .step-content {
     text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
   }
 
   .step-title {
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     font-weight: 600;
     color: var(--color-text-primary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    line-height: 1.2;
+  }
+
+  .step-description {
+    font-size: 0.7rem;
+    color: var(--color-text-secondary);
+    line-height: 1.3;
+    font-weight: 400;
+  }
+
+  /* Estados de los pasos */
+  .step.active .step-icon {
+    background: linear-gradient(135deg, #059669, #10b981);
+    box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4);
+  }
+
+  .step.active .step-title {
+    color: #059669;
+    font-weight: 700;
+  }
+
+  .step.completed .step-icon {
+    background: linear-gradient(135deg, #059669, #10b981);
+    box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4);
+  }
+
+  .step.completed .step-title {
+    color: #059669;
+    font-weight: 600;
+  }
+
+  .step.completed .step-description {
+    color: #059669;
+  }
+
+  .step-connector.active {
+    background: linear-gradient(90deg, #059669, #10b981);
+  }
+
+  .step-connector.active::after {
+    background: #10b981;
+  }
+
+  /* Estado inactivo - cuando estamos en búsqueda */
+  .step:not(.active):not(.completed) .step-icon {
+    background: linear-gradient(135deg, #9ca3af, #6b7280);
+    box-shadow: 0 3px 8px rgba(156, 163, 175, 0.2);
+    opacity: 0.6;
+  }
+
+  .step:not(.active):not(.completed) .step-title {
+    color: #9ca3af;
+    font-weight: 500;
+  }
+
+  .step:not(.active):not(.completed) .step-description {
+    color: #9ca3af;
+    opacity: 0.7;
+  }
+
+  .step-connector:not(.active) {
+    background: linear-gradient(90deg, #d1d5db, #9ca3af);
+    opacity: 0.5;
+  }
+
+  .step-connector:not(.active)::after {
+    background: #9ca3af;
+    opacity: 0.5;
   }
 
   .step-connector {
@@ -1278,6 +1540,38 @@
     height: 8px;
     background: #8b5cf6;
     border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.7;
+      transform: scale(1.2);
+    }
+  }
+
+  .process-steps {
+    animation: fadeInUp 0.6s ease-out;
+  }
+
+  .step {
+    animation: slideInUp 0.6s ease-out;
+  }
+
+  .step:nth-child(1) {
+    animation-delay: 0.1s;
+  }
+
+  .step:nth-child(3) {
+    animation-delay: 0.2s;
+  }
+
+  .step:nth-child(5) {
+    animation-delay: 0.3s;
   }
   
   
@@ -1289,6 +1583,43 @@
   .search-content {
     background: transparent;
     padding: 0;
+  }
+
+  /* Sección de búsqueda más prominente */
+  .search-section {
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 16px;
+    border: 2px solid rgba(59, 130, 246, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+    padding: 2rem;
+    margin-top: 1rem;
+  }
+
+  .search-header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+
+  .search-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0 0 0.5rem 0;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .search-subtitle {
+    font-size: 1rem;
+    color: var(--color-text-secondary);
+    margin: 0;
+    font-weight: 400;
+    line-height: 1.5;
   }
   
   
@@ -1464,17 +1795,22 @@
     }
 
     .step {
-      padding: 0.5rem;
-      min-width: 60px;
+      padding: 0.75rem 0.5rem;
+      min-width: 70px;
+      gap: 0.5rem;
     }
 
     .step-icon {
-      width: 36px;
-      height: 36px;
+      width: 28px;
+      height: 28px;
     }
 
     .step-title {
-      font-size: 0.65rem;
+      font-size: 0.7rem;
+    }
+
+    .step-description {
+      font-size: 0.6rem;
     }
 
     .step-connector {

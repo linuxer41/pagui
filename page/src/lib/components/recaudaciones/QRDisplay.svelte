@@ -64,13 +64,13 @@
       {/if}
       <div class="qr-download-item">
         <span class="download-label">Válido hasta:</span>
-        <span class="download-value">{new Date(qrGenerado.dueDate).toLocaleDateString('es-BO')}</span>
+        <span class="download-value">{new Date(qrGenerado.dueDate).toLocaleString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
       </div>
     </div>
   </div>
 
-  <!-- Elemento visible para el usuario -->
-  <div class="qr-generated">
+  <!-- Elemento visible para el usuario - Material Design 3 -->
+  <div class="qr-container">
     <div class="qr-header">
       <button 
         class="btn-back" 
@@ -83,35 +83,38 @@
         Volver
       </button>
     </div>
-    <img 
-      src="data:image/png;base64,{qrGenerado.qrImage}" 
-      alt="QR para pago" 
-      class="qr-image"
-      width="300" 
-      height="300"
-    />
-    <div class="qr-details">
-      <div class="qr-detail-item">
-        <span class="detail-label">Monto:</span>
-        <span class="detail-value">Bs. {qrGenerado.amount}</span>
+    
+    <div class="qr-content">
+      <div class="qr-image-container">
+        <img 
+          src="data:image/png;base64,{qrGenerado.qrImage}" 
+          alt="QR para pago" 
+          class="qr-image"
+        />
       </div>
-      <div class="qr-detail-item">
-        <span class="detail-label">Descripción:</span>
-        <span class="detail-value">{deuda?.descripcion}</span>
-      </div>
-      {#if deuda?.volumenConsumo}
-        <div class="qr-detail-item">
-          <span class="detail-label">Consumo:</span>
-          <span class="detail-value">{deuda.volumenConsumo} m³</span>
+      
+      <div class="qr-info">
+        <div class="qr-amount">
+          <span class="amount-label">Total a Pagar</span>
+          <span class="amount-value">Bs. {qrGenerado.amount}</span>
         </div>
-      {/if}
-      <div class="qr-detail-item">
-        <span class="detail-label">ID Transacción:</span>
-        <span class="detail-value">{qrGenerado.transactionId}</span>
-      </div>
-      <div class="qr-detail-item">
-        <span class="detail-label">Válido hasta:</span>
-        <span class="detail-value">{new Date(qrGenerado.dueDate).toLocaleDateString('es-BO')}</span>
+        
+        <div class="qr-details">
+          <div class="qr-detail-item">
+            <span class="detail-label">Descripción</span>
+            <span class="detail-value">{deuda?.descripcion || 'Pago de deudas'}</span>
+          </div>
+          {#if deuda?.volumenConsumo}
+            <div class="qr-detail-item">
+              <span class="detail-label">Consumo</span>
+              <span class="detail-value">{deuda.volumenConsumo} m³</span>
+            </div>
+          {/if}
+          <div class="qr-detail-item">
+            <span class="detail-label">Válido hasta</span>
+            <span class="detail-value">{new Date(qrGenerado.dueDate).toLocaleString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+          </div>
+        </div>
       </div>
     </div>
     
@@ -158,16 +161,14 @@
 {/if}
 
 <style>
-  /* Estilos para el QR generado */
-  .qr-generated {
-    margin-top: 1rem;
-    padding: 2rem;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+  /* Estilos Material Design 3 para QR */
+  .qr-container {
+    background: transparent;
+    border: none;
     border-radius: 12px;
-    text-align: center;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    padding: 0;
+    margin: 0;
+    text-align: left;
   }
   
   .qr-header {
@@ -178,55 +179,98 @@
   }
   
   
+  .qr-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  
+  .qr-image-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
   .qr-image {
-    width: 280px;
-    height: 280px;
-    border: 3px solid rgba(255, 255, 255, 0.2);
-    border-radius: 12px;
-    margin: 1rem 0;
+    width: 240px;
+    height: 240px;
+    border: none;
+    border-radius: 8px;
     background: white;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-    transition: transform 0.2s ease;
+    box-shadow: none;
+    transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
   }
   
   .qr-image:hover {
     transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+  
+  .qr-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .qr-amount {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.04);
+    border-radius: 8px;
+  }
+  
+  .amount-label {
+    font-size: 0.75rem;
+    color: rgba(0, 0, 0, 0.6);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+  
+  .amount-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent-color);
   }
   
   .qr-details {
-    margin-top: 1.5rem;
-    font-size: 0.8rem;
-    color: rgba(0, 0, 0, 0.8);
-    background: rgba(255, 255, 255, 0.1);
-    padding: 1rem;
-    border-radius: 8px;
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    background: transparent;
+    padding: 0;
+    border: none;
   }
   
   .qr-detail-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    padding: 0.75rem;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 6px;
+    transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
   }
   
-  .qr-detail-item:last-child {
-    border-bottom: none;
+  .qr-detail-item:hover {
+    background: rgba(0, 0, 0, 0.04);
   }
   
   .detail-label {
+    font-size: 0.7rem;
     font-weight: 500;
     color: rgba(0, 0, 0, 0.6);
-    font-size: 0.75rem;
     text-transform: uppercase;
-    letter-spacing: 0.1px;
+    letter-spacing: 0.02em;
   }
   
   .detail-value {
-    font-weight: 600;
-    color: #000000;
     font-size: 0.8rem;
+    color: rgba(0, 0, 0, 0.8);
+    font-weight: 500;
     text-align: right;
     max-width: 60%;
     word-break: break-word;
@@ -326,19 +370,17 @@
     padding: 0.5rem 1rem;
     border: 1px solid rgba(0, 0, 0, 0.3);
     border-radius: 6px;
-    font-weight: 600;
+    font-weight: 500;
     font-size: 0.8rem;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
     background: transparent;
     color: #000000;
   }
   
   .btn-back:hover {
-    background: rgba(0, 0, 0, 0.05);
+    background: rgba(0, 0, 0, 0.04);
     border-color: rgba(0, 0, 0, 0.5);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   }
   
   .btn-download, .btn-share {

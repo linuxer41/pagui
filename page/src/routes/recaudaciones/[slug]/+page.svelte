@@ -617,18 +617,14 @@
   }
 
   // Actualizar el paso actual según el estado del proceso
-  $: if (searchResult?.success && searchResult?.data) {
+  $: if (qrStatus?.status === 'paid' || qrStatus?.status === 'used') {
+    currentStep = 4; // Paso 4: Pago completado
+  } else if (qrGenerado) {
+    currentStep = 3; // Paso 3: QR generado, listo para pagar
+  } else if (searchResult?.success && searchResult?.data) {
     currentStep = 2; // Paso 2: Vista de deudas
   } else {
     currentStep = 1; // Paso 1: Búsqueda
-  }
-
-  $: if (qrGenerado) {
-    currentStep = 3; // Paso 3: QR generado, listo para pagar
-  }
-
-  $: if (qrStatus?.status === 'paid' || qrStatus?.status === 'used') {
-    currentStep = 4; // Paso 4: Pago completado
   }
 
   // Funciones de navegación de pasos
@@ -658,7 +654,7 @@
       currentStep = currentStep + 1;
     }
   }
-  
+
   // Limpiar intervalo cuando se desmonte el componente
   onDestroy(() => {
     detenerPollingEstado();
@@ -674,35 +670,23 @@
 </svelte:head>
 
 <div class="dashboard-layout">
-  <!-- Panel izquierdo (oscuro) - Desktop -->
-  <aside class="sidebar desktop-only">
+  <!-- Sidebar/Header (se convierte en header en móvil) -->
+  <aside class="sidebar">
     <div class="sidebar-content">
       <!-- Información de la empresa -->
       <div class="company-section">
-        <div class="company-info-sidebar">
-          <div class="company-logo-sidebar" style="background: white">
+        <div class="company-info">
+          <div class="company-logo" style="background: white">
             {#if empresa.logo && empresa.logo.includes('.png')}
-              <img src="/{empresa.logo}" alt="Logo {empresa.nombre}" class="company-logo-image" />
+              <img src="/{empresa.logo}" alt="Logo {empresa.nombre}" class="logo-image" />
             {:else}
               <span class="logo-text">{empresa.logo}</span>
             {/if}
           </div>
-          <div class="company-details-sidebar">
-            <h2 class="company-name-sidebar">{empresa.nombre}</h2>
-            <div class="company-status">
-              <div class="status-dot"></div>
-            </div>
+          <div class="company-details">
+            <h2 class="company-name">{empresa.nombre}</h2>
+            <div class="company-slug">{empresa.slug.toUpperCase()}</div>
           </div>
-        </div>
-        
-        <!-- Badge de seguridad unificado en sidebar -->
-        <div class="sidebar-security-badge-unified">
-          <div class="security-icons">
-            <ShieldIcon size="14" />
-            <LockIcon size="14" />
-            <CheckCircleIcon size="14" />
-          </div>
-          <span class="security-message">Pago 100% Seguro y Protegido</span>
         </div>
       </div>
       
@@ -716,106 +700,53 @@
           <span>Desarrollado por</span>
           <strong>IATHINGS</strong>
         </div>
+        
+        <!-- Badge de seguridad unificado -->
+        <div class="security-badge-unified">
+          <div class="security-icons">
+            <ShieldIcon size="12" />
+            <LockIcon size="12" />
+            <CheckCircleIcon size="12" />
+          </div>
+          <span class="security-message">Pago 100% Seguro y Protegido</span>
+        </div>
       </div>
     </div>
   </aside>
   
-  <!-- Header móvil (sidebar convertido) -->
-  <header class="mobile-header mobile-only">
-    <div class="mobile-header-content">
-      <!-- Información de la empresa -->
-      <div class="mobile-company-info">
-        <div class="mobile-company-logo">
-          {#if empresa.logo && empresa.logo.includes('.png')}
-            <img src="/{empresa.logo}" alt="Logo {empresa.nombre}" class="mobile-logo-image" />
-          {:else}
-            <span class="mobile-logo-text">{empresa.logo}</span>
-          {/if}
-        </div>
-        <div class="mobile-company-details">
-          <h2 class="mobile-company-name">{empresa.nombre}</h2>
-          <div class="mobile-company-status">
-            <div class="status-dot"></div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Badge de seguridad unificado -->
-      <div class="mobile-security-badge-unified">
-        <div class="security-icons">
-          <ShieldIcon size="14" />
-          <LockIcon size="14" />
-          <CheckCircleIcon size="14" />
-        </div>
-        <span class="security-message">Pago 100% Seguro y Protegido</span>
-      </div>
-      
-      <!-- Footer móvil -->
-      <div class="mobile-footer">
-        <a href={empresa.webUrl} class="mobile-return-link">
-          <span class="return-icon">←</span>
-          <span>Volver a {empresa.slug.toUpperCase()}</span>
-        </a>
-        <div class="mobile-powered-by">
-          <span>Desarrollado por</span>
-          <strong>IATHINGS</strong>
-        </div>
-      </div>
-    </div>
-  </header>
-  
-  <!-- Panel derecho (claro) -->
+  <!-- Contenido principal -->
   <main class="main-content">
-    <div class="content-wrapper">
-      <!-- Header vacío - Solo Desktop -->
-      <!-- Contenido principal -->
-      <div class="main-content-area">
-        {#if searchResult?.success && searchResult?.data}
-          <!-- Panel de pasos del proceso -->
-          <div class="content-section">
-            <div class="process-steps">
-              <div class="step {currentStep >= 1 ? 'active' : ''} {currentStep > 1 ? 'completed' : ''}">
+    <div class="main-content-area">
+        <!-- Panel de pasos del proceso -->
+        <div class="content-section">
+          <div class="process-steps">
+              <div class="step {currentStep === 1 ? 'active' : ''} {currentStep > 1 ? 'completed' : ''}">
                 <div class="step-icon">
-                  {#if currentStep > 1}
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="20,6 9,17 4,12"></polyline>
-                    </svg>
-                  {:else}
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <circle cx="11" cy="11" r="8"></circle>
-                      <path d="m21 21-4.35-4.35"></path>
-                    </svg>
-                  {/if}
-                </div>
+                  <SearchIcon size="16" />
+            </div>
                 <div class="step-content">
                   <span class="step-title">1. Buscar Deudas</span>
                   <span class="step-description">Ingresa tu número de cuenta</span>
-                </div>
-              </div>
+            </div>
+            </div>
               
               <div class="step-connector {currentStep > 1 ? 'active' : ''}"></div>
               
-              <div class="step {currentStep >= 2 ? 'active' : ''} {currentStep > 2 ? 'completed' : ''}">
+              <div class="step {currentStep === 2 ? 'active' : ''} {currentStep > 2 ? 'completed' : ''}">
                 <div class="step-icon">
-                  {#if currentStep > 2}
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="20,6 9,17 4,12"></polyline>
-                    </svg>
-                  {:else}
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <rect x="3" y="3" width="5" height="5"></rect>
-                      <rect x="3" y="16" width="5" height="5"></rect>
-                      <rect x="16" y="3" width="5" height="5"></rect>
-                      <path d="M21 16h-3v3h3v-3z"></path>
-                      <path d="M21 21h.01"></path>
-                      <path d="M12 7v3"></path>
-                      <path d="M12 12h.01"></path>
-                      <path d="M12 16h.01"></path>
-                      <path d="M16 12h.01"></path>
-                      <path d="M16 16h.01"></path>
-                    </svg>
-                  {/if}
-                </div>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="5" height="5"></rect>
+                    <rect x="3" y="16" width="5" height="5"></rect>
+                    <rect x="16" y="3" width="5" height="5"></rect>
+                    <path d="M21 16h-3v3h3v-3z"></path>
+                    <path d="M21 21h.01"></path>
+                    <path d="M12 7v3"></path>
+                    <path d="M12 12h.01"></path>
+                    <path d="M12 16h.01"></path>
+                    <path d="M16 12h.01"></path>
+                    <path d="M16 16h.01"></path>
+              </svg>
+            </div>
                 <div class="step-content">
                   <span class="step-title">2. Generar QR</span>
                   <span class="step-description">Selecciona facturas a pagar</span>
@@ -824,28 +755,19 @@
               
               <div class="step-connector {currentStep > 2 ? 'active' : ''}"></div>
               
-              <div class="step {currentStep >= 3 ? 'active' : ''} {currentStep > 3 ? 'completed' : ''}">
+              <div class="step {currentStep === 3 ? 'active' : ''} {currentStep > 3 ? 'completed' : ''}">
                 <div class="step-icon">
-                  {#if currentStep > 3}
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="20,6 9,17 4,12"></polyline>
-                    </svg>
-                  {:else}
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
-                      <path d="M2 17l10 5 10-5"></path>
-                      <path d="M2 12l10 5 10-5"></path>
-                    </svg>
-                  {/if}
+                  <CheckCircleIcon size="16" />
                 </div>
                 <div class="step-content">
                   <span class="step-title">3. Realizar Pago</span>
                   <span class="step-description">Escanea QR y paga</span>
-                </div>
-              </div>
             </div>
           </div>
-          
+        </div>
+      </div>
+
+        {#if searchResult?.success && searchResult?.data}
           <!-- Componente de lista de deudas o QR -->
           <div class="content-section">
             {#if qrGenerado}
@@ -880,110 +802,35 @@
               />
             {:else}
               <!-- Lista de deudas cuando no hay QR -->
-              <div class="payment-content">
-                {#if slug === 'empsaat'}
-                  <EmpsaatDeudasDisplay
-                    data={searchResult?.data}
-                    cliente={cliente}
-                    {isGeneratingQR}
-                    {isLoading}
-                    {qrGenerado}
-                    {error}
-                    generarQR={generarQREmpsaat}
-                    {obtenerInfoAbonado}
-                    {limpiarCliente}
+            <div class="payment-content">
+              {#if slug === 'empsaat'}
+                <EmpsaatDeudasDisplay
+                  data={searchResult?.data}
+                  cliente={cliente}
+                  {isGeneratingQR}
+                  {isLoading}
+                  {qrGenerado}
+                  {error}
+                  generarQR={generarQREmpsaat}
+                  {obtenerInfoAbonado}
+                  {limpiarCliente}
                     {goToPreviousStep}
-                  />
-                {:else}
-                  <ListaDeudas
-                    deudas={searchResult?.deudas || []}
-                    {isGeneratingQR}
-                    {isLoading}
-                    {qrGenerado}
-                    {error}
-                    {generarQR}
+                />
+              {:else}
+                <ListaDeudas
+                  deudas={searchResult?.deudas || []}
+                  {isGeneratingQR}
+                  {isLoading}
+                  {qrGenerado}
+                  {error}
+                  {generarQR}
                     {goToPreviousStep}
-                  />
-                {/if}
+                />
+              {/if}
               </div>
-            {/if}
+              {/if}
           </div>
         {:else}
-          <!-- Panel de pasos del proceso -->
-          <div class="content-section">
-            <div class="process-steps search-view">
-              <div class="step {currentStep >= 1 ? 'active' : ''} {currentStep > 1 ? 'completed' : ''}">
-                <div class="step-icon">
-                  {#if currentStep > 1}
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="20,6 9,17 4,12"></polyline>
-                    </svg>
-                  {:else}
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <circle cx="11" cy="11" r="8"></circle>
-                      <path d="m21 21-4.35-4.35"></path>
-                    </svg>
-                  {/if}
-                </div>
-                <div class="step-content">
-                  <span class="step-title">1. Buscar Deudas</span>
-                  <span class="step-description">Ingresa tu número de cuenta</span>
-                </div>
-              </div>
-              
-              <div class="step-connector {currentStep > 1 ? 'active' : ''}"></div>
-              
-              <div class="step {currentStep >= 2 ? 'active' : ''} {currentStep > 2 ? 'completed' : ''}">
-                <div class="step-icon">
-                  {#if currentStep > 2}
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="20,6 9,17 4,12"></polyline>
-                    </svg>
-                  {:else}
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <rect x="3" y="3" width="5" height="5"></rect>
-                      <rect x="3" y="16" width="5" height="5"></rect>
-                      <rect x="16" y="3" width="5" height="5"></rect>
-                      <path d="M21 16h-3v3h3v-3z"></path>
-                      <path d="M21 21h.01"></path>
-                      <path d="M12 7v3"></path>
-                      <path d="M12 12h.01"></path>
-                      <path d="M12 16h.01"></path>
-                      <path d="M16 12h.01"></path>
-                      <path d="M16 16h.01"></path>
-                    </svg>
-                  {/if}
-                </div>
-                <div class="step-content">
-                  <span class="step-title">2. Generar QR</span>
-                  <span class="step-description">Selecciona facturas a pagar</span>
-                </div>
-              </div>
-              
-              <div class="step-connector {currentStep > 2 ? 'active' : ''}"></div>
-              
-              <div class="step {currentStep >= 3 ? 'active' : ''} {currentStep > 3 ? 'completed' : ''}">
-                <div class="step-icon">
-                  {#if currentStep > 3}
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="20,6 9,17 4,12"></polyline>
-                    </svg>
-                  {:else}
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
-                      <path d="M2 17l10 5 10-5"></path>
-                      <path d="M2 12l10 5 10-5"></path>
-                    </svg>
-                  {/if}
-                </div>
-                <div class="step-content">
-                  <span class="step-title">3. Realizar Pago</span>
-                  <span class="step-description">Escanea QR y paga</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          
           <!-- Formulario de búsqueda -->
           <div class="content-section search-section">
             <div class="search-header">
@@ -1002,7 +849,6 @@
             </div>
           </div>
         {/if}
-      </div>
     </div>
   </main>
 </div>
@@ -1033,29 +879,21 @@
     --radius-lg: 12px;
   }
 
-  /* Reset y estilos base */
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
   
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    line-height: 1.5;
-    color: var(--color-text-primary);
-    background: var(--color-bg-primary);
-  }
+
   
   .dashboard-layout {
-    display: flex;
-    min-height: 100vh;
+    display: grid;
+    grid-template-areas: 
+      "sidebar main";
+    grid-template-columns: 30% 70%;
+    min-height: 100%;
     background: var(--color-bg-primary);
   }
   
-  /* Panel izquierdo (oscuro) - Estilo Cursor/Stripe */
+  /* Sidebar/Header - Estilo Cursor/Stripe */
   .sidebar {
-    width: 30%;
+    grid-area: sidebar;
     background: var(--color-bg-dark);
     color: #ffffff;
     display: flex;
@@ -1085,28 +923,25 @@
     border: 1px solid rgba(255, 255, 255, 0.1);
   }
   
-  .company-info-sidebar {
+  .company-info {
     display: flex;
     flex-direction: row;
-    align-items: flex-start;
+    align-items: center;
     text-align: left;
-    gap: 0.75rem;
+    gap: 1rem;
   }
   
-  .company-logo-sidebar {
-    width: 45px;
-    height: 45px;
-    border-radius: 8px;
+  .company-logo {
+    width: 50px;
+    height: 50px;
+    border-radius: 10px;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.25rem;
+    font-size: 1.3rem;
     color: white;
     font-weight: 600;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     overflow: hidden;
     flex-shrink: 0;
-    margin-top: 0.25rem;
   }
   
   .company-logo-image {
@@ -1116,68 +951,64 @@
     border-radius: 8px;
   }
   
-  .company-details-sidebar {
+  .company-details {
     flex: 1;
     text-align: left;
   }
-
-  .company-details-sidebar h2 {
+  
+  .company-details h2 {
     font-size: 0.95rem;
     font-weight: 600;
     color: #ffffff;
-    margin-bottom: 0.25rem;
+    margin: 0 0 0.25rem 0;
+    line-height: 1.2;
   }
   
-  
-  .company-status {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-top: 0.5rem;
-  }
-  
-  .company-status .status-dot {
-    width: 8px;
-    height: 8px;
-    background: var(--color-success);
-    border-radius: 50%;
-    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
-  }
-
-  /* Badges de seguridad en sidebar */
-  .sidebar-security-badges {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 0.375rem;
-    margin-top: 1rem;
-    justify-content: center;
-  }
-
-  .sidebar-security-badge {
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
-    padding: 0.375rem 0.5rem;
-    background: rgba(34, 197, 94, 0.15);
-    border: 1px solid rgba(34, 197, 94, 0.3);
-    border-radius: 4px;
-    color: #059669;
-    font-size: 0.65rem;
+  .company-slug {
+    font-size: 0.7rem;
     font-weight: 500;
-    transition: all 0.2s ease;
-    min-width: fit-content;
-    flex: 0 0 auto;
-    white-space: nowrap;
+    color: #cccccc;
+    margin: 0;
+    line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
+  
+  
 
-  .sidebar-security-badge:hover {
-    background: rgba(34, 197, 94, 0.25);
+  /* Badge de seguridad unificado en sidebar */
+  .security-badge-unified {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    margin-top: 0.5rem;
+    text-align: center;
   }
-
-  .sidebar-security-badge svg {
-    flex-shrink: 0;
+  
+  .security-badge-unified .security-icons {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
     color: #059669;
+  }
+  
+  .security-badge-unified .security-icons svg {
+    color: #059669 !important;
+    flex-shrink: 0;
+    display: block;
+    width: 12px;
+    height: 12px;
+  }
+
+
+  .security-message {
+    color: #059669;
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    line-height: 1.2;
   }
   
   
@@ -1189,24 +1020,19 @@
   .return-link {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
     color: #ffffff;
     text-decoration: none;
     font-size: 0.875rem;
     font-weight: 500;
     margin-bottom: 2rem;
-    padding: 0.75rem 1rem;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 8px;
+    padding: 0.5rem;
     transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
   }
   
   .return-link:hover {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(255, 255, 255, 0.25);
+    color: #cccccc;
   }
   
   .return-icon {
@@ -1227,13 +1053,11 @@
   }
   
   
-  /* Panel derecho (claro) */
+  /* Contenido principal */
   .main-content {
-    flex: 1;
-    margin-left: 30%;
+    grid-area: main;
     background: #ffffff;
     overflow-y: auto;
-    width: 70%;
   }
   
   .content-wrapper {
@@ -1263,7 +1087,7 @@
     padding: 2rem;
     width: 100%;
     background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
-    min-height: calc(100vh - 80px);
+    min-height: 100%;
   }
   
   .content-section {
@@ -1542,33 +1366,46 @@
   
   @media (max-width: 768px) {
     .dashboard-layout {
-      flex-direction: column;
+      grid-template-areas: 
+        "sidebar"
+        "main";
+      grid-template-columns: 100%;
+      grid-template-rows: auto 1fr;
     }
     
     .sidebar {
       position: relative;
       width: 100%;
       height: auto;
-      order: 2;
     }
     
     .sidebar-content {
       padding: 1.25rem 1rem;
-      flex-direction: row;
-      align-items: center;
+      flex-direction: column;
+      align-items: flex-start;
       gap: 1rem;
     }
     
+    .company-info {
+      width: 100%;
+      justify-content: flex-start;
+    }
+    
+    .return-link {
+      justify-content: flex-start;
+      width: 100%;
+    }
+    
     .main-content {
-      margin-left: 0;
-      order: 1;
+      /* Grid area ya definido */
     }
     
     
     .sidebar-footer {
       margin-top: 0;
       display: flex;
-      align-items: center;
+      flex-direction: column;
+      align-items: flex-start;
       gap: 1rem;
     }
     
@@ -1580,6 +1417,7 @@
     .powered-by {
       margin-bottom: 0;
       font-size: 0.7rem;
+      text-align: left;
     }
     
     
@@ -1626,118 +1464,6 @@
       width: 100%;
     }
   }
-  
-  @media (max-width: 480px) {
-    .sidebar-content {
-      padding: 1rem 0.75rem;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-    }
-    
-    
-    .sidebar-footer {
-      gap: 0.5rem;
-    }
-    
-    .return-link {
-      font-size: 0.75rem;
-    }
-    
-    .powered-by {
-      font-size: 0.65rem;
-    }
-    
-    .dashboard-header {
-      padding: 0.75rem 1rem;
-    }
-    
-    .company-details h1 {
-      font-size: 1.125rem;
-    }
-    
-    .company-details p {
-      font-size: 0.75rem;
-    }
-    
-    .security-badge {
-      padding: 0.2rem 0.3rem;
-      font-size: 0.6rem;
-    }
-    
-    .main-content-area {
-      padding: 0.75rem;
-    }
-    
-    .content-section {
-      margin-bottom: 1rem;
-      padding: 0;
-    }
-
-    .process-steps {
-      padding: 0.75rem;
-      margin: 0.5rem 0;
-    }
-
-    .step {
-      padding: 0.5rem 0.25rem;
-      min-width: 60px;
-      gap: 0.25rem;
-    }
-
-    .step-icon {
-      width: 24px;
-      height: 24px;
-    }
-
-    .step-title {
-      font-size: 0.8rem;
-    }
-
-    .step-description {
-      font-size: 0.7rem;
-    }
-
-    .step-connector {
-      width: 15px;
-      margin: 0 0.15rem;
-    }
-
-    .step-connector::after {
-      width: 4px;
-      height: 4px;
-      right: -2px;
-      top: -1px;
-    }
-
-    .search-section {
-      padding: 1rem;
-      margin-top: 0.25rem;
-    }
-
-    .search-header {
-      margin-bottom: 1rem;
-    }
-
-    .search-title {
-      font-size: 0.9rem;
-    }
-
-    .search-subtitle {
-      font-size: 0.75rem;
-    }
-    
-    .account-info,
-    .payment-content,
-    .search-content,
-    .company-details-section {
-      padding: 0;
-    }
-    
-    .status-indicator {
-      padding: 0.375rem 0.75rem;
-      font-size: 0.75rem;
-    }
-  }
 
   /* Clases de visibilidad responsive */
   .desktop-only {
@@ -1751,7 +1477,7 @@
   /* Header móvil */
   .mobile-header {
     background: var(--color-bg-dark);
-    padding: 1rem;
+      padding: 1rem;
     border-bottom: 1px solid var(--color-border);
   }
 
@@ -1762,8 +1488,8 @@
 
   .mobile-company-info {
     display: flex;
-    align-items: flex-start;
-    gap: 0.75rem;
+    align-items: center;
+    gap: 1rem;
     margin-bottom: 1rem;
     text-align: left;
   }
@@ -1772,17 +1498,19 @@
     flex-shrink: 0;
     background: white;
     padding: 0.5rem;
-    border-radius: 8px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    margin-top: 0.25rem;
+    width: 45px;
+    height: 45px;
+    overflow: hidden;
   }
 
   .mobile-logo-image {
-    height: 35px;
-    width: auto;
+    height: 100%;
+    width: 100%;
     object-fit: contain;
     border-radius: 4px;
   }
@@ -1806,6 +1534,16 @@
     margin: 0 0 0.25rem 0;
     line-height: 1.2;
   }
+  
+  .mobile-company-slug {
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: #cccccc;
+    margin: 0;
+    line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
 
 
   .mobile-company-status {
@@ -1814,12 +1552,28 @@
     justify-content: center;
   }
 
-  .mobile-security-badges {
+  .mobile-security-badge-unified {
     display: flex;
-    gap: 0.5rem;
     align-items: center;
-    flex-wrap: wrap;
-    margin-bottom: 1rem;
+    justify-content: flex-start;
+    gap: 0.25rem;
+    text-align: left;
+    margin-top: 0.5rem;
+  }
+  
+  .mobile-security-badge-unified .security-icons {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: #059669;
+  }
+  
+  .mobile-security-badge-unified .security-icons svg {
+    color: #059669 !important;
+    flex-shrink: 0;
+    display: block;
+    width: 12px;
+    height: 12px;
   }
 
   .mobile-footer {
@@ -1832,23 +1586,18 @@
   .mobile-return-link {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
     color: #ffffff;
     text-decoration: none;
     font-size: 0.8rem;
     font-weight: 500;
-    padding: 0.5rem 0.75rem;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 6px;
+    padding: 0.5rem;
     transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
   }
 
   .mobile-return-link:hover {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(255, 255, 255, 0.25);
+    color: #cccccc;
   }
 
   .mobile-powered-by {
@@ -1889,6 +1638,17 @@
     color: #059669;
   }
 
+  /* Estilos compartidos para badges unificados */
+
+  .mobile-security-badge-unified .security-message {
+    color: #059669;
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    line-height: 1.2;
+  }
+
   /* Responsive breakpoints */
   @media (max-width: 768px) {
     .desktop-only {
@@ -1900,11 +1660,15 @@
     }
 
     .dashboard-layout {
-      flex-direction: column;
+      grid-template-areas: 
+        "sidebar"
+        "main";
+      grid-template-columns: 100%;
+      grid-template-rows: auto 1fr;
     }
 
     .main-content {
-      margin-left: 0;
+      /* Grid area ya definido */
     }
 
     .content-wrapper {
@@ -1922,13 +1686,23 @@
       z-index: 100;
     }
 
-    .mobile-security-badges {
-      justify-content: center;
+
+    .mobile-security-badge-unified .security-icons svg {
+      color: #059669 !important;
+      display: block !important;
+      width: 14px !important;
+      height: 14px !important;
     }
 
-    .security-badge {
-      font-size: 0.7rem;
-      padding: 0.375rem 0.5rem;
+    .mobile-security-badge-unified .security-icons svg {
+      color: #059669 !important;
+      display: block !important;
+      width: 12px !important;
+      height: 12px !important;
+    }
+
+    .mobile-security-badge-unified .security-message {
+      font-size: 0.55rem;
     }
   }
 
@@ -1943,13 +1717,23 @@
       text-align: left;
     }
 
-    .mobile-security-badges {
-      justify-content: center;
+
+    .mobile-security-badge-unified .security-icons svg {
+      color: #059669 !important;
+      display: block !important;
+      width: 14px !important;
+      height: 14px !important;
     }
 
-    .security-badge {
-      font-size: 0.65rem;
-      padding: 0.25rem 0.375rem;
+    .mobile-security-badge-unified .security-icons svg {
+      color: #059669 !important;
+      display: block !important;
+      width: 12px !important;
+      height: 12px !important;
+    }
+
+    .mobile-security-badge-unified .security-message {
+      font-size: 0.5rem;
     }
   }
 </style>

@@ -253,10 +253,17 @@
         </svg>
         Volver
       </button>
-      <h2 class="debt-list-title">Lista de Deudas</h2>
+      <h2 class="debt-list-title">Facturas Pendientes</h2>
     </div>
     
-    {#if cliente}
+    {#if isLoading}
+      <div class="loading-header">
+        <div class="loading-spinner">
+          <RefreshCwIcon size="20" />
+        </div>
+        <div class="loading-text">Obteniendo información del abonado...</div>
+      </div>
+    {:else if cliente}
       <div class="client-summary">
         <div class="client-name">{cliente.nombre || 'Cliente'}</div>
         <div class="client-details">
@@ -361,6 +368,10 @@
   .debt-list-container {
     margin-top: 1rem;
     text-align: left;
+  }
+  
+  .debt-list {
+    margin-top: 2rem;
   }
   
   .debt-section {
@@ -540,14 +551,14 @@
     width: 48px;
     height: 48px;
     border-radius: 8px;
-    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    background: linear-gradient(135deg, #059669, #10b981);
     color: white;
     flex-shrink: 0;
     font-size: 1.3rem;
   }
   
   .debt-icon.service-icon {
-    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+    background: linear-gradient(135deg, #059669, #10b981);
   }
   
   .debt-item:hover {
@@ -962,6 +973,36 @@
     margin-bottom: 1rem;
   }
   
+  .loading-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+  }
+  
+  .loading-spinner {
+    animation: spin 1s linear infinite;
+    color: #059669;
+  }
+  
+  .loading-text {
+    color: #666666;
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+  
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  
   .btn-back {
     background: transparent;
     border: 1px solid rgba(0, 0, 0, 0.2);
@@ -988,6 +1029,8 @@
     font-weight: 600;
     color: #000000;
     margin: 0;
+    text-align: center;
+    flex: 1;
   }
   
   .client-summary {

@@ -653,7 +653,6 @@
           </div>
           <div class="company-details-sidebar">
             <h2 class="company-name-sidebar">{empresa.nombre}</h2>
-            <p class="company-description-sidebar">{empresa.descripcion}</p>
             <div class="company-status">
               <div class="status-dot"></div>
             </div>
@@ -705,7 +704,6 @@
         </div>
         <div class="mobile-company-details">
           <h2 class="mobile-company-name">{empresa.nombre}</h2>
-          <p class="mobile-company-description">{empresa.descripcion}</p>
           <div class="mobile-company-status">
             <div class="status-dot"></div>
           </div>
@@ -964,7 +962,7 @@
         {:else}
           <!-- Panel de pasos del proceso -->
           <div class="content-section">
-            <div class="process-steps">
+            <div class="process-steps search-view">
               <div class="step {currentStep >= 1 ? 'active' : ''} {currentStep > 1 ? 'completed' : ''}">
                 <div class="step-icon">
                   {#if currentStep > 1}
@@ -1140,10 +1138,10 @@
   
   .company-info-sidebar {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    gap: 0.5rem;
+    flex-direction: row;
+    align-items: flex-start;
+    text-align: left;
+    gap: 0.75rem;
   }
   
   .company-logo-sidebar {
@@ -1158,6 +1156,8 @@
     font-weight: 600;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     overflow: hidden;
+    flex-shrink: 0;
+    margin-top: 0.25rem;
   }
   
   .company-logo-image {
@@ -1167,6 +1167,11 @@
     border-radius: 8px;
   }
   
+  .company-details-sidebar {
+    flex: 1;
+    text-align: left;
+  }
+
   .company-details-sidebar h2 {
     font-size: 0.95rem;
     font-weight: 600;
@@ -1174,12 +1179,6 @@
     margin-bottom: 0.25rem;
   }
   
-  .company-details-sidebar p {
-    font-size: 0.75rem;
-    color: #cccccc;
-    line-height: 1.3;
-    margin-bottom: 0.5rem;
-  }
   
   .company-status {
     display: flex;
@@ -1225,8 +1224,6 @@
 
   .sidebar-security-badge:hover {
     background: rgba(34, 197, 94, 0.25);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(34, 197, 94, 0.2);
   }
 
   .sidebar-security-badge svg {
@@ -1258,26 +1255,9 @@
     overflow: hidden;
   }
   
-  .return-link::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-    transition: left 0.5s ease;
-  }
-  
-  .return-link:hover::before {
-    left: 100%;
-  }
-  
   .return-link:hover {
     background: rgba(255, 255, 255, 0.12);
     border-color: rgba(255, 255, 255, 0.25);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
   
   .return-icon {
@@ -1335,50 +1315,14 @@
     width: 100%;
     background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
     min-height: calc(100vh - 80px);
-    animation: fadeInUp 0.6s ease-out;
-  }
-
-  @keyframes fadeInUp {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
   }
   
   .content-section {
     margin-bottom: 3rem;
     background: transparent;
     padding: 0;
-    animation: slideInUp 0.5s ease-out;
-    animation-fill-mode: both;
   }
 
-  .content-section:nth-child(1) {
-    animation-delay: 0.1s;
-  }
-
-  .content-section:nth-child(2) {
-    animation-delay: 0.2s;
-  }
-
-  .content-section:nth-child(3) {
-    animation-delay: 0.3s;
-  }
-
-  @keyframes slideInUp {
-    from {
-      opacity: 0;
-      transform: translateY(30px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
   
   .section-title {
     font-size: 0.875rem;
@@ -1404,6 +1348,15 @@
     backdrop-filter: blur(10px);
   }
 
+  /* Panel de pasos menos prominente cuando estamos en búsqueda */
+  .process-steps.search-view {
+    opacity: 0.8;
+    transform: scale(0.95);
+    margin: 1rem 0;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.3);
+  }
+
   .step {
     display: flex;
     flex-direction: column;
@@ -1411,7 +1364,6 @@
     gap: 0.75rem;
     padding: 1.25rem 1rem;
     border-radius: 12px;
-    transition: all 0.3s ease;
     position: relative;
     min-width: 100px;
   }
@@ -1430,13 +1382,21 @@
     background: linear-gradient(135deg, #3b82f6, #8b5cf6);
     color: white;
     border-radius: 50%;
-    transition: all 0.3s ease;
     box-shadow: 0 3px 8px rgba(59, 130, 246, 0.3);
+  }
+
+  .step-icon svg {
+    color: white;
   }
 
   .step:hover .step-icon {
     transform: scale(1.05);
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+
+  .step.active:hover .step-icon {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(5, 150, 105, 0.6);
   }
 
   .step-content {
@@ -1464,8 +1424,14 @@
 
   /* Estados de los pasos */
   .step.active .step-icon {
-    background: linear-gradient(135deg, #059669, #10b981);
+    background: linear-gradient(135deg, #059669, #10b981) !important;
+    border: 2px solid #059669;
     box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4);
+    color: white;
+  }
+
+  .step.active .step-icon svg {
+    color: white !important;
   }
 
   .step.active .step-title {
@@ -1476,6 +1442,10 @@
   .step.completed .step-icon {
     background: linear-gradient(135deg, #059669, #10b981);
     box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4);
+  }
+
+  .step.completed .step-icon svg {
+    color: white;
   }
 
   .step.completed .step-title {
@@ -1500,6 +1470,10 @@
     background: linear-gradient(135deg, #9ca3af, #6b7280);
     box-shadow: 0 3px 8px rgba(156, 163, 175, 0.2);
     opacity: 0.6;
+  }
+
+  .step:not(.active):not(.completed) .step-icon svg {
+    color: white;
   }
 
   .step:not(.active):not(.completed) .step-title {
@@ -1540,39 +1514,8 @@
     height: 8px;
     background: #8b5cf6;
     border-radius: 50%;
-    animation: pulse 2s infinite;
   }
 
-  @keyframes pulse {
-    0%, 100% {
-      opacity: 1;
-      transform: scale(1);
-    }
-    50% {
-      opacity: 0.7;
-      transform: scale(1.2);
-    }
-  }
-
-  .process-steps {
-    animation: fadeInUp 0.6s ease-out;
-  }
-
-  .step {
-    animation: slideInUp 0.6s ease-out;
-  }
-
-  .step:nth-child(1) {
-    animation-delay: 0.1s;
-  }
-
-  .step:nth-child(3) {
-    animation-delay: 0.2s;
-  }
-
-  .step:nth-child(5) {
-    animation-delay: 0.3s;
-  }
   
   
   .payment-content {
@@ -1642,12 +1585,15 @@
   
   @media (max-width: 1024px) {
     .sidebar {
-      width: 30%;
+      width: 100%;
+      height: auto;
+      position: static;
+      transform: none;
     }
     
     .main-content {
-      margin-left: 30%;
-      width: 70%;
+      width: 100%;
+      margin-left: 0;
     }
     
     .main-content-area {
@@ -1824,6 +1770,19 @@
       right: -3px;
       top: -2px;
     }
+
+    .search-section {
+      padding: 1.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .search-title {
+      font-size: 1.25rem;
+    }
+
+    .search-subtitle {
+      font-size: 0.9rem;
+    }
     
     .account-info,
     .payment-content,
@@ -1861,9 +1820,10 @@
 
   .mobile-company-info {
     display: flex;
-    align-items: center;
-    gap: 1rem;
+    align-items: flex-start;
+    gap: 0.75rem;
     margin-bottom: 1rem;
+    text-align: left;
   }
 
   .mobile-company-logo {
@@ -1875,6 +1835,7 @@
     align-items: center;
     justify-content: center;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-top: 0.25rem;
   }
 
   .mobile-logo-image {
@@ -1892,6 +1853,7 @@
 
   .mobile-company-details {
     flex: 1;
+    text-align: left;
     min-width: 0;
   }
 
@@ -1903,12 +1865,6 @@
     line-height: 1.2;
   }
 
-  .mobile-company-description {
-    font-size: 0.75rem;
-    color: #cccccc;
-    margin: 0 0 0.5rem 0;
-    line-height: 1.3;
-  }
 
   .mobile-company-status {
     display: flex;
@@ -1948,26 +1904,9 @@
     overflow: hidden;
   }
 
-  .mobile-return-link::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-    transition: left 0.5s ease;
-  }
-
-  .mobile-return-link:hover::before {
-    left: 100%;
-  }
-
   .mobile-return-link:hover {
     background: rgba(255, 255, 255, 0.12);
     border-color: rgba(255, 255, 255, 0.25);
-    transform: translateY(-1px);
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
   }
 
   .mobile-powered-by {
@@ -2001,8 +1940,6 @@
 
   .security-badge:hover {
     background: rgba(34, 197, 94, 0.25);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(34, 197, 94, 0.2);
   }
 
   .security-badge svg {
@@ -2055,13 +1992,13 @@
 
   @media (max-width: 480px) {
     .mobile-company-info {
-      flex-direction: column;
-      text-align: center;
-      gap: 0.75rem;
+      flex-direction: row;
+      text-align: left;
+      gap: 0.5rem;
     }
 
     .mobile-company-details {
-      text-align: center;
+      text-align: left;
     }
 
     .mobile-security-badges {

@@ -1,5 +1,24 @@
 <script lang="ts">
-  import { CreditCardIcon, RefreshCwIcon, XIcon } from 'svelte-feather-icons';
+  import { RefreshCwIcon, XIcon } from 'svelte-feather-icons';
+  
+  // Componente SVG para QR Code
+  const QrCodeIcon = (props: {size?: number, color?: string}) => {
+    return `
+      <svg width="${props.size || 16}" height="${props.size || 16}" viewBox="0 0 24 24" fill="none" stroke="${props.color || 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="5" height="5"/>
+        <rect x="3" y="16" width="5" height="5"/>
+        <rect x="16" y="3" width="5" height="5"/>
+        <path d="M21 16h-3v3h3v-3z"/>
+        <path d="M21 21h.01"/>
+        <path d="M12 7v3"/>
+        <path d="M12 12h.01"/>
+        <path d="M12 16h.01"/>
+        <path d="M16 12h.01"/>
+        <path d="M16 16h.01"/>
+        <path d="M12 12h.01"/>
+      </svg>
+    `;
+  };
   
   // Interfaces para tipos
   interface Deuda {
@@ -73,8 +92,8 @@
             <span class="spinner"></span>
             Generando QR...
           {:else}
-            <CreditCardIcon size="16" />
-            Pagar Bs. {deuda?.monto?.toFixed(2) || '0.00'}
+            {@html QrCodeIcon({size: 16, color: '#ffffff'})}
+            Pagar por QR Bs. {deuda?.monto?.toFixed(2) || '0.00'}
           {/if}
         </button>
       {:else}
@@ -90,8 +109,8 @@
           <span class="spinner"></span>
           Procesando...
         {:else}
-          <CreditCardIcon size="16" />
-          Pagar Servicio
+          {@html QrCodeIcon({size: 16, color: '#059669'})}
+          Pagar por QR
         {/if}
       </button>
     {/if}
@@ -267,19 +286,20 @@
     border-radius: var(--radius);
     font-weight: 600;
     font-size: 0.9rem;
-    border: none;
+    border: 1px solid rgba(255, 255, 255, 0.2);
     cursor: pointer;
     transition: var(--transition);
     justify-content: center;
-    background: var(--gradient-secondary);
-    color: rgb(var(--white));
+    background: var(--color-bg-dark);
+    color: #ffffff;
     box-shadow: var(--shadow);
   }
   
   .btn-pay:hover {
-    background: rgb(var(--secondary-dark));
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
     transform: translateY(-1px);
-    box-shadow: var(--shadow-hover);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   }
   
   .btn-pay:disabled {

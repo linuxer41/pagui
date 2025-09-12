@@ -117,6 +117,16 @@
   // Variables para manejar eventos SSE
   let unsubscribeSSEEvents: (() => void)[] = [];
 
+  // Variables para información del cliente/abonado
+  let clientInfo: any = null;
+  let loadingClientInfo = false;
+
+  // Variables para estado de pagos QR
+  let qrStatus: any = null;
+  let qrPayments: any[] = [];
+  let loadingQRStatus = false;
+  let qrIdInput = '';
+
   // Verificar autenticación y cargar datos
   onMount(async () => {
     // Cargar cuentas del usuario
@@ -247,6 +257,87 @@
     }
   }
 
+  // Función para parsear la información del cliente desde la respuesta
+  function parseClientInfo(response: any[]) {
+    if (!response || response.length < 3) return null;
+    
+    const [status, success, data, abonado, nombre, nit, medidor, zona, calle, num, categoria, ley1886, estado, mensaje] = response;
+    
+    return {
+      success: status?.success || false,
+      abonado: abonado || data?.abonado,
+      nombre: nombre || data?.nombre,
+      nit: nit || data?.nit,
+      medidor: medidor || data?.medidor,
+      zona: zona || data?.zona,
+      calle: calle || data?.calle,
+      num: num || data?.num,
+      categoria: categoria || data?.categoria,
+      ley1886: ley1886 || data?.ley1886,
+      estado: estado || data?.estado,
+      mensaje: mensaje || data?.mensaje
+    };
+  }
+
+  // Función para cargar información del cliente (ejemplo)
+  async function loadClientInfo(subscriberId: string) {
+    loadingClientInfo = true;
+    try {
+      // Aquí harías la llamada a tu API
+      // const response = await api.getClientInfo(subscriberId);
+      // clientInfo = parseClientInfo(response);
+      
+      // Ejemplo con los datos que proporcionaste
+      const exampleResponse = [{"success":1,"abonado":2,"mensaje":11},true,{"abonado":3,"nombre":4,"nit":5,"medidor":6,"zona":7,"calle":6,"num":6,"categoria":8,"ley1886":9,"estado":10},1520,"TICONA CAYO PABLO",0,"","BARRIO SAN GERARDO","A1",false,"N","Información obtenida para el abonado 1520"];
+      clientInfo = parseClientInfo(exampleResponse);
+    } catch (error) {
+      console.error('Error al cargar información del cliente:', error);
+    } finally {
+      loadingClientInfo = false;
+    }
+  }
+
+  // Función para verificar el estado de un QR
+  async function checkQRStatus(qrId: string) {
+    if (!qrId.trim()) {
+      alert('Por favor ingresa un ID de QR válido');
+      return;
+    }
+
+    loadingQRStatus = true;
+    try {
+      // Verificar estado del QR
+      const statusResponse = await api.checkQRStatus(qrId);
+      if (statusResponse.success && statusResponse.data) {
+        qrStatus = statusResponse.data;
+        
+        // Obtener pagos del QR
+        const paymentsResponse = await api.getQRPayments(qrId);
+        if (paymentsResponse.success && paymentsResponse.data) {
+          qrPayments = paymentsResponse.data.payments || [];
+        }
+      } else {
+        qrStatus = null;
+        qrPayments = [];
+        alert('No se pudo obtener el estado del QR');
+      }
+    } catch (error) {
+      console.error('Error al verificar estado del QR:', error);
+      qrStatus = null;
+      qrPayments = [];
+      alert('Error al verificar el estado del QR');
+    } finally {
+      loadingQRStatus = false;
+    }
+  }
+
+  // Función para limpiar la información del QR
+  function clearQRInfo() {
+    qrStatus = null;
+    qrPayments = [];
+    qrIdInput = '';
+  }
+
   // Animación para el saldo (balance)
   let animatedBalance = tweened(wallet.balance, { duration: 800, easing: cubicOut });
 
@@ -328,7 +419,7 @@
               <RefreshCw size={8} class="spinning" />
             </div>
           {:else if $sseConnection.error}
-            <div class="status-dot error" title="{$sseConnection.error} - Click para reconectar" on:click={handleReconnectSSE}>
+            <div class="status-dot error" title="{$sseConnection.error} - Click para reconectar" on:click={handleReconnectSSE} on:keydown={(e) => e.key === 'Enter' && handleReconnectSSE()} role="button" tabindex="0">
               <WifiOff size={8} />
             </div>
           {:else}
@@ -429,6 +520,183 @@
       </div>
     </div>
   </div>
+  <!-- Información del Cliente/Abonado -->
+  <div class="section client-info-section" in:fade={{ duration: 500, delay: 50 }}>
+    <div class="section-header compact-header">
+      <h2 class="compact-title">Información del Cliente</h2>
+      <button class="view-all-button compact-view" on:click={() => loadClientInfo('1520')}>
+        {loadingClientInfo ? 'Cargando...' : 'Cargar Info'}
+      </button>
+    </div>
+    
+    {#if loadingClientInfo}
+      <div class="loading-client-info">
+        <div class="loading-spinner mini"></div>
+        <span>Cargando información del cliente...</span>
+      </div>
+    {:else if clientInfo}
+      <div class="client-info-card" in:fly={{ y: 20, duration: 400, delay: 100 }}>
+        <div class="client-header">
+          <div class="client-avatar">
+            {clientInfo.nombre ? clientInfo.nombre.charAt(0).toUpperCase() : 'C'}
+          </div>
+          <div class="client-main-info">
+            <h3 class="client-name">{clientInfo.nombre || 'Cliente'}</h3>
+            <p class="client-subscriber">Abonado #{clientInfo.abonado}</p>
+          </div>
+          <div class="client-status {clientInfo.estado === 'A' ? 'active' : 'inactive'}">
+            {clientInfo.estado === 'A' ? 'Activo' : 'Inactivo'}
+          </div>
+        </div>
+        
+        <div class="client-details">
+          <div class="detail-row">
+            <span class="detail-label">NIT:</span>
+            <span class="detail-value">{clientInfo.nit || 'No disponible'}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Medidor:</span>
+            <span class="detail-value">{clientInfo.medidor || 'No disponible'}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Zona:</span>
+            <span class="detail-value">{clientInfo.zona || 'No disponible'}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Dirección:</span>
+            <span class="detail-value">{clientInfo.calle} {clientInfo.num}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Categoría:</span>
+            <span class="detail-value">{clientInfo.categoria || 'No disponible'}</span>
+          </div>
+          {#if clientInfo.ley1886}
+            <div class="detail-row">
+              <span class="detail-label">Ley 1886:</span>
+              <span class="detail-value">{clientInfo.ley1886 ? 'Sí' : 'No'}</span>
+            </div>
+          {/if}
+        </div>
+        
+        {#if clientInfo.mensaje}
+          <div class="client-message">
+            <p>{clientInfo.mensaje}</p>
+          </div>
+        {/if}
+      </div>
+    {:else}
+      <div class="empty-client-info">
+        <p>No hay información del cliente disponible</p>
+        <button class="load-client-button" on:click={() => loadClientInfo('1520')}>
+          Cargar información
+        </button>
+      </div>
+    {/if}
+  </div>
+
+  <!-- Verificación de Estado QR -->
+  <div class="section qr-status-section" in:fade={{ duration: 500, delay: 75 }}>
+    <div class="section-header compact-header">
+      <h2 class="compact-title">Verificar Estado QR</h2>
+      <button class="view-all-button compact-view" on:click={clearQRInfo}>
+        Limpiar
+      </button>
+    </div>
+    
+    <div class="qr-status-form">
+      <div class="input-group">
+        <input 
+          type="text" 
+          bind:value={qrIdInput}
+          placeholder="Ingresa el ID del QR"
+          class="qr-id-input"
+          disabled={loadingQRStatus}
+        />
+        <button 
+          class="check-qr-button" 
+          on:click={() => checkQRStatus(qrIdInput)}
+          disabled={loadingQRStatus || !qrIdInput.trim()}
+        >
+          {loadingQRStatus ? 'Verificando...' : 'Verificar'}
+        </button>
+      </div>
+    </div>
+
+    {#if loadingQRStatus}
+      <div class="loading-qr-status">
+        <div class="loading-spinner mini"></div>
+        <span>Verificando estado del QR...</span>
+      </div>
+    {:else if qrStatus}
+      <div class="qr-status-card" in:fly={{ y: 20, duration: 400, delay: 100 }}>
+        <div class="qr-status-header">
+          <div class="qr-status-info">
+            <h3 class="qr-id">QR #{qrStatus.qrId}</h3>
+            <div class="qr-amount">
+              {getCurrencySymbol(qrStatus.currency)} {formatCurrency(qrStatus.amount)}
+            </div>
+          </div>
+          <div class="qr-status-badge {qrStatus.status}">
+            {qrStatus.status === 'active' ? 'Activo' : 
+             qrStatus.status === 'paid' ? 'Pagado' : 
+             qrStatus.status === 'expired' ? 'Expirado' : 
+             qrStatus.status === 'cancelled' ? 'Cancelado' : qrStatus.status}
+          </div>
+        </div>
+        
+        <div class="qr-details">
+          <div class="detail-row">
+            <span class="detail-label">Descripción:</span>
+            <span class="detail-value">{qrStatus.description || 'Sin descripción'}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Fecha de vencimiento:</span>
+            <span class="detail-value">{qrStatus.dueDate ? new Date(qrStatus.dueDate).toLocaleDateString('es-ES') : 'No especificada'}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Uso único:</span>
+            <span class="detail-value">{qrStatus.singleUse ? 'Sí' : 'No'}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Modificar monto:</span>
+            <span class="detail-value">{qrStatus.modifyAmount ? 'Sí' : 'No'}</span>
+          </div>
+        </div>
+
+        {#if qrPayments.length > 0}
+          <div class="qr-payments">
+            <h4>Pagos realizados ({qrPayments.length})</h4>
+            <div class="payments-list">
+              {#each qrPayments as payment, i (payment.id || i)}
+                <div class="payment-item" in:fly={{ y: 10, duration: 300, delay: 50 + i * 50 }}>
+                  <div class="payment-info">
+                    <div class="payment-amount">
+                      {getCurrencySymbol(payment.currency || qrStatus.currency)} {formatCurrency(payment.amount)}
+                    </div>
+                    <div class="payment-date">
+                      {payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString('es-ES') : 'Fecha no disponible'}
+                    </div>
+                  </div>
+                  <div class="payment-status paid">
+                    Pagado
+                  </div>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {:else if qrStatus.status === 'paid'}
+          <div class="no-payments">
+            <p>Este QR ha sido pagado pero no se encontraron detalles de pagos.</p>
+          </div>
+        {/if}
+      </div>
+    {:else if qrIdInput && !loadingQRStatus}
+      <div class="no-qr-status">
+        <p>No se encontró información para el QR ingresado.</p>
+      </div>
+    {/if}
+  </div>
+
   <!-- Movimientos de cuenta recientes -->
   <div class="section transactions-section" in:fade={{ duration: 500, delay: 100 }}>
     <div class="section-header compact-header">
@@ -471,13 +739,13 @@
 
 <!-- Modal para detalles del movimiento -->
 {#if showMovementModal && selectedMovement}
-  <div class="modal-overlay" on:click={closeMovementModal} on:keydown={(e) => e.key === 'Escape' && closeMovementModal()} role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="0">
-    <div class="modal-content" on:click|stopPropagation role="document" on:keydown={(e) => e.key === 'Escape' && closeMovementModal()}>
-      <div class="modal-header">
+  <div class="modal-overlay" on:click={closeMovementModal} on:keydown={(e) => e.key === 'Escape' && closeMovementModal()} role="button" aria-labelledby="modal-title" tabindex="0">
+    <div class="modal-content" role="document">
+      <div class="modal-header" on:click|stopPropagation on:keydown|stopPropagation role="button" tabindex="0">
         <h2 id="modal-title">Detalles del Movimiento</h2>
         <button class="modal-close" on:click={closeMovementModal}>×</button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body" on:click|stopPropagation on:keydown|stopPropagation role="button" tabindex="0">
         <div class="movement-details">
           <!-- Información principal -->
           <div class="detail-section">
@@ -788,10 +1056,6 @@
     box-shadow: 0 0 0 3px rgba(233, 58, 74, 0.3);
   }
 
-  .spinning {
-    animation: spin 1s linear infinite;
-  }
-
   @keyframes spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
@@ -917,7 +1181,7 @@
   }
 
   /* Sección de recaudaciones */
-  .collections-section, .transactions-section {
+  .collections-section, .transactions-section, .client-info-section, .qr-status-section {
     margin-bottom: 2.5rem;
   }
   
@@ -945,7 +1209,7 @@
     font-size: 0.875rem;
     font-weight: 500;
     cursor: pointer;
-    in: all 0.2s ease;
+    transition: all 0.2s ease;
     padding: 0.25rem 0.5rem;
     border-radius: 0.5rem;
     height: 100%; /* Ocupar toda la altura del contenedor */
@@ -1006,7 +1270,7 @@
     bottom: 0;
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
     opacity: 0;
-    in: opacity 0.3s ease;
+    transition: opacity 0.3s ease;
   }
   
   .collection-item:hover .collection-icon::before {
@@ -1058,6 +1322,491 @@
   .collection-trend.positive {
     color: var(--success-color);
     background: rgba(0, 202, 141, 0.1);
+  }
+
+  /* Estilos para la información del cliente */
+  .client-info-card {
+    background: var(--surface);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    margin: 0 1rem;
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--border-color);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .client-info-card:hover {
+    transform: translateY(-0.125rem);
+    box-shadow: var(--shadow-md);
+    border-color: var(--primary-color);
+  }
+
+  .client-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .client-avatar {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.2rem;
+    box-shadow: 0 2px 8px rgba(58, 102, 255, 0.2);
+  }
+
+  .client-main-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .client-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .client-subscriber {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin: 0;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  }
+
+  .client-status {
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .client-status.active {
+    background: rgba(0, 202, 141, 0.1);
+    color: var(--success-color);
+    border: 1px solid rgba(0, 202, 141, 0.2);
+  }
+
+  .client-status.inactive {
+    background: rgba(233, 58, 74, 0.1);
+    color: var(--error-color);
+    border: 1px solid rgba(233, 58, 74, 0.2);
+  }
+
+  .client-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  }
+
+  .detail-row:last-child {
+    border-bottom: none;
+  }
+
+  .detail-label {
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    min-width: 80px;
+  }
+
+  .detail-value {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    text-align: right;
+    max-width: 60%;
+    word-break: break-word;
+  }
+
+  .client-message {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    background: rgba(58, 102, 255, 0.05);
+    border-radius: 0.5rem;
+    border-left: 3px solid var(--primary-color);
+  }
+
+  .client-message p {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    font-style: italic;
+  }
+
+  .loading-client-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    gap: 1rem;
+    color: var(--text-secondary);
+    text-align: center;
+    font-size: 0.9rem;
+  }
+
+  .empty-client-info {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    padding: 1.5rem 1rem;
+  }
+
+  .load-client-button {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 1rem;
+  }
+
+  .load-client-button:hover {
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(58, 102, 255, 0.3);
+  }
+
+  .load-client-button:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 4px rgba(58, 102, 255, 0.2);
+  }
+
+  /* Responsive para información del cliente */
+  @media (max-width: 768px) {
+    .client-info-card {
+      margin: 0 0.75rem;
+      padding: 1.25rem;
+    }
+
+    .client-header {
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .client-avatar {
+      width: 2.5rem;
+      height: 2.5rem;
+      font-size: 1rem;
+    }
+
+    .client-name {
+      font-size: 1rem;
+    }
+
+    .client-subscriber {
+      font-size: 0.8rem;
+    }
+
+    .detail-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.25rem;
+    }
+
+    .detail-value {
+      max-width: 100%;
+      text-align: left;
+    }
+  }
+
+  /* Estilos para verificación de estado QR */
+  .qr-status-form {
+    padding: 0 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .input-group {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  .qr-id-input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    background: var(--surface);
+    color: var(--text-primary);
+    transition: all 0.2s ease;
+  }
+
+  .qr-id-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(58, 102, 255, 0.1);
+  }
+
+  .qr-id-input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .check-qr-button {
+    padding: 0.75rem 1.5rem;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+  }
+
+  .check-qr-button:hover:not(:disabled) {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(58, 102, 255, 0.3);
+  }
+
+  .check-qr-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .loading-qr-status {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    gap: 1rem;
+    color: var(--text-secondary);
+    text-align: center;
+    font-size: 0.9rem;
+  }
+
+  .qr-status-card {
+    background: var(--surface);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    margin: 0 1rem;
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--border-color);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .qr-status-card:hover {
+    transform: translateY(-0.125rem);
+    box-shadow: var(--shadow-md);
+    border-color: var(--primary-color);
+  }
+
+  .qr-status-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .qr-status-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .qr-id {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  }
+
+  .qr-amount {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin: 0;
+  }
+
+  .qr-status-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  .qr-status-badge.active {
+    background: rgba(0, 202, 141, 0.1);
+    color: var(--success-color);
+    border: 1px solid rgba(0, 202, 141, 0.2);
+  }
+
+  .qr-status-badge.paid {
+    background: rgba(58, 102, 255, 0.1);
+    color: var(--primary-color);
+    border: 1px solid rgba(58, 102, 255, 0.2);
+  }
+
+  .qr-status-badge.expired {
+    background: rgba(233, 58, 74, 0.1);
+    color: var(--error-color);
+    border: 1px solid rgba(233, 58, 74, 0.2);
+  }
+
+  .qr-status-badge.cancelled {
+    background: rgba(107, 114, 128, 0.1);
+    color: var(--text-secondary);
+    border: 1px solid rgba(107, 114, 128, 0.2);
+  }
+
+  .qr-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .qr-payments {
+    border-top: 1px solid var(--border-color);
+    padding-top: 1.5rem;
+  }
+
+  .qr-payments h4 {
+    margin: 0 0 1rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .payments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .payment-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    background: rgba(0, 202, 141, 0.05);
+    border-radius: 0.5rem;
+    border: 1px solid rgba(0, 202, 141, 0.1);
+  }
+
+  .payment-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .payment-amount {
+    font-weight: 600;
+    color: var(--success-color);
+    font-size: 0.875rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .payment-date {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+
+  .payment-status {
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .payment-status.paid {
+    background: rgba(0, 202, 141, 0.1);
+    color: var(--success-color);
+  }
+
+  .no-payments, .no-qr-status {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    padding: 1.5rem 1rem;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 0.5rem;
+    border: 1px solid var(--border-color);
+  }
+
+  /* Responsive para verificación QR */
+  @media (max-width: 768px) {
+    .qr-status-form {
+      padding: 0 0.75rem;
+    }
+
+    .input-group {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .qr-id-input {
+      width: 100%;
+    }
+
+    .check-qr-button {
+      width: 100%;
+    }
+
+    .qr-status-card {
+      margin: 0 0.75rem;
+      padding: 1.25rem;
+    }
+
+    .qr-status-header {
+      flex-direction: column;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+
+    .qr-status-badge {
+      align-self: flex-start;
+    }
+
+    .payment-item {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+
+    .payment-status {
+      align-self: flex-end;
+    }
   }
   
   

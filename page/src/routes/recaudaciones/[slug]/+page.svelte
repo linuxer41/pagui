@@ -1530,39 +1530,35 @@
 
   /* Sección de búsqueda más prominente */
   .search-section {
-    background: rgba(255, 255, 255, 0.8);
-    border-radius: 16px;
-    border: 2px solid rgba(59, 130, 246, 0.2);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    backdrop-filter: blur(10px);
-    padding: 2rem;
-    margin-top: 1rem;
+    background: transparent;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    backdrop-filter: none;
+    padding: 1.5rem;
+    margin-top: 0.5rem;
   }
 
   .search-header {
     text-align: center;
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
   }
 
   .search-title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--color-text-primary);
-    margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin: 0 0 0.25rem 0;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    letter-spacing: 0.05em;
   }
 
   .search-subtitle {
-    font-size: 1rem;
-    color: var(--color-text-secondary);
+    font-size: 0.8rem;
+    color: #666666;
     margin: 0;
     font-weight: 400;
-    line-height: 1.5;
+    line-height: 1.4;
   }
   
   
@@ -1772,16 +1768,20 @@
     }
 
     .search-section {
-      padding: 1.5rem;
-      margin-top: 0.5rem;
+      padding: 1rem;
+      margin-top: 0.25rem;
+    }
+
+    .search-header {
+      margin-bottom: 1rem;
     }
 
     .search-title {
-      font-size: 1.25rem;
+      font-size: 0.9rem;
     }
 
     .search-subtitle {
-      font-size: 0.9rem;
+      font-size: 0.75rem;
     }
     
     .account-info,

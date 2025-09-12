@@ -110,25 +110,19 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 50px;
-    height: 50px;
+    width: 40px;
+    height: 40px;
     border: none;
     background: var(--color-bg-dark);
     color: white;
     cursor: pointer;
-    transition: all 0.3s ease;
     flex-shrink: 0;
-    margin: 4px;
-    border-radius: 8px;
+    margin: 3px;
+    border-radius: 6px;
   }
   
   .search-button:hover:not(:disabled) {
     background: rgba(0, 0, 0, 0.8);
-    transform: scale(1.05);
-  }
-  
-  .search-button:active:not(:disabled) {
-    transform: scale(0.95);
   }
   
   .search-button:disabled {
@@ -154,27 +148,26 @@
   .message {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 1rem;
-    border-radius: 8px;
-    font-size: 0.875rem;
-    font-weight: 500;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 400;
     margin-top: 0.5rem;
-    background: rgba(255, 255, 255, 0.8);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.1);
   }
   
   .message-error {
     color: #dc2626;
-    border-color: rgba(220, 38, 38, 0.2);
-    background: rgba(254, 226, 226, 0.8);
+    border-color: rgba(220, 38, 38, 0.15);
+    background: rgba(254, 226, 226, 0.6);
   }
   
   .message-success {
     color: #059669;
-    border-color: rgba(5, 150, 105, 0.2);
-    background: rgba(220, 252, 231, 0.8);
+    border-color: rgba(5, 150, 105, 0.15);
+    background: rgba(220, 252, 231, 0.6);
   }
   
   .message span {
@@ -188,23 +181,23 @@
     }
     
     .input-group {
-      border-radius: 10px;
+      border-radius: 6px;
     }
     
     .form-input {
-      padding: 0.875rem 1rem;
-      font-size: 0.9rem;
+      padding: 0.625rem 0.875rem;
+      font-size: 0.8rem;
     }
     
     .search-button {
-      width: 44px;
-      height: 44px;
-      margin: 3px;
+      width: 36px;
+      height: 36px;
+      margin: 2px;
     }
 
     .message {
-      padding: 0.625rem 0.875rem;
-      font-size: 0.8rem;
+      padding: 0.5rem 0.625rem;
+      font-size: 0.75rem;
       margin-top: 0.375rem;
     }
   }

@@ -889,6 +889,8 @@
     grid-template-columns: 30% 70%;
     min-height: 100%;
     background: var(--color-bg-primary);
+    height: 100%;
+    overflow-y: hidden;
   }
   
   /* Sidebar/Header - Estilo Cursor/Stripe */
@@ -898,10 +900,7 @@
     color: #ffffff;
     display: flex;
     flex-direction: column;
-    position: fixed;
     height: 100%;
-    left: 0;
-    top: 0;
     z-index: 100;
     border-right: 1px solid #333333;
   }
@@ -1060,27 +1059,6 @@
     overflow-y: auto;
   }
   
-  .content-wrapper {
-    min-height: 100vh;
-    padding: 0;
-  }
-  
-  /* Header del dashboard */
-  .dashboard-header {
-    background: var(--color-bg-primary);
-    border-bottom: 1px solid var(--color-border);
-    padding: 0.5rem 2rem;
-  }
-  
-  .header-content {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    max-width: 1000px;
-    margin: 0 auto;
-    min-height: 20px;
-  }
-  
   
   /* Contenido principal */
   .main-content-area {
@@ -1162,7 +1140,7 @@
 
   .step.active:hover .step-icon {
     transform: scale(1.05);
-    box-shadow: 0 6px 20px rgba(5, 150, 105, 0.6);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
   }
 
   .step-content {
@@ -1190,9 +1168,9 @@
 
   /* Estados de los pasos */
   .step.active .step-icon {
-    background: linear-gradient(135deg, #059669, #10b981) !important;
-    border: 2px solid #059669;
-    box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4);
+    background: linear-gradient(135deg, var(--color-bg-dark), #1a1a1a) !important;
+    border: 2px solid var(--color-bg-dark);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     color: white;
   }
 
@@ -1201,13 +1179,13 @@
   }
 
   .step.active .step-title {
-    color: #059669;
+    color: var(--color-bg-dark);
     font-weight: 700;
   }
 
   .step.completed .step-icon {
-    background: linear-gradient(135deg, #059669, #10b981);
-    box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4);
+    background: linear-gradient(135deg, var(--color-bg-dark), #1a1a1a);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   }
 
   .step.completed .step-icon svg {
@@ -1215,20 +1193,20 @@
   }
 
   .step.completed .step-title {
-    color: #059669;
+    color: var(--color-bg-dark);
     font-weight: 600;
   }
 
   .step.completed .step-description {
-    color: #059669;
+    color: var(--color-bg-dark);
   }
 
   .step-connector.active {
-    background: linear-gradient(90deg, #059669, #10b981);
+    background: linear-gradient(90deg, var(--color-bg-dark), #1a1a1a);
   }
 
   .step-connector.active::after {
-    background: #10b981;
+    background: #1a1a1a;
   }
 
   /* Estado inactivo - cuando estamos en búsqueda */
@@ -1329,40 +1307,7 @@
   
   
   /* Responsive Design */
-  @media (max-width: 1200px) {
-    .sidebar {
-      width: 30%;
-    }
-    
-    .main-content {
-      margin-left: 30%;
-      width: 70%;
-    }
-    
-    .main-content-area {
-      padding: 1.5rem;
-      width: 100%;
-    }
-  }
   
-  @media (max-width: 1024px) {
-    .sidebar {
-      width: 100%;
-      height: auto;
-      position: static;
-      transform: none;
-    }
-    
-    .main-content {
-      width: 100%;
-      margin-left: 0;
-    }
-    
-    .main-content-area {
-      padding: 1.25rem;
-      width: 100%;
-    }
-  }
   
   @media (max-width: 768px) {
     .dashboard-layout {
@@ -1638,34 +1583,4 @@
     }
   }
 
-  @media (max-width: 480px) {
-    .mobile-company-info {
-      flex-direction: row;
-      text-align: left;
-      gap: 0.5rem;
-    }
-
-    .mobile-company-details {
-      text-align: left;
-    }
-
-
-    .mobile-security-badge-unified .security-icons svg {
-      color: #059669 !important;
-      display: block !important;
-      width: 14px !important;
-      height: 14px !important;
-    }
-
-    .mobile-security-badge-unified .security-icons svg {
-      color: #059669 !important;
-      display: block !important;
-      width: 12px !important;
-      height: 12px !important;
-    }
-
-    .mobile-security-badge-unified .security-message {
-      font-size: 0.5rem;
-    }
-  }
 </style>

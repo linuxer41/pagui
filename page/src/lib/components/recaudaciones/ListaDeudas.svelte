@@ -28,6 +28,7 @@
   // Funciones que se propagarán desde el padre
   export let generarQR: (deuda: Deuda) => void = () => {};
   export let pagarServicios: (deudas: Deuda[], total: number) => void = () => {};
+  export let goToPreviousStep: () => void = () => {};
   
   // Calcular si hay servicios para mostrar el botón de pagar todos
   $: tieneServicios = deudas && deudas.length > 0 && deudas.some(d => d.tipo === 'servicio');

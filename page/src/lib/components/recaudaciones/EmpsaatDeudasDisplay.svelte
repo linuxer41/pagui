@@ -33,6 +33,7 @@
       abonado: number;
     }>;
     deudasServicios: Array<{
+      noSolicitud?: number;
       idServicio?: number;
       id?: number;
       costo?: number;
@@ -58,74 +59,113 @@
   export let generarQR: (deudas: any[], total: number) => void = () => {};
   export let obtenerInfoAbonado: (abonado: string) => void = () => {};
   export let limpiarCliente: () => void = () => {};
+  export let goToPreviousStep: () => void = () => {};
   
   // Estado para deudas seleccionadas
   let deudasSeleccionadas: any[] = [];
   let totalSeleccionado: number = 0;
   
-  // Función para alternar selección de deuda
-  function toggleDeuda(deuda: any, tipo: 'agua' | 'servicio') {
-    const deudaConTipo = { ...deuda, tipo };
+  // Array unificado de deudas formateadas
+  $: deudasUnificadas = (() => {
+    if (!data) return [];
+    
+    const deudas: any[] = [];
+    
+    // Agregar servicios primero (prioritarios)
+    if (data.deudasServicios) {
+      data.deudasServicios.forEach((deuda, index) => {
+        deudas.push({
+          ...deuda,
+          tipo: 'servicio',
+          tipoLabel: 'Servicio',
+          titulo: deuda.descripcion || deuda.detalle || 'Servicio adicional',
+          subtitulo: `Solicitud #${deuda.noSolicitud || deuda.idServicio || deuda.id || index + 1}`,
+          periodo: deuda.fecha ? new Date(deuda.fecha).toLocaleDateString('es-BO', { year: 'numeric', month: 'long' }).replace(' de ', ' ') : '-',
+          monto: deuda.costo || deuda.monto || 0,
+          icono: 'service',
+          index: index
+        });
+      });
+    }
+    
+    // Agregar agua después
+    if (data.deudasAgua) {
+      data.deudasAgua.forEach((deuda, index) => {
+        deudas.push({
+          ...deuda,
+          tipo: 'agua',
+          tipoLabel: 'Consumo',
+          titulo: new Date(deuda.emision).toLocaleDateString('es-BO', { year: 'numeric', month: 'long' }).replace(' de ', ' '),
+          subtitulo: `${deuda.consumoM3} m³`,
+          periodo: `Solicitud: ${new Date(deuda.emision).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric' })}`,
+          monto: deuda.importeFactura,
+          icono: 'water',
+          index: index
+        });
+      });
+    }
+    
+    return deudas;
+  })();
+  
+  // Función para alternar selección de deuda basada en el array unificado
+  function toggleDeuda(deuda: any) {
     const index = deudasSeleccionadas.findIndex(d => 
-      d.factura === deuda.factura && d.tipo === tipo
+      d.factura === deuda.factura && d.tipo === deuda.tipo
     );
     
     if (index > -1) {
       deudasSeleccionadas.splice(index, 1);
     } else {
-      deudasSeleccionadas.push(deudaConTipo);
+      deudasSeleccionadas.push(deuda);
     }
     
-    // Recalcular total
+    // Recalcular total usando el monto del array unificado
     totalSeleccionado = deudasSeleccionadas.reduce((sum, deuda) => {
-      if (deuda.tipo === 'agua') {
-        return sum + deuda.importeFactura;
-      } else {
-        return sum + (deuda.costo || deuda.monto || 0);
-      }
+      return sum + deuda.monto;
     }, 0);
     
     deudasSeleccionadas = [...deudasSeleccionadas];
   }
   
   // Función para verificar si una deuda está seleccionada
-  function isDeudaSeleccionada(deuda: any, tipo: 'agua' | 'servicio') {
+  function isDeudaSeleccionada(deuda: any) {
     return deudasSeleccionadas.some(d => 
-      d.factura === deuda.factura && d.tipo === tipo
+      d.factura === deuda.factura && d.tipo === deuda.tipo
     );
   }
   
-  // Función para verificar si una deuda puede ser seleccionada
-  function canSelectDeuda(deuda: any, tipo: 'agua' | 'servicio', index: number) {
-    // Verificar si ya hay deudas de otro tipo seleccionadas
-    const hayServiciosSeleccionados = deudasSeleccionadas.some(d => d.tipo === 'servicio');
-    const hayAguaSeleccionada = deudasSeleccionadas.some(d => d.tipo === 'agua');
+  // Función para verificar si una deuda puede ser seleccionada (basada en array unificado)
+  function canSelectDeuda(deuda: any) {
+    const deudasDelMismoTipo = getDeudasPorTipo(deuda.tipo);
+    const deudasDelOtroTipo = getDeudasPorTipo(deuda.tipo === 'agua' ? 'servicio' : 'agua');
+    const hayDeudasOtroTipoSeleccionadas = deudasSeleccionadas.some(d => d.tipo !== deuda.tipo);
     
-    if (tipo === 'agua') {
+    if (deuda.tipo === 'agua') {
       // Para agua, solo se puede seleccionar si no hay servicios pendientes
       // O si todos los servicios están seleccionados
-      const serviciosPendientes = (data?.deudasServicios?.length || 0);
-      const serviciosSeleccionados = deudasSeleccionadas.filter(d => d.tipo === 'servicio').length;
+      const serviciosPendientes = deudasDelOtroTipo.length;
+      const serviciosSeleccionados = getDeudasSeleccionadasPorTipo('servicio').length;
       
       if (serviciosPendientes > 0 && serviciosSeleccionados < serviciosPendientes) {
         return false; // No se puede seleccionar agua si hay servicios sin seleccionar
       }
       
       // No se puede seleccionar agua si ya hay servicios seleccionados (pero no todos)
-      if (hayServiciosSeleccionados && serviciosSeleccionados < serviciosPendientes) {
+      if (hayDeudasOtroTipoSeleccionadas && serviciosSeleccionados < serviciosPendientes) {
         return false;
       }
       
       // Lógica de orden: solo se puede seleccionar la más antigua (index 0)
       // o si ya está seleccionada la anterior
-      if (index === 0) {
+      if (deuda.index === 0) {
         return true; // La primera siempre se puede seleccionar
       }
       
       // Para las siguientes, solo si la anterior está seleccionada
-      const deudaAnterior = data?.deudasAgua?.[index - 1];
+      const deudaAnterior = deudasDelMismoTipo[deuda.index - 1];
       if (deudaAnterior) {
-        return isDeudaSeleccionada(deudaAnterior, 'agua');
+        return isDeudaSeleccionada(deudaAnterior);
       }
       
       return false;
@@ -133,23 +173,36 @@
     
     // Para servicios
     // No se puede seleccionar servicios si ya hay agua seleccionada
-    if (hayAguaSeleccionada) {
+    if (hayDeudasOtroTipoSeleccionadas) {
       return false;
     }
     
     // Solo se puede seleccionar la más antigua (index 0)
     // o si ya está seleccionada la anterior
-    if (index === 0) {
+    if (deuda.index === 0) {
       return true; // La primera siempre se puede seleccionar
     }
     
     // Para las siguientes, solo si la anterior está seleccionada
-    const deudaAnterior = data?.deudasServicios?.[index - 1];
+    const deudaAnterior = deudasDelMismoTipo[deuda.index - 1];
     if (deudaAnterior) {
-      return isDeudaSeleccionada(deudaAnterior, 'servicio');
+      return isDeudaSeleccionada(deudaAnterior);
     }
     
     return false;
+  }
+  
+  // Funciones auxiliares basadas en el array unificado
+  function getDeudasPorTipo(tipo: 'agua' | 'servicio') {
+    return deudasUnificadas.filter(d => d.tipo === tipo);
+  }
+  
+  function getDeudasSeleccionadasPorTipo(tipo: 'agua' | 'servicio') {
+    return deudasSeleccionadas.filter(d => d.tipo === tipo);
+  }
+  
+  function getTotalPorTipo(tipo: 'agua' | 'servicio') {
+    return getDeudasSeleccionadasPorTipo(tipo).reduce((sum, deuda) => sum + deuda.monto, 0);
   }
   
   // Función para pagar deudas seleccionadas
@@ -163,39 +216,34 @@
 </script>
 
 <div class="debt-list-container">
-  <!-- Información del cliente -->
-  {#if cliente}
-    <div class="client-info">
-      <div class="client-header">
-        <h2>Información del Cliente</h2>
-        <div class="client-actions">
-          <button 
-            class="btn-sync-icon" 
-            on:click={() => obtenerInfoAbonado(cliente.numeroCuenta)}
-            disabled={isLoading}
-            title="Actualizar información del cliente"
-          >
-            {#if isLoading}
-              <span class="spinner"></span>
-            {:else}
-              <RefreshCwIcon size="18" />
-            {/if}
-          </button>
-          <button 
-            class="btn-clear-icon" 
-            on:click={limpiarCliente}
-            title="Limpiar información y volver a buscar"
-          >
-            <XIcon size="18" />
-          </button>
+  <!-- Navegación y información del cliente -->
+  <div class="debt-header">
+    <button 
+      class="btn-back" 
+      on:click={() => goToPreviousStep()}
+      title="Volver al paso anterior"
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15,18 9,12 15,6"></polyline>
+      </svg>
+      Volver
+    </button>
+    
+    {#if cliente}
+      <div class="client-summary">
+        <div class="client-name">{cliente.nombre || 'Cliente'}</div>
+        <div class="client-details">
+          <div class="client-account">Cuenta: {cliente.numeroCuenta}</div>
+          {#if cliente.numeroMedidor}
+            <div class="client-meter">Medidor: {cliente.numeroMedidor}</div>
+          {/if}
+          {#if cliente.numeroAbonado}
+            <div class="client-subscriber">Abonado: {cliente.numeroAbonado}</div>
+          {/if}
         </div>
       </div>
-      <div class="client-details">
-        <p><strong>Nombre:</strong> {cliente.nombre || 'Cliente'}</p>
-        <p><strong>Número de Cuenta:</strong> {cliente.numeroCuenta}</p>
-      </div>
-    </div>
-  {/if}
+    {/if}
+  </div>
 
   {#if (data?.deudasAgua?.length || 0) === 0 && (data?.deudasServicios?.length || 0) === 0}
     <div class="no-debts">
@@ -204,104 +252,54 @@
     </div>
   {/if}
   
-  <!-- Servicios primero (prioritarios) -->
-  {#if (data?.deudasServicios?.length || 0) > 0}
-    <div class="debt-section">
-      <h3>Servicios Adicionales Pendientes</h3>
-      <div class="section-total">
-        <span class="label">Total Servicios:</span>
-        <span class="value">Bs. {(data?.totales?.totalServicios || 0).toFixed(2)}</span>
-      </div>
-      
-      {#each (data?.deudasServicios || []) as deuda, index (deuda.idServicio || deuda.id || index)}
-        <div class="debt-item" class:selected={isDeudaSeleccionada(deuda, 'servicio')} class:disabled={!canSelectDeuda(deuda, 'servicio', index)} on:click={() => canSelectDeuda(deuda, 'servicio', index) && toggleDeuda(deuda, 'servicio')}>
-          <div class="debt-icon service-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-            </svg>
+  <!-- Lista unificada de deudas -->
+  <div class="debt-list">
+    {#each deudasUnificadas as deuda (deuda.factura || deuda.idServicio || deuda.id)}
+      <div class="debt-item" class:selected={isDeudaSeleccionada(deuda)} class:disabled={!canSelectDeuda(deuda)} on:click={() => canSelectDeuda(deuda) && toggleDeuda(deuda)}>
+        <div class="debt-icon-container">
+          <div class="debt-icon" class:service-icon={deuda.icono === 'service'}>
+            {#if deuda.icono === 'service'}
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+            {:else}
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+              </svg>
+            {/if}
           </div>
-          <div class="debt-main">
-            <div class="debt-info">
-              <div class="debt-header">
-                <div class="debt-number">{deuda.descripcion || deuda.detalle || 'Servicio adicional'}</div>
-              </div>
-              <div class="debt-consumo">Servicio #{deuda.idServicio || deuda.id || index + 1}</div>
-              <div class="debt-periodo">{deuda.fecha ? new Date(deuda.fecha).toLocaleDateString('es-BO', { year: 'numeric', month: 'long' }).replace(' de ', ' ') : '-'}</div>
+          <div class="debt-type-label">{deuda.tipoLabel}</div>
+        </div>
+        <div class="debt-main">
+          <div class="debt-info">
+            <div class="debt-header">
+              <div class="debt-number">{deuda.titulo}</div>
             </div>
-            <div class="debt-right">
-              <div class="debt-amount">Bs. {(deuda.costo || deuda.monto || 0).toFixed(2)}</div>
-              <div class="debt-action">
-                <div class="checkbox-indicator">
-                  <div class="checkbox" class:checked={isDeudaSeleccionada(deuda, 'servicio')} class:disabled={!canSelectDeuda(deuda, 'servicio', index)}>
-                    {#if isDeudaSeleccionada(deuda, 'servicio')}
-                      <CheckIcon size="12" color="white" />
-                    {/if}
-                  </div>
+            <div class="debt-consumo">
+              <span class="consumption-label">
+                {deuda.tipo === 'servicio' ? 'Solicitud:' : 'Consumo:'}
+              </span>
+              {deuda.subtitulo}
+            </div>
+            <div class="debt-periodo">{deuda.periodo}</div>
+          </div>
+          <div class="debt-right">
+            <div class="debt-amount">Bs. {deuda.monto.toFixed(2)}</div>
+            <div class="debt-action">
+              <div class="checkbox-indicator">
+                <div class="checkbox" class:checked={isDeudaSeleccionada(deuda)} class:disabled={!canSelectDeuda(deuda)}>
+                  {#if isDeudaSeleccionada(deuda)}
+                    <CheckIcon size="12" />
+                  {/if}
                 </div>
               </div>
             </div>
           </div>
         </div>
-      {/each}
-    </div>
-  {/if}
-  
-  <!-- Agua después -->
-  {#if (data?.deudasAgua?.length || 0) > 0}
-    <div class="debt-section">
-      <h3>Facturas de Agua Pendientes</h3>
-      {#if (data?.deudasServicios?.length || 0) > 0}
-        {@const serviciosPendientes = (data?.deudasServicios?.length || 0)}
-        {@const serviciosSeleccionados = deudasSeleccionadas.filter(d => d.tipo === 'servicio').length}
-        {#if serviciosSeleccionados < serviciosPendientes}
-          <div class="priority-notice" class:active={serviciosSeleccionados > 0}>
-            <span class="notice-text">
-              {#if serviciosSeleccionados > 0}
-                🔒 Selecciona todas las deudas pendientes de servicio para poder pagar las de agua
-              {:else}
-                ⚠️ Selecciona todas las deudas pendientes de servicio para poder pagar las de agua
-              {/if}
-            </span>
-          </div>
-        {/if}
-      {/if}
-      <div class="section-total">
-        <span class="label">Total Agua:</span>
-        <span class="value">Bs. {(data?.totales?.totalAgua || 0).toFixed(2)}</span>
       </div>
-      
-      {#each (data?.deudasAgua || []) as deuda, index (deuda.factura)}
-        <div class="debt-item" class:selected={isDeudaSeleccionada(deuda, 'agua')} class:disabled={!canSelectDeuda(deuda, 'agua', index)} on:click={() => canSelectDeuda(deuda, 'agua', index) && toggleDeuda(deuda, 'agua')}>
-          <div class="debt-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
-            </svg>
-          </div>
-          <div class="debt-main">
-            <div class="debt-info">
-              <div class="debt-header">
-                <div class="debt-number">{new Date(deuda.emision).toLocaleDateString('es-BO', { year: 'numeric', month: 'long' }).replace(' de ', ' ')}</div>
-              </div>
-              <div class="debt-consumo">{deuda.consumoM3} m³</div>
-              <div class="debt-periodo">Factura #{deuda.factura}</div>
-            </div>
-            <div class="debt-right">
-              <div class="debt-amount">Bs. {deuda.importeFactura.toFixed(2)}</div>
-              <div class="debt-action">
-                <div class="checkbox-indicator">
-                  <div class="checkbox" class:checked={isDeudaSeleccionada(deuda, 'agua')} class:disabled={!canSelectDeuda(deuda, 'agua', index)}>
-                    {#if isDeudaSeleccionada(deuda, 'agua')}
-                      <CheckIcon size="12" color="white" />
-                    {/if}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      {/each}
-    </div>
-  {/if}
+    {/each}
+    
+  </div>
   
   <!-- Botón de pago total -->
   {#if deudasSeleccionadas.length > 0}
@@ -403,8 +401,33 @@
   
   .bulk-actions {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 1rem;
+    gap: 1rem;
+  }
+  
+  .btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid rgba(0, 0, 0, 0.3);
+    color: #000000;
+  }
+  
+  .btn-back:hover {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.5);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   }
   
   .btn-pay-all {
@@ -453,31 +476,42 @@
     font-size: 0.9rem;
   }
   
-  /* Estilos para las tarjetas de deuda */
+  /* Estilos para las tarjetas de deuda - Flutter Material Design 3 */
   .debt-item {
-    background: var(--background-primary);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius);
-    padding: 1rem;
-    margin-bottom: 0.75rem;
-    transition: var(--transition);
-    box-shadow: var(--shadow-sm);
+    background: transparent;
+    border: none;
+    border-radius: 12px;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+    box-shadow: none;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 0.75rem;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .debt-icon-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    flex-shrink: 0;
+    width: 56px;
   }
   
   .debt-icon {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
+    width: 48px;
+    height: 48px;
     border-radius: 8px;
     background: linear-gradient(135deg, #3b82f6, #1d4ed8);
     color: white;
     flex-shrink: 0;
-    margin-top: 0.25rem;
+    font-size: 1.3rem;
   }
   
   .debt-icon.service-icon {
@@ -485,72 +519,92 @@
   }
   
   .debt-item:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-hover);
-    border-color: rgb(var(--primary));
+    background: rgba(0, 0, 0, 0.04);
     cursor: pointer;
   }
   
   .debt-item.selected {
-    border-color: var(--color-bg-dark);
-    background: rgba(0, 0, 0, 0.05);
-    transform: translateY(-1px);
-  }
-  
-  .debt-item.selected:hover {
-    border-color: var(--color-bg-dark);
     background: rgba(0, 0, 0, 0.08);
   }
   
+  .debt-item.selected:hover {
+    background: rgba(0, 0, 0, 0.12);
+  }
+  
   .debt-item.disabled {
-    opacity: 0.5;
+    opacity: 0.38;
     cursor: not-allowed;
-    background: rgba(0, 0, 0, 0.02);
+    background: transparent;
   }
   
   .debt-item.disabled:hover {
-    transform: none;
-    box-shadow: var(--shadow-sm);
-    border-color: var(--border-color);
-    background: rgba(0, 0, 0, 0.02);
+    background: transparent;
   }
   
   .debt-main {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 0.5rem;
+    align-items: center;
     width: 100%;
+    min-height: 40px;
   }
   
   .debt-info {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.15rem;
     flex: 1;
-    margin-right: 1rem;
+    margin-right: 0.75rem;
   }
   
   .debt-header {
     margin-bottom: 0.25rem;
   }
   
+  .debt-type-label {
+    background: rgba(0, 0, 0, 0.12);
+    color: rgba(0, 0, 0, 0.6);
+    padding: 0.1rem 0.3rem;
+    border-radius: 4px;
+    font-size: 0.55rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    display: inline-block;
+    text-align: center;
+    white-space: nowrap;
+    width: 56px;
+    box-sizing: border-box;
+  }
+  
   .debt-number {
-    font-weight: 600;
+    font-weight: 500;
     color: var(--text-primary);
-    font-size: 0.8rem;
+    font-size: 0.85rem;
+    line-height: 1.2;
   }
   
   
   .debt-consumo {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
+    font-size: 0.7rem;
+    color: rgba(0, 0, 0, 0.6);
+    font-weight: 400;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  
+  .consumption-label {
+    font-size: 0.65rem;
+    color: rgba(0, 0, 0, 0.5);
     font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
   }
   
   .debt-periodo {
-    font-size: 0.7rem;
-    color: var(--text-secondary);
+    font-size: 0.65rem;
+    color: rgba(0, 0, 0, 0.5);
     font-weight: 400;
   }
   
@@ -558,14 +612,14 @@
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 0.5rem;
-    min-width: 120px;
+    gap: 0.25rem;
+    min-width: 100px;
     flex-shrink: 0;
   }
   
   .debt-amount {
-    font-size: 1.1rem;
-    font-weight: 700;
+    font-size: 0.95rem;
+    font-weight: 600;
     color: var(--accent-color);
     text-align: right;
   }
@@ -580,21 +634,21 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0.5rem;
-    min-height: 40px;
+    padding: 0.25rem;
+    min-height: 32px;
   }
   
   .checkbox {
-    width: 20px;
-    height: 20px;
-    border: 2px solid var(--border-color);
-    border-radius: 4px;
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(0, 0, 0, 0.3);
+    border-radius: 3px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
+    transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
     cursor: pointer;
-    background: var(--background-primary);
+    background: transparent;
   }
   
   .checkbox.checked {
@@ -604,15 +658,15 @@
   }
   
   .checkbox.disabled {
-    background: var(--background-tertiary);
-    border-color: var(--border-color);
+    background: transparent;
+    border-color: rgba(0, 0, 0, 0.12);
     cursor: not-allowed;
-    opacity: 0.5;
+    opacity: 0.38;
   }
   
   .checkbox:hover:not(.disabled) {
-    border-color: #000000;
-    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+    border-color: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.04);
   }
   
   .payment-summary {
@@ -757,10 +811,13 @@
       gap: 0.75rem;
     }
     
-    .debt-icon {
+    .debt-icon-container {
       align-self: flex-start;
-      margin-top: 0;
       flex-shrink: 0;
+    }
+    
+    .debt-icon {
+      margin-top: 0;
     }
     
     .debt-main {
@@ -807,90 +864,43 @@
     }
   }
 
-  /* Estilos para información del cliente */
-  .client-info {
-    background: transparent;
-    padding: 0;
-    margin-bottom: 1.5rem;
-  }
 
-  .client-info h2 {
-    margin: 0 0 0.5rem 0;
-    color: var(--text-secondary);
-    font-size: 0.75rem;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
 
-  .client-details {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .client-details p {
-    margin: 0;
-    color: var(--text-primary);
-    font-size: 0.875rem;
-    line-height: 1.4;
-    font-weight: 500;
-  }
-
-  .client-details strong {
-    color: var(--text-secondary);
-    font-weight: 500;
-  }
-
-  .client-header {
+  .debt-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 0.75rem;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
   }
-
-
-  .client-actions {
+  
+  .client-summary {
+    text-align: right;
+  }
+  
+  .client-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #000000;
+    margin-bottom: 0.5rem;
+  }
+  
+  .client-details {
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .client-account,
+  .client-meter,
+  .client-subscriber {
+    font-size: 0.8rem;
+    color: rgba(0, 0, 0, 0.7);
+    line-height: 1.3;
   }
 
-  .btn-sync-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: var(--radius-md);
-    background: var(--background-tertiary);
-    color: var(--text-primary);
-    border: 1px solid var(--border-color);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: var(--shadow-sm);
-    flex-shrink: 0;
-  }
-
-  .btn-sync-icon:hover {
-    background: var(--background-secondary);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow);
-    color: var(--accent-color);
-  }
-
-  .btn-sync-icon:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none;
-  }
-
-  .btn-sync-icon:disabled:hover {
-    background: var(--background-tertiary);
-    transform: none;
-    box-shadow: var(--shadow-sm);
-    color: var(--text-primary);
-  }
 
   /* Indicador de QR generado */
   .qr-generated-indicator {
@@ -911,27 +921,4 @@
     text-align: center;
   }
 
-  .btn-clear-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: var(--radius-md);
-    background: var(--background-tertiary);
-    color: var(--text-secondary);
-    border: 1px solid var(--border-color);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: var(--shadow-sm);
-    flex-shrink: 0;
-  }
-
-  .btn-clear-icon:hover {
-    background: #fee2e2;
-    transform: translateY(-1px);
-    box-shadow: var(--shadow);
-    color: #dc2626;
-    border-color: #fecaca;
-  }
 </style>

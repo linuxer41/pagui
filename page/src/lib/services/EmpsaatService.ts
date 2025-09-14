@@ -336,6 +336,77 @@ export class EmpsaatService {
   }
 
   /**
+   * Busca deudas por criterio (nombre, documento, abonado)
+   * 
+   * @param keyword Palabra clave para buscar
+   * @param type Tipo de búsqueda: nombre, documento, abonado
+   * @param apiKey API Key para autenticación
+   */
+  static async buscarDeudasPorCriterio(
+    keyword: string,
+    type: 'nombre' | 'documento' | 'abonado',
+    apiKey: string
+  ): Promise<ServerResponse<DeudasResponse>> {
+    try {
+      // Validar que el apiKey sea cadena
+      if (typeof apiKey !== 'string') {
+        return {
+          success: false,
+          error: 'API Key inválida',
+          codigo: 'API_KEY_INVALIDA'
+        };
+      }
+
+      // Validar parámetros de búsqueda
+      if (!keyword || keyword.trim().length === 0) {
+        return {
+          success: false,
+          error: 'La palabra clave de búsqueda no puede estar vacía',
+          codigo: 'KEYWORD_VACIA'
+        };
+      }
+
+      if (!['nombre', 'documento', 'abonado'].includes(type)) {
+        return {
+          success: false,
+          error: 'Tipo de búsqueda inválido. Debe ser: nombre, documento o abonado',
+          codigo: 'TIPO_BUSQUEDA_INVALIDO'
+        };
+      }
+
+      // Obtener la integración correspondiente
+      const empsaatService = IntegrationFactory.getEmpsaatIntegration();
+      if (!empsaatService) {
+        return {
+          success: false,
+          error: 'Servicio de integración no disponible',
+          codigo: 'SERVICIO_NO_DISPONIBLE'
+        };
+      }
+
+      // Validar API Key
+      const esApiKeyValida = await empsaatService.validateApiKey(apiKey);
+      if (!esApiKeyValida) {
+        return {
+          success: false,
+          error: 'API Key inválida',
+          codigo: 'API_KEY_INVALIDA'
+        };
+      }
+
+      // Buscar deudas a través del servicio de integración
+      return await empsaatService.buscarDeudasPorCriterio(keyword.trim(), type);
+    } catch (error) {
+      console.error('Error al buscar deudas por criterio:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error desconocido',
+        codigo: 'ERROR_INESPERADO'
+      };
+    }
+  }
+
+  /**
    * Verifica si el servicio de EMPSAAT está disponible
    */
   static async verificarDisponibilidad(): Promise<boolean> {

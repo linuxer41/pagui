@@ -83,6 +83,9 @@
   let isGeneratingQR = false; // Variable para controlar el estado de carga del botón de pagar
   let currentStep = 1; // Variable para controlar el paso actual del proceso
   
+  // Estado para el tipo de búsqueda
+  let tipoBusqueda: 'nombre' | 'documento' | 'abonado' = 'abonado';
+
   // Función para buscar cuenta usando el patrón correcto de SvelteKit
   async function buscarCuenta() {
     if (!codigoClienteInput.trim()) {
@@ -96,7 +99,8 @@
     
     try {
       const formData = new FormData();
-      formData.append('abonado', codigoClienteInput.trim());
+      formData.append('keyword', codigoClienteInput.trim());
+      formData.append('type', tipoBusqueda);
       
       const response = await fetch(`?/buscarDeudas`, {
         method: 'POST',
@@ -110,11 +114,8 @@
         // Usar la respuesta tal como viene de la API
         searchResult = actionResult.data;
         
-        // Crear cliente simple usando el abonado
-        cliente = {
-          nombre: 'Cliente',
-          numeroCuenta: codigoClienteInput.trim()
-        };
+        // Ya no necesitamos crear cliente manualmente, viene en la respuesta
+        // La información del cliente estará en searchResult.data.deudas[0].abonado
         
         // Limpiar el input después de una búsqueda exitosa
         codigoClienteInput = '';
@@ -138,48 +139,6 @@
     }
   }
 
-  // Función para obtener información del abonado (para el botón de sincronización)
-  async function obtenerInfoAbonado(numeroCuenta: string) {
-    if (!numeroCuenta) return;
-    
-    isLoading = true;
-    error = null;
-    
-    try {
-      const formData = new FormData();
-      formData.append('abonado', numeroCuenta);
-      
-      const response = await fetch(`?/obtenerAbonado`, {
-        method: 'POST',
-        body: formData
-      });
-
-      const actionResult: ActionResult = deserialize(await response.text());
-      
-      if (actionResult.type === 'success' && actionResult.data) {
-        // Actualizar la información del cliente
-        cliente = actionResult.data.abonado;
-        
-        // Recargar las deudas
-        await buscarCuenta();
-      } else if (actionResult.type === 'failure') {
-        error = actionResult.data?.error || 'Error al obtener información del abonado';
-        if (actionResult.data?.codigo) {
-          error += ` (${actionResult.data.codigo})`;
-        }
-      } else {
-        error = 'Error inesperado al obtener información del abonado';
-      }
-      
-      if (actionResult) applyAction(actionResult);
-      
-    } catch (err) {
-      console.error('Error en obtenerInfoAbonado:', err);
-      error = 'Error de conexión. Intenta nuevamente.';
-    } finally {
-      isLoading = false;
-    }
-  }
 
   // Función para limpiar la información del cliente y volver al formulario de búsqueda
   function limpiarCliente() {
@@ -199,8 +158,8 @@
   }
   
   // Función para generar QR específica para EMPSAAT
-  async function generarQREmpsaat(deudas: any[], total: number) {
-    console.log('generarQREmpsaat llamada con:', deudas, 'total:', total);
+  async function generarQREmpsaat(deudas: any[], total: number, abonado: any) {
+    console.log('generarQREmpsaat llamada con:', deudas, 'total:', total, 'abonado:', abonado);
     if (!deudas || deudas.length === 0) return;
     
     // Activar loader del botón
@@ -228,8 +187,8 @@
         }
         
         formData.append('descripcion', descripcion);
-        formData.append('transactionId', `txn_${cliente?.numeroCuenta}_${Date.now()}_${total}`);
-        formData.append('numeroCuenta', cliente?.numeroCuenta?.toString() || '');
+        formData.append('transactionId', `txn_${abonado?.abonado}_${Date.now()}_${total}`);
+        formData.append('numeroCuenta', abonado?.abonado?.toString() || '');
         
         const response = await fetch(`?/generarQR`, {
           method: 'POST',
@@ -524,7 +483,6 @@
     error = null;
     qrGenerado = null;
     qrStatus = null;
-    infoAbonadoObtenida = false;
     currentStep = 1; // Resetear al paso 1
     detenerPollingEstado();
   }
@@ -607,14 +565,6 @@
     }
    }
    
-     // Variable para controlar si ya se obtuvo la información del abonado
-  let infoAbonadoObtenida = false;
-  
-  // Llamar automáticamente a obtenerInfoAbonado cuando hay datos de EMPSAAT (solo una vez)
-  $: if (searchResult?.success && searchResult?.data && slug === 'empsaat' && cliente?.numeroCuenta && !infoAbonadoObtenida) {
-    infoAbonadoObtenida = true;
-    obtenerInfoAbonado(cliente.numeroCuenta);
-  }
 
   // Actualizar el paso actual según el estado del proceso
   $: if (qrStatus?.status === 'paid' || qrStatus?.status === 'used') {
@@ -806,15 +756,13 @@
               {#if slug === 'empsaat'}
                 <EmpsaatDeudasDisplay
                   data={searchResult?.data}
-                  cliente={cliente}
                   {isGeneratingQR}
                   {isLoading}
                   {qrGenerado}
                   {error}
                   generarQR={generarQREmpsaat}
-                  {obtenerInfoAbonado}
                   {limpiarCliente}
-                    {goToPreviousStep}
+                  {goToPreviousStep}
                 />
               {:else}
                 <ListaDeudas
@@ -840,10 +788,10 @@
             <div class="search-content">
               <FormularioBusqueda
                 bind:codigoClienteInput
+                bind:tipoBusqueda
                 {isLoading}
                 {searchResult}
                 {error}
-                instrucciones={empresa.instrucciones}
                 onBuscar={buscarCuenta}
               />
             </div>

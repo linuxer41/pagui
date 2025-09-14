@@ -3,10 +3,10 @@
 
   // Props
   export let codigoClienteInput: string = '';
+  export let tipoBusqueda: 'nombre' | 'documento' | 'abonado' = 'abonado';
   export let isLoading: boolean = false;
   export let searchResult: any = null;
   export let error: string | null = null;
-  export let instrucciones: string = '';
 
   // Evento que se disparará al enviar el formulario
   export let onBuscar: () => void;
@@ -14,12 +14,27 @@
 
 <div class="search-form-container">
   <form class="search-form" on:submit|preventDefault={onBuscar}>
+    <!-- Selector de tipo de búsqueda -->
+    <div class="search-type-selector">
+      <label for="tipoBusqueda" class="search-type-label">Buscar por:</label>
+      <select 
+        id="tipoBusqueda" 
+        bind:value={tipoBusqueda}
+        class="search-type-select"
+        disabled={isLoading}
+      >
+        <option value="abonado">Número de Abonado</option>
+        <option value="nombre">Nombre del Cliente</option>
+        <option value="documento">Documento/NIT</option>
+      </select>
+    </div>
+    
     <div class="input-group">
       <input
         id="codigoCliente"
         type="text"
         bind:value={codigoClienteInput}
-        placeholder="Número de cliente o abonado"
+        placeholder={tipoBusqueda === 'abonado' ? 'Número de abonado' : tipoBusqueda === 'nombre' ? 'Nombre del cliente' : 'Documento o NIT'}
         class="form-input"
         required
         disabled={isLoading}
@@ -66,6 +81,48 @@
   
   .search-form {
     width: 100%;
+  }
+
+  .search-type-selector {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+  }
+
+  .search-type-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #000000;
+    white-space: nowrap;
+  }
+
+  .search-type-select {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    background: white;
+    font-size: 0.875rem;
+    color: #000000;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .search-type-select:focus {
+    outline: none;
+    border-color: #000000;
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+  }
+
+  .search-type-select:disabled {
+    background: rgba(0, 0, 0, 0.05);
+    color: rgba(0, 0, 0, 0.38);
+    cursor: not-allowed;
   }
 
   .input-group {
@@ -179,6 +236,22 @@
   @media (max-width: 768px) {
     .search-form-container {
       max-width: 100%;
+    }
+    
+    .search-type-selector {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+      padding: 0.625rem;
+    }
+
+    .search-type-label {
+      font-size: 0.8rem;
+    }
+
+    .search-type-select {
+      width: 100%;
+      font-size: 0.8rem;
     }
     
     .input-group {

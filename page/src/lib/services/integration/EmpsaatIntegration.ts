@@ -42,6 +42,11 @@ export interface EmpsaatIntegrationService extends IntegrationService {
    * Obtiene detalle de un abonado específico
    */
   getAbonadoById(abonado: number): Promise<ServerResponse<AbonadoSchema>>;
+
+  /**
+   * Busca deudas por criterio (nombre, documento, abonado)
+   */
+  buscarDeudasPorCriterio(keyword: string, type: 'nombre' | 'documento' | 'abonado'): Promise<ServerResponse<DeudasResponse>>;
 }
 
 /**
@@ -217,6 +222,36 @@ export class EmpsaatIntegration extends BaseIntegrationService implements Empsaa
 
       const data = await response.json() as AbonadoSchema;
       return this.createSuccessResponse(data, 'Detalles del abonado obtenidos correctamente');
+    } catch (error) {
+      return this.handleApiError(error);
+    }
+  }
+
+  /**
+   * Busca deudas por criterio (nombre, documento, abonado)
+   */
+  async buscarDeudasPorCriterio(keyword: string, type: 'nombre' | 'documento' | 'abonado'): Promise<ServerResponse<DeudasResponse>> {
+    try {
+      // Construir URL con query params
+      const queryParams = new URLSearchParams();
+      queryParams.append('keyword', keyword);
+      queryParams.append('type', type);
+
+      const response = await fetch(`${this.apiBaseUrl}/deudas/?${queryParams}`, {
+        method: 'GET',
+        headers: this.apiHeaders
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        return this.createErrorResponse(
+          errorData?.message || `Error al buscar deudas por ${type}`, 
+          'ERROR_BUSQUEDA_DEUDAS'
+        );
+      }
+
+      const data = await response.json() as DeudasResponse;
+      return this.createSuccessResponse(data, 'Deudas encontradas correctamente');
     } catch (error) {
       return this.handleApiError(error);
     }

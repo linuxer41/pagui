@@ -56,7 +56,7 @@ export const load = async ({ params, url }) => {
 };
 
 export const actions = {
-  // Acción para buscar deudas de un abonado
+  // Acción para buscar deudas por criterio
   buscarDeudas: async ({ request, params }) => {
     const { slug } = params;
     
@@ -78,12 +78,21 @@ export const actions = {
     
     try {
       const formData = await request.formData();
-      const abonado = parseInt(formData.get('abonado')?.toString() || '0');
+      const keyword = formData.get('keyword')?.toString() || '';
+      const type = formData.get('type')?.toString() || 'abonado';
 
-      if (!abonado || isNaN(abonado)) {
+      // Validar parámetros
+      if (!keyword || keyword.trim().length === 0) {
         return fail(400, {
           success: false,
-          error: 'Número de abonado inválido'
+          error: 'Palabra clave de búsqueda requerida'
+        });
+      }
+
+      if (!['nombre', 'documento', 'abonado'].includes(type)) {
+        return fail(400, {
+          success: false,
+          error: 'Tipo de búsqueda inválido'
         });
       }
 
@@ -92,14 +101,14 @@ export const actions = {
         // La API key se obtiene del servidor, nunca se expone al cliente
         const apiKey = empresa.apiKey;
         
-        // Consultar deudas a través del servicio
-        const response = await EmpsaatService.obtenerDeudas(abonado, apiKey);
+        // Buscar deudas por criterio a través del servicio
+        const response = await EmpsaatService.buscarDeudasPorCriterio(keyword.trim(), type as 'nombre' | 'documento' | 'abonado', apiKey);
         console.log('response', JSON.stringify(response, null, 2));
         
         if (!response.success) {
           return fail(400, {
             success: false,
-            error: response.error || 'Error al consultar deudas',
+            error: response.error || 'Error al buscar deudas',
             codigo: response.codigo
           });
         }
@@ -107,7 +116,7 @@ export const actions = {
         return {
           success: true,
           data: response.data,
-          mensaje: `Deudas obtenidas correctamente`
+          mensaje: `Deudas encontradas correctamente`
         };
       }
       

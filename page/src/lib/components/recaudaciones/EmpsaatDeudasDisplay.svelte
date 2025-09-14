@@ -20,29 +20,47 @@
     `;
   };
   
-  // Interface para la respuesta de la API de EMPSAAT
+  // Interface para la respuesta de la API de EMPSAAT con múltiples abonados
   interface EmpsaatApiResponse {
-    deudasAgua: Array<{
-      factura: number;
-      emision: string;
-      lectura: number;
-      consumoM3: number;
-      importeFactura: number;
-      fechaPago: string | null;
-      cufFactura: string;
-      abonado: number;
+    deudas: Array<{
+      abonado: {
+        abonado: number;
+        nit: number;
+        nombre: string;
+        ci: string;
+        medidor: string;
+        zona: string;
+        direccion: string;
+        categoria: string;
+        estado: string;
+      };
+      deudasAgua: Array<{
+        factura: number;
+        emision: string;
+        lectura: number;
+        consumoM3: number;
+        importeFactura: number;
+        fechaPago: string | null;
+        cufFactura: string;
+        abonado: number;
+      }>;
+      deudasServicios: Array<{
+        noSolicitud?: number;
+        idServicio?: number;
+        id?: number;
+        costo?: number;
+        monto?: number;
+        descripcion?: string;
+        detalle?: string;
+        fecha?: string;
+      }>;
+      totales: {
+        totalAgua: number;
+        totalServicios: number;
+        totalDeuda: number;
+      };
     }>;
-    deudasServicios: Array<{
-      noSolicitud?: number;
-      idServicio?: number;
-      id?: number;
-      costo?: number;
-      monto?: number;
-      descripcion?: string;
-      detalle?: string;
-      fecha?: string;
-    }>;
-    totales: {
+    totalGeneral: {
       totalAgua: number;
       totalServicios: number;
       totalDeuda: number;
@@ -50,31 +68,33 @@
   }
   
   export let data: EmpsaatApiResponse | null = null;
-  export let cliente: any = null;
   export let isGeneratingQR: boolean = false;
   export let isLoading: boolean = false;
   export let qrGenerado: any = null;
   export let error: string | null = null;
   
-  export let generarQR: (deudas: any[], total: number) => void = () => {};
-  export let obtenerInfoAbonado: (abonado: string) => void = () => {};
+  export let generarQR: (deudas: any[], total: number, abonado: any) => void = () => {};
   export let limpiarCliente: () => void = () => {};
   export let goToPreviousStep: () => void = () => {};
   
-  // Estado para deudas seleccionadas
+  // Estado para múltiples abonados
+  let abonadoActivo: number = 0; // Índice del abonado activo
   let deudasSeleccionadas: any[] = [];
   let totalSeleccionado: number = 0;
   
-  // Array unificado de deudas formateadas
+  // Obtener el abonado activo
+  $: abonadoActual = data?.deudas?.[abonadoActivo] || null;
+  
+  // Array unificado de deudas formateadas para el abonado activo
   $: deudasUnificadas = (() => {
-    if (!data) return [];
+    if (!abonadoActual) return [];
     
     const deudas: any[] = [];
     let currentIndex = 0;
     
     // Agregar servicios primero (prioritarios)
-    if (data.deudasServicios) {
-      data.deudasServicios.forEach((deuda) => {
+    if (abonadoActual.deudasServicios) {
+      abonadoActual.deudasServicios.forEach((deuda) => {
         deudas.push({
           ...deuda,
           tipo: 'servicio',
@@ -88,14 +108,15 @@
           })}` : 'Fecha de solicitud: -',
           monto: deuda.costo || deuda.monto || 0,
           icono: 'service',
-          index: currentIndex++
+          index: currentIndex++,
+          abonado: abonadoActual.abonado.abonado
         });
       });
     }
     
     // Agregar agua después, ordenadas por fecha (más antigua primero)
-    if (data.deudasAgua) {
-      const deudasAguaOrdenadas = [...data.deudasAgua].sort((a, b) => {
+    if (abonadoActual.deudasAgua) {
+      const deudasAguaOrdenadas = [...abonadoActual.deudasAgua].sort((a, b) => {
         return new Date(a.emision).getTime() - new Date(b.emision).getTime();
       });
       
@@ -109,7 +130,8 @@
           periodo: `Factura #${deuda.factura || 'N/A'}`,
           monto: deuda.importeFactura,
           icono: 'water',
-          index: currentIndex++
+          index: currentIndex++,
+          abonado: abonadoActual.abonado.abonado
         });
       });
     }
@@ -229,10 +251,18 @@
     return getDeudasSeleccionadasPorTipo(tipo).reduce((sum, deuda) => sum + deuda.monto, 0);
   }
   
+  // Función para cambiar de abonado
+  function cambiarAbonado(index: number) {
+    abonadoActivo = index;
+    // Limpiar selecciones al cambiar de abonado
+    deudasSeleccionadas = [];
+    totalSeleccionado = 0;
+  }
+  
   // Función para pagar deudas seleccionadas
   function pagarDeudasSeleccionadas() {
-    if (deudasSeleccionadas.length > 0) {
-      generarQR(deudasSeleccionadas, totalSeleccionado);
+    if (deudasSeleccionadas.length > 0 && abonadoActual) {
+      generarQR(deudasSeleccionadas, totalSeleccionado, abonadoActual.abonado);
     }
   }
   
@@ -263,32 +293,56 @@
         </div>
         <div class="loading-text">Obteniendo información del abonado...</div>
       </div>
-    {:else if cliente}
-      <div class="client-summary">
-        <div class="client-name">{cliente.nombre || 'Cliente'}</div>
-        <div class="client-details">
-          <div class="client-account">
-            <span class="label">Abonado:</span>
-            <span class="value">{cliente.numeroCuenta}</span>
-          </div>
-          {#if cliente.numeroMedidor}
-            <div class="client-meter">
-              <span class="label">Número de Medidor:</span>
-              <span class="value">{cliente.numeroMedidor}</span>
-            </div>
-          {/if}
-          {#if cliente.numeroAbonado}
-            <div class="client-subscriber">
-              <span class="label">Código de Cliente:</span>
-              <span class="value">{cliente.numeroAbonado}</span>
-            </div>
-          {/if}
+    {:else if data?.deudas && data.deudas.length > 0}
+      <!-- Pestañas de abonados si hay múltiples -->
+      {#if data.deudas.length > 1}
+        <div class="abonados-tabs">
+          {#each data.deudas as abonado, index}
+            <button 
+              class="tab-button" 
+              class:active={index === abonadoActivo}
+              on:click={() => cambiarAbonado(index)}
+            >
+              <div class="tab-content">
+                <div class="tab-title">Abonado {abonado.abonado.abonado}</div>
+                <div class="tab-subtitle">{abonado.abonado.nombre}</div>
+                <div class="tab-amount">Bs. {abonado.totales.totalDeuda.toFixed(2)}</div>
+              </div>
+            </button>
+          {/each}
         </div>
-      </div>
+      {/if}
+      
+      <!-- Información del abonado activo -->
+      {#if abonadoActual}
+        <div class="client-summary">
+          <div class="client-name">{abonadoActual.abonado.nombre || 'Cliente'}</div>
+          <div class="client-details">
+            <div class="client-account">
+              <span class="label">Abonado:</span>
+              <span class="value">{abonadoActual.abonado.abonado}</span>
+            </div>
+            {#if abonadoActual.abonado.medidor}
+              <div class="client-meter">
+                <span class="label">Número de Medidor:</span>
+                <span class="value">{abonadoActual.abonado.medidor}</span>
+              </div>
+            {/if}
+            <div class="client-zone">
+              <span class="label">Zona:</span>
+              <span class="value">{abonadoActual.abonado.zona}</span>
+            </div>
+            <div class="client-address">
+              <span class="label">Dirección:</span>
+              <span class="value">{abonadoActual.abonado.direccion}</span>
+            </div>
+          </div>
+        </div>
+      {/if}
     {/if}
   </div>
 
-  {#if (data?.deudasAgua?.length || 0) === 0 && (data?.deudasServicios?.length || 0) === 0}
+  {#if abonadoActual && (abonadoActual.deudasAgua?.length || 0) === 0 && (abonadoActual.deudasServicios?.length || 0) === 0}
     <div class="no-debts">
       <h3>¡No hay deudas pendientes!</h3>
       <p>Este abonado no tiene deudas pendientes de pago.</p>
@@ -298,7 +352,16 @@
   <!-- Lista unificada de deudas -->
   <div class="debt-list">
     {#each deudasUnificadas as deuda (deuda.factura || deuda.idServicio || deuda.id)}
-      <div class="debt-item" class:selected={isDeudaSeleccionada(deuda)} class:disabled={!isDebtEnabled(deuda)} on:click={() => toggleDeuda(deuda)}>
+      <div 
+        class="debt-item" 
+        class:selected={isDeudaSeleccionada(deuda)} 
+        class:disabled={!isDebtEnabled(deuda)} 
+        on:click={() => toggleDeuda(deuda)}
+        on:keydown={(e) => e.key === 'Enter' && toggleDeuda(deuda)}
+        role="button"
+        tabindex="0"
+        aria-label="Seleccionar deuda: {deuda.titulo} - Bs. {deuda.monto.toFixed(2)}"
+      >
         <div class="debt-icon-container">
           <div class="debt-icon" class:service-icon={deuda.icono === 'service'}>
             {#if deuda.icono === 'service'}
@@ -1094,6 +1157,131 @@
     font-weight: 500;
     color: rgb(var(--success));
     text-align: center;
+  }
+
+  /* Estilos para pestañas de abonados */
+  .abonados-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+  }
+
+  .tab-button {
+    background: transparent;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 200px;
+    flex-shrink: 0;
+    text-align: left;
+  }
+
+  .tab-button:hover {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.3);
+  }
+
+  .tab-button.active {
+    background: var(--color-bg-dark);
+    border-color: var(--color-bg-dark);
+    color: white;
+  }
+
+  .tab-button.active:hover {
+    background: #1a1a1a;
+    border-color: #1a1a1a;
+  }
+
+  .tab-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .tab-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: inherit;
+  }
+
+  .tab-subtitle {
+    font-size: 0.8rem;
+    color: inherit;
+    opacity: 0.8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tab-amount {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: inherit;
+    opacity: 0.9;
+  }
+
+  .tab-button:not(.active) .tab-title {
+    color: #000000;
+  }
+
+  .tab-button:not(.active) .tab-subtitle {
+    color: rgba(0, 0, 0, 0.6);
+  }
+
+  .tab-button:not(.active) .tab-amount {
+    color: #059669;
+  }
+
+  /* Estilos adicionales para información del cliente */
+  .client-zone,
+  .client-address {
+    font-size: 0.9rem;
+    color: rgba(0, 0, 0, 0.7);
+    line-height: 1.3;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .client-zone .label,
+  .client-address .label {
+    font-weight: 600;
+    color: rgba(0, 0, 0, 0.8);
+    min-width: 80px;
+  }
+
+  .client-zone .value,
+  .client-address .value {
+    font-weight: 400;
+    color: rgba(0, 0, 0, 0.6);
+  }
+
+  /* Responsive para pestañas */
+  @media (max-width: 768px) {
+    .abonados-tabs {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .tab-button {
+      min-width: auto;
+      width: 100%;
+    }
+
+    .tab-content {
+      align-items: center;
+      text-align: center;
+    }
+
+    .tab-subtitle {
+      white-space: normal;
+      text-overflow: unset;
+      overflow: visible;
+    }
   }
 
 </style>

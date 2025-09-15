@@ -1,420 +1,160 @@
-import { IntegrationFactory } from './integration/IntegrationFactory';
 import type { ServerResponse } from '../types/api';
 import type { 
-  DeudasResponse,
-  PagoServiciosRequest,
-  PagoServiciosResponse,
-  PagoAguaRequest,
+  DeudasResponse, 
+  DeudasApiResponse,
+  PagoServiciosRequest, 
+  PagoServiciosResponse, 
+  PagoAguaRequest, 
   AbonadoSchema,
-  ListaAbonadosParams,
-  ListaAbonadosResponse
+  CrearTransaccionRequest,
+  CompletarTransaccionRequest,
+  TransaccionResponse
 } from '../types/empsaat';
+import type { EmpresaConfig } from '../config/empresas';
 
 /**
- * Servicio unificado para operaciones con EMPSAAT
- * Consolida funcionalidades de deudas, pagos y abonados
+ * Servicio para EMPSAAT
+ * Implementa el nuevo flujo de transacciones de dos pasos:
+ * 1. Crear Transacción - Reserva las deudas para pago
+ * 2. Completar Transacción - Procesa el pago y marca las deudas como pagadas
+ * 
+ * Flujo recomendado:
+ * 1. buscarDeudasPorCriterio() - Buscar deudas del cliente
+ * 2. crearTransaccion() - Crear transacción con deudas seleccionadas
+ * 3. completarTransaccion() - Procesar el pago
+ * 4. obtenerHistorialTransacciones() - Verificar historial (opcional)
  */
 export class EmpsaatService {
-  private static readonly EMPRESA_SLUG = 'empsaat';
+  private empresaConfig: EmpresaConfig;
 
-  /**
-   * Obtiene las deudas de un abonado
-   * 
-   * @param abonado Número de abonado
-   * @param apiKey API Key para autenticación
-   */
-  static async obtenerDeudas(
-    abonado: number,
-    apiKey: string
-  ): Promise<ServerResponse<DeudasResponse>> {
-    try {
-      // Validar que el apiKey sea cadena
-      if (typeof apiKey !== 'string') {
-        return {
-          success: false,
-          error: 'API Key inválida',
-          codigo: 'API_KEY_INVALIDA'
-        };
-      }
-
-      // Validar que el abonado sea un número
-      if (isNaN(abonado)) {
-        return {
-          success: false,
-          error: 'El número de abonado debe ser un valor numérico',
-          codigo: 'ABONADO_INVALIDO'
-        };
-      }
-
-      // Obtener la integración correspondiente
-      const empsaatService = IntegrationFactory.getEmpsaatIntegration();
-      if (!empsaatService) {
-        return {
-          success: false,
-          error: 'Servicio de integración no disponible',
-          codigo: 'SERVICIO_NO_DISPONIBLE'
-        };
-      }
-
-      // Validar API Key
-      const esApiKeyValida = await empsaatService.validateApiKey(apiKey);
-      if (!esApiKeyValida) {
-        return {
-          success: false,
-          error: 'API Key inválida',
-          codigo: 'API_KEY_INVALIDA'
-        };
-      }
-
-      // Obtener deudas a través del servicio de integración
-      return await empsaatService.getDeudasByAbonado(abonado);
-    } catch (error) {
-      console.error('Error al obtener deudas:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Error desconocido',
-        codigo: 'ERROR_INESPERADO'
-      };
-    }
+  constructor(empresaConfig: EmpresaConfig) {
+    this.empresaConfig = empresaConfig;
   }
-
+  
   /**
-   * Procesa el pago de servicios para un abonado
-   * 
-   * @param abonado Número de abonado
-   * @param datos Datos del pago
-   * @param apiKey API Key para autenticación
+   * Realiza una llamada HTTP simple a la API de EMPSAAT
    */
-  static async procesarPagoServicios(
-    abonado: number,
-    datos: PagoServiciosRequest,
-    apiKey: string
-  ): Promise<ServerResponse<PagoServiciosResponse>> {
-    try {
-      // Validar que el apiKey sea cadena
-      if (typeof apiKey !== 'string') {
-        return {
-          success: false,
-          error: 'API Key inválida',
-          codigo: 'API_KEY_INVALIDA'
-        };
-      }
+  private async callApi<T>(
+    endpoint: string, 
+    method: 'GET' | 'POST' = 'GET', 
+    body?: any
+  ): Promise<ServerResponse<T>> {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      'api-key': this.empresaConfig.apiKey
+    };
 
-      // Validar que el abonado sea un número
-      if (isNaN(abonado)) {
-        return {
-          success: false,
-          error: 'El número de abonado debe ser un valor numérico',
-          codigo: 'ABONADO_INVALIDO'
-        };
-      }
+    const response = await fetch(`${this.empresaConfig.apiBaseUrl}${endpoint}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
 
-      // Obtener la integración correspondiente
-      const empsaatService = IntegrationFactory.getEmpsaatIntegration();
-      if (!empsaatService) {
-        return {
-          success: false,
-          error: 'Servicio de integración no disponible',
-          codigo: 'SERVICIO_NO_DISPONIBLE'
-        };
-      }
-
-      // Validar API Key
-      const esApiKeyValida = await empsaatService.validateApiKey(apiKey);
-      if (!esApiKeyValida) {
-        return {
-          success: false,
-          error: 'API Key inválida',
-          codigo: 'API_KEY_INVALIDA'
-        };
-      }
-
-      // Procesar pago a través del servicio de integración
-      return await empsaatService.procesarPagoServicios(abonado, datos);
-    } catch (error) {
-      console.error('Error al procesar pago de servicios:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Error desconocido',
-        codigo: 'ERROR_INESPERADO'
-      };
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      console.log('errorData', JSON.stringify(errorData, null, 2));
+      throw new Error(errorData?.message || `Error: ${response.status}`);
     }
-  }
 
-  /**
-   * Procesa el pago de facturas de agua para un abonado
-   * 
-   * @param abonado Número de abonado
-   * @param datos Lista de CUFs a pagar
-   * @param apiKey API Key para autenticación
-   */
-  static async procesarPagoAgua(
-    abonado: number,
-    datos: PagoAguaRequest[],
-    apiKey: string
-  ): Promise<ServerResponse<DeudasResponse>> {
-    try {
-      // Validar que el apiKey sea cadena
-      if (typeof apiKey !== 'string') {
-        return {
-          success: false,
-          error: 'API Key inválida',
-          codigo: 'API_KEY_INVALIDA'
-        };
-      }
-
-      // Validar que el abonado sea un número
-      if (isNaN(abonado)) {
-        return {
-          success: false,
-          error: 'El número de abonado debe ser un valor numérico',
-          codigo: 'ABONADO_INVALIDO'
-        };
-      }
-
-      // Validar datos de pago
-      if (!Array.isArray(datos) || datos.length === 0) {
-        return {
-          success: false,
-          error: 'Debe proporcionar al menos un CUF para procesar el pago',
-          codigo: 'DATOS_PAGO_INVALIDOS'
-        };
-      }
-
-      // Obtener la integración correspondiente
-      const empsaatService = IntegrationFactory.getEmpsaatIntegration();
-      if (!empsaatService) {
-        return {
-          success: false,
-          error: 'Servicio de integración no disponible',
-          codigo: 'SERVICIO_NO_DISPONIBLE'
-        };
-      }
-
-      // Validar API Key
-      const esApiKeyValida = await empsaatService.validateApiKey(apiKey);
-      if (!esApiKeyValida) {
-        return {
-          success: false,
-          error: 'API Key inválida',
-          codigo: 'API_KEY_INVALIDA'
-        };
-      }
-
-      // Procesar pago a través del servicio de integración
-      return await empsaatService.procesarPagoAgua(abonado, datos);
-    } catch (error) {
-      console.error('Error al procesar pago de agua:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Error desconocido',
-        codigo: 'ERROR_INESPERADO'
-      };
-    }
-  }
-
-  /**
-   * Obtiene lista de abonados según filtros
-   * 
-   * @param params Parámetros para filtrar abonados
-   * @param apiKey API Key para autenticación
-   */
-  static async obtenerAbonados(
-    params: ListaAbonadosParams,
-    apiKey: string
-  ): Promise<ServerResponse<ListaAbonadosResponse>> {
-    try {
-      // Validar que el apiKey sea cadena
-      if (typeof apiKey !== 'string') {
-        return {
-          success: false,
-          error: 'API Key inválida',
-          codigo: 'API_KEY_INVALIDA'
-        };
-      }
-
-      // Validar parámetros básicos
-      if (!params || typeof params !== 'object' || isNaN(params.limit)) {
-        return {
-          success: false,
-          error: 'Parámetros de consulta inválidos',
-          codigo: 'PARAMETROS_CONSULTA_INVALIDOS'
-        };
-      }
-
-      // Obtener la integración correspondiente
-      const empsaatService = IntegrationFactory.getEmpsaatIntegration();
-      if (!empsaatService) {
-        return {
-          success: false,
-          error: 'Servicio de integración no disponible',
-          codigo: 'SERVICIO_NO_DISPONIBLE'
-        };
-      }
-
-      // Validar API Key
-      const esApiKeyValida = await empsaatService.validateApiKey(apiKey);
-      if (!esApiKeyValida) {
-        return {
-          success: false,
-          error: 'API Key inválida',
-          codigo: 'API_KEY_INVALIDA'
-        };
-      }
-
-      // Obtener abonados a través del servicio de integración
-      return await empsaatService.getAbonados(params);
-    } catch (error) {
-      console.error('Error al obtener abonados:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Error desconocido',
-        codigo: 'ERROR_INESPERADO'
-      };
-    }
-  }
-
-  /**
-   * Obtiene información detallada de un abonado específico
-   * 
-   * @param abonado Número de abonado
-   * @param apiKey API Key para autenticación
-   */
-  static async obtenerAbonadoPorId(
-    abonado: number,
-    apiKey: string
-  ): Promise<ServerResponse<AbonadoSchema>> {
-    try {
-      // Validar que el apiKey sea cadena
-      if (typeof apiKey !== 'string') {
-        return {
-          success: false,
-          error: 'API Key inválida',
-          codigo: 'API_KEY_INVALIDA'
-        };
-      }
-
-      // Validar que el abonado sea un número
-      if (isNaN(abonado)) {
-        return {
-          success: false,
-          error: 'El número de abonado debe ser un valor numérico',
-          codigo: 'ABONADO_INVALIDO'
-        };
-      }
-
-      // Obtener la integración correspondiente
-      const empsaatService = IntegrationFactory.getEmpsaatIntegration();
-      if (!empsaatService) {
-        return {
-          success: false,
-          error: 'Servicio de integración no disponible',
-          codigo: 'SERVICIO_NO_DISPONIBLE'
-        };
-      }
-
-      // Validar API Key
-      const esApiKeyValida = await empsaatService.validateApiKey(apiKey);
-      if (!esApiKeyValida) {
-        return {
-          success: false,
-          error: 'API Key inválida',
-          codigo: 'API_KEY_INVALIDA'
-        };
-      }
-
-      // Obtener abonado a través del servicio de integración
-      return await empsaatService.getAbonadoById(abonado);
-    } catch (error) {
-      console.error('Error al obtener abonado:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Error desconocido',
-        codigo: 'ERROR_INESPERADO'
-      };
-    }
+    const data = await response.json();
+    return data;
   }
 
   /**
    * Busca deudas por criterio (nombre, documento, abonado)
-   * 
-   * @param keyword Palabra clave para buscar
-   * @param type Tipo de búsqueda: nombre, documento, abonado
-   * @param apiKey API Key para autenticación
+   * Usa el nuevo endpoint /deudas con parámetros de consulta
    */
-  static async buscarDeudasPorCriterio(
-    keyword: string,
-    type: 'nombre' | 'documento' | 'abonado',
-    apiKey: string
+  async buscarDeudasPorCriterio(
+    keyword: string, 
+    type: 'nombre' | 'documento' | 'abonado'
   ): Promise<ServerResponse<DeudasResponse>> {
-    try {
-      // Validar que el apiKey sea cadena
-      if (typeof apiKey !== 'string') {
-        return {
-          success: false,
-          error: 'API Key inválida',
-          codigo: 'API_KEY_INVALIDA'
-        };
-      }
-
-      // Validar parámetros de búsqueda
-      if (!keyword || keyword.trim().length === 0) {
-        return {
-          success: false,
-          error: 'La palabra clave de búsqueda no puede estar vacía',
-          codigo: 'KEYWORD_VACIA'
-        };
-      }
-
-      if (!['nombre', 'documento', 'abonado'].includes(type)) {
-        return {
-          success: false,
-          error: 'Tipo de búsqueda inválido. Debe ser: nombre, documento o abonado',
-          codigo: 'TIPO_BUSQUEDA_INVALIDO'
-        };
-      }
-
-      // Obtener la integración correspondiente
-      const empsaatService = IntegrationFactory.getEmpsaatIntegration();
-      if (!empsaatService) {
-        return {
-          success: false,
-          error: 'Servicio de integración no disponible',
-          codigo: 'SERVICIO_NO_DISPONIBLE'
-        };
-      }
-
-      // Validar API Key
-      const esApiKeyValida = await empsaatService.validateApiKey(apiKey);
-      if (!esApiKeyValida) {
-        return {
-          success: false,
-          error: 'API Key inválida',
-          codigo: 'API_KEY_INVALIDA'
-        };
-      }
-
-      // Buscar deudas a través del servicio de integración
-      return await empsaatService.buscarDeudasPorCriterio(keyword.trim(), type);
-    } catch (error) {
-      console.error('Error al buscar deudas por criterio:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Error desconocido',
-        codigo: 'ERROR_INESPERADO'
-      };
-    }
+    const params = new URLSearchParams({
+      keyword: keyword.trim(),
+      type
+    });
+    
+    return this.callApi<DeudasResponse>(`/deudas?${params}`, 'GET');
   }
 
   /**
-   * Verifica si el servicio de EMPSAAT está disponible
+   * Crea una nueva transacción con las deudas seleccionadas
+   * Endpoint: POST /deudas/{abonado}/transaction
    */
-  static async verificarDisponibilidad(): Promise<boolean> {
-    const empsaatService = IntegrationFactory.getEmpsaatIntegration();
-    if (!empsaatService) {
-      return false;
-    }
+  async crearTransaccion(
+    abonado: number,
+    datos: CrearTransaccionRequest
+  ): Promise<ServerResponse<TransaccionResponse>> {
+    return this.callApi<TransaccionResponse>(
+      `/deudas/${abonado}/transaction`,
+      'POST',
+      datos
+    );
+  }
 
-    return await empsaatService.checkServiceStatus();
+  /**
+   * Completa una transacción pendiente procesando el pago
+   * Endpoint: POST /deudas/transaction/complete
+   */
+  async completarTransaccion(
+    datos: CompletarTransaccionRequest
+  ): Promise<ServerResponse<TransaccionResponse>> {
+    return this.callApi<TransaccionResponse>(
+      '/deudas/transaction/complete',
+      'POST',
+      datos
+    );
+  }
+
+  /**
+   * Obtiene el historial de transacciones de un abonado
+   * Endpoint: GET /deudas/{abonado}/transactions
+   */
+  async obtenerHistorialTransacciones(
+    abonado: number
+  ): Promise<ServerResponse<TransaccionResponse[]>> {
+    return this.callApi<TransaccionResponse[]>(
+      `/deudas/${abonado}/transactions`,
+      'GET'
+    );
+  }
+
+  // Métodos legacy - mantenidos para compatibilidad hacia atrás
+  /**
+   * @deprecated Usar crearTransaccion() y completarTransaccion() en su lugar
+   * Procesa pago de facturas de agua
+   */
+  async procesarPagoAgua(
+    abonado: number, 
+    facturas: PagoAguaRequest[]
+  ): Promise<ServerResponse<DeudasResponse>> {
+    return this.callApi<DeudasResponse>(
+      `/deudas/${abonado}/factura-agua`, 
+      'POST', 
+      facturas
+    );
+  }
+
+  /**
+   * @deprecated Usar crearTransaccion() y completarTransaccion() en su lugar
+   * Procesa pago de servicios
+   */
+  async procesarPagoServicios(
+    abonado: number, 
+    datos: PagoServiciosRequest
+  ): Promise<ServerResponse<PagoServiciosResponse>> {
+    return this.callApi<PagoServiciosResponse>(
+      `/deudas/${abonado}/factura-servicios`, 
+      'POST', 
+      datos
+    );
+  }
+
+  /**
+   * Obtiene información de un abonado
+   */
+  async obtenerAbonadoPorId(
+    abonado: number
+  ): Promise<ServerResponse<AbonadoSchema>> {
+    return this.callApi<AbonadoSchema>(`/abonados/${abonado}`, 'GET');
   }
 }

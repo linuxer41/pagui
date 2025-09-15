@@ -114,6 +114,10 @@
         // Usar la respuesta tal como viene de la API
         searchResult = actionResult.data;
         
+        // Debug: Log para verificar la estructura de datos
+        console.log('Frontend - actionResult:', actionResult);
+        console.log('Frontend - searchResult:', searchResult);
+        
         // Ya no necesitamos crear cliente manualmente, viene en la respuesta
         // La información del cliente estará en searchResult.data.deudas[0].abonado
         
@@ -156,8 +160,61 @@
       pollingInterval = null;
     }
   }
+
+  // Función para actualizar las deudas del abonado actual
+  async function actualizarDeudas() {
+    if (!searchResult?.data?.deudas || searchResult.data.deudas.length === 0) {
+      return;
+    }
+
+    // Obtener el criterio de búsqueda actual
+    const abonadoActual = searchResult.data.deudas[0]?.abonado;
+    if (!abonadoActual) {
+      return;
+    }
+
+    // Activar estado de carga sin resetear el searchResult
+    isLoading = true;
+    error = null;
+
+    try {
+      const formData = new FormData();
+      formData.append('keyword', abonadoActual.abonado.toString());
+      formData.append('type', 'abonado');
+      
+      const response = await fetch(`?/buscarDeudas`, {
+        method: 'POST',
+        body: formData
+      });
+
+      const actionResult: ActionResult = deserialize(await response.text());
+      console.log('Actualización - result', actionResult);
+      
+      if (actionResult.type === 'success' && actionResult.data) {
+        // Actualizar solo los datos sin resetear el estado
+        searchResult = actionResult.data;
+        console.log('Actualización - searchResult actualizado:', searchResult);
+      } else if (actionResult.type === 'failure') {
+        error = actionResult.data?.error || 'Error al actualizar deudas del cliente';
+        if (actionResult.data?.codigo) {
+          error += ` (${actionResult.data.codigo})`;
+        }
+      } else {
+        error = 'Error inesperado al actualizar deudas del cliente';
+      }
+      
+      // Aplicar la acción del resultado
+      if (actionResult) applyAction(actionResult);
+      
+    } catch (err) {
+      console.error('Error en actualizarDeudas:', err);
+      error = 'Error de conexión. Intenta nuevamente.';
+    } finally {
+      isLoading = false;
+    }
+  }
   
-  // Función para generar QR específica para EMPSAAT
+  // Función para generar QR específica para EMPSAAT usando el nuevo flujo de transacciones
   async function generarQREmpsaat(deudas: any[], total: number, abonado: any) {
     console.log('generarQREmpsaat llamada con:', deudas, 'total:', total, 'abonado:', abonado);
     if (!deudas || deudas.length === 0) return;
@@ -172,25 +229,33 @@
     try {
       if (empresa.usaQR) {
         const formData = new FormData();
-        formData.append('monto', total.toString());
         
-        // Crear descripción basada en las deudas seleccionadas
-        let descripcion = '';
+        // Datos del abonado
+        formData.append('abonado', abonado?.abonado?.toString() || '');
         
-        if (deudas.length === 1) {
-          // Si es solo una deuda, mostrar su descripción o período
-          const deuda = deudas[0];
-          descripcion = deuda.titulo; // Usar el título que ya contiene la descripción o período
-        } else {
-          // Si son más de una deuda, mostrar el conteo
-          descripcion = `Pago de ${deudas.length} deudas Empsaat`;
-        }
+        // Datos de la empresa/cliente (usar datos del abonado o valores por defecto)
+        formData.append('taxId', abonado?.nit?.toString() || '0');
+        formData.append('businessName', abonado?.nombre || 'Cliente EMPSAAT');
+        formData.append('email', 'cliente@empsaat.com'); // Email por defecto
         
-        formData.append('descripcion', descripcion);
-        formData.append('transactionId', `txn_${abonado?.abonado}_${Date.now()}_${total}`);
-        formData.append('numeroCuenta', abonado?.abonado?.toString() || '');
+        // Separar deudas por tipo y extraer IDs
+        const deudasAgua = deudas.filter(d => d.tipo === 'agua').map(d => d.factura);
+        const deudasServicios = deudas.filter(d => d.tipo === 'servicio').map(d => 
+          d.noSolicitud || d.idServicio || d.id
+        );
         
-        const response = await fetch(`?/generarQR`, {
+        formData.append('waterDebts', JSON.stringify(deudasAgua));
+        formData.append('serviceDebts', JSON.stringify(deudasServicios));
+        
+        console.log('Enviando datos para crear transacción:', {
+          abonado: abonado?.abonado,
+          taxId: abonado?.nit?.toString() || '0',
+          businessName: abonado?.nombre || 'Cliente EMPSAAT',
+          waterDebts: deudasAgua,
+          serviceDebts: deudasServicios
+        });
+        
+        const response = await fetch(`?/crearTransaccionEmpsaat`, {
           method: 'POST',
           body: formData
         });
@@ -198,14 +263,52 @@
         actionResult = deserialize(await response.text());
         
         if (actionResult.type === 'success' && actionResult.data) {
-          const apiResponse = actionResult.data as QRGenerationAPIResponse;
+          const apiResponse = actionResult.data;
+          
+          console.log('=== DEBUG CLIENTE - RESPUESTA COMPLETA ===');
+          console.log('API Response:', apiResponse);
+          console.log('==========================================');
           
           if (apiResponse.success) {
-            qrGenerado = apiResponse.data;
+            // La respuesta del servidor ya incluye tanto la transacción como el QR
+            const { transaccion, qr } = apiResponse.data;
+            
+            console.log('=== DEBUG CLIENTE - DATOS RECIBIDOS ===');
+            console.log('Transacción creada:', {
+              transactionId: transaccion?.transactionId,
+              amount: transaccion?.amount,
+              subscriberNumber: transaccion?.subscriberNumber,
+              status: transaccion?.status
+            });
+            console.log('QR generado:', {
+              qrId: qr?.qrId,
+              amount: qr?.amount,
+              description: qr?.description,
+              qrImageLength: qr?.qrImage?.length || 0,
+              dueDate: qr?.dueDate
+            });
+            console.log('=====================================');
+            
+            // Usar directamente los datos del QR que vienen del servidor
+            qrGenerado = {
+              ...qr,
+              transactionId: transaccion.transactionId,
+              amount: transaccion.amount
+            };
+            
+            console.log('=== DEBUG CLIENTE - QR FINAL ===');
+            console.log('QR Generado final:', {
+              qrId: qrGenerado?.qrId,
+              transactionId: qrGenerado?.transactionId,
+              amount: qrGenerado?.amount,
+              qrImageLength: qrGenerado?.qrImage?.length || 0
+            });
+            console.log('===============================');
+            
             qrStatus = null;
-            iniciarPollingEstado(apiResponse.data.qrId);
+            iniciarPollingEstado(qr.qrId);
           } else {
-            error = apiResponse.message || 'Error al generar QR';
+            error = apiResponse.message || 'Error al crear transacción y generar QR';
           }
         } else if (actionResult.type === 'failure') {
           if (Array.isArray(actionResult.data) && actionResult.data.length >= 4) {
@@ -216,10 +319,10 @@
           } else if (actionResult.data?.error) {
             error = actionResult.data.error;
           } else {
-            error = 'Error al generar QR';
+            error = 'Error al crear transacción y generar QR';
           }
         } else {
-          error = 'Error inesperado al generar QR';
+          error = 'Error inesperado al crear transacción y generar QR';
         }
       }
       
@@ -227,7 +330,20 @@
       
     } catch (err) {
       console.error('Error en generarQREmpsaat:', err);
-      error = 'Error de conexión. Intenta nuevamente.';
+      
+      // Mejorar el manejo de errores para mostrar mensajes específicos
+      if (err instanceof Error) {
+        // Si el error contiene información específica de la API, mostrarla
+        if (err.message.includes('No se puede crear la transacción')) {
+          error = err.message.replace('Error: 400 ', '');
+        } else if (err.message.includes('Error:')) {
+          error = err.message.replace('Error: ', '');
+        } else {
+          error = `Error: ${err.message}`;
+        }
+      } else {
+        error = 'Error de conexión. Intenta nuevamente.';
+      }
     } finally {
       isGeneratingQR = false;
     }
@@ -536,32 +652,24 @@
 
    const takeScreenshot = async () => {
     const html2canvas = (await import('html2canvas')).default;
-    const qrElement = document.querySelector('.qr-download-only') as HTMLElement;
+    const qrElement = document.querySelector('#qr-capture-content') as HTMLElement;
        if (!qrElement) {
          console.error('No se encontró el elemento del QR para descarga');
          return;
        }
     
-    // Mostrar temporalmente el elemento para la captura
-    qrElement.style.display = 'block';
-    qrElement.style.position = 'fixed';
-    qrElement.style.top = '50%';
-    qrElement.style.left = '50%';
-    qrElement.style.transform = 'translate(-50%, -50%)';
-    qrElement.style.zIndex = '9999';
-    
     try {
-      const canvas = await html2canvas(qrElement);
+      const canvas = await html2canvas(qrElement, {
+        background: '#ffffff',
+        useCORS: true,
+        allowTaint: true,
+        logging: false
+      });
       const dataUrl = canvas.toDataURL('image/png');
       return dataUrl;
-    } finally {
-      // Ocultar el elemento después de la captura
-      qrElement.style.display = 'none';
-      qrElement.style.position = 'fixed';
-      qrElement.style.top = '-9999px';
-      qrElement.style.left = '-9999px';
-      qrElement.style.transform = 'none';
-      qrElement.style.zIndex = 'auto';
+    } catch (error) {
+      console.error('Error al capturar el QR:', error);
+      return null;
     }
    }
    
@@ -621,7 +729,7 @@
 
 <div class="dashboard-layout">
   <!-- Sidebar/Header (se convierte en header en móvil) -->
-  <aside class="sidebar">
+  <aside class="sidebar desktop-only">
     <div class="sidebar-content">
       <!-- Información de la empresa -->
       <div class="company-section">
@@ -667,6 +775,19 @@
   <!-- Contenido principal -->
   <main class="main-content">
     <div class="main-content-area">
+      <!-- Botón Volver Global - Solo en pasos 2 y 3 -->
+      {#if currentStep === 2 || currentStep === 3}
+        <button 
+          class="btn-back-global" 
+          on:click={() => goToPreviousStep()}
+          title="Volver al paso anterior"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15,18 9,12 15,6"></polyline>
+          </svg>
+          Volver
+        </button>
+      {/if}
         <!-- Panel de pasos del proceso -->
         <div class="content-section">
           <div class="process-steps">
@@ -763,6 +884,7 @@
                   generarQR={generarQREmpsaat}
                   {limpiarCliente}
                   {goToPreviousStep}
+                  onRefresh={actualizarDeudas}
                 />
               {:else}
                 <ListaDeudas
@@ -798,6 +920,50 @@
           </div>
         {/if}
     </div>
+    
+    <!-- Footer móvil (parte del scroll del main content) -->
+    <aside class="sidebar mobile-only">
+      <div class="sidebar-content">
+        <!-- Información de la empresa -->
+        <div class="company-section">
+          <div class="company-info">
+            <div class="company-logo" style="background: white">
+              {#if empresa.logo && empresa.logo.includes('.png')}
+                <img src="/{empresa.logo}" alt="Logo {empresa.nombre}" class="logo-image" />
+              {:else}
+                <span class="logo-text">{empresa.logo}</span>
+              {/if}
+            </div>
+            <div class="company-details">
+              <h2 class="company-name">{empresa.nombre}</h2>
+              <div class="company-slug">{empresa.slug.toUpperCase()}</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="sidebar-footer">
+          <a href={empresa.webUrl} class="return-link">
+            <span class="return-icon">←</span>
+            <span>Volver a {empresa.slug.toUpperCase()}</span>
+          </a>
+          <div class="powered-by">
+            <span>Desarrollado por</span>
+            <strong>IATHINGS</strong>
+          </div>
+          
+          <!-- Badge de seguridad unificado -->
+          <div class="security-badge-unified">
+            <div class="security-icons">
+              <ShieldIcon size="12" />
+              <LockIcon size="12" />
+              <CheckCircleIcon size="12" />
+            </div>
+            <span class="security-message">Pago 100% Seguro y Protegido</span>
+          </div>
+        </div>
+      </div>
+    </aside>
   </main>
 </div>
 
@@ -835,10 +1001,9 @@
     grid-template-areas: 
       "sidebar main";
     grid-template-columns: 30% 70%;
-    min-height: 100%;
+    height: 100vh;
     background: var(--color-bg-primary);
-    height: 100%;
-    overflow-y: hidden;
+    overflow: hidden;
   }
   
   /* Sidebar/Header - Estilo Cursor/Stripe */
@@ -851,6 +1016,7 @@
     height: 100%;
     z-index: 100;
     border-right: 1px solid #333333;
+    overflow: hidden;
   }
   
   .sidebar-content {
@@ -1005,6 +1171,7 @@
     grid-area: main;
     background: #ffffff;
     overflow-y: auto;
+    overflow-x: hidden;
   }
   
   
@@ -1014,6 +1181,40 @@
     width: 100%;
     background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
     min-height: 100%;
+    position: relative;
+  }
+  
+  /* Botón Volver Global */
+  .btn-back-global {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    z-index: 10;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+    background: rgba(255, 255, 255, 0.9);
+    color: #000000;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .btn-back-global:hover {
+    background: rgba(255, 255, 255, 1);
+    border-color: rgba(0, 0, 0, 0.5);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  .btn-back-global svg {
+    flex-shrink: 0;
   }
   
   .content-section {
@@ -1260,28 +1461,75 @@
   @media (max-width: 768px) {
     .dashboard-layout {
       grid-template-areas: 
-        "sidebar"
         "main";
       grid-template-columns: 100%;
-      grid-template-rows: auto 1fr;
+      grid-template-rows: 1fr;
+      height: 100vh;
+      overflow: hidden;
+    }
+    
+    .main-content {
+      overflow-y: auto;
+      overflow-x: hidden;
     }
     
     .sidebar {
       position: relative;
       width: 100%;
       height: auto;
+      border-right: none;
+      border-top: 1px solid #333333;
+      overflow: visible;
     }
+    
     .company-section {
-      margin-bottom: 0.25rem;
+      margin-bottom: 0.5rem;
       border: none;
+      padding: 0.75rem;
     }
 
     .sidebar-content {
-      padding: 0.25rem;
+      padding: 1rem;
     }
-
+    
+    .company-info {
+      flex-direction: row;
+      gap: 0.75rem;
+    }
+    
+    .company-logo {
+      width: 40px;
+      height: 40px;
+      font-size: 1rem;
+    }
+    
+    .company-name {
+      font-size: 1rem;
+    }
+    
+    .company-slug {
+      font-size: 0.65rem;
+    }
+    
+    .sidebar-footer {
+      margin-top: 0.5rem;
+    }
+    
     .return-link {
-      margin-bottom: 0.5rem;
+      font-size: 0.8rem;
+      padding: 0.5rem;
+    }
+    
+    .powered-by {
+      font-size: 0.7rem;
+    }
+    
+    .security-badge-unified {
+      margin-top: 0.5rem;
+    }
+    
+    .security-message {
+      font-size: 0.65rem;
     }
     
     .main-content-area {
@@ -1486,10 +1734,11 @@
 
     .dashboard-layout {
       grid-template-areas: 
-        "sidebar"
         "main";
       grid-template-columns: 100%;
-      grid-template-rows: auto 1fr;
+      grid-template-rows: 1fr;
+      height: 100vh;
+      overflow: hidden;
     }
 
     .main-content {
@@ -1503,6 +1752,13 @@
     .main-content-area {
       padding: 1rem;
       width: 100%;
+    }
+    
+    .btn-back-global {
+      top: 0.5rem;
+      left: 0.5rem;
+      padding: 0.4rem 0.8rem;
+      font-size: 0.75rem;
     }
 
     .mobile-header {

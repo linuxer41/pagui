@@ -35,56 +35,10 @@
 </script>
 
 {#if mostrarQR && qrGenerado && qrGenerado.qrImage}
-  <!-- Elemento oculto solo para descarga - minimalista -->
-  <div class="qr-download-only">
-    <div class="qr-download-header">
-      <h3>QR de Pago</h3>
-    </div>
-    <img 
-      src="data:image/png;base64,{qrGenerado.qrImage}" 
-      alt="QR para pago" 
-      class="qr-image"
-      width="300" 
-      height="300"
-    />
-    <div class="qr-download-details">
-      <div class="qr-download-item">
-        <span class="download-label">Monto:</span>
-        <span class="download-value">Bs. {qrGenerado.amount}</span>
-      </div>
-      <div class="qr-download-item">
-        <span class="download-label">Descripción:</span>
-        <span class="download-value">{deuda?.descripcion}</span>
-      </div>
-      {#if deuda?.volumenConsumo}
-        <div class="qr-download-item">
-          <span class="download-label">Consumo:</span>
-          <span class="download-value">{deuda.volumenConsumo} m³</span>
-        </div>
-      {/if}
-      <div class="qr-download-item">
-        <span class="download-label">Válido hasta:</span>
-        <span class="download-value">{new Date(qrGenerado.dueDate).toLocaleString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-      </div>
-    </div>
-  </div>
-
   <!-- Elemento visible para el usuario - Material Design 3 -->
-  <div class="qr-container">
-    <div class="qr-header">
-      <button 
-        class="btn-back" 
-        on:click={() => goToPreviousStep()}
-        title="Volver al paso anterior"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="15,18 9,12 15,6"></polyline>
-        </svg>
-        Volver
-      </button>
-    </div>
+  <div class="qr-container" id="qr-capture-container">
     
-    <div class="qr-content">
+    <div class="qr-content" id="qr-capture-content">
       <div class="qr-image-container">
         <img 
           src="data:image/png;base64,{qrGenerado.qrImage}" 
@@ -100,6 +54,18 @@
         </div>
         
         <div class="qr-details">
+          <!-- IDs compactos en una sola fila -->
+          <div class="qr-ids-compact">
+            <div class="qr-id-compact">
+              <span class="id-label">QR:</span>
+              <span class="qr-id">{qrGenerado.qrId}</span>
+            </div>
+            <div class="transaction-id-compact">
+              <span class="id-label">TXN:</span>
+              <span class="transaction-id">{qrGenerado.transactionId}</span>
+            </div>
+          </div>
+          
           <div class="qr-detail-item">
             <span class="detail-label">Descripción</span>
             <span class="detail-value">{deuda?.descripcion || 'Pago de deudas'}</span>
@@ -118,11 +84,14 @@
       </div>
     </div>
     
-    <!-- Loader personalizado centrado debajo del QR -->
+    <!-- Indicador sutil de espera de pago -->
     {#if pollingInterval && qrStatus?.status !== 'used'}
-      <div class="payment-loader">
-        <div class="loader-spinner"></div>
-        <span class="loader-text">Esperando pago...</span>
+      <div class="payment-indicator">
+        <div class="dots-container">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div>
+        </div>
       </div>
     {/if}
     
@@ -245,6 +214,31 @@
     border: none;
   }
   
+  .qr-ids-compact {
+    display: flex;
+    gap: 1rem;
+    padding: 0.75rem;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 6px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+  }
+  
+  .qr-id-compact, .transaction-id-compact {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+  }
+  
+  .id-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: rgba(0, 0, 0, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    min-width: 30px;
+  }
+  
   .qr-detail-item {
     display: flex;
     justify-content: space-between;
@@ -276,39 +270,80 @@
     word-break: break-word;
   }
   
-  /* Loader personalizado para esperar pago */
-  .payment-loader {
+  .qr-id, .transaction-id {
+    font-family: 'Courier New', monospace;
+    font-size: 0.7rem;
+    background: rgba(0, 0, 0, 0.05);
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    user-select: all;
+    transition: all 0.2s ease;
+    flex: 1;
+    text-align: left;
+  }
+  
+  .qr-id:hover, .transaction-id:hover {
+    background: rgba(0, 0, 0, 0.08);
+    border-color: rgba(0, 0, 0, 0.2);
+    transform: scale(1.01);
+  }
+  
+  .qr-id {
+    color: #059669;
+    font-weight: 600;
+  }
+  
+  .transaction-id {
+    color: #7c3aed;
+    font-weight: 600;
+  }
+  
+  /* Indicador sutil de espera de pago */
+  .payment-indicator {
     display: flex;
-    flex-direction: column;
+    justify-content: center;
     align-items: center;
-    gap: 1rem;
-    margin-top: 1.5rem;
-    padding: 1.5rem;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    backdrop-filter: blur(10px);
+    margin-top: 1rem;
+    padding: 0.5rem;
   }
   
-  .loader-spinner {
-    width: 40px;
-    height: 40px;
-    border: 3px solid rgba(255, 255, 255, 0.2);
-    border-top: 3px solid #10b981;
+  .dots-container {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+  
+  .dot {
+    width: 8px;
+    height: 8px;
+    background: #10b981;
     border-radius: 50%;
-    animation: spin 1s linear infinite;
+    animation: pulse 1.4s ease-in-out infinite both;
   }
   
-  .loader-text {
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: rgba(0, 0, 0, 0.8);
-    text-align: center;
+  .dot:nth-child(1) {
+    animation-delay: -0.32s;
   }
   
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+  .dot:nth-child(2) {
+    animation-delay: -0.16s;
+  }
+  
+  .dot:nth-child(3) {
+    animation-delay: 0s;
+  }
+  
+  @keyframes pulse {
+    0%, 80%, 100% {
+      transform: scale(0.8);
+      opacity: 0.5;
+    }
+    40% {
+      transform: scale(1.2);
+      opacity: 1;
+    }
   }
   
   /* Estilos para el pago exitoso */
@@ -424,71 +459,32 @@
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
   }
   
-  /* Estilos para el elemento de descarga minimalista */
-  .qr-download-only {
-    position: fixed;
-    top: -9999px;
-    left: -9999px;
-    width: 400px;
-    background: white;
-    padding: 2rem;
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    text-align: center;
-    font-family: 'Quenia', sans-serif;
-    display: none;
-  }
-  
-  .qr-download-header h3 {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin: 0 0 1.5rem 0;
-    font-family: 'Quenia', sans-serif;
-  }
-  
-  .qr-download-details {
-    margin-top: 1.5rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-  
-  .qr-download-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid rgba(var(--gray-200), 0.3);
-  }
-  
-  .qr-download-item:last-child {
-    border-bottom: none;
-  }
-  
-  .download-label {
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-    font-family: 'Quenia', sans-serif;
-  }
-  
-  .download-value {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
   
   /* Responsive para móvil */
   @media (max-width: 768px) {
-    .qr-generated {
-      padding: 1.5rem;
-      margin-top: 0.5rem;
-    }
-    
     .qr-image {
       width: 250px;
       height: 250px;
+    }
+    
+    .qr-ids-compact {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    
+    .qr-id-compact, .transaction-id-compact {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.25rem;
+    }
+    
+    .id-label {
+      min-width: auto;
+    }
+    
+    .qr-id, .transaction-id {
+      width: 100%;
+      text-align: left;
     }
     
     .qr-actions {
@@ -500,7 +496,6 @@
       width: 100%;
       justify-content: center;
     }
-    
     
     .qr-details {
       padding: 0.75rem;

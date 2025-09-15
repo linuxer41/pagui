@@ -13,33 +13,36 @@
 </script>
 
 <div class="search-form-container">
+  <div class="search-header">
+    <h2 class="search-title">Buscar Deudas</h2>
+    <p class="search-subtitle">Consulta tus facturas pendientes de pago</p>
+  </div>
+  
   <form class="search-form" on:submit|preventDefault={onBuscar}>
     <!-- Selector de tipo de búsqueda - Tabs compactos -->
-    <div class="search-type-selector">
-      <label for="search-tabs" class="search-type-label">Buscar por:</label>
-      <div id="search-tabs" class="search-tabs" role="tablist" aria-label="Tipo de búsqueda">
-        <button
-          type="button"
-          class="search-tab {tipoBusqueda === 'abonado' ? 'active' : ''}"
-          on:click={() => tipoBusqueda = 'abonado'}
-          disabled={isLoading}
-          role="tab"
-          aria-selected={tipoBusqueda === 'abonado'}
-          aria-controls="search-tabs"
-        >
-          Abonado
-        </button>
-        <button
-          type="button"
-          class="search-tab {tipoBusqueda === 'nombre' ? 'active' : ''}"
-          on:click={() => tipoBusqueda = 'nombre'}
-          disabled={isLoading}
-          role="tab"
-          aria-selected={tipoBusqueda === 'nombre'}
-          aria-controls="search-tabs"
-        >
-          Nombre
-        </button>
+    <div id="search-tabs" class="search-tabs" role="tablist" aria-label="Tipo de búsqueda">
+      <button
+        type="button"
+        class="search-tab {tipoBusqueda === 'abonado' ? 'active' : ''}"
+        on:click={() => tipoBusqueda = 'abonado'}
+        disabled={isLoading}
+        role="tab"
+        aria-selected={tipoBusqueda === 'abonado'}
+        aria-controls="search-tabs"
+      >
+        Abonado
+      </button>
+      <button
+        type="button"
+        class="search-tab {tipoBusqueda === 'nombre' ? 'active' : ''}"
+        on:click={() => tipoBusqueda = 'nombre'}
+        disabled={isLoading}
+        role="tab"
+        aria-selected={tipoBusqueda === 'nombre'}
+        aria-controls="search-tabs"
+      >
+        Nombre
+      </button>
         <button
           type="button"
           class="search-tab {tipoBusqueda === 'documento' ? 'active' : ''}"
@@ -49,9 +52,8 @@
           aria-selected={tipoBusqueda === 'documento'}
           aria-controls="search-tabs"
         >
-          Documento
+          CI o NIT
         </button>
-      </div>
     </div>
     
     <div class="input-group">
@@ -59,7 +61,7 @@
         id="codigoCliente"
         type="text"
         bind:value={codigoClienteInput}
-        placeholder={tipoBusqueda === 'abonado' ? 'Número de abonado' : tipoBusqueda === 'nombre' ? 'Nombre del cliente' : 'Documento o NIT'}
+        placeholder={tipoBusqueda === 'abonado' ? 'Número de abonado' : tipoBusqueda === 'nombre' ? 'Nombre del cliente' : 'CI o NIT'}
         class="form-input"
         required
         disabled={isLoading}
@@ -103,27 +105,30 @@
     max-width: 500px;
     margin: 0 auto;
   }
+
+  .search-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .search-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #000000;
+    margin: 0 0 0.5rem 0;
+    letter-spacing: -0.025em;
+  }
+
+  .search-subtitle {
+    font-size: 0.9rem;
+    color: rgba(0, 0, 0, 0.6);
+    margin: 0;
+    font-weight: 400;
+    line-height: 1.4;
+  }
   
   .search-form {
     width: 100%;
-  }
-
-  .search-type-selector {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-    padding: 0.75rem;
-    background: rgba(0, 0, 0, 0.02);
-    border-radius: 8px;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-  }
-
-  .search-type-label {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #000000;
-    white-space: nowrap;
   }
 
   .search-tabs {
@@ -132,6 +137,7 @@
     background: rgba(0, 0, 0, 0.05);
     border-radius: 6px;
     padding: 0.25rem;
+    margin-bottom: 1rem;
   }
 
   .search-tab {
@@ -142,7 +148,7 @@
     background: transparent;
     font-size: 0.8rem;
     font-weight: 500;
-    color: rgba(0, 0, 0, 0.6);
+    color: rgba(0, 0, 0, 0.7);
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
     white-space: nowrap;
@@ -153,8 +159,8 @@
   }
 
   .search-tab:hover:not(:disabled) {
-    background: rgba(0, 0, 0, 0.08);
-    color: rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.12);
+    color: #000000;
   }
 
   .search-tab.active {
@@ -228,9 +234,9 @@
   }
   
   .search-button:disabled {
-    opacity: 0.38;
+    opacity: 0.6;
     cursor: not-allowed;
-    background: rgba(0, 0, 0, 0.12);
+    background: #000000;
   }
   
   .button-spinner {
@@ -283,11 +289,11 @@
       max-width: 100%;
     }
     
-    .search-type-selector {
-      padding: 0.625rem;
+    .search-title {
+      font-size: 1.25rem;
     }
 
-    .search-type-label {
+    .search-subtitle {
       font-size: 0.8rem;
     }
 

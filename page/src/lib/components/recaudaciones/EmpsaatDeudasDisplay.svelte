@@ -366,15 +366,24 @@
   <div class="debt-header">
     <div class="header-top">
       <h2 class="debt-list-title">Facturas Pendientes</h2>
-      <button 
-        class="btn-refresh-icon" 
-        class:refreshing={isRefreshing}
-        on:click={handleRefresh}
-        title="Actualizar deudas"
-        disabled={isLoading || isRefreshing}
-      >
-        <RefreshCwIcon size="16" />
-      </button>
+      <div class="header-actions">
+        <button 
+          class="btn-refresh-icon" 
+          class:refreshing={isRefreshing}
+          on:click={handleRefresh}
+          title="Actualizar deudas"
+          disabled={isLoading || isRefreshing}
+        >
+          <RefreshCwIcon size="16" />
+        </button>
+        <button 
+          class="btn-close-icon" 
+          on:click={goToPreviousStep}
+          title="Cerrar lista y volver"
+        >
+          <XIcon size="16" />
+        </button>
+      </div>
     </div>
     
     {#if data?.deudas && data.deudas.length > 0}
@@ -423,6 +432,16 @@
           </div>
         </div>
       {/if}
+    {:else}
+      <!-- Mensaje cuando no hay resultados -->
+      <div class="no-results">
+        <div class="no-results-icon">🔍</div>
+        <h3>Sin resultados para esta búsqueda</h3>
+        <p>No se encontraron deudas pendientes con los criterios de búsqueda utilizados.</p>
+        <button class="btn-retry-search" on:click={goToPreviousStep}>
+          Intentar otra búsqueda
+        </button>
+      </div>
     {/if}
   </div>
 
@@ -1128,6 +1147,12 @@
     gap: 1rem;
     margin-bottom: 1rem;
   }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
   
   
   @keyframes spin {
@@ -1191,6 +1216,84 @@
 
   .btn-refresh-icon.refreshing {
     animation: spin 1s linear infinite;
+  }
+
+  .btn-close-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: rgb(var(--white));
+    border: 1px solid rgba(var(--gray-300), 0.5);
+    color: rgb(var(--gray-800));
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    flex-shrink: 0;
+  }
+
+  .btn-close-icon:hover {
+    background: rgb(var(--gray-50));
+    border-color: rgba(var(--gray-400), 0.7);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .no-results {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 2rem;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    margin: 2rem 0;
+  }
+
+  .no-results-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.6;
+  }
+
+  .no-results h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #000000;
+    margin: 0 0 0.5rem 0;
+  }
+
+  .no-results p {
+    font-size: 0.9rem;
+    color: rgba(0, 0, 0, 0.6);
+    margin: 0 0 1.5rem 0;
+    line-height: 1.5;
+  }
+
+  .btn-retry-search {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: rgb(var(--gray-800));
+    color: rgb(var(--white));
+    border: 1px solid rgba(var(--gray-600), 0.3);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .btn-retry-search:hover {
+    background: rgb(var(--gray-700));
+    border-color: rgba(var(--gray-500), 0.5);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   }
   
   .debt-list-title {

@@ -14,19 +14,44 @@
 
 <div class="search-form-container">
   <form class="search-form" on:submit|preventDefault={onBuscar}>
-    <!-- Selector de tipo de búsqueda -->
+    <!-- Selector de tipo de búsqueda - Tabs compactos -->
     <div class="search-type-selector">
-      <label for="tipoBusqueda" class="search-type-label">Buscar por:</label>
-      <select 
-        id="tipoBusqueda" 
-        bind:value={tipoBusqueda}
-        class="search-type-select"
-        disabled={isLoading}
-      >
-        <option value="abonado">Número de Abonado</option>
-        <option value="nombre">Nombre del Cliente</option>
-        <option value="documento">Documento/NIT</option>
-      </select>
+      <label for="search-tabs" class="search-type-label">Buscar por:</label>
+      <div id="search-tabs" class="search-tabs" role="tablist" aria-label="Tipo de búsqueda">
+        <button
+          type="button"
+          class="search-tab {tipoBusqueda === 'abonado' ? 'active' : ''}"
+          on:click={() => tipoBusqueda = 'abonado'}
+          disabled={isLoading}
+          role="tab"
+          aria-selected={tipoBusqueda === 'abonado'}
+          aria-controls="search-tabs"
+        >
+          Abonado
+        </button>
+        <button
+          type="button"
+          class="search-tab {tipoBusqueda === 'nombre' ? 'active' : ''}"
+          on:click={() => tipoBusqueda = 'nombre'}
+          disabled={isLoading}
+          role="tab"
+          aria-selected={tipoBusqueda === 'nombre'}
+          aria-controls="search-tabs"
+        >
+          Nombre
+        </button>
+        <button
+          type="button"
+          class="search-tab {tipoBusqueda === 'documento' ? 'active' : ''}"
+          on:click={() => tipoBusqueda = 'documento'}
+          disabled={isLoading}
+          role="tab"
+          aria-selected={tipoBusqueda === 'documento'}
+          aria-controls="search-tabs"
+        >
+          Documento
+        </button>
+      </div>
     </div>
     
     <div class="input-group">
@@ -85,8 +110,8 @@
 
   .search-type-selector {
     display: flex;
-    align-items: center;
-    gap: 0.75rem;
+    flex-direction: column;
+    gap: 0.5rem;
     margin-bottom: 1rem;
     padding: 0.75rem;
     background: rgba(0, 0, 0, 0.02);
@@ -101,28 +126,48 @@
     white-space: nowrap;
   }
 
-  .search-type-select {
+  .search-tabs {
+    display: flex;
+    gap: 0.25rem;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 6px;
+    padding: 0.25rem;
+  }
+
+  .search-tab {
     flex: 1;
     padding: 0.5rem 0.75rem;
-    border: 1px solid rgba(0, 0, 0, 0.2);
-    border-radius: 6px;
-    background: white;
-    font-size: 0.875rem;
-    color: #000000;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: rgba(0, 0, 0, 0.6);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+    white-space: nowrap;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
-  .search-type-select:focus {
-    outline: none;
-    border-color: #000000;
-    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+  .search-tab:hover:not(:disabled) {
+    background: rgba(0, 0, 0, 0.08);
+    color: rgba(0, 0, 0, 0.8);
   }
 
-  .search-type-select:disabled {
-    background: rgba(0, 0, 0, 0.05);
-    color: rgba(0, 0, 0, 0.38);
+  .search-tab.active {
+    background: #000000;
+    color: white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+
+  .search-tab:disabled {
+    opacity: 0.38;
     cursor: not-allowed;
+    background: transparent;
+    color: rgba(0, 0, 0, 0.38);
   }
 
   .input-group {
@@ -239,9 +284,6 @@
     }
     
     .search-type-selector {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.5rem;
       padding: 0.625rem;
     }
 
@@ -249,9 +291,15 @@
       font-size: 0.8rem;
     }
 
-    .search-type-select {
-      width: 100%;
-      font-size: 0.8rem;
+    .search-tabs {
+      gap: 0.2rem;
+      padding: 0.2rem;
+    }
+
+    .search-tab {
+      padding: 0.4rem 0.5rem;
+      font-size: 0.75rem;
+      min-height: 28px;
     }
     
     .input-group {

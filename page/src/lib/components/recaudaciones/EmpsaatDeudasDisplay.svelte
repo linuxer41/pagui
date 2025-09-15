@@ -1,5 +1,6 @@
 <script lang="ts">
   import { RefreshCwIcon, XIcon, CheckIcon, SquareIcon, CheckSquareIcon, DropletIcon, StarIcon } from 'svelte-feather-icons';
+  import PaymentNotificationHandler from './PaymentNotificationHandler.svelte';
   
   // Componente SVG para QR Code
   const QrCodeIcon = (props: {size?: number, color?: string}) => {
@@ -74,8 +75,20 @@
   export let error: string | null = null;
   
   export let generarQR: (deudas: any[], total: number, abonado: any) => void = () => {};
-  export let limpiarCliente: () => void = () => {};
+  export const limpiarCliente: () => void = () => {};
   export let goToPreviousStep: () => void = () => {};
+  export let onRefresh: () => void = () => {};
+  
+  // Variables para notificaciones de pago
+  let currentQrId: string = '';
+  let paymentStatus: string = 'pending';
+  let showPaymentSuccess = false;
+  let showPaymentError = false;
+  let paymentMessage = '';
+  
+  
+  // Variable para controlar el estado de actualización
+  let isRefreshing = false;
   
   // Estado para múltiples abonados
   let abonadoActivo: number = 0; // Índice del abonado activo
@@ -84,6 +97,15 @@
   
   // Obtener el abonado activo
   $: abonadoActual = data?.deudas?.[abonadoActivo] || null;
+  
+  // Debug: Log para verificar la estructura de datos
+  $: if (data) {
+    console.log('EmpsaatDeudasDisplay - data:', data);
+    console.log('EmpsaatDeudasDisplay - data.deudas:', data.deudas);
+    console.log('EmpsaatDeudasDisplay - abonadoActual:', abonadoActual);
+  }
+  
+  
   
   // Array unificado de deudas formateadas para el abonado activo
   $: deudasUnificadas = (() => {
@@ -94,7 +116,7 @@
     
     // Agregar servicios primero (prioritarios)
     if (abonadoActual.deudasServicios) {
-      abonadoActual.deudasServicios.forEach((deuda) => {
+      abonadoActual.deudasServicios.forEach((deuda: any) => {
         deudas.push({
           ...deuda,
           tipo: 'servicio',
@@ -171,11 +193,15 @@
   function seleccionarDeuda(deuda: any) {
     deudasSeleccionadas.push(deuda);
     recalcularTotal();
+    // Limpiar error si se selecciona una deuda válida
+    if (error && totalSeleccionado > 0) {
+      error = null;
+    }
   }
   
   // Función para deseleccionar una deuda
   function deseleccionarDeuda(deuda: any) {
-    const index = deudasSeleccionadas.findIndex(d => 
+    const index = deudasSeleccionadas.findIndex((d: any) => 
       d.factura === deuda.factura && d.tipo === deuda.tipo
     );
     
@@ -187,16 +213,20 @@
   
   // Función para recalcular el total
   function recalcularTotal() {
-    totalSeleccionado = deudasSeleccionadas.reduce((sum, deuda) => {
-      return sum + deuda.monto;
+    totalSeleccionado = deudasSeleccionadas.reduce((sum: number, deuda: any) => {
+      const monto = parseFloat(deuda.monto) || 0;
+      return sum + monto;
     }, 0);
+    
+    // Asegurar que el total no sea negativo
+    totalSeleccionado = Math.max(0, totalSeleccionado);
     
     deudasSeleccionadas = [...deudasSeleccionadas];
   }
   
   // Función para verificar si una deuda está seleccionada
   function isDeudaSeleccionada(deuda: any) {
-    return deudasSeleccionadas.some(d => 
+    return deudasSeleccionadas.some((d: any) => 
       d.factura === deuda.factura && d.tipo === deuda.tipo
     );
   }
@@ -210,6 +240,48 @@
     
     // Solo se puede seleccionar si está habilitada
     return isDebtEnabled(deuda);
+  }
+  
+  // Funciones para manejar notificaciones de pago
+  function handlePaymentSuccess(data: any) {
+    console.log('Pago exitoso recibido:', data);
+    showPaymentSuccess = true;
+    showPaymentError = false;
+    paymentMessage = '¡Pago procesado exitosamente!';
+    paymentStatus = 'paid';
+    
+    // Limpiar selecciones después del pago exitoso
+    setTimeout(() => {
+      deudasSeleccionadas = [];
+      totalSeleccionado = 0;
+      qrGenerado = null;
+      showPaymentSuccess = false;
+      paymentStatus = 'pending';
+    }, 5000);
+  }
+  
+  function handlePaymentError(error: string) {
+    console.log('Error de pago recibido:', error);
+    showPaymentError = true;
+    showPaymentSuccess = false;
+    paymentMessage = error;
+    paymentStatus = 'failed';
+    
+    // Limpiar mensaje de error después de 5 segundos
+    setTimeout(() => {
+      showPaymentError = false;
+      paymentStatus = 'pending';
+    }, 5000);
+  }
+  
+  function handlePaymentStatusChange(status: string) {
+    console.log('Estado de pago cambiado:', status);
+    paymentStatus = status;
+  }
+  
+  // Función para actualizar el QR ID cuando se genera un nuevo QR
+  function updateQrId(qrId: string | null) {
+    currentQrId = qrId || '';
   }
   
   // Función para verificar si una deuda debe estar habilitada para selección
@@ -240,15 +312,15 @@
   
   // Funciones auxiliares basadas en el array unificado
   function getDeudasPorTipo(tipo: 'agua' | 'servicio') {
-    return deudasUnificadas.filter(d => d.tipo === tipo);
+    return deudasUnificadas.filter((d: any) => d.tipo === tipo);
   }
   
   function getDeudasSeleccionadasPorTipo(tipo: 'agua' | 'servicio') {
-    return deudasSeleccionadas.filter(d => d.tipo === tipo);
+    return deudasSeleccionadas.filter((d: any) => d.tipo === tipo);
   }
   
   function getTotalPorTipo(tipo: 'agua' | 'servicio') {
-    return getDeudasSeleccionadasPorTipo(tipo).reduce((sum, deuda) => sum + deuda.monto, 0);
+    return getDeudasSeleccionadasPorTipo(tipo).reduce((sum: number, deuda: any) => sum + deuda.monto, 0);
   }
   
   // Función para cambiar de abonado
@@ -259,10 +331,30 @@
     totalSeleccionado = 0;
   }
   
+  
   // Función para pagar deudas seleccionadas
   function pagarDeudasSeleccionadas() {
-    if (deudasSeleccionadas.length > 0 && abonadoActual) {
+    if (deudasSeleccionadas.length > 0 && abonadoActual && totalSeleccionado > 0) {
       generarQR(deudasSeleccionadas, totalSeleccionado, abonadoActual.abonado);
+    } else if (totalSeleccionado <= 0) {
+      error = 'El total a pagar debe ser mayor a cero';
+    }
+  }
+  
+  // Función para actualizar el QR ID cuando se genera un nuevo QR
+  $: if (qrGenerado?.qrId) {
+    updateQrId(qrGenerado.qrId);
+  }
+
+  // Función para manejar la actualización de deudas
+  async function handleRefresh() {
+    if (onRefresh && !isRefreshing) {
+      isRefreshing = true;
+      try {
+        await onRefresh();
+      } finally {
+        isRefreshing = false;
+      }
     }
   }
   
@@ -273,27 +365,19 @@
   <!-- Navegación y información del cliente -->
   <div class="debt-header">
     <div class="header-top">
-      <button 
-        class="btn-back" 
-        on:click={() => goToPreviousStep()}
-        title="Volver al paso anterior"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="15,18 9,12 15,6"></polyline>
-        </svg>
-        Volver
-      </button>
       <h2 class="debt-list-title">Facturas Pendientes</h2>
+      <button 
+        class="btn-refresh-icon" 
+        class:refreshing={isRefreshing}
+        on:click={handleRefresh}
+        title="Actualizar deudas"
+        disabled={isLoading || isRefreshing}
+      >
+        <RefreshCwIcon size="16" />
+      </button>
     </div>
     
-    {#if isLoading}
-      <div class="loading-header">
-        <div class="loading-spinner">
-          <RefreshCwIcon size="20" />
-        </div>
-        <div class="loading-text">Obteniendo información del abonado...</div>
-      </div>
-    {:else if data?.deudas && data.deudas.length > 0}
+    {#if data?.deudas && data.deudas.length > 0}
       <!-- Pestañas de abonados si hay múltiples -->
       {#if data.deudas.length > 1}
         <div class="abonados-tabs">
@@ -341,6 +425,20 @@
       {/if}
     {/if}
   </div>
+
+  {#if error}
+    <div class="error-message">
+      <div class="error-icon">⚠️</div>
+      <div class="error-content">
+        <h3>Error al procesar la solicitud</h3>
+        <p>{error}</p>
+        <button class="retry-button" on:click={() => { error = null; generarQR(deudasSeleccionadas, totalSeleccionado, abonadoActual); }}>
+          Intentar nuevamente
+        </button>
+      </div>
+    </div>
+  {/if}
+
 
   {#if abonadoActual && (abonadoActual.deudasAgua?.length || 0) === 0 && (abonadoActual.deudasServicios?.length || 0) === 0}
     <div class="no-debts">
@@ -413,7 +511,7 @@
       <button 
         class="btn-pay-total" 
         on:click={pagarDeudasSeleccionadas} 
-        disabled={isGeneratingQR || deudasSeleccionadas.length === 0}
+        disabled={isGeneratingQR || deudasSeleccionadas.length === 0 || totalSeleccionado <= 0}
       >
         {#if isGeneratingQR}
           <span class="spinner"></span>
@@ -425,6 +523,29 @@
       </button>
     </div>
   {/if}
+  
+  <!-- Notificaciones de pago -->
+  {#if showPaymentSuccess}
+    <div class="payment-notification success">
+      <div class="notification-icon">✓</div>
+      <div class="notification-message">{paymentMessage}</div>
+    </div>
+  {/if}
+  
+  {#if showPaymentError}
+    <div class="payment-notification error">
+      <div class="notification-icon">✗</div>
+      <div class="notification-message">{paymentMessage}</div>
+    </div>
+  {/if}
+  
+  <!-- Componente de notificaciones SSE -->
+  <PaymentNotificationHandler 
+    qrId={currentQrId}
+    onPaymentSuccess={handlePaymentSuccess}
+    onPaymentError={handlePaymentError}
+    onPaymentStatusChange={handlePaymentStatusChange}
+  />
 </div>
 
 <style>
@@ -437,13 +558,6 @@
     margin-top: 2rem;
   }
   
-  .debt-section {
-    margin-bottom: 2rem;
-    background-color: rgba(255, 255, 255, 0.05);
-    border-radius: var(--radius);
-    padding: 1rem;
-    border: 1px solid var(--border-color);
-  }
   
   h3 {
     font-size: 1.1rem;
@@ -464,28 +578,7 @@
     border: 1px solid var(--border-color);
   }
   
-  .section-total .label {
-    font-weight: 500;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    text-transform: uppercase;
-    letter-spacing: 0.2px;
-  }
   
-  .section-total .value {
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: var(--accent-color);
-  }
-  
-  .priority-notice {
-    background: rgba(251, 191, 36, 0.1);
-    border: 1px solid rgba(251, 191, 36, 0.3);
-    border-radius: 6px;
-    padding: 0.75rem;
-    margin-bottom: 1rem;
-    transition: all 0.2s ease;
-  }
   
   .priority-notice.active {
     background: rgba(239, 68, 68, 0.1);
@@ -1036,26 +1129,6 @@
     margin-bottom: 1rem;
   }
   
-  .loading-header {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 1rem;
-    background: rgba(0, 0, 0, 0.05);
-    border-radius: 8px;
-    margin-bottom: 1rem;
-  }
-  
-  .loading-spinner {
-    animation: spin 1s linear infinite;
-    color: #059669;
-  }
-  
-  .loading-text {
-    color: #666666;
-    font-size: 0.9rem;
-    font-weight: 500;
-  }
   
   @keyframes spin {
     from {
@@ -1085,6 +1158,39 @@
   .btn-back:hover {
     background: rgba(0, 0, 0, 0.05);
     border-color: rgba(0, 0, 0, 0.3);
+  }
+
+  .btn-refresh-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: rgb(var(--gray-800));
+    border: 1px solid rgba(var(--gray-600), 0.3);
+    color: rgb(var(--white));
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    flex-shrink: 0;
+  }
+
+  .btn-refresh-icon:hover:not(:disabled) {
+    background: rgb(var(--gray-700));
+    border-color: rgba(var(--gray-500), 0.5);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+
+  .btn-refresh-icon:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn-refresh-icon.refreshing {
+    animation: spin 1s linear infinite;
   }
   
   .debt-list-title {
@@ -1158,14 +1264,133 @@
     color: rgb(var(--success));
     text-align: center;
   }
+  
+  /* Notificaciones de pago */
+  .payment-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: slideIn 0.3s ease-out;
+    max-width: 400px;
+  }
+  
+  .payment-notification.success {
+    background: #10b981;
+    color: white;
+  }
+  
+  .payment-notification.error {
+    background: #ef4444;
+    color: white;
+  }
+
+  .error-message {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .error-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+  }
+
+  .error-content {
+    flex: 1;
+  }
+
+  .error-content h3 {
+    margin: 0 0 0.5rem 0;
+    color: #dc2626;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .error-content p {
+    margin: 0 0 1rem 0;
+    color: #7f1d1d;
+    font-size: 0.875rem;
+    line-height: 1.4;
+  }
+
+  .retry-button {
+    background: #dc2626;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+
+  .retry-button:hover {
+    background: #b91c1c;
+  }
+
+  
+  .notification-icon {
+    font-size: 1.25rem;
+    font-weight: bold;
+  }
+  
+  .notification-message {
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+  
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
 
   /* Estilos para pestañas de abonados */
   .abonados-tabs {
     display: flex;
+    flex-direction: row;
     gap: 0.5rem;
     margin-bottom: 1.5rem;
     overflow-x: auto;
+    overflow-y: hidden;
     padding-bottom: 0.5rem;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
+  }
+  
+  .abonados-tabs::-webkit-scrollbar {
+    height: 6px;
+  }
+  
+  .abonados-tabs::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .abonados-tabs::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 3px;
+  }
+  
+  .abonados-tabs::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.5);
   }
 
   .tab-button {
@@ -1263,24 +1488,28 @@
   /* Responsive para pestañas */
   @media (max-width: 768px) {
     .abonados-tabs {
-      flex-direction: column;
+      flex-direction: row;
       gap: 0.5rem;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding-bottom: 0.75rem;
     }
 
     .tab-button {
-      min-width: auto;
-      width: 100%;
+      min-width: 180px;
+      flex-shrink: 0;
+      width: auto;
     }
 
     .tab-content {
-      align-items: center;
-      text-align: center;
+      align-items: flex-start;
+      text-align: left;
     }
 
     .tab-subtitle {
-      white-space: normal;
-      text-overflow: unset;
-      overflow: visible;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
     }
   }
 

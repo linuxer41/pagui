@@ -16,7 +16,7 @@ export interface DeudaAguaSchema {
 // Esquema de Deuda de Servicio
 export interface DeudaServicioSchema {
   noSolicitud: number;
-  fecha?: Date | string | number;
+  fecha: string; // Siempre viene como string en formato ISO
   descripcion: string;
   costo: number;
 }
@@ -31,14 +31,13 @@ export interface TotalDeudaSchema {
 // Esquema de Abonado
 export interface AbonadoSchema {
   abonado: number;
-  nombre: string;
   nit: number;
+  nombre: string;
+  ci: string;
   medidor: string;
   zona: string;
-  calle: string;
-  num: string;
+  direccion: string;
   categoria: string;
-  ley1886: boolean;
   estado: string;
 }
 
@@ -56,9 +55,80 @@ export interface ClienteSchema {
 
 // Respuesta para consultar deudas
 export interface DeudasResponse {
-  deudasAgua: DeudaAguaSchema[];
-  deudasServicios: DeudaServicioSchema[];
-  totales: TotalDeudaSchema;
+  deudas: Array<{
+    abonado: AbonadoSchema;
+    deudasAgua: DeudaAguaSchema[];
+    deudasServicios: DeudaServicioSchema[];
+    totales: TotalDeudaSchema;
+  }>;
+  totalGeneral: TotalDeudaSchema;
+}
+
+// Respuesta completa de la API (incluye status y type)
+export interface DeudasApiResponse {
+  type: 'success' | 'error';
+  status: number;
+  data: DeudasResponse;
+}
+
+// Esquema de Transacción
+export interface TransaccionSchema {
+  id: number;
+  transactionId: string;
+  subscriberNumber: number;
+  amount: number;
+  status: 'pending' | 'completed' | 'cancelled';
+  metadata: {
+    waterDebts: number[];
+    serviceDebts: number[];
+    waterTotal: number;
+    serviceTotal: number;
+    grandTotal: number;
+  };
+  createdAt: string;
+  completedAt: string | null;
+  userName: string;
+  taxId: string;
+  businessName: string;
+  email: string;
+}
+
+// Solicitud para crear transacción
+export interface CrearTransaccionRequest {
+  taxId: string;
+  businessName: string;
+  email: string;
+  waterDebts?: number[];
+  serviceDebts?: number[];
+}
+
+// Solicitud para completar transacción
+export interface CompletarTransaccionRequest {
+  transactionId: string;
+  paymentMethod: 'efectivo' | 'tarjeta_debito' | 'tarjeta_credito' | 'transferencia' | 'cheque' | 'qr';
+  amountPaid: number;
+}
+
+// Respuesta de transacción
+export interface TransaccionResponse {
+  id: number;
+  transactionId: string;
+  subscriberNumber: number;
+  amount: number;
+  status: 'pending' | 'completed' | 'cancelled';
+  metadata: {
+    waterDebts: number[];
+    serviceDebts: number[];
+    waterTotal: number;
+    serviceTotal: number;
+    grandTotal: number;
+  };
+  createdAt: string;
+  completedAt: string | null;
+  userName: string;
+  taxId: string;
+  businessName: string;
+  email: string;
 }
 
 // Solicitud para procesar pago de servicios
@@ -100,6 +170,10 @@ export interface ListaAbonadosResponse {
 }
 
 // Adaptar respuestas al formato general de la aplicación
-export interface EmpsaatApiResponse<T> extends ServerResponse<T> {
-  // Campos adicionales específicos de EMPSAAT si son necesarios
+export interface EmpsaatApiResponse<T> {
+  success: boolean;
+  data?: T;
+  message?: string;
+  error?: string;
+  codigo?: string;
 }

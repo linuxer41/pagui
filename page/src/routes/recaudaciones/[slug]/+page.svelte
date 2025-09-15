@@ -1239,11 +1239,11 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 0.5rem;
-    border-radius: 8px;
+    gap: 0.375rem;
+    padding: 0.5rem 0.375rem;
+    border-radius: 6px;
     position: relative;
-    min-width: 80px;
+    min-width: 60px;
   }
 
   .step:hover {
@@ -1281,11 +1281,11 @@
     text-align: center;
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
+    gap: 0.1rem;
   }
 
   .step-title {
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     font-weight: 600;
     color: var(--color-text-primary);
     text-transform: uppercase;
@@ -1294,7 +1294,7 @@
   }
   
   .step-description {
-    font-size: 0.7rem;
+    font-size: 0.6rem;
     color: var(--color-text-secondary);
     line-height: 1.2;
     font-weight: 400;
@@ -1375,21 +1375,21 @@
   }
 
   .step-connector {
-    width: 30px;
+    width: 20px;
     height: 2px;
     background: linear-gradient(90deg, #3b82f6, #8b5cf6);
     border-radius: 1px;
     position: relative;
-    margin: 0 0.25rem;
+    margin: 0 0.2rem;
   }
 
   .step-connector::after {
     content: '';
     position: absolute;
-    right: -4px;
-    top: -3px;
-    width: 8px;
-    height: 8px;
+    right: -3px;
+    top: -2px;
+    width: 6px;
+    height: 6px;
     background: #8b5cf6;
     border-radius: 50%;
   }
@@ -1751,6 +1751,8 @@
       padding: 1rem;
       width: 100%;
     }
+
+
     
   }
 

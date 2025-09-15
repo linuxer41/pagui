@@ -706,6 +706,27 @@
       }
     }
   }
+
+  function goToStep(step: number) {
+    if (step < currentStep) {
+      currentStep = step;
+      
+      // Limpiar estado según el paso al que se va
+      if (step === 1) {
+        // Ir al paso 1: limpiar búsqueda
+        searchResult = null;
+        cliente = undefined;
+        qrGenerado = null;
+        qrStatus = null;
+        detenerPollingEstado();
+      } else if (step === 2) {
+        // Ir al paso 2: limpiar QR
+        qrGenerado = null;
+        qrStatus = null;
+        detenerPollingEstado();
+      }
+    }
+  }
   
   function goToNextStep() {
     if (currentStep < 3) {
@@ -775,23 +796,17 @@
   <!-- Contenido principal -->
   <main class="main-content">
     <div class="main-content-area">
-      <!-- Botón Volver Global - Solo en pasos 2 y 3 -->
-      {#if currentStep === 2 || currentStep === 3}
-        <button 
-          class="btn-back-global" 
-          on:click={() => goToPreviousStep()}
-          title="Volver al paso anterior"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="15,18 9,12 15,6"></polyline>
-          </svg>
-          Volver
-        </button>
-      {/if}
         <!-- Panel de pasos del proceso -->
         <div class="content-section">
           <div class="process-steps">
-              <div class="step {currentStep === 1 ? 'active' : ''} {currentStep > 1 ? 'completed' : ''}">
+              <div 
+                class="step {currentStep === 1 ? 'active' : ''} {currentStep > 1 ? 'completed' : ''} {currentStep > 1 ? 'clickable' : ''}"
+                on:click={() => currentStep > 1 ? goToStep(1) : null}
+                on:keydown={(e) => e.key === 'Enter' && currentStep > 1 ? goToStep(1) : null}
+                role="button"
+                tabindex={currentStep > 1 ? 0 : -1}
+                title={currentStep > 1 ? 'Volver al paso 1' : ''}
+              >
                 <div class="step-icon">
                   <SearchIcon size="16" />
             </div>
@@ -803,7 +818,14 @@
               
               <div class="step-connector {currentStep > 1 ? 'active' : ''}"></div>
               
-              <div class="step {currentStep === 2 ? 'active' : ''} {currentStep > 2 ? 'completed' : ''}">
+              <div 
+                class="step {currentStep === 2 ? 'active' : ''} {currentStep > 2 ? 'completed' : ''} {currentStep > 2 ? 'clickable' : ''}"
+                on:click={() => currentStep > 2 ? goToStep(2) : null}
+                on:keydown={(e) => e.key === 'Enter' && currentStep > 2 ? goToStep(2) : null}
+                role="button"
+                tabindex={currentStep > 2 ? 0 : -1}
+                title={currentStep > 2 ? 'Volver al paso 2' : ''}
+              >
                 <div class="step-icon">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="3" y="3" width="5" height="5"></rect>
@@ -826,7 +848,14 @@
               
               <div class="step-connector {currentStep > 2 ? 'active' : ''}"></div>
               
-              <div class="step {currentStep === 3 ? 'active' : ''} {currentStep > 3 ? 'completed' : ''}">
+              <div 
+                class="step {currentStep === 3 ? 'active' : ''} {currentStep > 3 ? 'completed' : ''} {currentStep > 3 ? 'clickable' : ''}"
+                on:click={() => currentStep > 3 ? goToStep(3) : null}
+                on:keydown={(e) => e.key === 'Enter' && currentStep > 3 ? goToStep(3) : null}
+                role="button"
+                tabindex={currentStep > 3 ? 0 : -1}
+                title={currentStep > 3 ? 'Volver al paso 3' : ''}
+              >
                 <div class="step-icon">
                   <CheckCircleIcon size="16" />
                 </div>
@@ -903,20 +932,14 @@
         {:else}
           <!-- Formulario de búsqueda -->
           <div class="content-section search-section">
-            <div class="search-header">
-              <h2 class="search-title">BUSCAR DEUDAS</h2>
-              <p class="search-subtitle">Ingresa tu número de cliente o abonado para consultar tus facturas pendientes</p>
-            </div>
-            <div class="search-content">
-              <FormularioBusqueda
-                bind:codigoClienteInput
-                bind:tipoBusqueda
-                {isLoading}
-                {searchResult}
-                {error}
-                onBuscar={buscarCuenta}
-              />
-            </div>
+            <FormularioBusqueda
+              bind:codigoClienteInput
+              bind:tipoBusqueda
+              {isLoading}
+              {searchResult}
+              {error}
+              onBuscar={buscarCuenta}
+            />
           </div>
         {/if}
     </div>
@@ -1169,7 +1192,7 @@
   /* Contenido principal */
   .main-content {
     grid-area: main;
-    background: #ffffff;
+    background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
     overflow-y: auto;
     overflow-x: hidden;
   }
@@ -1177,48 +1200,17 @@
   
   /* Contenido principal */
   .main-content-area {
-    padding: 2rem;
+    padding: 1rem;
     width: 100%;
-    background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+    max-width: 650px;
+    margin: 0 auto;
+    
     min-height: 100%;
     position: relative;
   }
   
-  /* Botón Volver Global */
-  .btn-back-global {
-    position: absolute;
-    top: 1rem;
-    left: 1rem;
-    z-index: 10;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    border: 1px solid rgba(0, 0, 0, 0.3);
-    border-radius: 6px;
-    font-weight: 500;
-    font-size: 0.8rem;
-    cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
-    background: rgba(255, 255, 255, 0.9);
-    color: #000000;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  }
-  
-  .btn-back-global:hover {
-    background: rgba(255, 255, 255, 1);
-    border-color: rgba(0, 0, 0, 0.5);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  }
-  
-  .btn-back-global svg {
-    flex-shrink: 0;
-  }
   
   .content-section {
-    margin-bottom: 1.5rem;
     background: transparent;
     padding: 0;
   }
@@ -1240,7 +1232,6 @@
     align-items: center;
     justify-content: center;
     gap: 0;
-    margin: 0.5rem 0;
     padding: 0.75rem;
     background: rgba(255, 255, 255, 0.3);
     border-radius: 12px;
@@ -1409,17 +1400,53 @@
     border-radius: 50%;
   }
 
-  
+  /* Estilos para pasos clickeables */
+  .step.clickable {
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+  }
+
+  .step.clickable:hover {
+    background: rgba(0, 0, 0, 0.05);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .step.clickable:focus {
+    outline: 2px solid var(--color-bg-dark);
+    outline-offset: 2px;
+  }
+
+  .step.clickable .step-icon {
+    transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+  }
+
+  .step.clickable:hover .step-icon {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  .step.clickable .step-title {
+    transition: color 0.2s ease;
+  }
+
+  .step.clickable:hover .step-title {
+    color: var(--color-bg-dark);
+  }
+
+  .step.clickable .step-description {
+    transition: color 0.2s ease;
+  }
+
+  .step.clickable:hover .step-description {
+    color: var(--color-bg-dark);
+  }
   
   .payment-content {
     background: transparent;
     padding: 0;
   }
   
-  .search-content {
-    background: transparent;
-    padding: 0;
-  }
 
   /* Sección de búsqueda más prominente */
   .search-section {
@@ -1432,27 +1459,6 @@
     margin-top: 0.5rem;
   }
 
-  .search-header {
-    text-align: center;
-    margin-bottom: 1.5rem;
-  }
-
-  .search-title {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #1a1a1a;
-    margin: 0 0 0.25rem 0;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .search-subtitle {
-    font-size: 0.8rem;
-    color: #666666;
-    margin: 0;
-    font-weight: 400;
-    line-height: 1.4;
-  }
   
   
   /* Responsive Design */
@@ -1754,12 +1760,6 @@
       width: 100%;
     }
     
-    .btn-back-global {
-      top: 0.5rem;
-      left: 0.5rem;
-      padding: 0.4rem 0.8rem;
-      font-size: 0.75rem;
-    }
 
     .mobile-header {
       position: sticky;

@@ -151,7 +151,7 @@
   .qr-content {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 0.75rem;
   }
   
   .qr-image-container {
@@ -161,8 +161,8 @@
   }
   
   .qr-image {
-    width: 240px;
-    height: 240px;
+    width: 280px;
+    height: 280px;
     border: none;
     border-radius: 8px;
     background: white;
@@ -178,17 +178,17 @@
   .qr-info {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.5rem;
   }
   
   .qr-amount {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.5rem;
-    padding: 1rem;
+    gap: 0.25rem;
+    padding: 0.5rem;
     background: rgba(0, 0, 0, 0.04);
-    border-radius: 8px;
+    border-radius: 6px;
   }
   
   .amount-label {
@@ -200,7 +200,7 @@
   }
   
   .amount-value {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     font-weight: 700;
     color: var(--accent-color);
   }
@@ -208,7 +208,7 @@
   .qr-details {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.375rem;
     background: transparent;
     padding: 0;
     border: none;
@@ -216,17 +216,17 @@
   
   .qr-ids-compact {
     display: flex;
-    gap: 1rem;
-    padding: 0.75rem;
+    gap: 0.75rem;
+    padding: 0.375rem;
     background: rgba(0, 0, 0, 0.02);
-    border-radius: 6px;
+    border-radius: 4px;
     border: 1px solid rgba(0, 0, 0, 0.05);
   }
   
   .qr-id-compact, .transaction-id-compact {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.25rem;
     flex: 1;
   }
   
@@ -243,9 +243,9 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.75rem;
+    padding: 0.375rem;
     background: rgba(0, 0, 0, 0.02);
-    border-radius: 6px;
+    border-radius: 4px;
     transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
   }
   

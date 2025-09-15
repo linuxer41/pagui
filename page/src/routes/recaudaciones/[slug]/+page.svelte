@@ -931,7 +931,7 @@
           </div>
         {:else}
           <!-- Formulario de búsqueda -->
-          <div class="content-section search-section">
+          <div class="content-section">
             <FormularioBusqueda
               bind:codigoClienteInput
               bind:tipoBusqueda
@@ -1021,17 +1021,14 @@
   
   .dashboard-layout {
     display: grid;
-    grid-template-areas: 
-      "sidebar main";
     grid-template-columns: 30% 70%;
-    height: 100vh;
+    height: 100%;
     background: var(--color-bg-primary);
     overflow: hidden;
   }
   
   /* Sidebar/Header - Estilo Cursor/Stripe */
   .sidebar {
-    grid-area: sidebar;
     background: var(--color-bg-dark);
     color: #ffffff;
     display: flex;
@@ -1191,7 +1188,6 @@
   
   /* Contenido principal */
   .main-content {
-    grid-area: main;
     background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
     overflow-y: auto;
     overflow-x: hidden;
@@ -1204,8 +1200,6 @@
     width: 100%;
     max-width: 650px;
     margin: 0 auto;
-    
-    min-height: 100%;
     position: relative;
   }
   
@@ -1468,13 +1462,17 @@
     .dashboard-layout {
       grid-template-areas: 
         "main";
-      grid-template-columns: 100%;
+      grid-template-columns: 1fr;
       grid-template-rows: 1fr;
-      height: 100vh;
+      height: 100%;
       overflow: hidden;
     }
     
     .main-content {
+      display: grid;
+      grid-template-rows: 1fr auto;
+      grid-template-columns: 1fr;
+      height: 100%;
       overflow-y: auto;
       overflow-x: hidden;
     }
@@ -1743,48 +1741,17 @@
         "main";
       grid-template-columns: 100%;
       grid-template-rows: 1fr;
-      height: 100vh;
+      height: 100%;
       overflow: hidden;
     }
 
-    .main-content {
-      /* Grid area ya definido */
-    }
-
-    .content-wrapper {
-      padding: 0;
-    }
+   
 
     .main-content-area {
       padding: 1rem;
       width: 100%;
     }
     
-
-    .mobile-header {
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-
-
-    .mobile-security-badge-unified .security-icons svg {
-      color: #059669 !important;
-      display: block !important;
-      width: 14px !important;
-      height: 14px !important;
-    }
-
-    .mobile-security-badge-unified .security-icons svg {
-      color: #059669 !important;
-      display: block !important;
-      width: 12px !important;
-      height: 12px !important;
-    }
-
-    .mobile-security-badge-unified .security-message {
-      font-size: 0.55rem;
-    }
   }
 
 </style>

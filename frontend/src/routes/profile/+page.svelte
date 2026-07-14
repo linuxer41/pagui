@@ -5,15 +5,26 @@
   import { auth } from '$lib/stores/auth';
   import { theme } from '$lib/stores/theme';
   import {
+      ArrowLeftRight,
+      Bell,
       ChevronRight,
       Code,
       CreditCard,
+      DollarSign,
       Globe,
       Key,
       LogOut,
       Moon,
+      RefreshCw,
+      Repeat,
+      ShieldAlert,
+      ShieldCheck,
+      Smartphone,
+      Store,
       Sun,
-      User
+      User,
+      Wallet,
+      Webhook
   } from '@lucide/svelte';
 
   // Idiomas disponibles
@@ -155,7 +166,77 @@
       </div>
     </button>
   </div>
-  
+
+  <!-- Sección de Pagos -->
+  <div class="security-section">
+    <h2>Pagos y Transferencias</h2>
+
+    <button class="security-card" on:click={() => goto('/transfers')}>
+      <div class="security-card-icon transfer">
+        <ArrowLeftRight size={20} />
+      </div>
+      <div class="security-card-content">
+        <h3>Transferencias</h3>
+        <p>P2P, pagos compartidos, suscripciones</p>
+      </div>
+      <div class="security-card-arrow">
+        <ChevronRight size={18} />
+      </div>
+    </button>
+
+    <button class="security-card" on:click={() => goto('/merchants')}>
+      <div class="security-card-icon merchant">
+        <Store size={20} />
+      </div>
+      <div class="security-card-content">
+        <h3>Comercios</h3>
+        <p>Registra tu comercio y recibe pagos QR</p>
+      </div>
+      <div class="security-card-arrow">
+        <ChevronRight size={18} />
+      </div>
+    </button>
+
+    <button class="security-card" on:click={() => goto('/subscriptions')}>
+      <div class="security-card-icon sub">
+        <Repeat size={20} />
+      </div>
+      <div class="security-card-content">
+        <h3>Suscripciones</h3>
+        <p>Pagos recurrentes automáticos</p>
+      </div>
+      <div class="security-card-arrow">
+        <ChevronRight size={18} />
+      </div>
+    </button>
+
+    <button class="security-card" on:click={() => goto('/cash')}>
+      <div class="security-card-icon cash">
+        <DollarSign size={20} />
+      </div>
+      <div class="security-card-content">
+        <h3>Cash in / Cash out</h3>
+        <p>Deposita o retira efectivo con agentes</p>
+      </div>
+      <div class="security-card-arrow">
+        <ChevronRight size={18} />
+      </div>
+    </button>
+
+    <button class="security-card" on:click={() => goto('/nfc')}>
+      <div class="security-card-icon nfc">
+        <Smartphone size={20} />
+      </div>
+      <div class="security-card-content">
+        <h3>Pagos NFC</h3>
+        <p>Pagos sin contacto sin internet</p>
+      </div>
+      <div class="security-card-arrow">
+        <ChevronRight size={18} />
+      </div>
+    </button>
+  </div>
+
   <!-- Sección de Seguridad -->
   <div class="security-section">
     <h2>Seguridad</h2>
@@ -188,6 +269,48 @@
       </div>
     </button>
 
+    <!-- Biometrico -->
+    <button class="security-card" on:click={() => goto('/profile/biometric')}>
+      <div class="security-card-icon bio">
+        <Smartphone size={20} />
+      </div>
+      <div class="security-card-content">
+        <h3>Autenticación biométrica</h3>
+        <p>Registra huella o face ID</p>
+      </div>
+      <div class="security-card-arrow">
+        <ChevronRight size={18} />
+      </div>
+    </button>
+
+    <!-- KYC -->
+    <button class="security-card" on:click={() => goto('/kyc')}>
+      <div class="security-card-icon kyc">
+        <ShieldCheck size={20} />
+      </div>
+      <div class="security-card-content">
+        <h3>Verificación KYC</h3>
+        <p>Verifica tu identidad para aumentar límites</p>
+      </div>
+      <div class="security-card-arrow">
+        <ChevronRight size={18} />
+      </div>
+    </button>
+
+    <!-- Notificaciones -->
+    <button class="security-card" on:click={() => goto('/notifications')}>
+      <div class="security-card-icon notif">
+        <Bell size={20} />
+      </div>
+      <div class="security-card-content">
+        <h3>Notificaciones</h3>
+        <p>Centro de notificaciones</p>
+      </div>
+      <div class="security-card-arrow">
+        <ChevronRight size={18} />
+      </div>
+    </button>
+
     <!-- Métodos de Pago -->
     <button class="security-card" on:click={() => goto('/payment-methods')} aria-label="Gestionar métodos de pago">
       <div class="security-card-icon payment">
@@ -196,6 +319,75 @@
       <div class="security-card-content">
         <h3>Métodos de Pago</h3>
         <p>Gestiona tus cuentas y tarjetas</p>
+      </div>
+      <div class="security-card-arrow">
+        <ChevronRight size={18} />
+      </div>
+    </button>
+  </div>
+
+  <div class="security-section">
+    <h2>Herramientas</h2>
+
+    <button class="security-card" on:click={() => goto('/wallet')}>
+      <div class="security-card-icon wallet">
+        <Wallet size={20} />
+      </div>
+      <div class="security-card-content">
+        <h3>Billeteras</h3>
+        <p>Gestiona tus wallets y respaldos</p>
+      </div>
+      <div class="security-card-arrow">
+        <ChevronRight size={18} />
+      </div>
+    </button>
+
+    <button class="security-card" on:click={() => goto('/fx')}>
+      <div class="security-card-icon fx">
+        <ArrowLeftRight size={20} />
+      </div>
+      <div class="security-card-content">
+        <h3>Tasas de cambio</h3>
+        <p>Conversión de moneda y FX rates</p>
+      </div>
+      <div class="security-card-arrow">
+        <ChevronRight size={18} />
+      </div>
+    </button>
+
+    <button class="security-card" on:click={() => goto('/fraud')}>
+      <div class="security-card-icon fraud">
+        <ShieldAlert size={20} />
+      </div>
+      <div class="security-card-content">
+        <h3>Alertas de seguridad</h3>
+        <p>Alertas de fraude y actividad sospechosa</p>
+      </div>
+      <div class="security-card-arrow">
+        <ChevronRight size={18} />
+      </div>
+    </button>
+
+    <button class="security-card" on:click={() => goto('/webhooks')}>
+      <div class="security-card-icon webhook">
+        <Webhook size={20} />
+      </div>
+      <div class="security-card-content">
+        <h3>Webhooks</h3>
+        <p>Integración con servicios externos</p>
+      </div>
+      <div class="security-card-arrow">
+        <ChevronRight size={18} />
+      </div>
+    </button>
+
+    <button class="security-card" on:click={() => goto('/reconciliation')}>
+      <div class="security-card-icon recon">
+        <RefreshCw size={20} />
+      </div>
+      <div class="security-card-content">
+        <h3>Reconciliación</h3>
+        <p>Reconciliación de cuentas bancarias</p>
       </div>
       <div class="security-card-arrow">
         <ChevronRight size={18} />

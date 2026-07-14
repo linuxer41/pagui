@@ -1,53 +1,34 @@
 <script lang="ts">
-  import { fade, fly } from 'svelte/transition';
-  import { X } from '@lucide/svelte';
-  import { createEventDispatcher } from 'svelte';
+  import { X } from '@lucide/svelte'
 
-  export let open = false;
-  export let title = '';
-  export let width = '90%';
-  export let maxWidth = '500px';
+  let { open = false, title = '', maxWidth = '400px', showClose = true, onclose, children } = $props()
 
-  const dispatch = createEventDispatcher();
-
-  function closeModal() {
-    dispatch('close');
+  function handleBackdropClick(e: MouseEvent) {
+    if (e.target === e.currentTarget) onclose?.()
   }
 
-  function handleBackdropClick(event: MouseEvent) {
-    if (event.target === event.currentTarget) {
-      closeModal();
-    }
-  }
-
-  function handleEscape(event: KeyboardEvent) {
-    if (event.key === 'Escape' && open) {
-      closeModal();
-    }
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') onclose?.()
   }
 </script>
 
-<svelte:window on:keydown={handleEscape} />
+<svelte:window onkeydown={handleKeydown} />
 
 {#if open}
-  <div class="modal-backdrop" on:click={handleBackdropClick} in:fade={{ duration: 150 }} out:fade={{ duration: 150 }}>
-    <div 
-      class="modal-content"
-      style="width: {width}; max-width: {maxWidth};"
-      in:fly={{ y: 20, duration: 250, opacity: 0 }}
-      out:fly={{ y: 20, duration: 200, opacity: 0 }}
-    >
-      <div class="modal-header">
-        <h3>{title}</h3>
-        <button class="close-btn" on:click={closeModal} aria-label="Cerrar">
-          <X size={20} />
-        </button>
-      </div>
+  <div class="modal-backdrop animate-fade-in" onclick={handleBackdropClick} role="dialog" aria-modal="true">
+    <div class="modal-content animate-scale-in" style="max-width: {maxWidth}">
+      {#if title || showClose}
+        <div class="modal-header">
+          <h3 class="modal-title">{title}</h3>
+          {#if showClose}
+            <button class="modal-close" onclick={() => onclose?.()} aria-label="Cerrar">
+              <X size={18} />
+            </button>
+          {/if}
+        </div>
+      {/if}
       <div class="modal-body">
-        <slot></slot>
-      </div>
-      <div class="modal-footer">
-        <slot name="footer"></slot>
+        {@render children()}
       </div>
     </div>
   </div>
@@ -56,80 +37,50 @@
 <style>
   .modal-backdrop {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
-    padding: 1rem;
-    box-sizing: border-box;
-    backdrop-filter: blur(2px);
+    padding: var(--space-4);
   }
-
   .modal-content {
-    background-color: var(--surface);
-    border-radius: 1rem;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    max-height: 90vh;
-    border: 1px solid var(--border-color);
+    background: var(--surface);
+    border-radius: var(--radius-2xl);
+    width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow-xl);
+    border: 1px solid var(--border);
+    animation: scaleIn 250ms var(--ease-spring);
   }
-
   .modal-header {
-    padding: 1rem;
-    border-bottom: 1px solid var(--border-color);
     display: flex;
     align-items: center;
     justify-content: space-between;
+    padding: var(--space-5) var(--space-5) 0;
   }
-
-  .modal-header h3 {
-    margin: 0;
-    font-size: 1.25rem;
-    font-weight: 600;
+  .modal-title {
+    font-size: var(--text-lg);
+    font-weight: 700;
     color: var(--text-primary);
   }
-
-  .close-btn {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    padding: 0.25rem;
+  .modal-close {
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
+    border: none;
+    background: var(--surface-hover);
+    border-radius: var(--radius-full);
     color: var(--text-secondary);
-    border-radius: 0.5rem;
-    transition: all 0.2s ease;
+    transition: all var(--duration-fast) var(--ease-out);
+    flex-shrink: 0;
   }
-
-  .close-btn:hover {
-    background-color: rgba(0, 0, 0, 0.05);
-    color: var(--text-primary);
-  }
-
-  .modal-body {
-    padding: 1rem;
-    overflow-y: auto;
-    flex: 1;
-  }
-
-  .modal-footer {
-    padding: 1rem;
-    border-top: 1px solid var(--border-color);
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.5rem;
-  }
-
-  /* Solo mostrar el footer si hay contenido */
-  .modal-footer:empty {
-    display: none;
-  }
-</style> 
+  .modal-close:hover { background: var(--border); color: var(--text-primary); }
+  .modal-body { padding: var(--space-5); }
+</style>

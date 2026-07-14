@@ -1,207 +1,141 @@
-import { cors } from '@elysiajs/cors';
-import { cron } from '@elysiajs/cron';
-import { swagger } from '@elysiajs/swagger';
-import { Elysia } from 'elysia';
+import { Elysia } from 'elysia'
+import { cors } from '@elysiajs/cors'
+import { swagger } from '@elysiajs/swagger'
+import { testConnection } from './shared/database/pool'
+import { migrateDB } from './shared/database/migrate'
+import { AppError } from './shared/errors/app-error'
+import { logger, setCorrelationId } from './shared/logger'
+import { rateLimit } from './shared/middleware/rate-limit'
+import { sentry } from './shared/sentry'
+import { complianceHeaders } from './shared/compliance/pci.service'
 
-// Rutas por separado
+import { authRoutes } from './identity/auth.routes'
+import { userRoutes } from './identity/user.routes'
+import { bankingRoutes } from './banking/banking.routes'
+import { qrRoutes } from './payments/qr/qr.routes'
+import { hooksRoutes } from './payments/payment/hooks.routes'
+import { paymentRoutes } from './payments/payment/payment.routes'
+import { sseRoutes } from './payments/events/sse.controller'
+import { collectionsRoutes } from './collections/collections.routes'
+import { apiKeyRoutes } from './api-keys/apikey.routes'
+import { healthRoutes } from './monitoring/health.controller'
+import { paymentQueueService } from './payments/sync/payment-queue.service'
+import { sseService } from './payments/events/sse.service'
+import { fraudRoutes } from './payments/fraud/fraud.routes'
+import { fxRoutes } from './payments/fx/fx.routes'
+import { webhookRoutes } from './payments/webhooks/webhook.routes'
+import { startWebhookProcessor } from './payments/webhooks/webhook.service'
+import { reconciliationRoutes } from './payments/reconciliation/reconciliation.routes'
+import { walletBackupRoutes } from './payments/wallet/wallet-backup.routes'
+import { wsRoutes } from './shared/ws'
+import { subscriptionRoutes } from './payments/subscription/subscription.routes'
+import { splitRoutes } from './payments/split/split.routes'
+import { merchantRoutes } from './payments/merchant/merchant.routes'
+import { pushRoutes } from './payments/push/push.routes'
+import { cashRoutes } from './payments/cash/cash.routes'
+import { nfcRoutes } from './payments/offline/nfc-offline.routes'
+import { kycRoutes } from './shared/kyc/kyc.routes'
+import { complianceRoutes } from './shared/compliance/compliance.routes'
 
-// Config y middlewares
-import { migrateDB, testConnection } from './config/database';
+sentry.init()
 
-// Rutas
-import { routes } from './routes';
-import { seedDatabase } from './scripts/seed-db';
-import { ApiError } from './utils/error';
-
-// Servicios
-import paymentQueueService from './services/payment-queue.service';
-
-// Variables de entorno
-const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
-
-
-
-// Inicializar la aplicación
 const app = new Elysia()
-  .use(swagger({
-    documentation: {
-      info: {
-        title: 'API de Pagos con QR',
-        version: '1.0.0',
-        description: 'API para generación y gestión de códigos QR de pago'
-      },
-      tags: [
-        { name: 'auth', description: 'Endpoints de autenticación' },
-        { name: 'qr', description: 'Endpoints para gestión de códigos QR' },
-        { name: 'admin', description: 'Endpoints de administración' },
-        { name: 'companies', description: 'Endpoints para gestión de empresas' },
-        { name: 'banks', description: 'Endpoints para gestión de bancos' },
-        { name: 'api-keys', description: 'Endpoints para gestión de API keys' },
-      ]
-      
-    },
-    provider: 'swagger-ui',
-  }))
-  .use(cors({
-    origin: () => true,
-    credentials: true,
-    methods: "*",
-  }))
-  .use(cron({
-    name: 'monitor-tasks',
-    pattern: '0 * * * *', // Cada hora
-    run() {
-      console.log('⏰ Running scheduled monitoring tasks');
-      // qrService.updateExpiredQRs();
-      // qrService.checkExpiringQRs();
+
+app.onRequest(({ request }) => {
+  const id = crypto.randomUUID()
+  setCorrelationId(id)
+})
+
+app.onAfterHandle(({ set }) => {
+  set.headers = { ...set.headers, ...complianceHeaders() }
+})
+
+app.use(swagger({ path: '/swagger' }))
+  .use(cors({ origin: () => true }))
+  .use(rateLimit({ windowMs: 60_000, maxRequests: 120 }))
+  .use(healthRoutes)
+  .use(authRoutes)
+  .use(userRoutes)
+  .use(bankingRoutes)
+  .use(qrRoutes)
+  .use(hooksRoutes)
+  .use(paymentRoutes)
+  .use(sseRoutes)
+  .use(collectionsRoutes)
+  .use(apiKeyRoutes)
+  .use(fraudRoutes)
+  .use(fxRoutes)
+  .use(webhookRoutes)
+  .use(reconciliationRoutes)
+  .use(walletBackupRoutes)
+  .use(wsRoutes)
+  .use(subscriptionRoutes)
+  .use(splitRoutes)
+  .use(merchantRoutes)
+  .use(pushRoutes)
+  .use(cashRoutes)
+  .use(nfcRoutes)
+  .use(kycRoutes)
+  .use(complianceRoutes)
+  .onError(({ code, error, set, request }) => {
+    if (error instanceof AppError) {
+      set.status = error.statusCode
+      logger.warn('App error', { statusCode: error.statusCode, message: error.message, path: new URL(request.url).pathname })
+      return { error: error.message, details: error.details }
     }
-  }))
-  .error(
-    {ApiError}
-  )
-  .onError(({ code, error, set }) => {
-    
     if (code === 'NOT_FOUND') {
-      set.status = 404;
-      return {
-        success: false,
-        message: 'Not Found'
-      }
+      set.status = 404
+      return { error: 'Ruta no encontrada' }
     }
-    
     if (code === 'VALIDATION') {
-      set.status = 400;
-      return {
-        success: false,
-        message: error.message
-      };
+      set.status = 400
+      return { error: 'Error de validación' }
     }
-    if (error instanceof ApiError) {
-      set.status = error.statusCode;
-      return {
-        success: false,
-        message: error.message
-      };
-    }
-    set.status = 500;
-    return {
-      success: false,
-      message: 'Internal Server Error',
-      details: error.message
-    };
-  });
+    logger.error('Unhandled error', { error: String(error), path: new URL(request.url).pathname })
+    sentry.captureError(error instanceof Error ? error : new Error(String(error)), {
+      code,
+      path: new URL(request.url).pathname,
+    })
+    set.status = 500
+    return { error: 'Error interno del servidor' }
+  })
 
-// Ruta de estado del sistema
-app.get('/', () => ({
-  status: 'online',
-  timestamp: new Date().toISOString(),
-  uptime: process.uptime(),
-  environment: process.env.NODE_ENV || 'development'
-}));
+const mode = process.argv[2]
 
-// Usar todas las rutas modularizadas
-app.use(routes);
-
-// Inicializar base de datos y servidor
-async function start() {
-  try {
-    // Obtener argumentos de línea de comandos (el primer argumento es node, el segundo es el archivo)
-    const args = process.argv.slice(2);
-    const command = args[0]?.toLowerCase();
-
-    console.log(command);
-
-    // Probar conexión a la base de datos
-    await testConnection();
-    
-    // Ejecutar comandos específicos basados en argumentos
-    if (command === 'init-db' || command === 'create-db') {
-      console.log('🗄️ Inicializando la base de datos...');
-      await migrateDB();
-      process.exit(0);
-    }
-    
-    if (command === 'seed') {
-      console.log('🌱 Ejecutando seed de la base de datos...');
-      await migrateDB(); // Aseguramos que la DB está inicializada antes de hacer seed
-      await seedDatabase();
-      process.exit(0);
-    }
-    
-    // Flujo normal de inicio del servidor (sin argumentos específicos)
-    if (!command) {
-      // Iniciar sistema de colas de sincronización de pagos
-      console.log(`🔄 Iniciando sistema de colas de sincronización de pagos...`);
-      
-      // Agregar trabajo de limpieza diaria
-      await paymentQueueService.addCleanupJob({ olderThanDays: 7 });
-      console.log(`🧹 Trabajo de limpieza diaria programado`);
-      
-      // Iniciar servidor
-      app.listen(PORT);
-      console.log(`🚀 Servidor iniciado en http://localhost:${PORT}`);
-      console.log(`📚 Documentación de la API disponible en http://localhost:${PORT}/swagger`);
-      console.log(`🔄 Sistema de colas de pagos activo`);
-    } else {
-      console.log(`❌ Comando desconocido: ${command}`);
-      console.log('Comandos disponibles: init-db, seed');
-      process.exit(1);
-    }
-  } catch (error) {
-    console.error('Error iniciando la aplicación:', error);
-    process.exit(1);
-  }
+if (mode === 'init-db') {
+  migrateDB(true).then(() => process.exit(0))
+} else if (mode === 'seed') {
+  migrateDB(true).then(async () => {
+    const { seedDatabase } = await import('./scripts/seed-db')
+    await seedDatabase()
+    process.exit(0)
+  })
+} else {
+  migrateDB(false).then(async () => {
+    testConnection()
+    startWebhookProcessor()
+    logger.info('All services initialized', {
+      redis: !!process.env.REDIS_URL,
+      sentry: !!process.env.SENTRY_DSN,
+      otel: !!process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+    })
+    const port = parseInt(process.env.PORT || '3000')
+    app.listen(port, () => logger.info(`Server on :${port}`))
+  })
 }
 
-// Manejar shutdown graceful
-process.on('SIGINT', async () => {
-  console.log('🛑 Recibida señal SIGINT, cerrando servidor...');
-  
-  // Cerrar conexiones SSE
-  try {
-    const eventsService = await import('./services/events.service');
-    eventsService.default.closeAll();
-  } catch (error) {
-    console.error('Error cerrando conexiones SSE:', error);
-  }
-  
-  // Cerrar sistema de colas
-  try {
-    await paymentQueueService.close();
-  } catch (error) {
-    console.error('Error cerrando sistema de colas:', error);
-  }
-  
-  process.exit(0);
-});
+process.on('SIGINT', () => {
+  logger.info('Shutting down...')
+  sseService.closeAll()
+  paymentQueueService.stopAll()
+  logger.flush?.()
+  process.exit(0)
+})
 
-process.on('SIGTERM', async () => {
-  console.log('🛑 Recibida señal SIGTERM, cerrando servidor...');
-  
-  // Cerrar conexiones SSE
-  try {
-    const eventsService = await import('./services/events.service');
-    eventsService.default.closeAll();
-  } catch (error) {
-    console.error('Error cerrando conexiones SSE:', error);
-  }
-  
-  // Cerrar sistema de colas
-  try {
-    await paymentQueueService.close();
-  } catch (error) {
-    console.error('Error cerrando sistema de colas:', error);
-  }
-  
-  process.exit(0);
-});
-
-process.on('SIGTERM', async () => {
-  console.log('\n🛑 Recibida señal SIGTERM, cerrando aplicación...');
-  await paymentQueueService.close();
-  console.log('✅ Sistema de colas cerrado');
-  process.exit(0);
-});
-
-start();
-
+process.on('SIGTERM', () => {
+  logger.info('Shutting down...')
+  sseService.closeAll()
+  paymentQueueService.stopAll()
+  logger.flush?.()
+  process.exit(0)
+})

@@ -1,23 +1,24 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
-  import { ArrowLeft } from '@lucide/svelte';
+  import { ArrowLeft } from '@lucide/svelte'
 
-  export let title = "";
+  let { title = '', right, children } = $props()
 </script>
 
-<div class="route-layout safe-area-top">
+<div class="route-layout safe-top">
   <header class="route-header">
-    <button class="back-button" on:click={() => goto('/')}>
-      <ArrowLeft size={18} />
+    <button class="back-btn" onclick={() => history.back()}>
+      <ArrowLeft size={20} />
     </button>
-    <h1 class="page-title">{title}</h1>
-    <div class="header-right">
-      <slot name="right"></slot>
+    <h1 class="route-title">{title}</h1>
+    <div class="route-actions">
+      {#if right}
+        {@render right()}
+      {/if}
     </div>
   </header>
-  <div class="route-content">
-    <slot />
-  </div>
+  <main class="route-content">
+    {@render children()}
+  </main>
 </div>
 
 <style>
@@ -25,54 +26,49 @@
     display: flex;
     flex-direction: column;
     min-height: 100dvh;
-    width: 100%;
+    background: var(--bg-primary);
   }
-
   .route-header {
-    display: flex;
-    align-items: center;
-    padding: 0.75rem 0.75rem;
-    background-color: var(--background);
     position: sticky;
     top: 0;
-    z-index: 10;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border);
   }
-
-  .back-button {
-    background: transparent;
-    border: none;
-    color: var(--text-primary);
-    cursor: pointer;
+  .back-btn {
     width: 36px;
     height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-right: 0.5rem;
-    transition: opacity 0.2s ease;
-    padding: 0;
-  }
-
-  .back-button:hover {
-    opacity: 0.7;
-  }
-
-  .page-title {
-    font-size: 1.125rem;
-    font-weight: 600;
-    margin: 0;
+    border: none;
+    background: var(--surface);
+    border-radius: var(--radius-full);
     color: var(--text-primary);
-    flex: 1;
+    box-shadow: var(--shadow-xs);
+    transition: all var(--duration-fast) var(--ease-out);
+    flex-shrink: 0;
   }
-  
-  .header-right {
+  .back-btn:active { transform: scale(0.92); }
+  .route-title {
+    flex: 1;
+    font-size: var(--text-lg);
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: var(--tracking-tight);
+  }
+  .route-actions {
     display: flex;
     align-items: center;
-    margin-left: auto;
+    gap: var(--space-2);
   }
-
   .route-content {
     flex: 1;
-    padding: 0.5rem 1rem 1rem;
+    padding: var(--space-4);
+    padding-bottom: calc(var(--space-8) + var(--nav-bottom));
   }
 </style>

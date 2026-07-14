@@ -216,6 +216,10 @@
     reconnectSSE();
   }
   
+  function getInitials(name: string | undefined | null): string {
+    return name ? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'P'
+  }
+
   // Formatear fecha para mostrar de forma amigable
   function formatDate(dateString: string): string {
     const date = new Date(dateString);
@@ -347,394 +351,137 @@
 
 </script>
 
-<!-- Estructura básica de la página principal -->
-<div class="unified-layout safe-area-top">
-  <!-- Header principal fijo con saldo y opciones -->
-  <header class="main-header">
-    <div class="header-top">
-      <div class="logo-container">
-        <img src="/favicon.png" alt="Logo" width="30" />
-        <h2>Pagui</h2>
-      </div>
-      
-      <div class="header-actions">
-        <button class="header-action-button" on:click={() => goto('/profile')}>
-          <div class="user-avatar">
-            P
-          </div>
-        </button>
-      </div>
-    </div>
-    
-    {#if loading}
-      <!-- Loading Placeholders -->
-      <div class="loading-placeholders">
-        <!-- Wallet Placeholder -->
-        <div class="wallet-placeholder">
-          <div class="placeholder-skeleton balance-skeleton"></div>
-          <div class="placeholder-skeleton account-skeleton"></div>
-        </div>
-        
-        <!-- Stats Placeholders -->
-        <div class="stats-placeholders">
-          <div class="placeholder-skeleton stat-skeleton"></div>
-          <div class="placeholder-skeleton stat-skeleton"></div>
-          <div class="placeholder-skeleton stat-skeleton"></div>
-        </div>
-        
-        <!-- Movements Placeholder -->
-        <div class="movements-placeholder">
-          <div class="placeholder-skeleton movement-skeleton"></div>
-          <div class="placeholder-skeleton movement-skeleton"></div>
-          <div class="placeholder-skeleton movement-skeleton"></div>
-        </div>
-      </div>
-    {:else}
-      <!-- Wallet Info - Integrated in Header -->
-      <div class="wallet-info" in:fly={{ y: -20, duration: 500 }}>
-        <div class="wallet-balance">
-          <span class="balance-currency">{getCurrencySymbol(wallet.currency)}</span>
-          <span class="balance-amount" in:scale={{ duration: 600, easing: cubicOut }}>
-            {#if $animatedBalance !== undefined}
-              {formatCurrency($animatedBalance)}
-            {:else}
-              {formatCurrency(wallet.balance)}
-            {/if}
-          </span>
-        </div>
-        {#if currentAccount}
-          <div class="wallet-account" in:fade={{ duration: 400, delay: 200 }}>
-            {currentAccount.accountNumber}
-          </div>
+<div class="home safe-top">
+  <!-- Header -->
+  <header class="home-header">
+    <div class="header-left">
+      <h1 class="app-title">Pagui</h1>
+      <span class="sse-badge" class:sse-connected={$sseConnection.isConnected} class:sse-error={$sseConnection.error} title={$sseConnection.isConnected ? 'Conectado' : $sseConnection.error || 'Desconectado'}>
+        {#if $sseConnection.isConnected}
+          <Wifi size={10} />
+        {:else}
+          <WifiOff size={10} />
         {/if}
-        
-        <!-- Indicador de estado de conexión SSE - Integrado en wallet -->
-        <div class="sse-status-indicator">
-          {#if $sseConnection.isConnected}
-            <div class="status-dot connected" title="Notificaciones en tiempo real activas">
-              <Wifi size={8} />
-            </div>
-          {:else if $sseConnection.isConnecting}
-            <div class="status-dot connecting" title="Conectando...">
-              <RefreshCw size={8} class="spinning" />
-            </div>
-          {:else if $sseConnection.error}
-            <div class="status-dot error" title="{$sseConnection.error} - Click para reconectar" on:click={handleReconnectSSE} on:keydown={(e) => e.key === 'Enter' && handleReconnectSSE()} role="button" tabindex="0">
-              <WifiOff size={8} />
-            </div>
-          {:else}
-            <div class="status-dot disconnected" title="Desconectado">
-              <AlertCircle size={8} />
-            </div>
-          {/if}
-        </div>
-        
-      </div>
-    {/if}
-
-      <!-- Tabs de cuentas (solo si hay más de una cuenta) -->
-      {#if allAccounts.length > 1}
-        <div class="account-tabs" in:fly={{ y: 20, duration: 400, delay: 300 }}>
-          <div class="tabs-container">
-            {#each allAccounts as account (account.id)}
-              <button 
-                class="account-tab {selectedAccountId === account.id ? 'active' : ''}"
-                on:click={() => switchAccount(account.id)}
-              >
-                <div class="tab-content">
-                  <span class="tab-currency">{getCurrencySymbol(account.currency)}</span>
-                  <span class="tab-number">{account.accountNumber.slice(-4)}</span>
-                </div>
-              </button>
-            {/each}
-          </div>
-        </div>
-      {/if}
-    
-    <!-- Acciones principales -->
-    <div class="header-actions-bar">
-      <button class="header-action-pill" on:click={handleGenerarQR}>
-        <span class="action-icon">
-          <QrCode size={18} strokeWidth={2} />
-        </span>
-        <span>Cobrar</span>
-      </button>
-      
-      <button class="header-action-pill" on:click={handleVerPagos}>
-        <span class="action-icon">
-          <ClipboardList size={18} strokeWidth={2} />
-        </span>
-        <span>Historial</span>
-      </button>
+      </span>
     </div>
+    <button class="header-avatar" on:click={() => goto('/profile')}>
+      {getInitials($auth.user?.fullName || '')}
+    </button>
   </header>
 
-  <!-- Contenido principal -->
-  <div class="main-content">
-    {#if !loading}
-      <!-- Sección de Resumen de Recaudaciones -->
-      <div class="section collections-section" in:fade={{ duration: 500 }}>
-    <div class="section-header compact-header">
-      <h2 class="compact-title">Resumen de Recaudaciones</h2>
-      <!-- <button class="view-all-button compact-view" on:click={() => goto('/resume')}>Ver detalles <ChevronRight size={16} /></button> -->
+  {#if loading}
+    <!-- Loading skeleton -->
+    <div class="loading-state">
+      <div class="skeleton skeleton-balance"></div>
+      <div class="skeleton skeleton-actions"></div>
+      <div class="skeleton skeleton-stats"></div>
+      <div class="skeleton skeleton-tx"></div>
     </div>
-    <div class="collections-grid">
-      <div class="collection-item" in:fly={{ y: 30, duration: 400, delay: 100 }}>
-        <div class="collection-icon daily">
-          <Clock size={20} />
-        </div>
-        <div class="collection-details">
-          <h3 style="font-size:0.85rem;">Hoy</h3>
-          <div class="collection-amount">
-            <span class="currency-symbol">{wallet.currency}</span>
-            <span in:scale={{ duration: 600, easing: cubicOut }}>{formatCurrency(collections.daily)}</span>
-          </div>
-          <div class="collection-trend positive">+{growthPercentages.daily.toFixed(1)}%</div>
-        </div>
-      </div>
-      <div class="collection-item" in:fly={{ y: 30, duration: 400, delay: 200 }}>
-        <div class="collection-icon weekly">
-          <Calendar size={20} />
-        </div>
-        <div class="collection-details">
-          <h3 style="font-size:0.85rem;">Esta Semana</h3>
-          <div class="collection-amount">
-            <span class="currency-symbol">{wallet.currency}</span>
-            <span in:scale={{ duration: 600, easing: cubicOut }}>{formatCurrency(collections.weekly)}</span>
-          </div>
-          <div class="collection-trend positive">+{growthPercentages.weekly.toFixed(1)}%</div>
-        </div>
-      </div>
-      <div class="collection-item" in:fly={{ y: 30, duration: 400, delay: 300 }}>
-        <div class="collection-icon monthly">
-          <CalendarDays size={20} />
-        </div>
-        <div class="collection-details">
-          <h3 style="font-size:0.85rem;">Este Mes</h3>
-          <div class="collection-amount">
-            <span class="currency-symbol">{wallet.currency}</span>
-            <span in:scale={{ duration: 600, easing: cubicOut }}>{formatCurrency(collections.monthly)}</span>
-          </div>
-          <div class="collection-trend positive">+{growthPercentages.monthly.toFixed(1)}%</div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <!-- Información del Cliente/Abonado -->
-  <div class="section client-info-section" in:fade={{ duration: 500, delay: 50 }}>
-    <div class="section-header compact-header">
-      <h2 class="compact-title">Información del Cliente</h2>
-      <button class="view-all-button compact-view" on:click={() => loadClientInfo('1520')}>
-        {loadingClientInfo ? 'Cargando...' : 'Cargar Info'}
-      </button>
-    </div>
-    
-    {#if loadingClientInfo}
-      <div class="loading-client-info">
-        <div class="loading-spinner mini"></div>
-        <span>Cargando información del cliente...</span>
-      </div>
-    {:else if clientInfo}
-      <div class="client-info-card" in:fly={{ y: 20, duration: 400, delay: 100 }}>
-        <div class="client-header">
-          <div class="client-avatar">
-            {clientInfo.nombre ? clientInfo.nombre.charAt(0).toUpperCase() : 'C'}
-          </div>
-          <div class="client-main-info">
-            <h3 class="client-name">{clientInfo.nombre || 'Cliente'}</h3>
-            <p class="client-subscriber">Abonado #{clientInfo.abonado}</p>
-          </div>
-          <div class="client-status {clientInfo.estado === 'A' ? 'active' : 'inactive'}">
-            {clientInfo.estado === 'A' ? 'Activo' : 'Inactivo'}
-          </div>
-        </div>
-        
-        <div class="client-details">
-          <div class="detail-row">
-            <span class="detail-label">NIT:</span>
-            <span class="detail-value">{clientInfo.nit || 'No disponible'}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Medidor:</span>
-            <span class="detail-value">{clientInfo.medidor || 'No disponible'}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Zona:</span>
-            <span class="detail-value">{clientInfo.zona || 'No disponible'}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Dirección:</span>
-            <span class="detail-value">{clientInfo.calle} {clientInfo.num}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Categoría:</span>
-            <span class="detail-value">{clientInfo.categoria || 'No disponible'}</span>
-          </div>
-          {#if clientInfo.ley1886}
-            <div class="detail-row">
-              <span class="detail-label">Ley 1886:</span>
-              <span class="detail-value">{clientInfo.ley1886 ? 'Sí' : 'No'}</span>
-            </div>
-          {/if}
-        </div>
-        
-        {#if clientInfo.mensaje}
-          <div class="client-message">
-            <p>{clientInfo.mensaje}</p>
+  {:else}
+    <!-- Balance Card -->
+    <div class="balance-card" in:fly={{ y: -20, duration: 500 }}>
+      <div class="balance-glow"></div>
+      <div class="balance-top">
+        <span class="balance-label">Saldo disponible</span>
+        {#if allAccounts.length > 1}
+          <div class="balance-accounts">
+            {#each allAccounts as acc (acc.id)}
+              <button class="acc-dot" class:active={selectedAccountId === acc.id} on:click={() => switchAccount(acc.id)} title={acc.accountNumber}></button>
+            {/each}
           </div>
         {/if}
       </div>
-    {:else}
-      <div class="empty-client-info">
-        <p>No hay información del cliente disponible</p>
-        <button class="load-client-button" on:click={() => loadClientInfo('1520')}>
-          Cargar información
-        </button>
+      <div class="balance-main">
+        <span class="balance-symbol">{getCurrencySymbol(wallet.currency)}</span>
+        <span class="balance-amount" in:scale={{ duration: 600, easing: cubicOut }}>
+          {formatCurrency($animatedBalance ?? wallet.balance)}
+        </span>
       </div>
-    {/if}
-  </div>
+      {#if currentAccount}
+        <div class="balance-account">{currentAccount.accountNumber}</div>
+      {/if}
+    </div>
 
-  <!-- Verificación de Estado QR -->
-  <div class="section qr-status-section" in:fade={{ duration: 500, delay: 75 }}>
-    <div class="section-header compact-header">
-      <h2 class="compact-title">Verificar Estado QR</h2>
-      <button class="view-all-button compact-view" on:click={clearQRInfo}>
-        Limpiar
+    <!-- Quick Actions -->
+    <div class="quick-actions animate-slide-up" style="animation-delay: 100ms">
+      <button class="qa-btn" on:click={handleGenerarQR}>
+        <div class="qa-icon qr-icon"><QrCode size={22} /></div>
+        <span class="qa-label">Cobrar</span>
+      </button>
+      <button class="qa-btn" on:click={() => goto('/transfers/p2p')}>
+        <div class="qa-icon send-icon"><ArrowUpRight size={22} /></div>
+        <span class="qa-label">Enviar</span>
+      </button>
+      <button class="qa-btn" on:click={() => goto('/transfers')}>
+        <div class="qa-icon history-icon"><ClipboardList size={22} /></div>
+        <span class="qa-label">Historial</span>
+      </button>
+      <button class="qa-btn" on:click={() => goto('/profile')}>
+        <div class="qa-icon more-icon"><ChevronRight size={22} /></div>
+        <span class="qa-label">Más</span>
       </button>
     </div>
-    
-    <div class="qr-status-form">
-      <div class="input-group">
-        <input 
-          type="text" 
-          bind:value={qrIdInput}
-          placeholder="Ingresa el ID del QR"
-          class="qr-id-input"
-          disabled={loadingQRStatus}
-        />
-        <button 
-          class="check-qr-button" 
-          on:click={() => checkQRStatus(qrIdInput)}
-          disabled={loadingQRStatus || !qrIdInput.trim()}
-        >
-          {loadingQRStatus ? 'Verificando...' : 'Verificar'}
-        </button>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid animate-slide-up" style="animation-delay: 200ms">
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-primary"><Clock size={16} /></div>
+        <div class="stat-body">
+          <span class="stat-label">Hoy</span>
+          <span class="stat-value">{formatCurrency(collections.daily)}</span>
+        </div>
+        <span class="stat-trend {growthPercentages.daily >= 0 ? 'up' : 'down'}">{growthPercentages.daily >= 0 ? '+' : ''}{growthPercentages.daily.toFixed(1)}%</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-accent"><Calendar size={16} /></div>
+        <div class="stat-body">
+          <span class="stat-label">Semana</span>
+          <span class="stat-value">{formatCurrency(collections.weekly)}</span>
+        </div>
+        <span class="stat-trend {growthPercentages.weekly >= 0 ? 'up' : 'down'}">{growthPercentages.weekly >= 0 ? '+' : ''}{growthPercentages.weekly.toFixed(1)}%</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-success"><CalendarDays size={16} /></div>
+        <div class="stat-body">
+          <span class="stat-label">Mes</span>
+          <span class="stat-value">{formatCurrency(collections.monthly)}</span>
+        </div>
+        <span class="stat-trend {growthPercentages.monthly >= 0 ? 'up' : 'down'}">{growthPercentages.monthly >= 0 ? '+' : ''}{growthPercentages.monthly.toFixed(1)}%</span>
       </div>
     </div>
 
-    {#if loadingQRStatus}
-      <div class="loading-qr-status">
-        <div class="loading-spinner mini"></div>
-        <span>Verificando estado del QR...</span>
-      </div>
-    {:else if qrStatus}
-      <div class="qr-status-card" in:fly={{ y: 20, duration: 400, delay: 100 }}>
-        <div class="qr-status-header">
-          <div class="qr-status-info">
-            <h3 class="qr-id">QR #{qrStatus.qrId}</h3>
-            <div class="qr-amount">
-              {getCurrencySymbol(qrStatus.currency)} {formatCurrency(qrStatus.amount)}
-            </div>
-          </div>
-          <div class="qr-status-badge {qrStatus.status}">
-            {qrStatus.status === 'active' ? 'Activo' : 
-             qrStatus.status === 'paid' ? 'Pagado' : 
-             qrStatus.status === 'expired' ? 'Expirado' : 
-             qrStatus.status === 'cancelled' ? 'Cancelado' : qrStatus.status}
-          </div>
-        </div>
-        
-        <div class="qr-details">
-          <div class="detail-row">
-            <span class="detail-label">Descripción:</span>
-            <span class="detail-value">{qrStatus.description || 'Sin descripción'}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Fecha de vencimiento:</span>
-            <span class="detail-value">{qrStatus.dueDate ? new Date(qrStatus.dueDate).toLocaleDateString('es-ES') : 'No especificada'}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Uso único:</span>
-            <span class="detail-value">{qrStatus.singleUse ? 'Sí' : 'No'}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Modificar monto:</span>
-            <span class="detail-value">{qrStatus.modifyAmount ? 'Sí' : 'No'}</span>
-          </div>
-        </div>
-
-        {#if qrPayments.length > 0}
-          <div class="qr-payments">
-            <h4>Pagos realizados ({qrPayments.length})</h4>
-            <div class="payments-list">
-              {#each qrPayments as payment, i (payment.id || i)}
-                <div class="payment-item" in:fly={{ y: 10, duration: 300, delay: 50 + i * 50 }}>
-                  <div class="payment-info">
-                    <div class="payment-amount">
-                      {getCurrencySymbol(payment.currency || qrStatus.currency)} {formatCurrency(payment.amount)}
-                    </div>
-                    <div class="payment-date">
-                      {payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString('es-ES') : 'Fecha no disponible'}
-                    </div>
-                  </div>
-                  <div class="payment-status paid">
-                    Pagado
-                  </div>
-                </div>
-              {/each}
-            </div>
-          </div>
-        {:else if qrStatus.status === 'paid'}
-          <div class="no-payments">
-            <p>Este QR ha sido pagado pero no se encontraron detalles de pagos.</p>
-          </div>
-        {/if}
-      </div>
-    {:else if qrIdInput && !loadingQRStatus}
-      <div class="no-qr-status">
-        <p>No se encontró información para el QR ingresado.</p>
-      </div>
-    {/if}
-  </div>
-
-  <!-- Movimientos de cuenta recientes -->
-  <div class="section transactions-section" in:fade={{ duration: 500, delay: 100 }}>
-    <div class="section-header compact-header">
-      <h2 class="compact-title">Movimientos recientes</h2>
-      <button class="view-all-button compact-view" on:click={() => goto('/transactions')}>Ver todas <ChevronRight size={16} /></button>
+    <!-- Recent Transactions -->
+    <div class="section-header">
+      <h2 class="section-title">Movimientos recientes</h2>
+      <button class="section-link" on:click={() => goto('/transactions')}>Ver todo</button>
     </div>
-    <div class="transactions-list">
+    <div class="tx-list animate-slide-up" style="animation-delay: 300ms">
       {#if loadingStats}
-        <div class="loading-transactions">
-          <div class="loading-spinner mini"></div>
-          <span>Cargando movimientos...</span>
-        </div>
+        <div class="loading-row"><span>Cargando...</span></div>
       {:else if accountMovements.length === 0}
-        <div class="empty-transactions">
-          <p>No hay movimientos recientes</p>
-        </div>
+        <div class="empty-row">No hay movimientos recientes</div>
       {:else}
         {#each accountMovements.slice(0, 5) as movement, i (movement.id)}
-          <div class="transaction-item simple" in:fly={{ y: 20, duration: 400, delay: 100 + i * 80 }} on:click={() => openMovementModal(movement)} on:keydown={(e) => e.key === 'Enter' && openMovementModal(movement)} role="button" tabindex="0">
-            <div class="transaction-icon incoming">
-              <ArrowDownLeft size={18} />
+          <button class="tx-row" on:click={() => openMovementModal(movement)}>
+            <div class="tx-icon">
+              {#if movement.movement_type === 'deposit' || movement.movement_type === 'transfer_in'}
+                <ArrowDownLeft size={16} />
+              {:else}
+                <ArrowUpRight size={16} />
+              {/if}
             </div>
-            <div class="transaction-details">
-              <div class="transaction-title">
-                {movement.senderName || movement.description || 'Movimiento de cuenta'}
-              </div>
-              <div class="transaction-date">{formatDate(movement.createdAt)}</div>
+            <div class="tx-info">
+              <span class="tx-name">{movement.senderName || movement.description || 'Movimiento'}</span>
+              <span class="tx-date">{formatDate(movement.createdAt)}</span>
             </div>
-            <div class="transaction-amount income">
-              + {getCurrencySymbol(movement.currency || wallet.currency)} <span in:scale={{ duration: 500 }}>{formatCurrency(movement.amount)}</span>
-            </div>
-          </div>
+            <span class="tx-amount" class:tx-in={movement.movement_type === 'deposit' || movement.movement_type === 'transfer_in'}>
+              {movement.movement_type === 'deposit' || movement.movement_type === 'transfer_in' ? '+' : '-'}{getCurrencySymbol(movement.currency || wallet.currency)}{formatCurrency(movement.amount)}
+            </span>
+          </button>
         {/each}
       {/if}
     </div>
-  </div>
-    {/if}
-  </div>
+  {/if}
 </div>
 
 <!-- Modal para detalles del movimiento -->
@@ -837,1392 +584,391 @@
 <NotificationToast />
 
 <style>
-  /* Estilos para la estructura básica */
-  .unified-layout {
-    display: flex;
-    flex-direction: column;
+  /* ── Home Layout ── */
+  .home {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 0 var(--space-4) var(--space-8);
     min-height: 100dvh;
-    height: 100dvh;
-    width: 100%;
-    background-color: var(--background);
   }
-  
-  /* Header principal fijo con saldo */
-  .main-header {
-    display: flex;
-    flex-direction: column;
-    padding: 0.75rem 1rem 0.5rem;
-    background-color: var(--background);
-    z-index: 100;
-    position: sticky;
-    top: 0;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-  }
-  
-  .header-top {
+
+  /* ── Header ── */
+  .home-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 0.75rem;
+    padding: var(--space-4) 0 var(--space-3);
   }
-  
-  .logo-container {
+  .header-left {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--space-2);
   }
-  
-  .logo-container h2 {
-    font-size: 1rem;
-    margin: 0;
-    color: var(--text-primary);
-    font-weight: 600;
-    letter-spacing: -0.01em;
+  .app-title {
+    font-size: var(--text-2xl);
+    font-weight: 800;
+    letter-spacing: var(--tracking-tight);
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
-  
-  .header-actions {
-    display: flex;
+  .sse-badge {
+    display: inline-flex;
+    width: 20px;
+    height: 20px;
+    border-radius: var(--radius-full);
     align-items: center;
-    gap: 0.75rem;
+    justify-content: center;
+    background: var(--success-bg);
+    color: var(--success-color);
+    transition: all var(--duration-fast) var(--ease-out);
   }
-  
-  .header-action-button {
-    background: transparent;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-  }
-  
-  .user-avatar {
-    width: 34px;
-    height: 34px;
-    border-radius: var(--border-radius-full);
-    background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+  .sse-badge.sse-connected { background: var(--success-bg); color: var(--success-color); }
+  .sse-badge.sse-error { background: var(--error-bg); color: var(--error-color); }
+  .header-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: var(--radius-full);
+    background: var(--primary-gradient);
     color: white;
+    border: none;
+    font-size: var(--text-sm);
+    font-weight: 700;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 600;
-    font-size: 0.9rem;
-    box-shadow: 0 2px 6px rgba(58, 102, 255, 0.2);
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+    transition: all var(--duration-fast) var(--ease-out);
   }
-  
-  /* Wallet Info - Integrated in Header */
-  .wallet-info {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.25rem;
-    margin-bottom: 1rem;
+  .header-avatar:active { transform: scale(0.92); }
+
+  /* ── Balance Card ── */
+  .balance-card {
     position: relative;
+    background: var(--primary-gradient);
+    border-radius: var(--radius-2xl);
+    padding: var(--space-6);
+    margin-bottom: var(--space-5);
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(79, 70, 229, 0.3);
   }
-  
-  /* Barra de acciones */
-  .header-actions-bar {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    margin: 0.75rem 0 0.5rem;
+  .balance-glow {
+    position: absolute;
+    top: -50%;
+    right: -30%;
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(255,255,255,0.15), transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
   }
-  
-  .header-action-pill {
+  .balance-top {
     display: flex;
     align-items: center;
-    justify-content: center;
-    padding: 0.75rem;
-    background: var(--primary-color);
-    border: none;
-    border-radius: var(--border-radius-lg);
-    color: white;
-    font-size: 0.875rem;
-    font-weight: 600;
-    gap: 0.5rem;
-    transition: all 0.3s ease;
-    cursor: pointer;
-    min-width: 110px;
-    box-shadow: 0 2px 8px rgba(58, 102, 255, 0.2);
+    justify-content: space-between;
+    margin-bottom: var(--space-3);
   }
-  
-  .header-action-pill:hover {
-    background: var(--primary-dark);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(58, 102, 255, 0.3);
+  .balance-label {
+    font-size: var(--text-sm);
+    color: rgba(255,255,255,0.75);
+    font-weight: 500;
   }
-  
-  .header-action-pill:active {
-    transform: translateY(0);
-    box-shadow: 0 1px 4px rgba(58, 102, 255, 0.2);
+  .balance-accounts { display: flex; gap: 6px; }
+  .acc-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-full);
+    border: 2px solid rgba(255,255,255,0.4);
+    background: transparent;
+    padding: 0;
+    transition: all var(--duration-fast) var(--ease-out);
   }
-  
-  /* Contenido principal */
-  .main-content {
-    flex: 1;
-    width: 100%;
-    margin: auto;
-    max-width: 480px;
-    overflow-y: auto;
-    padding: 0.75rem 0.75rem 1.5rem;
-  }
-  
-  /* Estilos para el balance en el header */
-  
-  /* Wallet Balance - Minimalist */
-  .wallet-balance {
+  .acc-dot.active { background: white; border-color: white; }
+  .balance-main {
     display: flex;
     align-items: baseline;
-    gap: 0.25rem;
+    gap: var(--space-1);
+    margin-bottom: var(--space-1);
   }
-  
-  .balance-currency {
-    font-size: 1rem;
+  .balance-symbol {
+    font-size: var(--text-xl);
     font-weight: 600;
-    color: var(--primary-color);
-    opacity: 0.8;
+    color: rgba(255,255,255,0.85);
   }
-  
   .balance-amount {
-    font-size: 1.4rem;
-    font-weight: 700;
-    line-height: 1;
-    color: var(--text-primary);
-  }
-  
-
-
-  /* Wallet Account - Minimalist */
-  .wallet-account {
-    font-size: 0.8rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
-    letter-spacing: 0.05em;
-    opacity: 0.7;
-  }
-
-  /* Indicador de estado de conexión SSE - Integrado en wallet */
-  .sse-status-indicator {
-    position: absolute;
-    top: 0.75rem;
-    right: 0.75rem;
-    z-index: 10;
-  }
-
-  .status-dot {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
-    cursor: pointer;
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-  }
-
-  .status-dot.connected {
-    background: rgba(0, 202, 141, 0.15);
-    color: var(--success-color);
-    box-shadow: 0 0 0 2px rgba(0, 202, 141, 0.2);
-  }
-
-  .status-dot.connecting {
-    background: rgba(255, 175, 0, 0.15);
-    color: var(--warning-color);
-    box-shadow: 0 0 0 2px rgba(255, 175, 0, 0.2);
-  }
-
-  .status-dot.error {
-    background: rgba(233, 58, 74, 0.15);
-    color: var(--error-color);
-    box-shadow: 0 0 0 2px rgba(233, 58, 74, 0.2);
-  }
-
-  .status-dot.disconnected {
-    background: rgba(107, 114, 128, 0.15);
-    color: var(--text-secondary);
-    box-shadow: 0 0 0 2px rgba(107, 114, 128, 0.2);
-  }
-
-  .status-dot:hover {
-    transform: scale(1.1);
-  }
-
-  .status-dot.connected:hover {
-    box-shadow: 0 0 0 3px rgba(0, 202, 141, 0.3);
-  }
-
-  .status-dot.error:hover {
-    box-shadow: 0 0 0 3px rgba(233, 58, 74, 0.3);
-  }
-
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-  
-  /* Responsive Wallet Styles */
-  @media (max-width: 768px) {
-    .wallet-info {
-      gap: 0.2rem;
-      margin-bottom: 0.75rem;
-    }
-    
-    .balance-amount {
-      font-size: 1.2rem;
-    }
-    
-    .balance-currency {
-      font-size: 0.9rem;
-    }
-    
-    .wallet-account {
-      font-size: 0.75rem;
-    }
-
-    .sse-status-indicator {
-      top: 0.5rem;
-      right: 0.5rem;
-    }
-
-    .status-dot {
-      width: 20px;
-      height: 20px;
-    }
-  }
-
-  /* Tabs de cuentas */
-  .account-tabs {
-    margin-top: var(--spacing-md);
-    padding: 0 var(--spacing-lg);
-  }
-
-  .tabs-container {
-    display: flex;
-    gap: var(--spacing-sm);
-    overflow-x: auto;
-    padding-bottom: var(--spacing-xs);
-  }
-
-  .account-tab {
-    background: var(--background-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-md);
-    padding: var(--spacing-sm) var(--spacing-md);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    min-width: 80px;
-    flex-shrink: 0;
-  }
-
-  .account-tab:hover {
-    background: var(--background-primary);
-    border-color: var(--primary-color);
-  }
-
-  .account-tab.active {
-    background: var(--primary-color);
-    border-color: var(--primary-color);
+    font-size: var(--text-4xl);
+    font-weight: 800;
     color: white;
+    letter-spacing: var(--tracking-tight);
+    line-height: 1;
+  }
+  .balance-account {
+    font-size: var(--text-xs);
+    font-family: var(--font-mono);
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 0.1em;
   }
 
-  .tab-content {
+  /* ── Quick Actions ── */
+  .quick-actions {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-3);
+    margin-bottom: var(--space-6);
+  }
+  .qa-btn {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
+    gap: var(--space-2);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: var(--space-3) var(--space-2);
+    cursor: pointer;
+    transition: all var(--duration-normal) var(--ease-out);
+    box-shadow: var(--shadow-xs);
   }
-
-  .tab-currency {
-    font-size: 0.7rem;
-    font-weight: 600;
-    opacity: 0.8;
-  }
-
-  .tab-number {
-    font-size: 0.8rem;
-    font-weight: 700;
-    font-family: monospace;
-  }
-
-  /* Responsive para tabs */
-  @media (max-width: 768px) {
-    .account-tabs {
-      padding: 0 var(--spacing-sm);
-    }
-    
-    .account-tab {
-      min-width: 70px;
-      padding: var(--spacing-xs) var(--spacing-sm);
-    }
-    
-    .tab-currency {
-      font-size: 0.65rem;
-    }
-    
-    .tab-number {
-      font-size: 0.75rem;
-    }
-  }
-  
-  .currency-symbol {
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: var(--primary-color);
-    opacity: 0.9;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-  }
-  
-  .action-icon {
+  .qa-btn:active { transform: scale(0.95); }
+  .qa-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-lg);
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-right: 0.25rem;
+    color: white;
+  }
+  .qr-icon { background: var(--primary-gradient); }
+  .send-icon { background: var(--accent-gradient); }
+  .history-icon { background: linear-gradient(135deg, #10B981, #059669); }
+  .more-icon { background: var(--surface-hover); color: var(--text-secondary); border: 1px solid var(--border); }
+  .qa-label {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    color: var(--text-secondary);
   }
 
-  /* Sección de recaudaciones */
-  .collections-section, .transactions-section, .client-info-section, .qr-status-section {
-    margin-bottom: 2.5rem;
+  /* ── Stats Grid ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-3);
+    margin-bottom: var(--space-6);
   }
-  
-  /* Sección */
-  .section {
-    padding-top: 0.5rem;
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: var(--space-4) var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    box-shadow: var(--shadow-xs);
   }
-  
+  .stat-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+  }
+  .stat-icon-primary { background: var(--primary-gradient); }
+  .stat-icon-accent { background: var(--accent-gradient); }
+  .stat-icon-success { background: linear-gradient(135deg, #10B981, #059669); }
+  .stat-body { display: flex; flex-direction: column; gap: 2px; }
+  .stat-label { font-size: var(--text-xs); color: var(--text-tertiary); font-weight: 500; }
+  .stat-value { font-size: var(--text-sm); font-weight: 700; color: var(--text-primary); }
+  .stat-trend {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: var(--radius-full);
+    align-self: flex-start;
+  }
+  .stat-trend.up { background: var(--success-bg); color: var(--success-color); }
+  .stat-trend.down { background: var(--error-bg); color: var(--error-color); }
+
+  /* ── Section Header ── */
   .section-header {
     display: flex;
+    align-items: center;
     justify-content: space-between;
-    align-items: center;
-    margin: 1rem 0 1.5rem;
-    padding: 0 1rem;
-    height: 2rem; /* Altura fija para mejor alineación */
+    margin-bottom: var(--space-3);
   }
-  
-  .view-all-button {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
+  .section-title {
+    font-size: var(--text-lg);
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: var(--tracking-tight);
+  }
+  .section-link {
     background: none;
     border: none;
+    font-size: var(--text-sm);
+    font-weight: 600;
     color: var(--primary-color);
-    font-size: 0.875rem;
-    font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.5rem;
-    height: 100%; /* Ocupar toda la altura del contenedor */
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-md);
+    transition: all var(--duration-fast) var(--ease-out);
   }
-  
-  .view-all-button:hover {
-    background: rgba(58, 102, 255, 0.1);
-    color: var(--primary-dark);
+  .section-link:hover { background: var(--primary-subtle); }
+
+  /* ── Transaction List ── */
+  .tx-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
   }
-  
-  /* Grid de recaudaciones */
-  .collections-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    gap: 0.75rem;
-    padding: 0 1rem;
-  }
-  
-  .collection-item {
+  .tx-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
     background: var(--surface);
-    border-radius: 1rem;
-    padding: 1.25rem 1rem;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: var(--card-shadow);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    border: 1px solid var(--border-color);
-    margin-bottom: 0.25rem;
-  }
-  
-  .collection-item:hover {
-    transform: translateY(-0.25rem);
-    box-shadow: var(--shadow-md);
-    border-color: var(--primary-color);
-  }
-  
-  .collection-icon {
-    width: 3rem;
-    height: 3rem;
-    border-radius: 0.75rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 0.75rem;
-    color: white;
-    position: relative;
-    overflow: hidden;
-  }
-  
-  .collection-icon::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
-    opacity: 0;
-    transition: opacity 0.3s ease;
-  }
-  
-  .collection-item:hover .collection-icon::before {
-    opacity: 1;
-  }
-  
-  .collection-icon.daily {
-    background: var(--primary-color);
-  }
-  
-  .collection-icon.weekly {
-    background: var(--accent-color);
-  }
-  
-  .collection-icon.monthly {
-    background: var(--success-color);
-  }
-  
-  .collection-details h3 {
-    font-size: 0.875rem;
-    font-weight: 500;
-    margin: 0 0 0.5rem;
-    color: var(--text-secondary);
-  }
-  
-  .collection-amount {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: 0.25rem;
-    letter-spacing: -0.025em;
-  }
-  
-  .collection-amount .currency-symbol {
-    font-size: 1rem;
-    font-weight: 500;
-    margin-right: 0.125rem;
-    opacity: 0.7;
-  }
-  
-  .collection-trend {
-    font-size: 0.75rem;
-    font-weight: 600;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.375rem;
-    display: inline-block;
-  }
-  
-  .collection-trend.positive {
-    color: var(--success-color);
-    background: rgba(0, 202, 141, 0.1);
-  }
-
-  /* Estilos para la información del cliente */
-  .client-info-card {
-    background: var(--surface);
-    border-radius: 1rem;
-    padding: 1.5rem;
-    margin: 0 1rem;
-    box-shadow: var(--card-shadow);
-    border: 1px solid var(--border-color);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .client-info-card:hover {
-    transform: translateY(-0.125rem);
-    box-shadow: var(--shadow-md);
-    border-color: var(--primary-color);
-  }
-
-  .client-header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  .client-avatar {
-    width: 3rem;
-    height: 3rem;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 1.2rem;
-    box-shadow: 0 2px 8px rgba(58, 102, 255, 0.2);
-  }
-
-  .client-main-info {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .client-name {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin: 0 0 0.25rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .client-subscriber {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    margin: 0;
-    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
-  }
-
-  .client-status {
-    padding: 0.375rem 0.75rem;
-    border-radius: 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .client-status.active {
-    background: rgba(0, 202, 141, 0.1);
-    color: var(--success-color);
-    border: 1px solid rgba(0, 202, 141, 0.2);
-  }
-
-  .client-status.inactive {
-    background: rgba(233, 58, 74, 0.1);
-    color: var(--error-color);
-    border: 1px solid rgba(233, 58, 74, 0.2);
-  }
-
-  .client-details {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .detail-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  }
-
-  .detail-row:last-child {
-    border-bottom: none;
-  }
-
-  .detail-label {
-    font-weight: 500;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-    min-width: 80px;
-  }
-
-  .detail-value {
-    font-weight: 600;
-    color: var(--text-primary);
-    font-size: 0.875rem;
-    text-align: right;
-    max-width: 60%;
-    word-break: break-word;
-  }
-
-  .client-message {
-    margin-top: 1rem;
-    padding: 0.75rem;
-    background: rgba(58, 102, 255, 0.05);
-    border-radius: 0.5rem;
-    border-left: 3px solid var(--primary-color);
-  }
-
-  .client-message p {
-    margin: 0;
-    font-size: 0.875rem;
-    color: var(--text-primary);
-    font-style: italic;
-  }
-
-  .loading-client-info {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem 1rem;
-    gap: 1rem;
-    color: var(--text-secondary);
-    text-align: center;
-    font-size: 0.9rem;
-  }
-
-  .empty-client-info {
-    text-align: center;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    padding: 1.5rem 1rem;
-  }
-
-  .load-client-button {
-    background: var(--primary-color);
-    color: white;
-    border: none;
-    padding: 0.75rem 1.5rem;
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
-    font-weight: 600;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-3);
     cursor: pointer;
-    transition: all 0.3s ease;
-    margin-top: 1rem;
-  }
-
-  .load-client-button:hover {
-    background: var(--primary-dark);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(58, 102, 255, 0.3);
-  }
-
-  .load-client-button:active {
-    transform: translateY(0);
-    box-shadow: 0 1px 4px rgba(58, 102, 255, 0.2);
-  }
-
-  /* Responsive para información del cliente */
-  @media (max-width: 768px) {
-    .client-info-card {
-      margin: 0 0.75rem;
-      padding: 1.25rem;
-    }
-
-    .client-header {
-      gap: 0.75rem;
-      margin-bottom: 1.25rem;
-    }
-
-    .client-avatar {
-      width: 2.5rem;
-      height: 2.5rem;
-      font-size: 1rem;
-    }
-
-    .client-name {
-      font-size: 1rem;
-    }
-
-    .client-subscriber {
-      font-size: 0.8rem;
-    }
-
-    .detail-row {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.25rem;
-    }
-
-    .detail-value {
-      max-width: 100%;
-      text-align: left;
-    }
-  }
-
-  /* Estilos para verificación de estado QR */
-  .qr-status-form {
-    padding: 0 1rem;
-    margin-bottom: 1rem;
-  }
-
-  .input-group {
-    display: flex;
-    gap: 0.75rem;
-    align-items: center;
-  }
-
-  .qr-id-input {
-    flex: 1;
-    padding: 0.75rem 1rem;
-    border: 1px solid var(--border-color);
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
-    background: var(--surface);
-    color: var(--text-primary);
-    transition: all 0.2s ease;
-  }
-
-  .qr-id-input:focus {
-    outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(58, 102, 255, 0.1);
-  }
-
-  .qr-id-input:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  .check-qr-button {
-    padding: 0.75rem 1.5rem;
-    background: var(--primary-color);
-    color: white;
-    border: none;
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    white-space: nowrap;
-  }
-
-  .check-qr-button:hover:not(:disabled) {
-    background: var(--primary-dark);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(58, 102, 255, 0.3);
-  }
-
-  .check-qr-button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-  }
-
-  .loading-qr-status {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem 1rem;
-    gap: 1rem;
-    color: var(--text-secondary);
-    text-align: center;
-    font-size: 0.9rem;
-  }
-
-  .qr-status-card {
-    background: var(--surface);
-    border-radius: 1rem;
-    padding: 1.5rem;
-    margin: 0 1rem;
-    box-shadow: var(--card-shadow);
-    border: 1px solid var(--border-color);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .qr-status-card:hover {
-    transform: translateY(-0.125rem);
-    box-shadow: var(--shadow-md);
-    border-color: var(--primary-color);
-  }
-
-  .qr-status-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  .qr-status-info {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .qr-id {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin: 0 0 0.5rem;
-    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
-  }
-
-  .qr-amount {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--primary-color);
-    margin: 0;
-  }
-
-  .qr-status-badge {
-    padding: 0.5rem 1rem;
-    border-radius: 0.75rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    white-space: nowrap;
-  }
-
-  .qr-status-badge.active {
-    background: rgba(0, 202, 141, 0.1);
-    color: var(--success-color);
-    border: 1px solid rgba(0, 202, 141, 0.2);
-  }
-
-  .qr-status-badge.paid {
-    background: rgba(58, 102, 255, 0.1);
-    color: var(--primary-color);
-    border: 1px solid rgba(58, 102, 255, 0.2);
-  }
-
-  .qr-status-badge.expired {
-    background: rgba(233, 58, 74, 0.1);
-    color: var(--error-color);
-    border: 1px solid rgba(233, 58, 74, 0.2);
-  }
-
-  .qr-status-badge.cancelled {
-    background: rgba(107, 114, 128, 0.1);
-    color: var(--text-secondary);
-    border: 1px solid rgba(107, 114, 128, 0.2);
-  }
-
-  .qr-details {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .qr-payments {
-    border-top: 1px solid var(--border-color);
-    padding-top: 1.5rem;
-  }
-
-  .qr-payments h4 {
-    margin: 0 0 1rem;
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
-  .payments-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .payment-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem;
-    background: rgba(0, 202, 141, 0.05);
-    border-radius: 0.5rem;
-    border: 1px solid rgba(0, 202, 141, 0.1);
-  }
-
-  .payment-info {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .payment-amount {
-    font-weight: 600;
-    color: var(--success-color);
-    font-size: 0.875rem;
-    margin-bottom: 0.25rem;
-  }
-
-  .payment-date {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-  }
-
-  .payment-status {
-    padding: 0.25rem 0.75rem;
-    border-radius: 0.375rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .payment-status.paid {
-    background: rgba(0, 202, 141, 0.1);
-    color: var(--success-color);
-  }
-
-  .no-payments, .no-qr-status {
-    text-align: center;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    padding: 1.5rem 1rem;
-    background: rgba(0, 0, 0, 0.02);
-    border-radius: 0.5rem;
-    border: 1px solid var(--border-color);
-  }
-
-  /* Responsive para verificación QR */
-  @media (max-width: 768px) {
-    .qr-status-form {
-      padding: 0 0.75rem;
-    }
-
-    .input-group {
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    .qr-id-input {
-      width: 100%;
-    }
-
-    .check-qr-button {
-      width: 100%;
-    }
-
-    .qr-status-card {
-      margin: 0 0.75rem;
-      padding: 1.25rem;
-    }
-
-    .qr-status-header {
-      flex-direction: column;
-      gap: 1rem;
-      align-items: flex-start;
-    }
-
-    .qr-status-badge {
-      align-self: flex-start;
-    }
-
-    .payment-item {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.5rem;
-    }
-
-    .payment-status {
-      align-self: flex-end;
-    }
-  }
-  
-  
-  /* Transacciones */
-  .transactions-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    padding: 0 1rem;
-  }
-  
-  .transaction-item {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 1.2rem;
-    background: var(--surface);
-    border-radius: 0.75rem;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: var(--card-shadow);
-    border: 1px solid var(--border-color);
-    margin-bottom: 0.5rem;
-  }
-  
-  .transaction-item.simple {
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  
-  .transaction-item:hover {
-    transform: translateY(-0.125rem);
-    box-shadow: var(--shadow-md);
-    border-color: var(--primary-color);
-  }
-  
-  .transaction-item.simple:hover {
-    background: linear-gradient(135deg, var(--surface) 0%, rgba(0, 202, 141, 0.02) 100%);
-    border-color: rgba(0, 202, 141, 0.2);
-  }
-  
-  .transaction-icon {
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: 0.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    position: relative;
-    overflow: hidden;
-  }
-  
-  .transaction-icon.incoming {
-    background: linear-gradient(135deg, rgba(0, 202, 141, 0.15) 0%, rgba(0, 202, 141, 0.05) 100%);
-    color: var(--success-color);
-    border: 1px solid rgba(0, 202, 141, 0.2);
-  }
-  
-  
-  
-  .transaction-details {
-    flex: 1;
-    min-width: 0;
-  }
-  
-  .transaction-title {
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 0.25rem;
-    font-size: 0.875rem;
-  }
-  
-  .transaction-date {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    margin-top: 0.25rem;
-  }
-  
-  .transaction-amount {
-    font-weight: 600;
-    font-size: 0.875rem;
-    padding: 0.375rem 0.5rem;
-    border-radius: 0.375rem;
-  }
-  
-  .transaction-amount.income {
-    color: var(--success-color);
-    background: rgba(0, 202, 141, 0.1);
-  }
-  
-  
-  /* Compactar header y botones para evitar wrap */
-  .compact-header {
-    gap: 0.5rem;
-    flex-wrap: nowrap;
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 0.5rem;
-    height: 2rem; /* Altura fija para mejor alineación */
-  }
-  .compact-title {
-    font-size: 0.95rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    margin-right: 0.5rem;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    color: var(--text-secondary);
-    opacity: 0.85;
-    margin: 0; /* Eliminar margen para mejor alineación vertical */
-    line-height: 2rem; /* Alineación vertical */
-  }
-  .compact-view {
-    font-size: 0.85rem;
-    padding: 0.25rem 0.5rem;
-    white-space: nowrap;
-    min-width: 0;
-    flex-shrink: 0;
-    gap: 0.25rem;
-    height: 2rem;
-    display: flex;
-    align-items: center;
-  }
-  
-  /* Ajustes para los iconos de Lucide */
-  :global(.action-icon svg, .transaction-icon svg) {
-    stroke-width: 1.75px;
-  }
-
-  /* Estilos para loading y errores en transacciones */
-  .loading-transactions {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem 0;
-    gap: 1rem;
-    color: var(--text-secondary);
-    text-align: center;
-    font-size: 0.9rem;
-  }
-  
-  .loading-spinner.mini {
-    width: 1.5rem;
-    height: 1.5rem;
-    border: 2px solid rgba(0, 0, 0, 0.1);
-    border-top-color: var(--primary-color);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-  }
-  
-  
-  .empty-transactions {
-    text-align: center;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    padding: 1.5rem 0;
-  }
-  
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-  
-  /* Loading Placeholders */
-  .loading-placeholders {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    padding: 1rem;
-  }
-  
-  .wallet-placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  
-  .stats-placeholders {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    gap: 1rem;
-  }
-  
-  .movements-placeholder {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-  
-  .placeholder-skeleton {
-    background: var(--border-color);
-    border-radius: var(--border-radius);
-    position: relative;
-    overflow: hidden;
-  }
-  
-  .placeholder-skeleton::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
+    transition: all var(--duration-normal) var(--ease-out);
     width: 100%;
-    height: 100%;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(255, 255, 255, 0.1),
-      transparent
-    );
-    animation: shimmer 1.5s infinite;
+    text-align: left;
   }
-  
-  .balance-skeleton {
-    width: 120px;
-    height: 24px;
+  .tx-row:hover { border-color: var(--primary-color); background: var(--primary-subtle); }
+  .tx-row:active { transform: scale(0.985); }
+  .tx-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    background: var(--primary-subtle);
+    color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
   }
-  
-  .account-skeleton {
-    width: 100px;
-    height: 16px;
+  .tx-info {
+    flex: 1;
+    min-width: 0;
   }
-  
-  .stat-skeleton {
-    height: 80px;
-    border-radius: var(--border-radius-lg);
+  .tx-name {
+    display: block;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  
-  .movement-skeleton {
-    height: 60px;
-    border-radius: var(--border-radius-md);
+  .tx-date {
+    display: block;
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+    margin-top: 2px;
   }
-  
-  @keyframes shimmer {
-    0% { left: -100%; }
-    100% { left: 100%; }
+  .tx-amount {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--error-color);
+    flex-shrink: 0;
   }
-  
-  /* Responsive placeholders */
-  @media (max-width: 768px) {
-    .loading-placeholders {
-      gap: 1rem;
-      padding: 0.75rem;
-    }
-    
-    .stats-placeholders {
-      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-      gap: 0.75rem;
-    }
-    
-    .stat-skeleton {
-      height: 70px;
-    }
-    
-    .movement-skeleton {
-      height: 50px;
-    }
+  .tx-amount.tx-in { color: var(--success-color); }
+
+  /* ── Loading State ── */
+  .loading-state { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-4) 0; }
+  .skeleton { border-radius: var(--radius-lg); }
+  .skeleton-balance { height: 160px; }
+  .skeleton-actions { height: 80px; }
+  .skeleton-stats { height: 80px; }
+  .skeleton-tx { height: 200px; }
+
+  .loading-row, .empty-row {
+    text-align: center;
+    padding: var(--space-8) var(--space-4);
+    color: var(--text-tertiary);
+    font-size: var(--text-sm);
   }
-  
-  /* Estilos del Modal */
+
+  /* ── Modal ── */
   .modal-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
-    padding: 1rem;
-    backdrop-filter: blur(4px);
+    padding: var(--space-4);
   }
-  
   .modal-content {
     background: var(--surface);
-    border-radius: 1rem;
-    max-width: 500px;
+    border-radius: var(--radius-2xl);
+    max-width: 480px;
     width: 100%;
     max-height: 80vh;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-xl);
+    border: 1px solid var(--border);
+    animation: scaleIn 250ms var(--ease-spring);
   }
-  
   .modal-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 1.5rem;
-    border-bottom: 1px solid var(--border-color);
-    flex-shrink: 0;
-    background: var(--surface);
-    border-radius: 1rem 1rem 0 0;
+    padding: var(--space-5);
+    border-bottom: 1px solid var(--border);
   }
-  
-  .modal-header h2 {
-    margin: 0;
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-  
+  .modal-header h2 { font-size: var(--text-lg); font-weight: 700; color: var(--text-primary); margin: 0; }
   .modal-close {
-    background: none;
+    width: 32px;
+    height: 32px;
     border: none;
-    font-size: 1.5rem;
+    background: var(--surface-hover);
+    border-radius: var(--radius-full);
     color: var(--text-secondary);
+    font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    padding: 0.25rem;
-    border-radius: 0.25rem;
-    transition: all 0.2s ease;
+    transition: all var(--duration-fast) var(--ease-out);
   }
-  
-  .modal-close:hover {
-    background: var(--border-color);
-    color: var(--text-primary);
-  }
-  
-  .modal-body {
-    padding: 1.5rem;
-    overflow-y: auto;
-    flex: 1;
-  }
-  
-  .movement-details {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-  
-  .detail-section {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-  
+  .modal-close:hover { background: var(--border); color: var(--text-primary); }
+  .modal-body { padding: var(--space-5); overflow-y: auto; flex: 1; }
+  .movement-details { display: flex; flex-direction: column; gap: var(--space-5); }
+  .detail-section { display: flex; flex-direction: column; gap: var(--space-3); }
   .detail-section h3 {
-    margin: 0;
-    font-size: 1rem;
+    font-size: var(--text-base);
     font-weight: 600;
     color: var(--text-primary);
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--border-color);
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--border);
+    margin: 0;
   }
-  
   .detail-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.75rem;
-    background: rgba(0, 0, 0, 0.02);
-    border-radius: 0.5rem;
-    border: 1px solid var(--border-color);
+    padding: var(--space-3);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
   }
-  
-  .detail-label {
-    font-weight: 500;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-  }
-  
-  .detail-value {
-    font-weight: 600;
-    color: var(--text-primary);
-    font-size: 0.875rem;
-    text-align: right;
-    max-width: 60%;
-    word-break: break-word;
-  }
-  
-  .detail-value.amount {
-    color: var(--success-color);
-    font-size: 1rem;
-  }
-  
-  .detail-value.code {
-    font-family: 'Courier New', monospace;
-    background: rgba(0, 202, 141, 0.1);
-    color: var(--primary-color);
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
-    font-size: 0.8rem;
-  }
-  
-  @media (max-width: 640px) {
-    .modal-content {
-      margin: 0.5rem;
-      max-height: 90vh;
-    }
-    
-    .modal-header {
-      padding: 1rem;
-      flex-shrink: 0;
-    }
-    
-    .modal-body {
-      padding: 1rem;
-      overflow-y: auto;
-      flex: 1;
-    }
-    
-    .detail-item {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.5rem;
-    }
-    
-    .detail-value {
-      max-width: 100%;
-      text-align: left;
-    }
+  .detail-label { font-weight: 500; color: var(--text-secondary); font-size: var(--text-sm); }
+  .detail-value { font-weight: 600; color: var(--text-primary); font-size: var(--text-sm); text-align: right; max-width: 60%; word-break: break-word; }
+  .detail-value.amount { color: var(--success-color); font-size: var(--text-base); }
+  .detail-value.code { font-family: var(--font-mono); background: var(--primary-subtle); color: var(--primary-color); padding: 2px 8px; border-radius: var(--radius-sm); font-size: var(--text-xs); }
+
+  @media (max-width: 400px) {
+    .quick-actions { gap: var(--space-2); }
+    .qa-btn { padding: var(--space-2) var(--space-1); }
+    .qa-icon { width: 38px; height: 38px; }
+    .stats-grid { gap: var(--space-2); }
+    .stat-card { padding: var(--space-3) var(--space-2); }
+    .balance-amount { font-size: var(--text-3xl); }
   }
 </style>

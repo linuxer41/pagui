@@ -2635,8 +2635,8 @@ var import_debug, debug, syncBufferSize, ddSignatureArray, eocdSignatureBytes;
 var init_lib4 = __esm(() => {
   init_lib3();
   init_esm();
-  import_debug = __toESM(require_src(), 1);
   init_ZipToken();
+  import_debug = __toESM(require_src(), 1);
   debug = import_debug.default("tokenizer:inflate");
   syncBufferSize = 256 * 1024;
   ddSignatureArray = signatureToArray(Signature.DataDescriptor);
@@ -9304,78 +9304,53 @@ var init_esm2 = __esm(() => {
   defaults = import_lib.default.defaults;
 });
 
-// src/config/database.ts
-import { readFileSync } from "node:fs";
-async function testConnection() {
-  try {
-    const client = await pool.connect();
-    console.log("✅ Conexión a PostgreSQL establecida correctamente");
-    client.release();
-  } catch (err2) {
-    console.error("❌ Error al conectar a PostgreSQL:", err2);
-  }
-}
+// src/shared/database/pool.ts
 async function query(text, params = []) {
   try {
     const start = Date.now();
     const res = await pool.query(text, params);
     const duration = Date.now() - start;
     if (duration > 100) {
-      console.log("⏱️ Query lento:", { text, duration, rows: res.rowCount });
+      console.log("Slow query:", { text: text.substring(0, 100), duration, rows: res.rowCount });
     }
     return res;
   } catch (err2) {
-    console.error("❌ Error ejecutando query:", err2);
+    console.error("Query error:", err2);
     throw err2;
   }
 }
-async function migrateDB(reset = false) {
+async function testConnection() {
   try {
-    const tables = await pool.query("SELECT table_name FROM information_schema.tables WHERE table_schema = $1", ["public"]);
-    if (tables.rowCount === 0 || reset) {
-      const schema = readFileSync("schema.sql", "utf8");
-      await pool.query(schema);
-    } else {
-      console.log("\uD83D\uDD04 Actualizando esquema existente...");
-      const schema = readFileSync("schema.sql", "utf8");
-      await pool.query(schema);
-    }
-    console.log("✅ Base de datos inicializada correctamente");
+    const client = await pool.connect();
+    console.log("PostgreSQL connected");
+    client.release();
   } catch (err2) {
-    console.error("❌ Error al inicializar la base de datos:", err2);
-    throw err2;
+    console.error("PostgreSQL connection error:", err2);
   }
-}
-function generateApiKey() {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let result = "";
-  const length = 40;
-  for (let i2 = 0;i2 < length; i2++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
 }
 var databaseUrl, pool;
-var init_database = __esm(() => {
+var init_pool = __esm(() => {
   init_esm2();
   databaseUrl = process.env.DATABASE_URL || "postgres://postgres:postgres@localhost:5432/payments";
   pool = new Pool({
     connectionString: databaseUrl,
     max: 20,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000
+    connectionTimeoutMillis: 1e4
   });
 });
 
-// src/utils/error.ts
-var ApiError;
-var init_error = __esm(() => {
-  ApiError = class ApiError extends Error {
+// src/shared/errors/app-error.ts
+var AppError;
+var init_app_error = __esm(() => {
+  AppError = class AppError extends Error {
     statusCode;
-    constructor(message, statusCode) {
+    details;
+    constructor(statusCode, message, details) {
       super(message);
       this.statusCode = statusCode;
-      this.statusCode = statusCode;
+      this.details = details;
+      this.name = "AppError";
     }
   };
 });
@@ -9384,14 +9359,14 @@ var init_error = __esm(() => {
 var require_node_gyp_build = __commonJS((exports, module) => {
   var fs = __require("fs");
   var path = __require("path");
-  var os = __require("os");
+  var os2 = __require("os");
   var runtimeRequire = typeof __webpack_require__ === "function" ? __non_webpack_require__ : __require;
   var vars = process.config && process.config.variables || {};
   var prebuildsOnly = !!process.env.PREBUILDS_ONLY;
   var abi = process.versions.modules;
   var runtime = isElectron() ? "electron" : isNwjs() ? "node-webkit" : "node";
-  var arch = process.env.npm_config_arch || os.arch();
-  var platform = process.env.npm_config_platform || os.platform();
+  var arch = process.env.npm_config_arch || os2.arch();
+  var platform = process.env.npm_config_platform || os2.platform();
   var libc = process.env.LIBC || (isAlpine(platform) ? "musl" : "glibc");
   var armv = process.env.ARM_VERSION || (arch === "arm64" ? "8" : vars.arm_version) || "";
   var uv = (process.versions.uv || "").split(".")[0];
@@ -9436,19 +9411,19 @@ var require_node_gyp_build = __commonJS((exports, module) => {
     loaded from: ` + dir + `
 `);
     function resolve(dir2) {
-      var tuples = readdirSync(path.join(dir2, "prebuilds")).map(parseTuple);
+      var tuples = readdirSync2(path.join(dir2, "prebuilds")).map(parseTuple);
       var tuple = tuples.filter(matchTuple(platform, arch)).sort(compareTuples)[0];
       if (!tuple)
         return;
       var prebuilds = path.join(dir2, "prebuilds", tuple.name);
-      var parsed = readdirSync(prebuilds).map(parseTags);
+      var parsed = readdirSync2(prebuilds).map(parseTags);
       var candidates = parsed.filter(matchTags(runtime, abi));
       var winner = candidates.sort(compareTags(runtime))[0];
       if (winner)
         return path.join(prebuilds, winner.file);
     }
   };
-  function readdirSync(dir) {
+  function readdirSync2(dir) {
     try {
       return fs.readdirSync(dir);
     } catch (err2) {
@@ -9456,7 +9431,7 @@ var require_node_gyp_build = __commonJS((exports, module) => {
     }
   }
   function getFirst(dir, filter) {
-    var files = readdirSync(dir).filter(filter);
+    var files = readdirSync2(dir).filter(filter);
     return files[0] && path.join(dir, files[0]);
   }
   function matchBuild(name) {
@@ -9618,7 +9593,7 @@ var require_bcrypt = __commonJS((exports, module) => {
   var __dirname = "D:\\work\\pagui\\backend\\node_modules\\bcrypt";
   var path = __require("path");
   var bindings = require_node_gyp_build2()(path.resolve(__dirname));
-  var crypto2 = __require("crypto");
+  var crypto3 = __require("crypto");
   var promises = require_promises();
   function genSaltSync(rounds, minor) {
     if (!rounds) {
@@ -9631,7 +9606,7 @@ var require_bcrypt = __commonJS((exports, module) => {
     } else if (minor !== "b" && minor !== "a") {
       throw new Error('minor must be either "a" or "b"');
     }
-    return bindings.gen_salt_sync(minor, rounds, crypto2.randomBytes(16));
+    return bindings.gen_salt_sync(minor, rounds, crypto3.randomBytes(16));
   }
   function genSalt(rounds, minor, cb) {
     let error;
@@ -9662,7 +9637,7 @@ var require_bcrypt = __commonJS((exports, module) => {
         cb(error);
       });
     }
-    crypto2.randomBytes(16, function(error2, randomBytes) {
+    crypto3.randomBytes(16, function(error2, randomBytes) {
       if (error2) {
         cb(error2);
         return;
@@ -10064,7 +10039,7 @@ var require_buffer_equal_constant_time = __commonJS((exports, module) => {
     return c === 0;
   }
   bufferEq.install = function() {
-    Buffer2.prototype.equal = SlowBuffer.prototype.equal = function equal(that) {
+    Buffer2.prototype.equal = SlowBuffer.prototype.equal = function equal2(that) {
       return bufferEq(this, that);
     };
   };
@@ -10079,7 +10054,7 @@ var require_buffer_equal_constant_time = __commonJS((exports, module) => {
 // node_modules/jwa/index.js
 var require_jwa = __commonJS((exports, module) => {
   var Buffer2 = require_safe_buffer().Buffer;
-  var crypto2 = __require("crypto");
+  var crypto3 = __require("crypto");
   var formatEcdsa = require_ecdsa_sig_formatter();
   var util3 = __require("util");
   var MSG_INVALID_ALGORITHM = `"%s" is not a valid algorithm.
@@ -10088,7 +10063,7 @@ var require_jwa = __commonJS((exports, module) => {
   var MSG_INVALID_SECRET = "secret must be a string or buffer";
   var MSG_INVALID_VERIFIER_KEY = "key must be a string or a buffer";
   var MSG_INVALID_SIGNER_KEY = "key must be a string, a buffer or an object";
-  var supportsKeyObjects = typeof crypto2.createPublicKey === "function";
+  var supportsKeyObjects = typeof crypto3.createPublicKey === "function";
   if (supportsKeyObjects) {
     MSG_INVALID_VERIFIER_KEY += " or a KeyObject";
     MSG_INVALID_SECRET += "or a KeyObject";
@@ -10178,18 +10153,18 @@ var require_jwa = __commonJS((exports, module) => {
     return function sign(thing, secret) {
       checkIsSecretKey(secret);
       thing = normalizeInput(thing);
-      var hmac = crypto2.createHmac("sha" + bits2, secret);
+      var hmac = crypto3.createHmac("sha" + bits2, secret);
       var sig = (hmac.update(thing), hmac.digest("base64"));
       return fromBase64(sig);
     };
   }
   var bufferEqual;
-  var timingSafeEqual = "timingSafeEqual" in crypto2 ? function timingSafeEqual(a12, b) {
+  var timingSafeEqual = "timingSafeEqual" in crypto3 ? function timingSafeEqual2(a12, b) {
     if (a12.byteLength !== b.byteLength) {
       return false;
     }
-    return crypto2.timingSafeEqual(a12, b);
-  } : function timingSafeEqual(a12, b) {
+    return crypto3.timingSafeEqual(a12, b);
+  } : function timingSafeEqual2(a12, b) {
     if (!bufferEqual) {
       bufferEqual = require_buffer_equal_constant_time();
     }
@@ -10205,7 +10180,7 @@ var require_jwa = __commonJS((exports, module) => {
     return function sign(thing, privateKey) {
       checkIsPrivateKey(privateKey);
       thing = normalizeInput(thing);
-      var signer = crypto2.createSign("RSA-SHA" + bits2);
+      var signer = crypto3.createSign("RSA-SHA" + bits2);
       var sig = (signer.update(thing), signer.sign(privateKey, "base64"));
       return fromBase64(sig);
     };
@@ -10215,7 +10190,7 @@ var require_jwa = __commonJS((exports, module) => {
       checkIsPublicKey(publicKey);
       thing = normalizeInput(thing);
       signature = toBase64(signature);
-      var verifier = crypto2.createVerify("RSA-SHA" + bits2);
+      var verifier = crypto3.createVerify("RSA-SHA" + bits2);
       verifier.update(thing);
       return verifier.verify(publicKey, signature, "base64");
     };
@@ -10224,11 +10199,11 @@ var require_jwa = __commonJS((exports, module) => {
     return function sign(thing, privateKey) {
       checkIsPrivateKey(privateKey);
       thing = normalizeInput(thing);
-      var signer = crypto2.createSign("RSA-SHA" + bits2);
+      var signer = crypto3.createSign("RSA-SHA" + bits2);
       var sig = (signer.update(thing), signer.sign({
         key: privateKey,
-        padding: crypto2.constants.RSA_PKCS1_PSS_PADDING,
-        saltLength: crypto2.constants.RSA_PSS_SALTLEN_DIGEST
+        padding: crypto3.constants.RSA_PKCS1_PSS_PADDING,
+        saltLength: crypto3.constants.RSA_PSS_SALTLEN_DIGEST
       }, "base64"));
       return fromBase64(sig);
     };
@@ -10238,12 +10213,12 @@ var require_jwa = __commonJS((exports, module) => {
       checkIsPublicKey(publicKey);
       thing = normalizeInput(thing);
       signature = toBase64(signature);
-      var verifier = crypto2.createVerify("RSA-SHA" + bits2);
+      var verifier = crypto3.createVerify("RSA-SHA" + bits2);
       verifier.update(thing);
       return verifier.verify({
         key: publicKey,
-        padding: crypto2.constants.RSA_PKCS1_PSS_PADDING,
-        saltLength: crypto2.constants.RSA_PSS_SALTLEN_DIGEST
+        padding: crypto3.constants.RSA_PKCS1_PSS_PADDING,
+        saltLength: crypto3.constants.RSA_PSS_SALTLEN_DIGEST
       }, signature, "base64");
     };
   }
@@ -12771,12 +12746,12 @@ var require_lodash = __commonJS((exports, module) => {
   }
   var isArray = Array.isArray;
   function isArrayLike(value) {
-    return value != null && isLength(value.length) && !isFunction2(value);
+    return value != null && isLength(value.length) && !isFunction(value);
   }
   function isArrayLikeObject(value) {
     return isObjectLike(value) && isArrayLike(value);
   }
-  function isFunction2(value) {
+  function isFunction(value) {
     var tag = isObject2(value) ? objectToString.call(value) : "";
     return tag == funcTag || tag == genTag;
   }
@@ -13294,6 +13269,317 @@ var require_jsonwebtoken = __commonJS((exports, module) => {
     JsonWebTokenError: require_JsonWebTokenError(),
     NotBeforeError: require_NotBeforeError(),
     TokenExpiredError: require_TokenExpiredError()
+  };
+});
+
+// src/shared/snowflake.ts
+function nextSnowflake() {
+  let now = BigInt(Date.now()) - EPOCH;
+  if (now === lastTimestamp) {
+    sequence = sequence + 1n & 0xfffn;
+    if (sequence === 0n) {
+      while (now === lastTimestamp) {
+        now = BigInt(Date.now()) - EPOCH;
+      }
+    }
+  } else {
+    sequence = 0n;
+  }
+  lastTimestamp = now;
+  return now << 22n | WORKER_ID << 12n | sequence;
+}
+var EPOCH = 1735689600000n, WORKER_ID, sequence = 0n, lastTimestamp = 0n;
+var init_snowflake = __esm(() => {
+  WORKER_ID = BigInt(process.env.SNOWFLAKE_WORKER_ID || "1") & 0x3ffn;
+});
+
+// src/identity/user.repository.ts
+var userRepository;
+var init_user_repository = __esm(() => {
+  init_pool();
+  userRepository = {
+    async create(data) {
+      const r2 = await query(`
+      INSERT INTO users (id, email, password, full_name, phone, address, role_id, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
+      RETURNING id
+    `, [data.id, data.email, data.password, data.fullName, data.phone || null, data.address || null, data.roleId]);
+      return this.getById(r2.rows[0].id);
+    },
+    async getById(id) {
+      const r2 = await query(`
+      SELECT u.id, u.email, u.full_name as "fullName", u.phone, u.address,
+             u.role_id as "roleId", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt",
+             r.name as "roleName"
+      FROM users u
+      JOIN roles r ON u.role_id = r.id
+      WHERE u.id = $1 AND u.deleted_at IS NULL
+    `, [id]);
+      return r2.rowCount ? r2.rows[0] : null;
+    },
+    async getByEmail(email) {
+      const r2 = await query(`
+      SELECT u.id, u.email, u.password, u.full_name as "fullName", u.phone, u.address,
+             u.role_id as "roleId", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt",
+             r.name as "roleName"
+      FROM users u
+      JOIN roles r ON u.role_id = r.id
+      WHERE u.email = $1 AND u.deleted_at IS NULL
+    `, [email]);
+      return r2.rowCount ? r2.rows[0] : null;
+    },
+    async getPasswordHash(id) {
+      const r2 = await query("SELECT password FROM users WHERE id = $1", [id]);
+      return r2.rowCount ? r2.rows[0].password : null;
+    },
+    async list(filters = {}) {
+      const page = filters.page || 1;
+      const limit = filters.limit || 20;
+      const offset = (page - 1) * limit;
+      const conditions = ["u.deleted_at IS NULL"];
+      const params = [];
+      let pc = 0;
+      if (filters.search) {
+        pc++;
+        conditions.push(`(u.full_name ILIKE $${pc} OR u.email ILIKE $${pc})`);
+        params.push(`%${filters.search}%`);
+      }
+      if (filters.status) {
+        pc++;
+        conditions.push(`u.status = $${pc}`);
+        params.push(filters.status);
+      }
+      if (filters.roleId) {
+        pc++;
+        conditions.push(`u.role_id = $${pc}`);
+        params.push(filters.roleId);
+      }
+      const where = "WHERE " + conditions.join(" AND ");
+      const countR = await query(`SELECT COUNT(*) as total FROM users u ${where}`, params);
+      const totalCount = parseInt(countR.rows[0].total);
+      const usersR = await query(`
+      SELECT u.id, u.email, u.full_name as "fullName", u.phone, u.address,
+             u.role_id as "roleId", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt",
+             r.name as "roleName"
+      FROM users u JOIN roles r ON u.role_id = r.id
+      ${where} ORDER BY u.created_at DESC LIMIT $${pc + 1} OFFSET $${pc + 2}
+    `, [...params, limit, offset]);
+      return {
+        users: usersR.rows,
+        totalCount,
+        pagination: { page, limit, totalPages: Math.ceil(totalCount / limit) }
+      };
+    },
+    async update(id, data) {
+      const fields = [];
+      const params = [];
+      let pc = 0;
+      if (data.fullName !== undefined) {
+        pc++;
+        fields.push(`full_name = $${pc}`);
+        params.push(data.fullName);
+      }
+      if (data.phone !== undefined) {
+        pc++;
+        fields.push(`phone = $${pc}`);
+        params.push(data.phone);
+      }
+      if (data.address !== undefined) {
+        pc++;
+        fields.push(`address = $${pc}`);
+        params.push(data.address);
+      }
+      if (data.status !== undefined) {
+        pc++;
+        fields.push(`status = $${pc}`);
+        params.push(data.status);
+      }
+      if (fields.length === 0)
+        throw new Error("No fields to update");
+      fields.push("updated_at = CURRENT_TIMESTAMP");
+      await query(`UPDATE users SET ${fields.join(", ")} WHERE id = $${pc + 1}`, [...params, id]);
+      return this.getById(id);
+    },
+    async updatePassword(id, hash2) {
+      await query(`UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, [hash2, id]);
+    },
+    async softDelete(id) {
+      await query(`UPDATE users SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [id]);
+    },
+    async existsByEmail(email) {
+      const r2 = await query("SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL", [email]);
+      return r2.rowCount !== null && r2.rowCount > 0;
+    }
+  };
+});
+
+// src/identity/user.service.ts
+var import_bcrypt2, userService;
+var init_user_service = __esm(() => {
+  init_snowflake();
+  init_app_error();
+  init_user_repository();
+  import_bcrypt2 = __toESM(require_bcrypt(), 1);
+  userService = {
+    async create(data) {
+      if (await userRepository.existsByEmail(data.email)) {
+        throw new AppError(400, "El email ya está registrado");
+      }
+      const hash2 = await import_bcrypt2.default.hash(data.password, 10);
+      return userRepository.create({ id: nextSnowflake(), ...data, password: hash2 });
+    },
+    getById(id) {
+      return userRepository.getById(id);
+    },
+    getByEmail(email) {
+      return userRepository.getByEmail(email);
+    },
+    list(filters) {
+      return userRepository.list(filters);
+    },
+    async update(id, data) {
+      const user = await userRepository.getById(id);
+      if (!user)
+        throw new AppError(404, "Usuario no encontrado");
+      return userRepository.update(id, data);
+    },
+    async changePassword(id, newPassword) {
+      const user = await userRepository.getById(id);
+      if (!user)
+        throw new AppError(404, "Usuario no encontrado");
+      const hash2 = await import_bcrypt2.default.hash(newPassword, 10);
+      await userRepository.updatePassword(id, hash2);
+    },
+    async delete(id) {
+      const user = await userRepository.getById(id);
+      if (!user)
+        throw new AppError(404, "Usuario no encontrado");
+      await userRepository.softDelete(id);
+    }
+  };
+});
+
+// src/banking/account/account.repository.ts
+var accountRepository;
+var init_account_repository = __esm(() => {
+  init_pool();
+  init_snowflake();
+  accountRepository = {
+    async create(data) {
+      const r2 = await query(`
+      INSERT INTO accounts (id, account_number, account_type, currency, balance, available_balance, bank_credential_id)
+      VALUES ($1, $2, $3, $4, 0.00, 0.00, $5)
+      RETURNING *
+    `, [nextSnowflake(), data.accountNumber, data.accountType, data.currency || "BOB", data.bankCredentialId]);
+      return r2.rows[0];
+    },
+    async getById(id) {
+      const r2 = await query("SELECT * FROM accounts WHERE id = $1 AND deleted_at IS NULL", [id]);
+      return r2.rowCount ? r2.rows[0] : null;
+    },
+    async getByAccountNumber(number) {
+      const r2 = await query("SELECT * FROM accounts WHERE account_number = $1 AND deleted_at IS NULL", [number]);
+      return r2.rowCount ? r2.rows[0] : null;
+    },
+    async listByUser(userId) {
+      const r2 = await query(`
+      SELECT a.*, ua.is_primary as "isPrimary", ua.role as "userRole"
+      FROM accounts a
+      JOIN user_accounts ua ON a.id = ua.account_id
+      WHERE ua.user_id = $1 AND a.deleted_at IS NULL AND ua.deleted_at IS NULL
+      ORDER BY ua.is_primary DESC
+    `, [userId]);
+      return r2.rows;
+    },
+    async listAll(filters = {}) {
+      const page = filters.page || 1;
+      const limit = filters.limit || 20;
+      const offset = (page - 1) * limit;
+      const conditions = ["deleted_at IS NULL"];
+      const params = [];
+      let pc = 0;
+      if (filters.status) {
+        pc++;
+        conditions.push(`status = $${pc}`);
+        params.push(filters.status);
+      }
+      const where = "WHERE " + conditions.join(" AND ");
+      const c = await query(`SELECT COUNT(*) as t FROM accounts ${where}`, params);
+      const r2 = await query(`SELECT * FROM accounts ${where} ORDER BY created_at DESC LIMIT $${pc + 1} OFFSET $${pc + 2}`, [...params, limit, offset]);
+      return { accounts: r2.rows, totalCount: parseInt(c.rows[0].t) };
+    },
+    async createMovement(data) {
+      const r2 = await query(`
+      INSERT INTO account_movements (id, account_id, movement_type, amount, balance_before, balance_after,
+        description, qr_id, transaction_id, payment_date, currency, sender_name,
+        sender_document_id, sender_account, sender_bank_code, reference_id, reference_type, status)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+      RETURNING *
+    `, [
+        nextSnowflake(),
+        data.accountId,
+        data.movementType,
+        data.amount,
+        data.balanceBefore,
+        data.balanceAfter,
+        data.description || null,
+        data.qrId || null,
+        data.transactionId || null,
+        data.paymentDate || null,
+        data.currency || "BOB",
+        data.senderName || null,
+        data.senderDocumentId || null,
+        data.senderAccount || null,
+        data.senderBankCode || null,
+        data.referenceId || null,
+        data.referenceType || null,
+        data.status || "completed"
+      ]);
+      return r2.rows[0];
+    },
+    async getMovements(accountId, filters = {}) {
+      const page = filters.page || 1;
+      const limit = filters.limit || 20;
+      const offset = (page - 1) * limit;
+      const conditions = ["account_id = $1", "deleted_at IS NULL"];
+      const params = [accountId];
+      let pc = 1;
+      if (filters.from) {
+        pc++;
+        conditions.push(`created_at >= $${pc}`);
+        params.push(filters.from);
+      }
+      if (filters.to) {
+        pc++;
+        conditions.push(`created_at <= $${pc}`);
+        params.push(filters.to);
+      }
+      if (filters.type) {
+        pc++;
+        conditions.push(`movement_type = $${pc}`);
+        params.push(filters.type);
+      }
+      const where = "WHERE " + conditions.join(" AND ");
+      const c = await query(`SELECT COUNT(*) as t FROM account_movements ${where}`, params);
+      const r2 = await query(`SELECT * FROM account_movements ${where} ORDER BY created_at DESC LIMIT $${pc + 1} OFFSET $${pc + 2}`, [...params, limit, offset]);
+      return { movements: r2.rows, totalCount: parseInt(c.rows[0].t) };
+    },
+    async getStats(accountId) {
+      const r2 = await query(`
+      SELECT
+        COALESCE(SUM(CASE WHEN created_at >= CURRENT_DATE THEN amount ELSE 0 END), 0) as today,
+        COALESCE(SUM(CASE WHEN created_at >= DATE_TRUNC('week', CURRENT_DATE) THEN amount ELSE 0 END), 0) as week,
+        COALESCE(SUM(CASE WHEN created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN amount ELSE 0 END), 0) as month
+      FROM account_movements WHERE account_id = $1 AND movement_type IN ('deposit','qr_payment','transfer_in') AND deleted_at IS NULL
+    `, [accountId]);
+      return r2.rows[0];
+    },
+    async linkUser(userId, accountId, role = "owner", isPrimary = true) {
+      await query(`
+      INSERT INTO user_accounts (user_id, account_id, role, is_primary)
+      VALUES ($1, $2, $3, $4) ON CONFLICT (user_id, account_id) DO UPDATE SET role = $3, is_primary = $4
+    `, [userId, accountId, role, isPrimary]);
+    }
   };
 });
 
@@ -14558,7 +14844,7 @@ var require_url_state_machine = __commonJS((exports, module) => {
     }
     return true;
   };
-  URLStateMachine.prototype["parse query"] = function parseQuery(c, cStr) {
+  URLStateMachine.prototype["parse query"] = function parseQuery2(c, cStr) {
     if (isNaN(c) || !this.stateOverride && c === 35) {
       if (!isSpecial(this.url) || this.url.scheme === "ws" || this.url.scheme === "wss") {
         this.encodingOverride = "utf-8";
@@ -15919,12 +16205,12 @@ var require_lib4 = __commonJS((exports, module) => {
   AbortError2.prototype.name = "AbortError";
   var URL$1 = Url.URL || whatwgUrl.URL;
   var PassThrough$1 = Stream.PassThrough;
-  var isDomainOrSubdomain = function isDomainOrSubdomain(destination, original) {
+  var isDomainOrSubdomain = function isDomainOrSubdomain2(destination, original) {
     const orig = new URL$1(original).hostname;
     const dest = new URL$1(destination).hostname;
     return orig === dest || orig[orig.length - dest.length - 1] === "." && orig.endsWith(dest);
   };
-  var isSameProtocol = function isSameProtocol(destination, original) {
+  var isSameProtocol = function isSameProtocol2(destination, original) {
     const orig = new URL$1(original).protocol;
     const dest = new URL$1(destination).protocol;
     return orig === dest;
@@ -15940,7 +16226,7 @@ var require_lib4 = __commonJS((exports, module) => {
       const send = (options.protocol === "https:" ? https : http).request;
       const signal = request.signal;
       let response = null;
-      const abort = function abort() {
+      const abort = function abort2() {
         let error = new AbortError2("The user aborted a request.");
         reject(error);
         if (request.body && request.body instanceof Stream.Readable) {
@@ -15954,7 +16240,7 @@ var require_lib4 = __commonJS((exports, module) => {
         abort();
         return;
       }
-      const abortAndFinalize = function abortAndFinalize() {
+      const abortAndFinalize = function abortAndFinalize2() {
         abort();
         finalize();
       };
@@ -16176,417 +16462,4581 @@ var require_lib4 = __commonJS((exports, module) => {
   exports.AbortError = AbortError2;
 });
 
-// src/services/crypto.service.ts
-import crypto2 from "crypto";
-
-class CryptoService {
-  algorithm = "aes-256-cbc";
-  key;
-  iv;
-  constructor(encryptionKey) {
-    this.key = crypto2.createHash("sha256").update(String(encryptionKey)).digest();
-    this.iv = Buffer.alloc(16, 0);
-  }
-  encrypt(text, customKey) {
-    try {
-      const key = customKey ? crypto2.createHash("sha256").update(String(customKey)).digest() : this.key;
-      const cipher = crypto2.createCipheriv(this.algorithm, key, this.iv);
-      let encrypted = cipher.update(text, "utf8", "base64");
-      encrypted += cipher.final("base64");
-      return encrypted;
-    } catch (error) {
-      console.error("Error en encriptación:", error);
-      throw new Error("Error en proceso de encriptación");
+// src/payments/wallet/wallet.repository.ts
+var walletRepository;
+var init_wallet_repository = __esm(() => {
+  init_pool();
+  init_snowflake();
+  walletRepository = {
+    async create(data) {
+      const r2 = await query(`
+      INSERT INTO wallets (id, user_id, name, type, currency)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING *
+    `, [nextSnowflake(), data.userId, data.name || "Principal", data.type || "personal", data.currency || "BOB"]);
+      return r2.rows[0];
+    },
+    async getById(id) {
+      const r2 = await query("SELECT * FROM wallets WHERE id = $1", [id]);
+      return r2.rowCount ? r2.rows[0] : null;
+    },
+    async listByUser(userId) {
+      const r2 = await query("SELECT * FROM wallets WHERE user_id = $1 ORDER BY is_default DESC, created_at ASC", [userId]);
+      return r2.rows;
+    },
+    async getDefault(userId) {
+      const r2 = await query("SELECT * FROM wallets WHERE user_id = $1 AND is_default = true LIMIT 1", [userId]);
+      return r2.rowCount ? r2.rows[0] : null;
+    },
+    async updateBalance(id, balance, availableBalance) {
+      await query("UPDATE wallets SET balance = $1, available_balance = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3", [balance, availableBalance, id]);
+    },
+    async holdAmount(id, amount) {
+      await query(`
+      UPDATE wallets SET held_balance = held_balance + $1, available_balance = available_balance - $1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2 AND available_balance >= $1
+    `, [amount, id]);
+    },
+    async releaseHold(id, amount) {
+      await query(`
+      UPDATE wallets SET held_balance = held_balance - $1, available_balance = available_balance + $1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+    `, [amount, id]);
     }
-  }
-  decrypt(encryptedText, customKey) {
-    try {
-      const key = customKey ? crypto2.createHash("sha256").update(String(customKey)).digest() : this.key;
-      const decipher = crypto2.createDecipheriv(this.algorithm, key, this.iv);
-      let decrypted = decipher.update(encryptedText, "base64", "utf8");
-      decrypted += decipher.final("utf8");
-      return decrypted;
-    } catch (error) {
-      console.error("Error en desencriptación:", error);
-      throw new Error("Error en proceso de desencriptación");
-    }
-  }
-}
-var cryptoService;
-var init_crypto_service = __esm(() => {
-  cryptoService = new CryptoService(process.env.ENCRYPTION_KEY || "default-encryption-key");
+  };
 });
 
-// src/services/bank-credentials.service.ts
-class BankCredentialsService {
-  cryptoService;
-  constructor() {
-    this.cryptoService = new CryptoService(process.env.ENCRYPTION_KEY || "default-encryption-key");
-  }
-  async create(data) {
-    try {
-      const existingResult = await query(`
-        SELECT id FROM third_bank_credentials 
-        WHERE environment = $1 AND deleted_at IS NULL
-      `, [data.environment]);
-      if (existingResult.rowCount && existingResult.rowCount > 0) {
-        throw new ApiError("Ya existen credenciales para este entorno", 400);
-      }
-      const encryptedUsername = await this.cryptoService.encrypt(data.username);
-      const encryptedPassword = await this.cryptoService.encrypt(data.password);
-      const encryptedEncryptionKey = await this.cryptoService.encrypt(data.encryptionKey);
-      const result = await query(`
-        INSERT INTO third_bank_credentials (
-          account_number, account_name, merchant_id,
-          username, password, encryption_key, environment, api_base_url, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active')
-        RETURNING id
-      `, [
-        data.accountNumber,
-        data.accountName,
-        data.merchantId,
-        encryptedUsername,
-        encryptedPassword,
-        encryptedEncryptionKey,
-        data.environment,
-        data.apiBaseUrl
+// src/payments/fee/fee.repository.ts
+var feeRepository;
+var init_fee_repository = __esm(() => {
+  init_pool();
+  init_snowflake();
+  feeRepository = {
+    async create(data) {
+      const r2 = await query(`
+      INSERT INTO fee_rules (id, transaction_type, fee_type, fee_value, fee_cap, min_amount, max_amount)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING *
+    `, [
+        nextSnowflake(),
+        data.transactionType,
+        data.feeType,
+        data.feeValue,
+        data.feeCap || null,
+        data.minAmount || null,
+        data.maxAmount || null
       ]);
-      const credentialId = result.rows[0].id;
-      const credential = await this.getById(credentialId);
-      if (!credential) {
-        throw new ApiError("Error al crear credenciales", 500);
-      }
-      return credential;
-    } catch (error) {
-      throw error;
-    }
-  }
-  async getAll() {
-    try {
-      const result = await query(`
-        SELECT 
-          bc.id, 
-          bc.account_number as "accountNumber",
-          bc.account_name as "accountName",
-          bc.merchant_id as "merchantId", 
-          bc.username, 
-          bc.password, 
-          bc.encryption_key as "encryptionKey",
-          bc.environment, 
-          bc.api_base_url as "apiBaseUrl",
-          bc.status
-        FROM third_bank_credentials bc
-        WHERE bc.deleted_at IS NULL
-        ORDER BY bc.created_at DESC
-      `);
-      if (result.rowCount === 0) {
-        return [];
-      }
-      const credentials = result.rows.map((credential) => ({
-        ...credential,
-        username: this.cryptoService.decrypt(credential.username),
-        password: this.cryptoService.decrypt(credential.password),
-        encryptionKey: this.cryptoService.decrypt(credential.encryptionKey)
-      }));
-      return credentials;
-    } catch (error) {
-      console.error("Error obteniendo credenciales:", error);
-      throw new ApiError("Error al obtener credenciales", 500);
-    }
-  }
-  async getById(id) {
-    try {
-      const result = await query(`
-        SELECT 
-          bc.id, 
-          bc.account_number as "accountNumber",
-          bc.account_name as "accountName",
-          bc.merchant_id as "merchantId", 
-          bc.username, 
-          bc.password, 
-          bc.encryption_key as "encryptionKey",
-          bc.environment, 
-          bc.api_base_url as "apiBaseUrl",
-          bc.status
-        FROM third_bank_credentials bc
-        WHERE bc.id = $1 AND bc.deleted_at IS NULL
-      `, [id]);
-      const credential = result.rows[0];
-      if (!credential) {
-        throw new ApiError("Credenciales no encontradas", 404);
-      }
-      return {
-        ...credential,
-        username: await this.cryptoService.decrypt(credential.username),
-        password: await this.cryptoService.decrypt(credential.password),
-        encryptionKey: await this.cryptoService.decrypt(credential.encryptionKey)
-      };
-    } catch (error) {
-      throw error;
-    }
-  }
-  async getByUserId(userId) {
-    try {
-      const result = await query(`
-        SELECT 
-          bc.id, 
-          bc.account_number as "accountNumber",
-          bc.account_name as "accountName",
-          bc.merchant_id as "merchantId", 
-          bc.username, 
-          bc.password, 
-          bc.encryption_key as "encryptionKey",
-          bc.environment, 
-          bc.api_base_url as "apiBaseUrl",
-          bc.status
-        FROM third_bank_credentials bc
-        WHERE bc.status = 'active' AND bc.deleted_at IS NULL
-        ORDER BY bc.created_at DESC
-        LIMIT 1
-      `);
-      const credential = result.rows[0];
-      if (!credential) {
-        throw new ApiError("Credenciales no encontradas", 404);
-      }
-      return {
-        ...credential,
-        username: await this.cryptoService.decrypt(credential.username),
-        password: await this.cryptoService.decrypt(credential.password),
-        encryptionKey: await this.cryptoService.decrypt(credential.encryptionKey)
-      };
-    } catch (error) {
-      throw error;
-    }
-  }
-  async update(id, data) {
-    try {
-      const credential = await this.getById(id);
-      if (!credential) {
-        throw new ApiError("Credenciales no encontradas", 404);
-      }
-      const updateFields = [];
+      return r2.rows[0];
+    },
+    async findByType(transactionType) {
+      const r2 = await query("SELECT * FROM fee_rules WHERE transaction_type = $1 AND is_active = true ORDER BY min_amount ASC NULLS FIRST", [transactionType]);
+      return r2.rows;
+    },
+    async listAll() {
+      const r2 = await query("SELECT * FROM fee_rules ORDER BY transaction_type, min_amount ASC NULLS FIRST");
+      return r2.rows;
+    },
+    async update(id, data) {
+      const sets = [];
       const params = [];
-      let paramCount = 0;
-      if (data.accountName !== undefined) {
-        paramCount++;
-        updateFields.push(`account_name = $${paramCount}`);
-        params.push(data.accountName);
+      let pc = 0;
+      for (const [k, v] of Object.entries(data)) {
+        if (v === undefined)
+          continue;
+        pc++;
+        sets.push(`${k.replace(/([A-Z])/g, "_$1").toLowerCase()} = $${pc}`);
+        params.push(v);
       }
-      if (data.merchantId !== undefined) {
-        paramCount++;
-        updateFields.push(`merchant_id = $${paramCount}`);
-        params.push(data.merchantId);
+      if (sets.length) {
+        await query(`UPDATE fee_rules SET ${sets.join(", ")} WHERE id = $${pc + 1}`, [...params, id]);
       }
-      if (data.username !== undefined) {
-        paramCount++;
-        const encryptedUsername = await this.cryptoService.encrypt(data.username);
-        updateFields.push(`username = $${paramCount}`);
-        params.push(encryptedUsername);
+    },
+    calculateFee(amount, rules) {
+      for (const rule of rules) {
+        if (rule.minAmount && amount < rule.minAmount)
+          continue;
+        if (rule.maxAmount && amount > rule.maxAmount)
+          continue;
+        if (rule.feeType === "fixed")
+          return Math.min(rule.feeValue, rule.feeCap || Infinity);
+        if (rule.feeType === "percentage") {
+          const fee = amount * (rule.feeValue / 100);
+          return rule.feeCap ? Math.min(fee, rule.feeCap) : fee;
+        }
       }
-      if (data.password !== undefined) {
-        paramCount++;
-        const encryptedPassword = await this.cryptoService.encrypt(data.password);
-        updateFields.push(`password = $${paramCount}`);
-        params.push(encryptedPassword);
-      }
-      if (data.encryptionKey !== undefined) {
-        paramCount++;
-        const encryptedEncryptionKey = await this.cryptoService.encrypt(data.encryptionKey);
-        updateFields.push(`encryption_key = $${paramCount}`);
-        params.push(encryptedEncryptionKey);
-      }
-      if (data.bankBranch !== undefined) {
-        paramCount++;
-        updateFields.push(`bank_branch = $${paramCount}`);
-        params.push(data.bankBranch);
-      }
-      if (data.status !== undefined) {
-        paramCount++;
-        updateFields.push(`status = $${paramCount}`);
-        params.push(data.status);
-      }
-      if (updateFields.length === 0) {
-        throw new ApiError("No hay campos para actualizar", 400);
-      }
-      paramCount++;
-      updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
-      const result = await query(`
-        UPDATE third_bank_credentials 
-        SET ${updateFields.join(", ")}
-        WHERE id = $${paramCount}
-        RETURNING id
-      `, [...params, id]);
-      if (result.rowCount === 0) {
-        throw new ApiError("Error al actualizar credenciales", 500);
-      }
-      const updatedCredential = await this.getById(id);
-      if (!updatedCredential) {
-        throw new ApiError("Error al obtener credenciales actualizadas", 500);
-      }
-      return updatedCredential;
-    } catch (error) {
-      throw error;
+      return 0;
     }
-  }
-  async updateStatus(id, status2) {
-    try {
-      return await this.update(id, { status: status2 });
-    } catch (error) {
-      throw error;
-    }
-  }
-  async delete(id) {
-    try {
-      const credential = await this.getById(id);
-      if (!credential) {
-        throw new ApiError("Credenciales no encontradas", 404);
-      }
-      const result = await query(`
-        UPDATE third_bank_credentials 
-        SET deleted_at = CURRENT_TIMESTAMP
-        WHERE id = $1
-      `, [id]);
-      if (result.rowCount === 0) {
-        throw new ApiError("Error al eliminar credenciales", 500);
-      }
-      return true;
-    } catch (error) {
-      throw error;
-    }
-  }
-}
-var bankCredentialsService;
-var init_bank_credentials_service = __esm(() => {
-  init_database();
-  init_crypto_service();
-  init_error();
-  bankCredentialsService = new BankCredentialsService;
+  };
 });
 
-// src/scripts/migrate-add-api-base-url.ts
-var exports_migrate_add_api_base_url = {};
-__export(exports_migrate_add_api_base_url, {
-  migrateAddApiBaseUrl: () => migrateAddApiBaseUrl
+// src/collections/company/company.repository.ts
+var companyRepository;
+var init_company_repository = __esm(() => {
+  init_pool();
+  init_snowflake();
+  companyRepository = {
+    async upsert(data) {
+      const existing = await this.getBySlug(data.slug);
+      const id = existing?.id || nextSnowflake();
+      const r2 = await query(`
+      INSERT INTO companies (id, slug, name, logo_url, colors, permissions, config)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      ON CONFLICT (slug) DO UPDATE SET
+        name = $3, logo_url = COALESCE($4, companies.logo_url),
+        colors = COALESCE($5, companies.colors), config = COALESCE($7, companies.config),
+        updated_at = CURRENT_TIMESTAMP
+      RETURNING *
+    `, [
+        id,
+        data.slug,
+        data.name,
+        data.logoUrl || null,
+        data.colors ? JSON.stringify(data.colors) : null,
+        data.permissions ? JSON.stringify(data.permissions) : null,
+        data.config ? JSON.stringify(data.config) : null
+      ]);
+      return r2.rows[0];
+    },
+    async getBySlug(slug) {
+      const r2 = await query("SELECT * FROM companies WHERE slug = $1", [slug]);
+      return r2.rowCount ? r2.rows[0] : null;
+    },
+    async listActive() {
+      const r2 = await query("SELECT * FROM companies WHERE is_active = true ORDER BY name");
+      return r2.rows;
+    }
+  };
 });
-async function migrateAddApiBaseUrl() {
-  try {
-    console.log("\uD83D\uDD04 Iniciando migración para agregar campo api_base_url...");
-    const checkColumn = await query(`
-      SELECT column_name 
-      FROM information_schema.columns 
-      WHERE table_name = 'third_bank_credentials' 
-      AND column_name = 'api_base_url'
-    `);
-    if (checkColumn.rowCount && checkColumn.rowCount > 0) {
-      console.log("✅ El campo api_base_url ya existe en la tabla third_bank_credentials");
-      const checkData = await query(`
-        SELECT COUNT(*) as count 
-        FROM third_bank_credentials 
-        WHERE api_base_url IS NULL OR api_base_url = ''
-      `);
-      if (parseInt(checkData.rows[0].count) === 0) {
-        console.log("✅ Los registros ya tienen el campo api_base_url poblado");
+
+// node_modules/qrcode/lib/can-promise.js
+var require_can_promise = __commonJS((exports, module) => {
+  module.exports = function() {
+    return typeof Promise === "function" && Promise.prototype && Promise.prototype.then;
+  };
+});
+
+// node_modules/qrcode/lib/core/utils.js
+var require_utils4 = __commonJS((exports) => {
+  var toSJISFunction;
+  var CODEWORDS_COUNT = [
+    0,
+    26,
+    44,
+    70,
+    100,
+    134,
+    172,
+    196,
+    242,
+    292,
+    346,
+    404,
+    466,
+    532,
+    581,
+    655,
+    733,
+    815,
+    901,
+    991,
+    1085,
+    1156,
+    1258,
+    1364,
+    1474,
+    1588,
+    1706,
+    1828,
+    1921,
+    2051,
+    2185,
+    2323,
+    2465,
+    2611,
+    2761,
+    2876,
+    3034,
+    3196,
+    3362,
+    3532,
+    3706
+  ];
+  exports.getSymbolSize = function getSymbolSize(version) {
+    if (!version)
+      throw new Error('"version" cannot be null or undefined');
+    if (version < 1 || version > 40)
+      throw new Error('"version" should be in range from 1 to 40');
+    return version * 4 + 17;
+  };
+  exports.getSymbolTotalCodewords = function getSymbolTotalCodewords(version) {
+    return CODEWORDS_COUNT[version];
+  };
+  exports.getBCHDigit = function(data) {
+    let digit = 0;
+    while (data !== 0) {
+      digit++;
+      data >>>= 1;
+    }
+    return digit;
+  };
+  exports.setToSJISFunction = function setToSJISFunction(f) {
+    if (typeof f !== "function") {
+      throw new Error('"toSJISFunc" is not a valid function.');
+    }
+    toSJISFunction = f;
+  };
+  exports.isKanjiModeEnabled = function() {
+    return typeof toSJISFunction !== "undefined";
+  };
+  exports.toSJIS = function toSJIS(kanji) {
+    return toSJISFunction(kanji);
+  };
+});
+
+// node_modules/qrcode/lib/core/error-correction-level.js
+var require_error_correction_level = __commonJS((exports) => {
+  exports.L = { bit: 1 };
+  exports.M = { bit: 0 };
+  exports.Q = { bit: 3 };
+  exports.H = { bit: 2 };
+  function fromString(string) {
+    if (typeof string !== "string") {
+      throw new Error("Param is not a string");
+    }
+    const lcStr = string.toLowerCase();
+    switch (lcStr) {
+      case "l":
+      case "low":
+        return exports.L;
+      case "m":
+      case "medium":
+        return exports.M;
+      case "q":
+      case "quartile":
+        return exports.Q;
+      case "h":
+      case "high":
+        return exports.H;
+      default:
+        throw new Error("Unknown EC Level: " + string);
+    }
+  }
+  exports.isValid = function isValid2(level) {
+    return level && typeof level.bit !== "undefined" && level.bit >= 0 && level.bit < 4;
+  };
+  exports.from = function from(value, defaultValue) {
+    if (exports.isValid(value)) {
+      return value;
+    }
+    try {
+      return fromString(value);
+    } catch (e) {
+      return defaultValue;
+    }
+  };
+});
+
+// node_modules/qrcode/lib/core/bit-buffer.js
+var require_bit_buffer = __commonJS((exports, module) => {
+  function BitBuffer() {
+    this.buffer = [];
+    this.length = 0;
+  }
+  BitBuffer.prototype = {
+    get: function(index) {
+      const bufIndex = Math.floor(index / 8);
+      return (this.buffer[bufIndex] >>> 7 - index % 8 & 1) === 1;
+    },
+    put: function(num, length) {
+      for (let i2 = 0;i2 < length; i2++) {
+        this.putBit((num >>> length - i2 - 1 & 1) === 1);
+      }
+    },
+    getLengthInBits: function() {
+      return this.length;
+    },
+    putBit: function(bit) {
+      const bufIndex = Math.floor(this.length / 8);
+      if (this.buffer.length <= bufIndex) {
+        this.buffer.push(0);
+      }
+      if (bit) {
+        this.buffer[bufIndex] |= 128 >>> this.length % 8;
+      }
+      this.length++;
+    }
+  };
+  module.exports = BitBuffer;
+});
+
+// node_modules/qrcode/lib/core/bit-matrix.js
+var require_bit_matrix = __commonJS((exports, module) => {
+  function BitMatrix(size) {
+    if (!size || size < 1) {
+      throw new Error("BitMatrix size must be defined and greater than 0");
+    }
+    this.size = size;
+    this.data = new Uint8Array(size * size);
+    this.reservedBit = new Uint8Array(size * size);
+  }
+  BitMatrix.prototype.set = function(row, col, value, reserved) {
+    const index = row * this.size + col;
+    this.data[index] = value;
+    if (reserved)
+      this.reservedBit[index] = true;
+  };
+  BitMatrix.prototype.get = function(row, col) {
+    return this.data[row * this.size + col];
+  };
+  BitMatrix.prototype.xor = function(row, col, value) {
+    this.data[row * this.size + col] ^= value;
+  };
+  BitMatrix.prototype.isReserved = function(row, col) {
+    return this.reservedBit[row * this.size + col];
+  };
+  module.exports = BitMatrix;
+});
+
+// node_modules/qrcode/lib/core/alignment-pattern.js
+var require_alignment_pattern = __commonJS((exports) => {
+  var getSymbolSize = require_utils4().getSymbolSize;
+  exports.getRowColCoords = function getRowColCoords(version) {
+    if (version === 1)
+      return [];
+    const posCount = Math.floor(version / 7) + 2;
+    const size = getSymbolSize(version);
+    const intervals = size === 145 ? 26 : Math.ceil((size - 13) / (2 * posCount - 2)) * 2;
+    const positions = [size - 7];
+    for (let i2 = 1;i2 < posCount - 1; i2++) {
+      positions[i2] = positions[i2 - 1] - intervals;
+    }
+    positions.push(6);
+    return positions.reverse();
+  };
+  exports.getPositions = function getPositions(version) {
+    const coords = [];
+    const pos = exports.getRowColCoords(version);
+    const posLength = pos.length;
+    for (let i2 = 0;i2 < posLength; i2++) {
+      for (let j = 0;j < posLength; j++) {
+        if (i2 === 0 && j === 0 || i2 === 0 && j === posLength - 1 || i2 === posLength - 1 && j === 0) {
+          continue;
+        }
+        coords.push([pos[i2], pos[j]]);
+      }
+    }
+    return coords;
+  };
+});
+
+// node_modules/qrcode/lib/core/finder-pattern.js
+var require_finder_pattern = __commonJS((exports) => {
+  var getSymbolSize = require_utils4().getSymbolSize;
+  var FINDER_PATTERN_SIZE = 7;
+  exports.getPositions = function getPositions(version) {
+    const size = getSymbolSize(version);
+    return [
+      [0, 0],
+      [size - FINDER_PATTERN_SIZE, 0],
+      [0, size - FINDER_PATTERN_SIZE]
+    ];
+  };
+});
+
+// node_modules/qrcode/lib/core/mask-pattern.js
+var require_mask_pattern = __commonJS((exports) => {
+  exports.Patterns = {
+    PATTERN000: 0,
+    PATTERN001: 1,
+    PATTERN010: 2,
+    PATTERN011: 3,
+    PATTERN100: 4,
+    PATTERN101: 5,
+    PATTERN110: 6,
+    PATTERN111: 7
+  };
+  var PenaltyScores = {
+    N1: 3,
+    N2: 3,
+    N3: 40,
+    N4: 10
+  };
+  exports.isValid = function isValid2(mask) {
+    return mask != null && mask !== "" && !isNaN(mask) && mask >= 0 && mask <= 7;
+  };
+  exports.from = function from(value) {
+    return exports.isValid(value) ? parseInt(value, 10) : undefined;
+  };
+  exports.getPenaltyN1 = function getPenaltyN1(data) {
+    const size = data.size;
+    let points = 0;
+    let sameCountCol = 0;
+    let sameCountRow = 0;
+    let lastCol = null;
+    let lastRow = null;
+    for (let row = 0;row < size; row++) {
+      sameCountCol = sameCountRow = 0;
+      lastCol = lastRow = null;
+      for (let col = 0;col < size; col++) {
+        let module2 = data.get(row, col);
+        if (module2 === lastCol) {
+          sameCountCol++;
+        } else {
+          if (sameCountCol >= 5)
+            points += PenaltyScores.N1 + (sameCountCol - 5);
+          lastCol = module2;
+          sameCountCol = 1;
+        }
+        module2 = data.get(col, row);
+        if (module2 === lastRow) {
+          sameCountRow++;
+        } else {
+          if (sameCountRow >= 5)
+            points += PenaltyScores.N1 + (sameCountRow - 5);
+          lastRow = module2;
+          sameCountRow = 1;
+        }
+      }
+      if (sameCountCol >= 5)
+        points += PenaltyScores.N1 + (sameCountCol - 5);
+      if (sameCountRow >= 5)
+        points += PenaltyScores.N1 + (sameCountRow - 5);
+    }
+    return points;
+  };
+  exports.getPenaltyN2 = function getPenaltyN2(data) {
+    const size = data.size;
+    let points = 0;
+    for (let row = 0;row < size - 1; row++) {
+      for (let col = 0;col < size - 1; col++) {
+        const last = data.get(row, col) + data.get(row, col + 1) + data.get(row + 1, col) + data.get(row + 1, col + 1);
+        if (last === 4 || last === 0)
+          points++;
+      }
+    }
+    return points * PenaltyScores.N2;
+  };
+  exports.getPenaltyN3 = function getPenaltyN3(data) {
+    const size = data.size;
+    let points = 0;
+    let bitsCol = 0;
+    let bitsRow = 0;
+    for (let row = 0;row < size; row++) {
+      bitsCol = bitsRow = 0;
+      for (let col = 0;col < size; col++) {
+        bitsCol = bitsCol << 1 & 2047 | data.get(row, col);
+        if (col >= 10 && (bitsCol === 1488 || bitsCol === 93))
+          points++;
+        bitsRow = bitsRow << 1 & 2047 | data.get(col, row);
+        if (col >= 10 && (bitsRow === 1488 || bitsRow === 93))
+          points++;
+      }
+    }
+    return points * PenaltyScores.N3;
+  };
+  exports.getPenaltyN4 = function getPenaltyN4(data) {
+    let darkCount = 0;
+    const modulesCount = data.data.length;
+    for (let i2 = 0;i2 < modulesCount; i2++)
+      darkCount += data.data[i2];
+    const k = Math.abs(Math.ceil(darkCount * 100 / modulesCount / 5) - 10);
+    return k * PenaltyScores.N4;
+  };
+  function getMaskAt(maskPattern, i2, j) {
+    switch (maskPattern) {
+      case exports.Patterns.PATTERN000:
+        return (i2 + j) % 2 === 0;
+      case exports.Patterns.PATTERN001:
+        return i2 % 2 === 0;
+      case exports.Patterns.PATTERN010:
+        return j % 3 === 0;
+      case exports.Patterns.PATTERN011:
+        return (i2 + j) % 3 === 0;
+      case exports.Patterns.PATTERN100:
+        return (Math.floor(i2 / 2) + Math.floor(j / 3)) % 2 === 0;
+      case exports.Patterns.PATTERN101:
+        return i2 * j % 2 + i2 * j % 3 === 0;
+      case exports.Patterns.PATTERN110:
+        return (i2 * j % 2 + i2 * j % 3) % 2 === 0;
+      case exports.Patterns.PATTERN111:
+        return (i2 * j % 3 + (i2 + j) % 2) % 2 === 0;
+      default:
+        throw new Error("bad maskPattern:" + maskPattern);
+    }
+  }
+  exports.applyMask = function applyMask(pattern, data) {
+    const size = data.size;
+    for (let col = 0;col < size; col++) {
+      for (let row = 0;row < size; row++) {
+        if (data.isReserved(row, col))
+          continue;
+        data.xor(row, col, getMaskAt(pattern, row, col));
+      }
+    }
+  };
+  exports.getBestMask = function getBestMask(data, setupFormatFunc) {
+    const numPatterns = Object.keys(exports.Patterns).length;
+    let bestPattern = 0;
+    let lowerPenalty = Infinity;
+    for (let p = 0;p < numPatterns; p++) {
+      setupFormatFunc(p);
+      exports.applyMask(p, data);
+      const penalty = exports.getPenaltyN1(data) + exports.getPenaltyN2(data) + exports.getPenaltyN3(data) + exports.getPenaltyN4(data);
+      exports.applyMask(p, data);
+      if (penalty < lowerPenalty) {
+        lowerPenalty = penalty;
+        bestPattern = p;
+      }
+    }
+    return bestPattern;
+  };
+});
+
+// node_modules/qrcode/lib/core/error-correction-code.js
+var require_error_correction_code = __commonJS((exports) => {
+  var ECLevel = require_error_correction_level();
+  var EC_BLOCKS_TABLE = [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    2,
+    2,
+    1,
+    2,
+    2,
+    4,
+    1,
+    2,
+    4,
+    4,
+    2,
+    4,
+    4,
+    4,
+    2,
+    4,
+    6,
+    5,
+    2,
+    4,
+    6,
+    6,
+    2,
+    5,
+    8,
+    8,
+    4,
+    5,
+    8,
+    8,
+    4,
+    5,
+    8,
+    11,
+    4,
+    8,
+    10,
+    11,
+    4,
+    9,
+    12,
+    16,
+    4,
+    9,
+    16,
+    16,
+    6,
+    10,
+    12,
+    18,
+    6,
+    10,
+    17,
+    16,
+    6,
+    11,
+    16,
+    19,
+    6,
+    13,
+    18,
+    21,
+    7,
+    14,
+    21,
+    25,
+    8,
+    16,
+    20,
+    25,
+    8,
+    17,
+    23,
+    25,
+    9,
+    17,
+    23,
+    34,
+    9,
+    18,
+    25,
+    30,
+    10,
+    20,
+    27,
+    32,
+    12,
+    21,
+    29,
+    35,
+    12,
+    23,
+    34,
+    37,
+    12,
+    25,
+    34,
+    40,
+    13,
+    26,
+    35,
+    42,
+    14,
+    28,
+    38,
+    45,
+    15,
+    29,
+    40,
+    48,
+    16,
+    31,
+    43,
+    51,
+    17,
+    33,
+    45,
+    54,
+    18,
+    35,
+    48,
+    57,
+    19,
+    37,
+    51,
+    60,
+    19,
+    38,
+    53,
+    63,
+    20,
+    40,
+    56,
+    66,
+    21,
+    43,
+    59,
+    70,
+    22,
+    45,
+    62,
+    74,
+    24,
+    47,
+    65,
+    77,
+    25,
+    49,
+    68,
+    81
+  ];
+  var EC_CODEWORDS_TABLE = [
+    7,
+    10,
+    13,
+    17,
+    10,
+    16,
+    22,
+    28,
+    15,
+    26,
+    36,
+    44,
+    20,
+    36,
+    52,
+    64,
+    26,
+    48,
+    72,
+    88,
+    36,
+    64,
+    96,
+    112,
+    40,
+    72,
+    108,
+    130,
+    48,
+    88,
+    132,
+    156,
+    60,
+    110,
+    160,
+    192,
+    72,
+    130,
+    192,
+    224,
+    80,
+    150,
+    224,
+    264,
+    96,
+    176,
+    260,
+    308,
+    104,
+    198,
+    288,
+    352,
+    120,
+    216,
+    320,
+    384,
+    132,
+    240,
+    360,
+    432,
+    144,
+    280,
+    408,
+    480,
+    168,
+    308,
+    448,
+    532,
+    180,
+    338,
+    504,
+    588,
+    196,
+    364,
+    546,
+    650,
+    224,
+    416,
+    600,
+    700,
+    224,
+    442,
+    644,
+    750,
+    252,
+    476,
+    690,
+    816,
+    270,
+    504,
+    750,
+    900,
+    300,
+    560,
+    810,
+    960,
+    312,
+    588,
+    870,
+    1050,
+    336,
+    644,
+    952,
+    1110,
+    360,
+    700,
+    1020,
+    1200,
+    390,
+    728,
+    1050,
+    1260,
+    420,
+    784,
+    1140,
+    1350,
+    450,
+    812,
+    1200,
+    1440,
+    480,
+    868,
+    1290,
+    1530,
+    510,
+    924,
+    1350,
+    1620,
+    540,
+    980,
+    1440,
+    1710,
+    570,
+    1036,
+    1530,
+    1800,
+    570,
+    1064,
+    1590,
+    1890,
+    600,
+    1120,
+    1680,
+    1980,
+    630,
+    1204,
+    1770,
+    2100,
+    660,
+    1260,
+    1860,
+    2220,
+    720,
+    1316,
+    1950,
+    2310,
+    750,
+    1372,
+    2040,
+    2430
+  ];
+  exports.getBlocksCount = function getBlocksCount(version, errorCorrectionLevel) {
+    switch (errorCorrectionLevel) {
+      case ECLevel.L:
+        return EC_BLOCKS_TABLE[(version - 1) * 4 + 0];
+      case ECLevel.M:
+        return EC_BLOCKS_TABLE[(version - 1) * 4 + 1];
+      case ECLevel.Q:
+        return EC_BLOCKS_TABLE[(version - 1) * 4 + 2];
+      case ECLevel.H:
+        return EC_BLOCKS_TABLE[(version - 1) * 4 + 3];
+      default:
+        return;
+    }
+  };
+  exports.getTotalCodewordsCount = function getTotalCodewordsCount(version, errorCorrectionLevel) {
+    switch (errorCorrectionLevel) {
+      case ECLevel.L:
+        return EC_CODEWORDS_TABLE[(version - 1) * 4 + 0];
+      case ECLevel.M:
+        return EC_CODEWORDS_TABLE[(version - 1) * 4 + 1];
+      case ECLevel.Q:
+        return EC_CODEWORDS_TABLE[(version - 1) * 4 + 2];
+      case ECLevel.H:
+        return EC_CODEWORDS_TABLE[(version - 1) * 4 + 3];
+      default:
+        return;
+    }
+  };
+});
+
+// node_modules/qrcode/lib/core/galois-field.js
+var require_galois_field = __commonJS((exports) => {
+  var EXP_TABLE = new Uint8Array(512);
+  var LOG_TABLE = new Uint8Array(256);
+  (function initTables() {
+    let x2 = 1;
+    for (let i2 = 0;i2 < 255; i2++) {
+      EXP_TABLE[i2] = x2;
+      LOG_TABLE[x2] = i2;
+      x2 <<= 1;
+      if (x2 & 256) {
+        x2 ^= 285;
+      }
+    }
+    for (let i2 = 255;i2 < 512; i2++) {
+      EXP_TABLE[i2] = EXP_TABLE[i2 - 255];
+    }
+  })();
+  exports.log = function log2(n2) {
+    if (n2 < 1)
+      throw new Error("log(" + n2 + ")");
+    return LOG_TABLE[n2];
+  };
+  exports.exp = function exp(n2) {
+    return EXP_TABLE[n2];
+  };
+  exports.mul = function mul(x2, y) {
+    if (x2 === 0 || y === 0)
+      return 0;
+    return EXP_TABLE[LOG_TABLE[x2] + LOG_TABLE[y]];
+  };
+});
+
+// node_modules/qrcode/lib/core/polynomial.js
+var require_polynomial = __commonJS((exports) => {
+  var GF = require_galois_field();
+  exports.mul = function mul(p1, p2) {
+    const coeff = new Uint8Array(p1.length + p2.length - 1);
+    for (let i2 = 0;i2 < p1.length; i2++) {
+      for (let j = 0;j < p2.length; j++) {
+        coeff[i2 + j] ^= GF.mul(p1[i2], p2[j]);
+      }
+    }
+    return coeff;
+  };
+  exports.mod = function mod(divident, divisor) {
+    let result = new Uint8Array(divident);
+    while (result.length - divisor.length >= 0) {
+      const coeff = result[0];
+      for (let i2 = 0;i2 < divisor.length; i2++) {
+        result[i2] ^= GF.mul(divisor[i2], coeff);
+      }
+      let offset = 0;
+      while (offset < result.length && result[offset] === 0)
+        offset++;
+      result = result.slice(offset);
+    }
+    return result;
+  };
+  exports.generateECPolynomial = function generateECPolynomial(degree) {
+    let poly = new Uint8Array([1]);
+    for (let i2 = 0;i2 < degree; i2++) {
+      poly = exports.mul(poly, new Uint8Array([1, GF.exp(i2)]));
+    }
+    return poly;
+  };
+});
+
+// node_modules/qrcode/lib/core/reed-solomon-encoder.js
+var require_reed_solomon_encoder = __commonJS((exports, module) => {
+  var Polynomial = require_polynomial();
+  function ReedSolomonEncoder(degree) {
+    this.genPoly = undefined;
+    this.degree = degree;
+    if (this.degree)
+      this.initialize(this.degree);
+  }
+  ReedSolomonEncoder.prototype.initialize = function initialize(degree) {
+    this.degree = degree;
+    this.genPoly = Polynomial.generateECPolynomial(this.degree);
+  };
+  ReedSolomonEncoder.prototype.encode = function encode2(data) {
+    if (!this.genPoly) {
+      throw new Error("Encoder not initialized");
+    }
+    const paddedData = new Uint8Array(data.length + this.degree);
+    paddedData.set(data);
+    const remainder = Polynomial.mod(paddedData, this.genPoly);
+    const start = this.degree - remainder.length;
+    if (start > 0) {
+      const buff = new Uint8Array(this.degree);
+      buff.set(remainder, start);
+      return buff;
+    }
+    return remainder;
+  };
+  module.exports = ReedSolomonEncoder;
+});
+
+// node_modules/qrcode/lib/core/version-check.js
+var require_version_check = __commonJS((exports) => {
+  exports.isValid = function isValid2(version) {
+    return !isNaN(version) && version >= 1 && version <= 40;
+  };
+});
+
+// node_modules/qrcode/lib/core/regex.js
+var require_regex = __commonJS((exports) => {
+  var numeric = "[0-9]+";
+  var alphanumeric = "[A-Z $%*+\\-./:]+";
+  var kanji = "(?:[u3000-u303F]|[u3040-u309F]|[u30A0-u30FF]|" + "[uFF00-uFFEF]|[u4E00-u9FAF]|[u2605-u2606]|[u2190-u2195]|u203B|" + "[u2010u2015u2018u2019u2025u2026u201Cu201Du2225u2260]|" + "[u0391-u0451]|[u00A7u00A8u00B1u00B4u00D7u00F7])+";
+  kanji = kanji.replace(/u/g, "\\u");
+  var byte2 = "(?:(?![A-Z0-9 $%*+\\-./:]|" + kanji + `)(?:.|[\r
+]))+`;
+  exports.KANJI = new RegExp(kanji, "g");
+  exports.BYTE_KANJI = new RegExp("[^A-Z0-9 $%*+\\-./:]+", "g");
+  exports.BYTE = new RegExp(byte2, "g");
+  exports.NUMERIC = new RegExp(numeric, "g");
+  exports.ALPHANUMERIC = new RegExp(alphanumeric, "g");
+  var TEST_KANJI = new RegExp("^" + kanji + "$");
+  var TEST_NUMERIC = new RegExp("^" + numeric + "$");
+  var TEST_ALPHANUMERIC = new RegExp("^[A-Z0-9 $%*+\\-./:]+$");
+  exports.testKanji = function testKanji(str) {
+    return TEST_KANJI.test(str);
+  };
+  exports.testNumeric = function testNumeric(str) {
+    return TEST_NUMERIC.test(str);
+  };
+  exports.testAlphanumeric = function testAlphanumeric(str) {
+    return TEST_ALPHANUMERIC.test(str);
+  };
+});
+
+// node_modules/qrcode/lib/core/mode.js
+var require_mode = __commonJS((exports) => {
+  var VersionCheck = require_version_check();
+  var Regex = require_regex();
+  exports.NUMERIC = {
+    id: "Numeric",
+    bit: 1 << 0,
+    ccBits: [10, 12, 14]
+  };
+  exports.ALPHANUMERIC = {
+    id: "Alphanumeric",
+    bit: 1 << 1,
+    ccBits: [9, 11, 13]
+  };
+  exports.BYTE = {
+    id: "Byte",
+    bit: 1 << 2,
+    ccBits: [8, 16, 16]
+  };
+  exports.KANJI = {
+    id: "Kanji",
+    bit: 1 << 3,
+    ccBits: [8, 10, 12]
+  };
+  exports.MIXED = {
+    bit: -1
+  };
+  exports.getCharCountIndicator = function getCharCountIndicator(mode, version) {
+    if (!mode.ccBits)
+      throw new Error("Invalid mode: " + mode);
+    if (!VersionCheck.isValid(version)) {
+      throw new Error("Invalid version: " + version);
+    }
+    if (version >= 1 && version < 10)
+      return mode.ccBits[0];
+    else if (version < 27)
+      return mode.ccBits[1];
+    return mode.ccBits[2];
+  };
+  exports.getBestModeForData = function getBestModeForData(dataStr) {
+    if (Regex.testNumeric(dataStr))
+      return exports.NUMERIC;
+    else if (Regex.testAlphanumeric(dataStr))
+      return exports.ALPHANUMERIC;
+    else if (Regex.testKanji(dataStr))
+      return exports.KANJI;
+    else
+      return exports.BYTE;
+  };
+  exports.toString = function toString(mode) {
+    if (mode && mode.id)
+      return mode.id;
+    throw new Error("Invalid mode");
+  };
+  exports.isValid = function isValid2(mode) {
+    return mode && mode.bit && mode.ccBits;
+  };
+  function fromString(string) {
+    if (typeof string !== "string") {
+      throw new Error("Param is not a string");
+    }
+    const lcStr = string.toLowerCase();
+    switch (lcStr) {
+      case "numeric":
+        return exports.NUMERIC;
+      case "alphanumeric":
+        return exports.ALPHANUMERIC;
+      case "kanji":
+        return exports.KANJI;
+      case "byte":
+        return exports.BYTE;
+      default:
+        throw new Error("Unknown mode: " + string);
+    }
+  }
+  exports.from = function from(value, defaultValue) {
+    if (exports.isValid(value)) {
+      return value;
+    }
+    try {
+      return fromString(value);
+    } catch (e) {
+      return defaultValue;
+    }
+  };
+});
+
+// node_modules/qrcode/lib/core/version.js
+var require_version = __commonJS((exports) => {
+  var Utils = require_utils4();
+  var ECCode = require_error_correction_code();
+  var ECLevel = require_error_correction_level();
+  var Mode = require_mode();
+  var VersionCheck = require_version_check();
+  var G18 = 1 << 12 | 1 << 11 | 1 << 10 | 1 << 9 | 1 << 8 | 1 << 5 | 1 << 2 | 1 << 0;
+  var G18_BCH = Utils.getBCHDigit(G18);
+  function getBestVersionForDataLength(mode, length, errorCorrectionLevel) {
+    for (let currentVersion = 1;currentVersion <= 40; currentVersion++) {
+      if (length <= exports.getCapacity(currentVersion, errorCorrectionLevel, mode)) {
+        return currentVersion;
+      }
+    }
+    return;
+  }
+  function getReservedBitsCount(mode, version) {
+    return Mode.getCharCountIndicator(mode, version) + 4;
+  }
+  function getTotalBitsFromDataArray(segments, version) {
+    let totalBits = 0;
+    segments.forEach(function(data) {
+      const reservedBits = getReservedBitsCount(data.mode, version);
+      totalBits += reservedBits + data.getBitsLength();
+    });
+    return totalBits;
+  }
+  function getBestVersionForMixedData(segments, errorCorrectionLevel) {
+    for (let currentVersion = 1;currentVersion <= 40; currentVersion++) {
+      const length = getTotalBitsFromDataArray(segments, currentVersion);
+      if (length <= exports.getCapacity(currentVersion, errorCorrectionLevel, Mode.MIXED)) {
+        return currentVersion;
+      }
+    }
+    return;
+  }
+  exports.from = function from(value, defaultValue) {
+    if (VersionCheck.isValid(value)) {
+      return parseInt(value, 10);
+    }
+    return defaultValue;
+  };
+  exports.getCapacity = function getCapacity(version, errorCorrectionLevel, mode) {
+    if (!VersionCheck.isValid(version)) {
+      throw new Error("Invalid QR Code version");
+    }
+    if (typeof mode === "undefined")
+      mode = Mode.BYTE;
+    const totalCodewords = Utils.getSymbolTotalCodewords(version);
+    const ecTotalCodewords = ECCode.getTotalCodewordsCount(version, errorCorrectionLevel);
+    const dataTotalCodewordsBits = (totalCodewords - ecTotalCodewords) * 8;
+    if (mode === Mode.MIXED)
+      return dataTotalCodewordsBits;
+    const usableBits = dataTotalCodewordsBits - getReservedBitsCount(mode, version);
+    switch (mode) {
+      case Mode.NUMERIC:
+        return Math.floor(usableBits / 10 * 3);
+      case Mode.ALPHANUMERIC:
+        return Math.floor(usableBits / 11 * 2);
+      case Mode.KANJI:
+        return Math.floor(usableBits / 13);
+      case Mode.BYTE:
+      default:
+        return Math.floor(usableBits / 8);
+    }
+  };
+  exports.getBestVersionForData = function getBestVersionForData(data, errorCorrectionLevel) {
+    let seg;
+    const ecl = ECLevel.from(errorCorrectionLevel, ECLevel.M);
+    if (Array.isArray(data)) {
+      if (data.length > 1) {
+        return getBestVersionForMixedData(data, ecl);
+      }
+      if (data.length === 0) {
+        return 1;
+      }
+      seg = data[0];
+    } else {
+      seg = data;
+    }
+    return getBestVersionForDataLength(seg.mode, seg.getLength(), ecl);
+  };
+  exports.getEncodedBits = function getEncodedBits(version) {
+    if (!VersionCheck.isValid(version) || version < 7) {
+      throw new Error("Invalid QR Code version");
+    }
+    let d = version << 12;
+    while (Utils.getBCHDigit(d) - G18_BCH >= 0) {
+      d ^= G18 << Utils.getBCHDigit(d) - G18_BCH;
+    }
+    return version << 12 | d;
+  };
+});
+
+// node_modules/qrcode/lib/core/format-info.js
+var require_format_info = __commonJS((exports) => {
+  var Utils = require_utils4();
+  var G15 = 1 << 10 | 1 << 8 | 1 << 5 | 1 << 4 | 1 << 2 | 1 << 1 | 1 << 0;
+  var G15_MASK = 1 << 14 | 1 << 12 | 1 << 10 | 1 << 4 | 1 << 1;
+  var G15_BCH = Utils.getBCHDigit(G15);
+  exports.getEncodedBits = function getEncodedBits(errorCorrectionLevel, mask) {
+    const data = errorCorrectionLevel.bit << 3 | mask;
+    let d = data << 10;
+    while (Utils.getBCHDigit(d) - G15_BCH >= 0) {
+      d ^= G15 << Utils.getBCHDigit(d) - G15_BCH;
+    }
+    return (data << 10 | d) ^ G15_MASK;
+  };
+});
+
+// node_modules/qrcode/lib/core/numeric-data.js
+var require_numeric_data = __commonJS((exports, module) => {
+  var Mode = require_mode();
+  function NumericData(data) {
+    this.mode = Mode.NUMERIC;
+    this.data = data.toString();
+  }
+  NumericData.getBitsLength = function getBitsLength(length) {
+    return 10 * Math.floor(length / 3) + (length % 3 ? length % 3 * 3 + 1 : 0);
+  };
+  NumericData.prototype.getLength = function getLength() {
+    return this.data.length;
+  };
+  NumericData.prototype.getBitsLength = function getBitsLength() {
+    return NumericData.getBitsLength(this.data.length);
+  };
+  NumericData.prototype.write = function write(bitBuffer) {
+    let i2, group, value;
+    for (i2 = 0;i2 + 3 <= this.data.length; i2 += 3) {
+      group = this.data.substr(i2, 3);
+      value = parseInt(group, 10);
+      bitBuffer.put(value, 10);
+    }
+    const remainingNum = this.data.length - i2;
+    if (remainingNum > 0) {
+      group = this.data.substr(i2);
+      value = parseInt(group, 10);
+      bitBuffer.put(value, remainingNum * 3 + 1);
+    }
+  };
+  module.exports = NumericData;
+});
+
+// node_modules/qrcode/lib/core/alphanumeric-data.js
+var require_alphanumeric_data = __commonJS((exports, module) => {
+  var Mode = require_mode();
+  var ALPHA_NUM_CHARS = [
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "J",
+    "K",
+    "L",
+    "M",
+    "N",
+    "O",
+    "P",
+    "Q",
+    "R",
+    "S",
+    "T",
+    "U",
+    "V",
+    "W",
+    "X",
+    "Y",
+    "Z",
+    " ",
+    "$",
+    "%",
+    "*",
+    "+",
+    "-",
+    ".",
+    "/",
+    ":"
+  ];
+  function AlphanumericData(data) {
+    this.mode = Mode.ALPHANUMERIC;
+    this.data = data;
+  }
+  AlphanumericData.getBitsLength = function getBitsLength(length) {
+    return 11 * Math.floor(length / 2) + 6 * (length % 2);
+  };
+  AlphanumericData.prototype.getLength = function getLength() {
+    return this.data.length;
+  };
+  AlphanumericData.prototype.getBitsLength = function getBitsLength() {
+    return AlphanumericData.getBitsLength(this.data.length);
+  };
+  AlphanumericData.prototype.write = function write(bitBuffer) {
+    let i2;
+    for (i2 = 0;i2 + 2 <= this.data.length; i2 += 2) {
+      let value = ALPHA_NUM_CHARS.indexOf(this.data[i2]) * 45;
+      value += ALPHA_NUM_CHARS.indexOf(this.data[i2 + 1]);
+      bitBuffer.put(value, 11);
+    }
+    if (this.data.length % 2) {
+      bitBuffer.put(ALPHA_NUM_CHARS.indexOf(this.data[i2]), 6);
+    }
+  };
+  module.exports = AlphanumericData;
+});
+
+// node_modules/qrcode/lib/core/byte-data.js
+var require_byte_data = __commonJS((exports, module) => {
+  var Mode = require_mode();
+  function ByteData(data) {
+    this.mode = Mode.BYTE;
+    if (typeof data === "string") {
+      this.data = new TextEncoder().encode(data);
+    } else {
+      this.data = new Uint8Array(data);
+    }
+  }
+  ByteData.getBitsLength = function getBitsLength(length) {
+    return length * 8;
+  };
+  ByteData.prototype.getLength = function getLength() {
+    return this.data.length;
+  };
+  ByteData.prototype.getBitsLength = function getBitsLength() {
+    return ByteData.getBitsLength(this.data.length);
+  };
+  ByteData.prototype.write = function(bitBuffer) {
+    for (let i2 = 0, l2 = this.data.length;i2 < l2; i2++) {
+      bitBuffer.put(this.data[i2], 8);
+    }
+  };
+  module.exports = ByteData;
+});
+
+// node_modules/qrcode/lib/core/kanji-data.js
+var require_kanji_data = __commonJS((exports, module) => {
+  var Mode = require_mode();
+  var Utils = require_utils4();
+  function KanjiData(data) {
+    this.mode = Mode.KANJI;
+    this.data = data;
+  }
+  KanjiData.getBitsLength = function getBitsLength(length) {
+    return length * 13;
+  };
+  KanjiData.prototype.getLength = function getLength() {
+    return this.data.length;
+  };
+  KanjiData.prototype.getBitsLength = function getBitsLength() {
+    return KanjiData.getBitsLength(this.data.length);
+  };
+  KanjiData.prototype.write = function(bitBuffer) {
+    let i2;
+    for (i2 = 0;i2 < this.data.length; i2++) {
+      let value = Utils.toSJIS(this.data[i2]);
+      if (value >= 33088 && value <= 40956) {
+        value -= 33088;
+      } else if (value >= 57408 && value <= 60351) {
+        value -= 49472;
+      } else {
+        throw new Error("Invalid SJIS character: " + this.data[i2] + `
+` + "Make sure your charset is UTF-8");
+      }
+      value = (value >>> 8 & 255) * 192 + (value & 255);
+      bitBuffer.put(value, 13);
+    }
+  };
+  module.exports = KanjiData;
+});
+
+// node_modules/dijkstrajs/dijkstra.js
+var require_dijkstra = __commonJS((exports, module) => {
+  var dijkstra = {
+    single_source_shortest_paths: function(graph, s, d) {
+      var predecessors = {};
+      var costs = {};
+      costs[s] = 0;
+      var open = dijkstra.PriorityQueue.make();
+      open.push(s, 0);
+      var closest, u, v, cost_of_s_to_u, adjacent_nodes, cost_of_e, cost_of_s_to_u_plus_cost_of_e, cost_of_s_to_v, first_visit;
+      while (!open.empty()) {
+        closest = open.pop();
+        u = closest.value;
+        cost_of_s_to_u = closest.cost;
+        adjacent_nodes = graph[u] || {};
+        for (v in adjacent_nodes) {
+          if (adjacent_nodes.hasOwnProperty(v)) {
+            cost_of_e = adjacent_nodes[v];
+            cost_of_s_to_u_plus_cost_of_e = cost_of_s_to_u + cost_of_e;
+            cost_of_s_to_v = costs[v];
+            first_visit = typeof costs[v] === "undefined";
+            if (first_visit || cost_of_s_to_v > cost_of_s_to_u_plus_cost_of_e) {
+              costs[v] = cost_of_s_to_u_plus_cost_of_e;
+              open.push(v, cost_of_s_to_u_plus_cost_of_e);
+              predecessors[v] = u;
+            }
+          }
+        }
+      }
+      if (typeof d !== "undefined" && typeof costs[d] === "undefined") {
+        var msg = ["Could not find a path from ", s, " to ", d, "."].join("");
+        throw new Error(msg);
+      }
+      return predecessors;
+    },
+    extract_shortest_path_from_predecessor_list: function(predecessors, d) {
+      var nodes = [];
+      var u = d;
+      var predecessor;
+      while (u) {
+        nodes.push(u);
+        predecessor = predecessors[u];
+        u = predecessors[u];
+      }
+      nodes.reverse();
+      return nodes;
+    },
+    find_path: function(graph, s, d) {
+      var predecessors = dijkstra.single_source_shortest_paths(graph, s, d);
+      return dijkstra.extract_shortest_path_from_predecessor_list(predecessors, d);
+    },
+    PriorityQueue: {
+      make: function(opts) {
+        var T = dijkstra.PriorityQueue, t3 = {}, key;
+        opts = opts || {};
+        for (key in T) {
+          if (T.hasOwnProperty(key)) {
+            t3[key] = T[key];
+          }
+        }
+        t3.queue = [];
+        t3.sorter = opts.sorter || T.default_sorter;
+        return t3;
+      },
+      default_sorter: function(a12, b) {
+        return a12.cost - b.cost;
+      },
+      push: function(value, cost) {
+        var item = { value, cost };
+        this.queue.push(item);
+        this.queue.sort(this.sorter);
+      },
+      pop: function() {
+        return this.queue.shift();
+      },
+      empty: function() {
+        return this.queue.length === 0;
+      }
+    }
+  };
+  if (typeof module !== "undefined") {
+    module.exports = dijkstra;
+  }
+});
+
+// node_modules/qrcode/lib/core/segments.js
+var require_segments = __commonJS((exports) => {
+  var Mode = require_mode();
+  var NumericData = require_numeric_data();
+  var AlphanumericData = require_alphanumeric_data();
+  var ByteData = require_byte_data();
+  var KanjiData = require_kanji_data();
+  var Regex = require_regex();
+  var Utils = require_utils4();
+  var dijkstra = require_dijkstra();
+  function getStringByteLength(str) {
+    return unescape(encodeURIComponent(str)).length;
+  }
+  function getSegments(regex2, mode, str) {
+    const segments = [];
+    let result;
+    while ((result = regex2.exec(str)) !== null) {
+      segments.push({
+        data: result[0],
+        index: result.index,
+        mode,
+        length: result[0].length
+      });
+    }
+    return segments;
+  }
+  function getSegmentsFromString(dataStr) {
+    const numSegs = getSegments(Regex.NUMERIC, Mode.NUMERIC, dataStr);
+    const alphaNumSegs = getSegments(Regex.ALPHANUMERIC, Mode.ALPHANUMERIC, dataStr);
+    let byteSegs;
+    let kanjiSegs;
+    if (Utils.isKanjiModeEnabled()) {
+      byteSegs = getSegments(Regex.BYTE, Mode.BYTE, dataStr);
+      kanjiSegs = getSegments(Regex.KANJI, Mode.KANJI, dataStr);
+    } else {
+      byteSegs = getSegments(Regex.BYTE_KANJI, Mode.BYTE, dataStr);
+      kanjiSegs = [];
+    }
+    const segs = numSegs.concat(alphaNumSegs, byteSegs, kanjiSegs);
+    return segs.sort(function(s1, s2) {
+      return s1.index - s2.index;
+    }).map(function(obj) {
+      return {
+        data: obj.data,
+        mode: obj.mode,
+        length: obj.length
+      };
+    });
+  }
+  function getSegmentBitsLength(length, mode) {
+    switch (mode) {
+      case Mode.NUMERIC:
+        return NumericData.getBitsLength(length);
+      case Mode.ALPHANUMERIC:
+        return AlphanumericData.getBitsLength(length);
+      case Mode.KANJI:
+        return KanjiData.getBitsLength(length);
+      case Mode.BYTE:
+        return ByteData.getBitsLength(length);
+    }
+  }
+  function mergeSegments(segs) {
+    return segs.reduce(function(acc, curr) {
+      const prevSeg = acc.length - 1 >= 0 ? acc[acc.length - 1] : null;
+      if (prevSeg && prevSeg.mode === curr.mode) {
+        acc[acc.length - 1].data += curr.data;
+        return acc;
+      }
+      acc.push(curr);
+      return acc;
+    }, []);
+  }
+  function buildNodes(segs) {
+    const nodes = [];
+    for (let i2 = 0;i2 < segs.length; i2++) {
+      const seg = segs[i2];
+      switch (seg.mode) {
+        case Mode.NUMERIC:
+          nodes.push([
+            seg,
+            { data: seg.data, mode: Mode.ALPHANUMERIC, length: seg.length },
+            { data: seg.data, mode: Mode.BYTE, length: seg.length }
+          ]);
+          break;
+        case Mode.ALPHANUMERIC:
+          nodes.push([
+            seg,
+            { data: seg.data, mode: Mode.BYTE, length: seg.length }
+          ]);
+          break;
+        case Mode.KANJI:
+          nodes.push([
+            seg,
+            { data: seg.data, mode: Mode.BYTE, length: getStringByteLength(seg.data) }
+          ]);
+          break;
+        case Mode.BYTE:
+          nodes.push([
+            { data: seg.data, mode: Mode.BYTE, length: getStringByteLength(seg.data) }
+          ]);
+      }
+    }
+    return nodes;
+  }
+  function buildGraph(nodes, version) {
+    const table = {};
+    const graph = { start: {} };
+    let prevNodeIds = ["start"];
+    for (let i2 = 0;i2 < nodes.length; i2++) {
+      const nodeGroup = nodes[i2];
+      const currentNodeIds = [];
+      for (let j = 0;j < nodeGroup.length; j++) {
+        const node = nodeGroup[j];
+        const key = "" + i2 + j;
+        currentNodeIds.push(key);
+        table[key] = { node, lastCount: 0 };
+        graph[key] = {};
+        for (let n2 = 0;n2 < prevNodeIds.length; n2++) {
+          const prevNodeId = prevNodeIds[n2];
+          if (table[prevNodeId] && table[prevNodeId].node.mode === node.mode) {
+            graph[prevNodeId][key] = getSegmentBitsLength(table[prevNodeId].lastCount + node.length, node.mode) - getSegmentBitsLength(table[prevNodeId].lastCount, node.mode);
+            table[prevNodeId].lastCount += node.length;
+          } else {
+            if (table[prevNodeId])
+              table[prevNodeId].lastCount = node.length;
+            graph[prevNodeId][key] = getSegmentBitsLength(node.length, node.mode) + 4 + Mode.getCharCountIndicator(node.mode, version);
+          }
+        }
+      }
+      prevNodeIds = currentNodeIds;
+    }
+    for (let n2 = 0;n2 < prevNodeIds.length; n2++) {
+      graph[prevNodeIds[n2]].end = 0;
+    }
+    return { map: graph, table };
+  }
+  function buildSingleSegment(data, modesHint) {
+    let mode;
+    const bestMode = Mode.getBestModeForData(data);
+    mode = Mode.from(modesHint, bestMode);
+    if (mode !== Mode.BYTE && mode.bit < bestMode.bit) {
+      throw new Error('"' + data + '"' + " cannot be encoded with mode " + Mode.toString(mode) + `.
+ Suggested mode is: ` + Mode.toString(bestMode));
+    }
+    if (mode === Mode.KANJI && !Utils.isKanjiModeEnabled()) {
+      mode = Mode.BYTE;
+    }
+    switch (mode) {
+      case Mode.NUMERIC:
+        return new NumericData(data);
+      case Mode.ALPHANUMERIC:
+        return new AlphanumericData(data);
+      case Mode.KANJI:
+        return new KanjiData(data);
+      case Mode.BYTE:
+        return new ByteData(data);
+    }
+  }
+  exports.fromArray = function fromArray(array) {
+    return array.reduce(function(acc, seg) {
+      if (typeof seg === "string") {
+        acc.push(buildSingleSegment(seg, null));
+      } else if (seg.data) {
+        acc.push(buildSingleSegment(seg.data, seg.mode));
+      }
+      return acc;
+    }, []);
+  };
+  exports.fromString = function fromString(data, version) {
+    const segs = getSegmentsFromString(data, Utils.isKanjiModeEnabled());
+    const nodes = buildNodes(segs);
+    const graph = buildGraph(nodes, version);
+    const path = dijkstra.find_path(graph.map, "start", "end");
+    const optimizedSegs = [];
+    for (let i2 = 1;i2 < path.length - 1; i2++) {
+      optimizedSegs.push(graph.table[path[i2]].node);
+    }
+    return exports.fromArray(mergeSegments(optimizedSegs));
+  };
+  exports.rawSplit = function rawSplit(data) {
+    return exports.fromArray(getSegmentsFromString(data, Utils.isKanjiModeEnabled()));
+  };
+});
+
+// node_modules/qrcode/lib/core/qrcode.js
+var require_qrcode = __commonJS((exports) => {
+  var Utils = require_utils4();
+  var ECLevel = require_error_correction_level();
+  var BitBuffer = require_bit_buffer();
+  var BitMatrix = require_bit_matrix();
+  var AlignmentPattern = require_alignment_pattern();
+  var FinderPattern = require_finder_pattern();
+  var MaskPattern = require_mask_pattern();
+  var ECCode = require_error_correction_code();
+  var ReedSolomonEncoder = require_reed_solomon_encoder();
+  var Version = require_version();
+  var FormatInfo = require_format_info();
+  var Mode = require_mode();
+  var Segments = require_segments();
+  function setupFinderPattern(matrix, version) {
+    const size = matrix.size;
+    const pos = FinderPattern.getPositions(version);
+    for (let i2 = 0;i2 < pos.length; i2++) {
+      const row = pos[i2][0];
+      const col = pos[i2][1];
+      for (let r2 = -1;r2 <= 7; r2++) {
+        if (row + r2 <= -1 || size <= row + r2)
+          continue;
+        for (let c = -1;c <= 7; c++) {
+          if (col + c <= -1 || size <= col + c)
+            continue;
+          if (r2 >= 0 && r2 <= 6 && (c === 0 || c === 6) || c >= 0 && c <= 6 && (r2 === 0 || r2 === 6) || r2 >= 2 && r2 <= 4 && c >= 2 && c <= 4) {
+            matrix.set(row + r2, col + c, true, true);
+          } else {
+            matrix.set(row + r2, col + c, false, true);
+          }
+        }
+      }
+    }
+  }
+  function setupTimingPattern(matrix) {
+    const size = matrix.size;
+    for (let r2 = 8;r2 < size - 8; r2++) {
+      const value = r2 % 2 === 0;
+      matrix.set(r2, 6, value, true);
+      matrix.set(6, r2, value, true);
+    }
+  }
+  function setupAlignmentPattern(matrix, version) {
+    const pos = AlignmentPattern.getPositions(version);
+    for (let i2 = 0;i2 < pos.length; i2++) {
+      const row = pos[i2][0];
+      const col = pos[i2][1];
+      for (let r2 = -2;r2 <= 2; r2++) {
+        for (let c = -2;c <= 2; c++) {
+          if (r2 === -2 || r2 === 2 || c === -2 || c === 2 || r2 === 0 && c === 0) {
+            matrix.set(row + r2, col + c, true, true);
+          } else {
+            matrix.set(row + r2, col + c, false, true);
+          }
+        }
+      }
+    }
+  }
+  function setupVersionInfo(matrix, version) {
+    const size = matrix.size;
+    const bits2 = Version.getEncodedBits(version);
+    let row, col, mod;
+    for (let i2 = 0;i2 < 18; i2++) {
+      row = Math.floor(i2 / 3);
+      col = i2 % 3 + size - 8 - 3;
+      mod = (bits2 >> i2 & 1) === 1;
+      matrix.set(row, col, mod, true);
+      matrix.set(col, row, mod, true);
+    }
+  }
+  function setupFormatInfo(matrix, errorCorrectionLevel, maskPattern) {
+    const size = matrix.size;
+    const bits2 = FormatInfo.getEncodedBits(errorCorrectionLevel, maskPattern);
+    let i2, mod;
+    for (i2 = 0;i2 < 15; i2++) {
+      mod = (bits2 >> i2 & 1) === 1;
+      if (i2 < 6) {
+        matrix.set(i2, 8, mod, true);
+      } else if (i2 < 8) {
+        matrix.set(i2 + 1, 8, mod, true);
+      } else {
+        matrix.set(size - 15 + i2, 8, mod, true);
+      }
+      if (i2 < 8) {
+        matrix.set(8, size - i2 - 1, mod, true);
+      } else if (i2 < 9) {
+        matrix.set(8, 15 - i2 - 1 + 1, mod, true);
+      } else {
+        matrix.set(8, 15 - i2 - 1, mod, true);
+      }
+    }
+    matrix.set(size - 8, 8, 1, true);
+  }
+  function setupData(matrix, data) {
+    const size = matrix.size;
+    let inc = -1;
+    let row = size - 1;
+    let bitIndex = 7;
+    let byteIndex = 0;
+    for (let col = size - 1;col > 0; col -= 2) {
+      if (col === 6)
+        col--;
+      while (true) {
+        for (let c = 0;c < 2; c++) {
+          if (!matrix.isReserved(row, col - c)) {
+            let dark = false;
+            if (byteIndex < data.length) {
+              dark = (data[byteIndex] >>> bitIndex & 1) === 1;
+            }
+            matrix.set(row, col - c, dark);
+            bitIndex--;
+            if (bitIndex === -1) {
+              byteIndex++;
+              bitIndex = 7;
+            }
+          }
+        }
+        row += inc;
+        if (row < 0 || size <= row) {
+          row -= inc;
+          inc = -inc;
+          break;
+        }
+      }
+    }
+  }
+  function createData(version, errorCorrectionLevel, segments) {
+    const buffer = new BitBuffer;
+    segments.forEach(function(data) {
+      buffer.put(data.mode.bit, 4);
+      buffer.put(data.getLength(), Mode.getCharCountIndicator(data.mode, version));
+      data.write(buffer);
+    });
+    const totalCodewords = Utils.getSymbolTotalCodewords(version);
+    const ecTotalCodewords = ECCode.getTotalCodewordsCount(version, errorCorrectionLevel);
+    const dataTotalCodewordsBits = (totalCodewords - ecTotalCodewords) * 8;
+    if (buffer.getLengthInBits() + 4 <= dataTotalCodewordsBits) {
+      buffer.put(0, 4);
+    }
+    while (buffer.getLengthInBits() % 8 !== 0) {
+      buffer.putBit(0);
+    }
+    const remainingByte = (dataTotalCodewordsBits - buffer.getLengthInBits()) / 8;
+    for (let i2 = 0;i2 < remainingByte; i2++) {
+      buffer.put(i2 % 2 ? 17 : 236, 8);
+    }
+    return createCodewords(buffer, version, errorCorrectionLevel);
+  }
+  function createCodewords(bitBuffer, version, errorCorrectionLevel) {
+    const totalCodewords = Utils.getSymbolTotalCodewords(version);
+    const ecTotalCodewords = ECCode.getTotalCodewordsCount(version, errorCorrectionLevel);
+    const dataTotalCodewords = totalCodewords - ecTotalCodewords;
+    const ecTotalBlocks = ECCode.getBlocksCount(version, errorCorrectionLevel);
+    const blocksInGroup2 = totalCodewords % ecTotalBlocks;
+    const blocksInGroup1 = ecTotalBlocks - blocksInGroup2;
+    const totalCodewordsInGroup1 = Math.floor(totalCodewords / ecTotalBlocks);
+    const dataCodewordsInGroup1 = Math.floor(dataTotalCodewords / ecTotalBlocks);
+    const dataCodewordsInGroup2 = dataCodewordsInGroup1 + 1;
+    const ecCount = totalCodewordsInGroup1 - dataCodewordsInGroup1;
+    const rs = new ReedSolomonEncoder(ecCount);
+    let offset = 0;
+    const dcData = new Array(ecTotalBlocks);
+    const ecData = new Array(ecTotalBlocks);
+    let maxDataSize = 0;
+    const buffer = new Uint8Array(bitBuffer.buffer);
+    for (let b = 0;b < ecTotalBlocks; b++) {
+      const dataSize = b < blocksInGroup1 ? dataCodewordsInGroup1 : dataCodewordsInGroup2;
+      dcData[b] = buffer.slice(offset, offset + dataSize);
+      ecData[b] = rs.encode(dcData[b]);
+      offset += dataSize;
+      maxDataSize = Math.max(maxDataSize, dataSize);
+    }
+    const data = new Uint8Array(totalCodewords);
+    let index = 0;
+    let i2, r2;
+    for (i2 = 0;i2 < maxDataSize; i2++) {
+      for (r2 = 0;r2 < ecTotalBlocks; r2++) {
+        if (i2 < dcData[r2].length) {
+          data[index++] = dcData[r2][i2];
+        }
+      }
+    }
+    for (i2 = 0;i2 < ecCount; i2++) {
+      for (r2 = 0;r2 < ecTotalBlocks; r2++) {
+        data[index++] = ecData[r2][i2];
+      }
+    }
+    return data;
+  }
+  function createSymbol(data, version, errorCorrectionLevel, maskPattern) {
+    let segments;
+    if (Array.isArray(data)) {
+      segments = Segments.fromArray(data);
+    } else if (typeof data === "string") {
+      let estimatedVersion = version;
+      if (!estimatedVersion) {
+        const rawSegments = Segments.rawSplit(data);
+        estimatedVersion = Version.getBestVersionForData(rawSegments, errorCorrectionLevel);
+      }
+      segments = Segments.fromString(data, estimatedVersion || 40);
+    } else {
+      throw new Error("Invalid data");
+    }
+    const bestVersion = Version.getBestVersionForData(segments, errorCorrectionLevel);
+    if (!bestVersion) {
+      throw new Error("The amount of data is too big to be stored in a QR Code");
+    }
+    if (!version) {
+      version = bestVersion;
+    } else if (version < bestVersion) {
+      throw new Error(`
+` + `The chosen QR Code version cannot contain this amount of data.
+` + "Minimum version required to store current data is: " + bestVersion + `.
+`);
+    }
+    const dataBits = createData(version, errorCorrectionLevel, segments);
+    const moduleCount = Utils.getSymbolSize(version);
+    const modules = new BitMatrix(moduleCount);
+    setupFinderPattern(modules, version);
+    setupTimingPattern(modules);
+    setupAlignmentPattern(modules, version);
+    setupFormatInfo(modules, errorCorrectionLevel, 0);
+    if (version >= 7) {
+      setupVersionInfo(modules, version);
+    }
+    setupData(modules, dataBits);
+    if (isNaN(maskPattern)) {
+      maskPattern = MaskPattern.getBestMask(modules, setupFormatInfo.bind(null, modules, errorCorrectionLevel));
+    }
+    MaskPattern.applyMask(maskPattern, modules);
+    setupFormatInfo(modules, errorCorrectionLevel, maskPattern);
+    return {
+      modules,
+      version,
+      errorCorrectionLevel,
+      maskPattern,
+      segments
+    };
+  }
+  exports.create = function create2(data, options) {
+    if (typeof data === "undefined" || data === "") {
+      throw new Error("No input text");
+    }
+    let errorCorrectionLevel = ECLevel.M;
+    let version;
+    let mask;
+    if (typeof options !== "undefined") {
+      errorCorrectionLevel = ECLevel.from(options.errorCorrectionLevel, ECLevel.M);
+      version = Version.from(options.version);
+      mask = MaskPattern.from(options.maskPattern);
+      if (options.toSJISFunc) {
+        Utils.setToSJISFunction(options.toSJISFunc);
+      }
+    }
+    return createSymbol(data, version, errorCorrectionLevel, mask);
+  };
+});
+
+// node_modules/pngjs/lib/chunkstream.js
+var require_chunkstream = __commonJS((exports, module) => {
+  var util3 = __require("util");
+  var Stream = __require("stream");
+  var ChunkStream = module.exports = function() {
+    Stream.call(this);
+    this._buffers = [];
+    this._buffered = 0;
+    this._reads = [];
+    this._paused = false;
+    this._encoding = "utf8";
+    this.writable = true;
+  };
+  util3.inherits(ChunkStream, Stream);
+  ChunkStream.prototype.read = function(length, callback) {
+    this._reads.push({
+      length: Math.abs(length),
+      allowLess: length < 0,
+      func: callback
+    });
+    process.nextTick(function() {
+      this._process();
+      if (this._paused && this._reads && this._reads.length > 0) {
+        this._paused = false;
+        this.emit("drain");
+      }
+    }.bind(this));
+  };
+  ChunkStream.prototype.write = function(data, encoding) {
+    if (!this.writable) {
+      this.emit("error", new Error("Stream not writable"));
+      return false;
+    }
+    let dataBuffer;
+    if (Buffer.isBuffer(data)) {
+      dataBuffer = data;
+    } else {
+      dataBuffer = Buffer.from(data, encoding || this._encoding);
+    }
+    this._buffers.push(dataBuffer);
+    this._buffered += dataBuffer.length;
+    this._process();
+    if (this._reads && this._reads.length === 0) {
+      this._paused = true;
+    }
+    return this.writable && !this._paused;
+  };
+  ChunkStream.prototype.end = function(data, encoding) {
+    if (data) {
+      this.write(data, encoding);
+    }
+    this.writable = false;
+    if (!this._buffers) {
+      return;
+    }
+    if (this._buffers.length === 0) {
+      this._end();
+    } else {
+      this._buffers.push(null);
+      this._process();
+    }
+  };
+  ChunkStream.prototype.destroySoon = ChunkStream.prototype.end;
+  ChunkStream.prototype._end = function() {
+    if (this._reads.length > 0) {
+      this.emit("error", new Error("Unexpected end of input"));
+    }
+    this.destroy();
+  };
+  ChunkStream.prototype.destroy = function() {
+    if (!this._buffers) {
+      return;
+    }
+    this.writable = false;
+    this._reads = null;
+    this._buffers = null;
+    this.emit("close");
+  };
+  ChunkStream.prototype._processReadAllowingLess = function(read) {
+    this._reads.shift();
+    let smallerBuf = this._buffers[0];
+    if (smallerBuf.length > read.length) {
+      this._buffered -= read.length;
+      this._buffers[0] = smallerBuf.slice(read.length);
+      read.func.call(this, smallerBuf.slice(0, read.length));
+    } else {
+      this._buffered -= smallerBuf.length;
+      this._buffers.shift();
+      read.func.call(this, smallerBuf);
+    }
+  };
+  ChunkStream.prototype._processRead = function(read) {
+    this._reads.shift();
+    let pos = 0;
+    let count = 0;
+    let data = Buffer.alloc(read.length);
+    while (pos < read.length) {
+      let buf = this._buffers[count++];
+      let len = Math.min(buf.length, read.length - pos);
+      buf.copy(data, pos, 0, len);
+      pos += len;
+      if (len !== buf.length) {
+        this._buffers[--count] = buf.slice(len);
+      }
+    }
+    if (count > 0) {
+      this._buffers.splice(0, count);
+    }
+    this._buffered -= read.length;
+    read.func.call(this, data);
+  };
+  ChunkStream.prototype._process = function() {
+    try {
+      while (this._buffered > 0 && this._reads && this._reads.length > 0) {
+        let read = this._reads[0];
+        if (read.allowLess) {
+          this._processReadAllowingLess(read);
+        } else if (this._buffered >= read.length) {
+          this._processRead(read);
+        } else {
+          break;
+        }
+      }
+      if (this._buffers && !this.writable) {
+        this._end();
+      }
+    } catch (ex) {
+      this.emit("error", ex);
+    }
+  };
+});
+
+// node_modules/pngjs/lib/interlace.js
+var require_interlace = __commonJS((exports) => {
+  var imagePasses = [
+    {
+      x: [0],
+      y: [0]
+    },
+    {
+      x: [4],
+      y: [0]
+    },
+    {
+      x: [0, 4],
+      y: [4]
+    },
+    {
+      x: [2, 6],
+      y: [0, 4]
+    },
+    {
+      x: [0, 2, 4, 6],
+      y: [2, 6]
+    },
+    {
+      x: [1, 3, 5, 7],
+      y: [0, 2, 4, 6]
+    },
+    {
+      x: [0, 1, 2, 3, 4, 5, 6, 7],
+      y: [1, 3, 5, 7]
+    }
+  ];
+  exports.getImagePasses = function(width, height) {
+    let images = [];
+    let xLeftOver = width % 8;
+    let yLeftOver = height % 8;
+    let xRepeats = (width - xLeftOver) / 8;
+    let yRepeats = (height - yLeftOver) / 8;
+    for (let i2 = 0;i2 < imagePasses.length; i2++) {
+      let pass = imagePasses[i2];
+      let passWidth = xRepeats * pass.x.length;
+      let passHeight = yRepeats * pass.y.length;
+      for (let j = 0;j < pass.x.length; j++) {
+        if (pass.x[j] < xLeftOver) {
+          passWidth++;
+        } else {
+          break;
+        }
+      }
+      for (let j = 0;j < pass.y.length; j++) {
+        if (pass.y[j] < yLeftOver) {
+          passHeight++;
+        } else {
+          break;
+        }
+      }
+      if (passWidth > 0 && passHeight > 0) {
+        images.push({ width: passWidth, height: passHeight, index: i2 });
+      }
+    }
+    return images;
+  };
+  exports.getInterlaceIterator = function(width) {
+    return function(x2, y, pass) {
+      let outerXLeftOver = x2 % imagePasses[pass].x.length;
+      let outerX = (x2 - outerXLeftOver) / imagePasses[pass].x.length * 8 + imagePasses[pass].x[outerXLeftOver];
+      let outerYLeftOver = y % imagePasses[pass].y.length;
+      let outerY = (y - outerYLeftOver) / imagePasses[pass].y.length * 8 + imagePasses[pass].y[outerYLeftOver];
+      return outerX * 4 + outerY * width * 4;
+    };
+  };
+});
+
+// node_modules/pngjs/lib/paeth-predictor.js
+var require_paeth_predictor = __commonJS((exports, module) => {
+  module.exports = function paethPredictor(left, above, upLeft) {
+    let paeth = left + above - upLeft;
+    let pLeft = Math.abs(paeth - left);
+    let pAbove = Math.abs(paeth - above);
+    let pUpLeft = Math.abs(paeth - upLeft);
+    if (pLeft <= pAbove && pLeft <= pUpLeft) {
+      return left;
+    }
+    if (pAbove <= pUpLeft) {
+      return above;
+    }
+    return upLeft;
+  };
+});
+
+// node_modules/pngjs/lib/filter-parse.js
+var require_filter_parse = __commonJS((exports, module) => {
+  var interlaceUtils = require_interlace();
+  var paethPredictor = require_paeth_predictor();
+  function getByteWidth(width, bpp, depth) {
+    let byteWidth = width * bpp;
+    if (depth !== 8) {
+      byteWidth = Math.ceil(byteWidth / (8 / depth));
+    }
+    return byteWidth;
+  }
+  var Filter = module.exports = function(bitmapInfo, dependencies) {
+    let width = bitmapInfo.width;
+    let height = bitmapInfo.height;
+    let interlace = bitmapInfo.interlace;
+    let bpp = bitmapInfo.bpp;
+    let depth = bitmapInfo.depth;
+    this.read = dependencies.read;
+    this.write = dependencies.write;
+    this.complete = dependencies.complete;
+    this._imageIndex = 0;
+    this._images = [];
+    if (interlace) {
+      let passes = interlaceUtils.getImagePasses(width, height);
+      for (let i2 = 0;i2 < passes.length; i2++) {
+        this._images.push({
+          byteWidth: getByteWidth(passes[i2].width, bpp, depth),
+          height: passes[i2].height,
+          lineIndex: 0
+        });
+      }
+    } else {
+      this._images.push({
+        byteWidth: getByteWidth(width, bpp, depth),
+        height,
+        lineIndex: 0
+      });
+    }
+    if (depth === 8) {
+      this._xComparison = bpp;
+    } else if (depth === 16) {
+      this._xComparison = bpp * 2;
+    } else {
+      this._xComparison = 1;
+    }
+  };
+  Filter.prototype.start = function() {
+    this.read(this._images[this._imageIndex].byteWidth + 1, this._reverseFilterLine.bind(this));
+  };
+  Filter.prototype._unFilterType1 = function(rawData, unfilteredLine, byteWidth) {
+    let xComparison = this._xComparison;
+    let xBiggerThan = xComparison - 1;
+    for (let x2 = 0;x2 < byteWidth; x2++) {
+      let rawByte = rawData[1 + x2];
+      let f1Left = x2 > xBiggerThan ? unfilteredLine[x2 - xComparison] : 0;
+      unfilteredLine[x2] = rawByte + f1Left;
+    }
+  };
+  Filter.prototype._unFilterType2 = function(rawData, unfilteredLine, byteWidth) {
+    let lastLine = this._lastLine;
+    for (let x2 = 0;x2 < byteWidth; x2++) {
+      let rawByte = rawData[1 + x2];
+      let f2Up = lastLine ? lastLine[x2] : 0;
+      unfilteredLine[x2] = rawByte + f2Up;
+    }
+  };
+  Filter.prototype._unFilterType3 = function(rawData, unfilteredLine, byteWidth) {
+    let xComparison = this._xComparison;
+    let xBiggerThan = xComparison - 1;
+    let lastLine = this._lastLine;
+    for (let x2 = 0;x2 < byteWidth; x2++) {
+      let rawByte = rawData[1 + x2];
+      let f3Up = lastLine ? lastLine[x2] : 0;
+      let f3Left = x2 > xBiggerThan ? unfilteredLine[x2 - xComparison] : 0;
+      let f3Add = Math.floor((f3Left + f3Up) / 2);
+      unfilteredLine[x2] = rawByte + f3Add;
+    }
+  };
+  Filter.prototype._unFilterType4 = function(rawData, unfilteredLine, byteWidth) {
+    let xComparison = this._xComparison;
+    let xBiggerThan = xComparison - 1;
+    let lastLine = this._lastLine;
+    for (let x2 = 0;x2 < byteWidth; x2++) {
+      let rawByte = rawData[1 + x2];
+      let f4Up = lastLine ? lastLine[x2] : 0;
+      let f4Left = x2 > xBiggerThan ? unfilteredLine[x2 - xComparison] : 0;
+      let f4UpLeft = x2 > xBiggerThan && lastLine ? lastLine[x2 - xComparison] : 0;
+      let f4Add = paethPredictor(f4Left, f4Up, f4UpLeft);
+      unfilteredLine[x2] = rawByte + f4Add;
+    }
+  };
+  Filter.prototype._reverseFilterLine = function(rawData) {
+    let filter = rawData[0];
+    let unfilteredLine;
+    let currentImage = this._images[this._imageIndex];
+    let byteWidth = currentImage.byteWidth;
+    if (filter === 0) {
+      unfilteredLine = rawData.slice(1, byteWidth + 1);
+    } else {
+      unfilteredLine = Buffer.alloc(byteWidth);
+      switch (filter) {
+        case 1:
+          this._unFilterType1(rawData, unfilteredLine, byteWidth);
+          break;
+        case 2:
+          this._unFilterType2(rawData, unfilteredLine, byteWidth);
+          break;
+        case 3:
+          this._unFilterType3(rawData, unfilteredLine, byteWidth);
+          break;
+        case 4:
+          this._unFilterType4(rawData, unfilteredLine, byteWidth);
+          break;
+        default:
+          throw new Error("Unrecognised filter type - " + filter);
+      }
+    }
+    this.write(unfilteredLine);
+    currentImage.lineIndex++;
+    if (currentImage.lineIndex >= currentImage.height) {
+      this._lastLine = null;
+      this._imageIndex++;
+      currentImage = this._images[this._imageIndex];
+    } else {
+      this._lastLine = unfilteredLine;
+    }
+    if (currentImage) {
+      this.read(currentImage.byteWidth + 1, this._reverseFilterLine.bind(this));
+    } else {
+      this._lastLine = null;
+      this.complete();
+    }
+  };
+});
+
+// node_modules/pngjs/lib/filter-parse-async.js
+var require_filter_parse_async = __commonJS((exports, module) => {
+  var util3 = __require("util");
+  var ChunkStream = require_chunkstream();
+  var Filter = require_filter_parse();
+  var FilterAsync = module.exports = function(bitmapInfo) {
+    ChunkStream.call(this);
+    let buffers = [];
+    let that = this;
+    this._filter = new Filter(bitmapInfo, {
+      read: this.read.bind(this),
+      write: function(buffer) {
+        buffers.push(buffer);
+      },
+      complete: function() {
+        that.emit("complete", Buffer.concat(buffers));
+      }
+    });
+    this._filter.start();
+  };
+  util3.inherits(FilterAsync, ChunkStream);
+});
+
+// node_modules/pngjs/lib/constants.js
+var require_constants2 = __commonJS((exports, module) => {
+  module.exports = {
+    PNG_SIGNATURE: [137, 80, 78, 71, 13, 10, 26, 10],
+    TYPE_IHDR: 1229472850,
+    TYPE_IEND: 1229278788,
+    TYPE_IDAT: 1229209940,
+    TYPE_PLTE: 1347179589,
+    TYPE_tRNS: 1951551059,
+    TYPE_gAMA: 1732332865,
+    COLORTYPE_GRAYSCALE: 0,
+    COLORTYPE_PALETTE: 1,
+    COLORTYPE_COLOR: 2,
+    COLORTYPE_ALPHA: 4,
+    COLORTYPE_PALETTE_COLOR: 3,
+    COLORTYPE_COLOR_ALPHA: 6,
+    COLORTYPE_TO_BPP_MAP: {
+      0: 1,
+      2: 3,
+      3: 1,
+      4: 2,
+      6: 4
+    },
+    GAMMA_DIVISION: 1e5
+  };
+});
+
+// node_modules/pngjs/lib/crc.js
+var require_crc = __commonJS((exports, module) => {
+  var crcTable = [];
+  (function() {
+    for (let i2 = 0;i2 < 256; i2++) {
+      let currentCrc = i2;
+      for (let j = 0;j < 8; j++) {
+        if (currentCrc & 1) {
+          currentCrc = 3988292384 ^ currentCrc >>> 1;
+        } else {
+          currentCrc = currentCrc >>> 1;
+        }
+      }
+      crcTable[i2] = currentCrc;
+    }
+  })();
+  var CrcCalculator = module.exports = function() {
+    this._crc = -1;
+  };
+  CrcCalculator.prototype.write = function(data) {
+    for (let i2 = 0;i2 < data.length; i2++) {
+      this._crc = crcTable[(this._crc ^ data[i2]) & 255] ^ this._crc >>> 8;
+    }
+    return true;
+  };
+  CrcCalculator.prototype.crc32 = function() {
+    return this._crc ^ -1;
+  };
+  CrcCalculator.crc32 = function(buf) {
+    let crc = -1;
+    for (let i2 = 0;i2 < buf.length; i2++) {
+      crc = crcTable[(crc ^ buf[i2]) & 255] ^ crc >>> 8;
+    }
+    return crc ^ -1;
+  };
+});
+
+// node_modules/pngjs/lib/parser.js
+var require_parser2 = __commonJS((exports, module) => {
+  var constants = require_constants2();
+  var CrcCalculator = require_crc();
+  var Parser = module.exports = function(options, dependencies) {
+    this._options = options;
+    options.checkCRC = options.checkCRC !== false;
+    this._hasIHDR = false;
+    this._hasIEND = false;
+    this._emittedHeadersFinished = false;
+    this._palette = [];
+    this._colorType = 0;
+    this._chunks = {};
+    this._chunks[constants.TYPE_IHDR] = this._handleIHDR.bind(this);
+    this._chunks[constants.TYPE_IEND] = this._handleIEND.bind(this);
+    this._chunks[constants.TYPE_IDAT] = this._handleIDAT.bind(this);
+    this._chunks[constants.TYPE_PLTE] = this._handlePLTE.bind(this);
+    this._chunks[constants.TYPE_tRNS] = this._handleTRNS.bind(this);
+    this._chunks[constants.TYPE_gAMA] = this._handleGAMA.bind(this);
+    this.read = dependencies.read;
+    this.error = dependencies.error;
+    this.metadata = dependencies.metadata;
+    this.gamma = dependencies.gamma;
+    this.transColor = dependencies.transColor;
+    this.palette = dependencies.palette;
+    this.parsed = dependencies.parsed;
+    this.inflateData = dependencies.inflateData;
+    this.finished = dependencies.finished;
+    this.simpleTransparency = dependencies.simpleTransparency;
+    this.headersFinished = dependencies.headersFinished || function() {};
+  };
+  Parser.prototype.start = function() {
+    this.read(constants.PNG_SIGNATURE.length, this._parseSignature.bind(this));
+  };
+  Parser.prototype._parseSignature = function(data) {
+    let signature = constants.PNG_SIGNATURE;
+    for (let i2 = 0;i2 < signature.length; i2++) {
+      if (data[i2] !== signature[i2]) {
+        this.error(new Error("Invalid file signature"));
         return;
       }
-      console.log("\uD83D\uDD04 Algunos registros no tienen el campo api_base_url poblado, actualizando...");
     }
-    console.log("\uD83D\uDCDD Agregando campo api_base_url...");
-    await query(`
-      ALTER TABLE third_bank_credentials 
-      ADD COLUMN api_base_url VARCHAR(255) NOT NULL DEFAULT ''
-    `);
-    console.log("✅ Campo api_base_url agregado exitosamente");
-    console.log("\uD83D\uDD04 Actualizando registros existentes...");
-    await query(`
-      UPDATE third_bank_credentials 
-      SET api_base_url = 'https://apimktdesa.baneco.com.bo/ApiGateway/'
-      WHERE environment = 1
-    `);
-    await query(`
-      UPDATE third_bank_credentials 
-      SET api_base_url = 'https://apimkt.baneco.com.bo/ApiGateway/'
-      WHERE environment = 2
-    `);
-    console.log("✅ Registros existentes actualizados con URLs por defecto");
-    await query(`
-      ALTER TABLE third_bank_credentials 
-      ALTER COLUMN api_base_url DROP DEFAULT
-    `);
-    console.log("✅ Migración completada exitosamente");
-  } catch (error) {
-    console.error("❌ Error durante la migración:", error);
-    throw error;
-  }
-}
-var init_migrate_add_api_base_url = __esm(() => {
-  init_database();
-  if (false) {}
+    this.read(8, this._parseChunkBegin.bind(this));
+  };
+  Parser.prototype._parseChunkBegin = function(data) {
+    let length = data.readUInt32BE(0);
+    let type = data.readUInt32BE(4);
+    let name = "";
+    for (let i2 = 4;i2 < 8; i2++) {
+      name += String.fromCharCode(data[i2]);
+    }
+    let ancillary = Boolean(data[4] & 32);
+    if (!this._hasIHDR && type !== constants.TYPE_IHDR) {
+      this.error(new Error("Expected IHDR on beggining"));
+      return;
+    }
+    this._crc = new CrcCalculator;
+    this._crc.write(Buffer.from(name));
+    if (this._chunks[type]) {
+      return this._chunks[type](length);
+    }
+    if (!ancillary) {
+      this.error(new Error("Unsupported critical chunk type " + name));
+      return;
+    }
+    this.read(length + 4, this._skipChunk.bind(this));
+  };
+  Parser.prototype._skipChunk = function() {
+    this.read(8, this._parseChunkBegin.bind(this));
+  };
+  Parser.prototype._handleChunkEnd = function() {
+    this.read(4, this._parseChunkEnd.bind(this));
+  };
+  Parser.prototype._parseChunkEnd = function(data) {
+    let fileCrc = data.readInt32BE(0);
+    let calcCrc = this._crc.crc32();
+    if (this._options.checkCRC && calcCrc !== fileCrc) {
+      this.error(new Error("Crc error - " + fileCrc + " - " + calcCrc));
+      return;
+    }
+    if (!this._hasIEND) {
+      this.read(8, this._parseChunkBegin.bind(this));
+    }
+  };
+  Parser.prototype._handleIHDR = function(length) {
+    this.read(length, this._parseIHDR.bind(this));
+  };
+  Parser.prototype._parseIHDR = function(data) {
+    this._crc.write(data);
+    let width = data.readUInt32BE(0);
+    let height = data.readUInt32BE(4);
+    let depth = data[8];
+    let colorType = data[9];
+    let compr = data[10];
+    let filter = data[11];
+    let interlace = data[12];
+    if (depth !== 8 && depth !== 4 && depth !== 2 && depth !== 1 && depth !== 16) {
+      this.error(new Error("Unsupported bit depth " + depth));
+      return;
+    }
+    if (!(colorType in constants.COLORTYPE_TO_BPP_MAP)) {
+      this.error(new Error("Unsupported color type"));
+      return;
+    }
+    if (compr !== 0) {
+      this.error(new Error("Unsupported compression method"));
+      return;
+    }
+    if (filter !== 0) {
+      this.error(new Error("Unsupported filter method"));
+      return;
+    }
+    if (interlace !== 0 && interlace !== 1) {
+      this.error(new Error("Unsupported interlace method"));
+      return;
+    }
+    this._colorType = colorType;
+    let bpp = constants.COLORTYPE_TO_BPP_MAP[this._colorType];
+    this._hasIHDR = true;
+    this.metadata({
+      width,
+      height,
+      depth,
+      interlace: Boolean(interlace),
+      palette: Boolean(colorType & constants.COLORTYPE_PALETTE),
+      color: Boolean(colorType & constants.COLORTYPE_COLOR),
+      alpha: Boolean(colorType & constants.COLORTYPE_ALPHA),
+      bpp,
+      colorType
+    });
+    this._handleChunkEnd();
+  };
+  Parser.prototype._handlePLTE = function(length) {
+    this.read(length, this._parsePLTE.bind(this));
+  };
+  Parser.prototype._parsePLTE = function(data) {
+    this._crc.write(data);
+    let entries = Math.floor(data.length / 3);
+    for (let i2 = 0;i2 < entries; i2++) {
+      this._palette.push([data[i2 * 3], data[i2 * 3 + 1], data[i2 * 3 + 2], 255]);
+    }
+    this.palette(this._palette);
+    this._handleChunkEnd();
+  };
+  Parser.prototype._handleTRNS = function(length) {
+    this.simpleTransparency();
+    this.read(length, this._parseTRNS.bind(this));
+  };
+  Parser.prototype._parseTRNS = function(data) {
+    this._crc.write(data);
+    if (this._colorType === constants.COLORTYPE_PALETTE_COLOR) {
+      if (this._palette.length === 0) {
+        this.error(new Error("Transparency chunk must be after palette"));
+        return;
+      }
+      if (data.length > this._palette.length) {
+        this.error(new Error("More transparent colors than palette size"));
+        return;
+      }
+      for (let i2 = 0;i2 < data.length; i2++) {
+        this._palette[i2][3] = data[i2];
+      }
+      this.palette(this._palette);
+    }
+    if (this._colorType === constants.COLORTYPE_GRAYSCALE) {
+      this.transColor([data.readUInt16BE(0)]);
+    }
+    if (this._colorType === constants.COLORTYPE_COLOR) {
+      this.transColor([
+        data.readUInt16BE(0),
+        data.readUInt16BE(2),
+        data.readUInt16BE(4)
+      ]);
+    }
+    this._handleChunkEnd();
+  };
+  Parser.prototype._handleGAMA = function(length) {
+    this.read(length, this._parseGAMA.bind(this));
+  };
+  Parser.prototype._parseGAMA = function(data) {
+    this._crc.write(data);
+    this.gamma(data.readUInt32BE(0) / constants.GAMMA_DIVISION);
+    this._handleChunkEnd();
+  };
+  Parser.prototype._handleIDAT = function(length) {
+    if (!this._emittedHeadersFinished) {
+      this._emittedHeadersFinished = true;
+      this.headersFinished();
+    }
+    this.read(-length, this._parseIDAT.bind(this, length));
+  };
+  Parser.prototype._parseIDAT = function(length, data) {
+    this._crc.write(data);
+    if (this._colorType === constants.COLORTYPE_PALETTE_COLOR && this._palette.length === 0) {
+      throw new Error("Expected palette not found");
+    }
+    this.inflateData(data);
+    let leftOverLength = length - data.length;
+    if (leftOverLength > 0) {
+      this._handleIDAT(leftOverLength);
+    } else {
+      this._handleChunkEnd();
+    }
+  };
+  Parser.prototype._handleIEND = function(length) {
+    this.read(length, this._parseIEND.bind(this));
+  };
+  Parser.prototype._parseIEND = function(data) {
+    this._crc.write(data);
+    this._hasIEND = true;
+    this._handleChunkEnd();
+    if (this.finished) {
+      this.finished();
+    }
+  };
 });
 
-// src/scripts/setup-bankeco-credentials.ts
-var exports_setup_bankeco_credentials = {};
-__export(exports_setup_bankeco_credentials, {
-  setupBanecoCredentials: () => setupBanecoCredentials
-});
-async function setupBanecoCredentials() {
-  try {
-    console.log("\uD83C\uDFE6 Configurando credenciales de Banco Económico...");
-    const existingCredentials = await bankCredentialsService.getAll();
-    if (existingCredentials.length > 0) {
-      console.log("⚠️  Ya existen credenciales bancarias. Eliminando las existentes...");
-      for (const credential of existingCredentials) {
-        await bankCredentialsService.delete(credential.id);
+// node_modules/pngjs/lib/bitmapper.js
+var require_bitmapper = __commonJS((exports) => {
+  var interlaceUtils = require_interlace();
+  var pixelBppMapper = [
+    function() {},
+    function(pxData, data, pxPos, rawPos) {
+      if (rawPos === data.length) {
+        throw new Error("Ran out of data");
       }
-      console.log("✅ Credenciales existentes eliminadas");
+      let pixel = data[rawPos];
+      pxData[pxPos] = pixel;
+      pxData[pxPos + 1] = pixel;
+      pxData[pxPos + 2] = pixel;
+      pxData[pxPos + 3] = 255;
+    },
+    function(pxData, data, pxPos, rawPos) {
+      if (rawPos + 1 >= data.length) {
+        throw new Error("Ran out of data");
+      }
+      let pixel = data[rawPos];
+      pxData[pxPos] = pixel;
+      pxData[pxPos + 1] = pixel;
+      pxData[pxPos + 2] = pixel;
+      pxData[pxPos + 3] = data[rawPos + 1];
+    },
+    function(pxData, data, pxPos, rawPos) {
+      if (rawPos + 2 >= data.length) {
+        throw new Error("Ran out of data");
+      }
+      pxData[pxPos] = data[rawPos];
+      pxData[pxPos + 1] = data[rawPos + 1];
+      pxData[pxPos + 2] = data[rawPos + 2];
+      pxData[pxPos + 3] = 255;
+    },
+    function(pxData, data, pxPos, rawPos) {
+      if (rawPos + 3 >= data.length) {
+        throw new Error("Ran out of data");
+      }
+      pxData[pxPos] = data[rawPos];
+      pxData[pxPos + 1] = data[rawPos + 1];
+      pxData[pxPos + 2] = data[rawPos + 2];
+      pxData[pxPos + 3] = data[rawPos + 3];
     }
-    console.log("\uD83D\uDCDD Creando credenciales de PRUEBA...");
-    const testCredential = await bankCredentialsService.create({
-      accountNumber: "1041070599",
-      accountName: "Cuenta Test Banco Económico",
-      merchantId: "BANECO_TEST_MERCHANT",
-      username: "1649710",
-      password: "1234",
-      encryptionKey: "6F09E3167E1D40829207B01041A65B12",
-      environment: "test",
-      apiBaseUrl: "https://apimktdesa.baneco.com.bo/ApiGateway/"
-    });
-    console.log(`✅ Credenciales de PRUEBA creadas con ID: ${testCredential.id}`);
-    console.log(`   Usuario: ${testCredential.username}`);
-    console.log(`   Cuenta: ${testCredential.accountNumber}`);
-    console.log(`   Entorno: Test (${testCredential.environment})`);
-    console.log("\uD83D\uDE80 Creando credenciales de PRODUCCIÓN...");
-    const prodCredential = await bankCredentialsService.create({
-      accountNumber: "5021531650",
-      accountName: "Cuenta Producción Banco Económico",
-      merchantId: "BANECO_PROD_MERCHANT",
-      username: "A96661050",
-      password: "Anarkia41?",
-      encryptionKey: "320A7492A2334CDDADD8230D251B917C",
-      environment: "prod",
-      apiBaseUrl: "https://apimkt.baneco.com.bo/ApiGateway/"
-    });
-    console.log(`✅ Credenciales de PRODUCCIÓN creadas con ID: ${prodCredential.id}`);
-    console.log(`   Usuario: ${prodCredential.username}`);
-    console.log(`   Cuenta: ${prodCredential.accountNumber}`);
-    console.log(`   Entorno: Producción (${prodCredential.environment})`);
-    console.log(`
-\uD83C\uDFAF Configuración completada:`);
-    console.log(`   - Credenciales de PRUEBA: ${testCredential.id}`);
-    console.log(`   - Credenciales de PRODUCCIÓN: ${prodCredential.id}`);
-    console.log(`   - URL de Test: https://apimktdesa.baneco.com.bo/ApiGateway/`);
-    console.log(`   - URL de Producción: https://apimkt.baneco.com.bo/ApiGateway/`);
+  ];
+  var pixelBppCustomMapper = [
+    function() {},
+    function(pxData, pixelData, pxPos, maxBit) {
+      let pixel = pixelData[0];
+      pxData[pxPos] = pixel;
+      pxData[pxPos + 1] = pixel;
+      pxData[pxPos + 2] = pixel;
+      pxData[pxPos + 3] = maxBit;
+    },
+    function(pxData, pixelData, pxPos) {
+      let pixel = pixelData[0];
+      pxData[pxPos] = pixel;
+      pxData[pxPos + 1] = pixel;
+      pxData[pxPos + 2] = pixel;
+      pxData[pxPos + 3] = pixelData[1];
+    },
+    function(pxData, pixelData, pxPos, maxBit) {
+      pxData[pxPos] = pixelData[0];
+      pxData[pxPos + 1] = pixelData[1];
+      pxData[pxPos + 2] = pixelData[2];
+      pxData[pxPos + 3] = maxBit;
+    },
+    function(pxData, pixelData, pxPos) {
+      pxData[pxPos] = pixelData[0];
+      pxData[pxPos + 1] = pixelData[1];
+      pxData[pxPos + 2] = pixelData[2];
+      pxData[pxPos + 3] = pixelData[3];
+    }
+  ];
+  function bitRetriever(data, depth) {
+    let leftOver = [];
+    let i2 = 0;
+    function split() {
+      if (i2 === data.length) {
+        throw new Error("Ran out of data");
+      }
+      let byte2 = data[i2];
+      i2++;
+      let byte8, byte7, byte6, byte5, byte4, byte3, byte22, byte1;
+      switch (depth) {
+        default:
+          throw new Error("unrecognised depth");
+        case 16:
+          byte22 = data[i2];
+          i2++;
+          leftOver.push((byte2 << 8) + byte22);
+          break;
+        case 4:
+          byte22 = byte2 & 15;
+          byte1 = byte2 >> 4;
+          leftOver.push(byte1, byte22);
+          break;
+        case 2:
+          byte4 = byte2 & 3;
+          byte3 = byte2 >> 2 & 3;
+          byte22 = byte2 >> 4 & 3;
+          byte1 = byte2 >> 6 & 3;
+          leftOver.push(byte1, byte22, byte3, byte4);
+          break;
+        case 1:
+          byte8 = byte2 & 1;
+          byte7 = byte2 >> 1 & 1;
+          byte6 = byte2 >> 2 & 1;
+          byte5 = byte2 >> 3 & 1;
+          byte4 = byte2 >> 4 & 1;
+          byte3 = byte2 >> 5 & 1;
+          byte22 = byte2 >> 6 & 1;
+          byte1 = byte2 >> 7 & 1;
+          leftOver.push(byte1, byte22, byte3, byte4, byte5, byte6, byte7, byte8);
+          break;
+      }
+    }
     return {
-      testCredential,
-      prodCredential
+      get: function(count) {
+        while (leftOver.length < count) {
+          split();
+        }
+        let returner = leftOver.slice(0, count);
+        leftOver = leftOver.slice(count);
+        return returner;
+      },
+      resetAfterLine: function() {
+        leftOver.length = 0;
+      },
+      end: function() {
+        if (i2 !== data.length) {
+          throw new Error("extra data found");
+        }
+      }
     };
-  } catch (error) {
-    console.error("❌ Error configurando credenciales de Banco Económico:", error);
-    throw error;
   }
+  function mapImage8Bit(image, pxData, getPxPos, bpp, data, rawPos) {
+    let imageWidth = image.width;
+    let imageHeight = image.height;
+    let imagePass = image.index;
+    for (let y = 0;y < imageHeight; y++) {
+      for (let x2 = 0;x2 < imageWidth; x2++) {
+        let pxPos = getPxPos(x2, y, imagePass);
+        pixelBppMapper[bpp](pxData, data, pxPos, rawPos);
+        rawPos += bpp;
+      }
+    }
+    return rawPos;
+  }
+  function mapImageCustomBit(image, pxData, getPxPos, bpp, bits2, maxBit) {
+    let imageWidth = image.width;
+    let imageHeight = image.height;
+    let imagePass = image.index;
+    for (let y = 0;y < imageHeight; y++) {
+      for (let x2 = 0;x2 < imageWidth; x2++) {
+        let pixelData = bits2.get(bpp);
+        let pxPos = getPxPos(x2, y, imagePass);
+        pixelBppCustomMapper[bpp](pxData, pixelData, pxPos, maxBit);
+      }
+      bits2.resetAfterLine();
+    }
+  }
+  exports.dataToBitMap = function(data, bitmapInfo) {
+    let width = bitmapInfo.width;
+    let height = bitmapInfo.height;
+    let depth = bitmapInfo.depth;
+    let bpp = bitmapInfo.bpp;
+    let interlace = bitmapInfo.interlace;
+    let bits2;
+    if (depth !== 8) {
+      bits2 = bitRetriever(data, depth);
+    }
+    let pxData;
+    if (depth <= 8) {
+      pxData = Buffer.alloc(width * height * 4);
+    } else {
+      pxData = new Uint16Array(width * height * 4);
+    }
+    let maxBit = Math.pow(2, depth) - 1;
+    let rawPos = 0;
+    let images;
+    let getPxPos;
+    if (interlace) {
+      images = interlaceUtils.getImagePasses(width, height);
+      getPxPos = interlaceUtils.getInterlaceIterator(width, height);
+    } else {
+      let nonInterlacedPxPos = 0;
+      getPxPos = function() {
+        let returner = nonInterlacedPxPos;
+        nonInterlacedPxPos += 4;
+        return returner;
+      };
+      images = [{ width, height }];
+    }
+    for (let imageIndex = 0;imageIndex < images.length; imageIndex++) {
+      if (depth === 8) {
+        rawPos = mapImage8Bit(images[imageIndex], pxData, getPxPos, bpp, data, rawPos);
+      } else {
+        mapImageCustomBit(images[imageIndex], pxData, getPxPos, bpp, bits2, maxBit);
+      }
+    }
+    if (depth === 8) {
+      if (rawPos !== data.length) {
+        throw new Error("extra data found");
+      }
+    } else {
+      bits2.end();
+    }
+    return pxData;
+  };
+});
+
+// node_modules/pngjs/lib/format-normaliser.js
+var require_format_normaliser = __commonJS((exports, module) => {
+  function dePalette(indata, outdata, width, height, palette) {
+    let pxPos = 0;
+    for (let y = 0;y < height; y++) {
+      for (let x2 = 0;x2 < width; x2++) {
+        let color = palette[indata[pxPos]];
+        if (!color) {
+          throw new Error("index " + indata[pxPos] + " not in palette");
+        }
+        for (let i2 = 0;i2 < 4; i2++) {
+          outdata[pxPos + i2] = color[i2];
+        }
+        pxPos += 4;
+      }
+    }
+  }
+  function replaceTransparentColor(indata, outdata, width, height, transColor) {
+    let pxPos = 0;
+    for (let y = 0;y < height; y++) {
+      for (let x2 = 0;x2 < width; x2++) {
+        let makeTrans = false;
+        if (transColor.length === 1) {
+          if (transColor[0] === indata[pxPos]) {
+            makeTrans = true;
+          }
+        } else if (transColor[0] === indata[pxPos] && transColor[1] === indata[pxPos + 1] && transColor[2] === indata[pxPos + 2]) {
+          makeTrans = true;
+        }
+        if (makeTrans) {
+          for (let i2 = 0;i2 < 4; i2++) {
+            outdata[pxPos + i2] = 0;
+          }
+        }
+        pxPos += 4;
+      }
+    }
+  }
+  function scaleDepth(indata, outdata, width, height, depth) {
+    let maxOutSample = 255;
+    let maxInSample = Math.pow(2, depth) - 1;
+    let pxPos = 0;
+    for (let y = 0;y < height; y++) {
+      for (let x2 = 0;x2 < width; x2++) {
+        for (let i2 = 0;i2 < 4; i2++) {
+          outdata[pxPos + i2] = Math.floor(indata[pxPos + i2] * maxOutSample / maxInSample + 0.5);
+        }
+        pxPos += 4;
+      }
+    }
+  }
+  module.exports = function(indata, imageData) {
+    let depth = imageData.depth;
+    let width = imageData.width;
+    let height = imageData.height;
+    let colorType = imageData.colorType;
+    let transColor = imageData.transColor;
+    let palette = imageData.palette;
+    let outdata = indata;
+    if (colorType === 3) {
+      dePalette(indata, outdata, width, height, palette);
+    } else {
+      if (transColor) {
+        replaceTransparentColor(indata, outdata, width, height, transColor);
+      }
+      if (depth !== 8) {
+        if (depth === 16) {
+          outdata = Buffer.alloc(width * height * 4);
+        }
+        scaleDepth(indata, outdata, width, height, depth);
+      }
+    }
+    return outdata;
+  };
+});
+
+// node_modules/pngjs/lib/parser-async.js
+var require_parser_async = __commonJS((exports, module) => {
+  var util3 = __require("util");
+  var zlib = __require("zlib");
+  var ChunkStream = require_chunkstream();
+  var FilterAsync = require_filter_parse_async();
+  var Parser = require_parser2();
+  var bitmapper = require_bitmapper();
+  var formatNormaliser = require_format_normaliser();
+  var ParserAsync = module.exports = function(options) {
+    ChunkStream.call(this);
+    this._parser = new Parser(options, {
+      read: this.read.bind(this),
+      error: this._handleError.bind(this),
+      metadata: this._handleMetaData.bind(this),
+      gamma: this.emit.bind(this, "gamma"),
+      palette: this._handlePalette.bind(this),
+      transColor: this._handleTransColor.bind(this),
+      finished: this._finished.bind(this),
+      inflateData: this._inflateData.bind(this),
+      simpleTransparency: this._simpleTransparency.bind(this),
+      headersFinished: this._headersFinished.bind(this)
+    });
+    this._options = options;
+    this.writable = true;
+    this._parser.start();
+  };
+  util3.inherits(ParserAsync, ChunkStream);
+  ParserAsync.prototype._handleError = function(err2) {
+    this.emit("error", err2);
+    this.writable = false;
+    this.destroy();
+    if (this._inflate && this._inflate.destroy) {
+      this._inflate.destroy();
+    }
+    if (this._filter) {
+      this._filter.destroy();
+      this._filter.on("error", function() {});
+    }
+    this.errord = true;
+  };
+  ParserAsync.prototype._inflateData = function(data) {
+    if (!this._inflate) {
+      if (this._bitmapInfo.interlace) {
+        this._inflate = zlib.createInflate();
+        this._inflate.on("error", this.emit.bind(this, "error"));
+        this._filter.on("complete", this._complete.bind(this));
+        this._inflate.pipe(this._filter);
+      } else {
+        let rowSize = (this._bitmapInfo.width * this._bitmapInfo.bpp * this._bitmapInfo.depth + 7 >> 3) + 1;
+        let imageSize = rowSize * this._bitmapInfo.height;
+        let chunkSize = Math.max(imageSize, zlib.Z_MIN_CHUNK);
+        this._inflate = zlib.createInflate({ chunkSize });
+        let leftToInflate = imageSize;
+        let emitError = this.emit.bind(this, "error");
+        this._inflate.on("error", function(err2) {
+          if (!leftToInflate) {
+            return;
+          }
+          emitError(err2);
+        });
+        this._filter.on("complete", this._complete.bind(this));
+        let filterWrite = this._filter.write.bind(this._filter);
+        this._inflate.on("data", function(chunk) {
+          if (!leftToInflate) {
+            return;
+          }
+          if (chunk.length > leftToInflate) {
+            chunk = chunk.slice(0, leftToInflate);
+          }
+          leftToInflate -= chunk.length;
+          filterWrite(chunk);
+        });
+        this._inflate.on("end", this._filter.end.bind(this._filter));
+      }
+    }
+    this._inflate.write(data);
+  };
+  ParserAsync.prototype._handleMetaData = function(metaData) {
+    this._metaData = metaData;
+    this._bitmapInfo = Object.create(metaData);
+    this._filter = new FilterAsync(this._bitmapInfo);
+  };
+  ParserAsync.prototype._handleTransColor = function(transColor) {
+    this._bitmapInfo.transColor = transColor;
+  };
+  ParserAsync.prototype._handlePalette = function(palette) {
+    this._bitmapInfo.palette = palette;
+  };
+  ParserAsync.prototype._simpleTransparency = function() {
+    this._metaData.alpha = true;
+  };
+  ParserAsync.prototype._headersFinished = function() {
+    this.emit("metadata", this._metaData);
+  };
+  ParserAsync.prototype._finished = function() {
+    if (this.errord) {
+      return;
+    }
+    if (!this._inflate) {
+      this.emit("error", "No Inflate block");
+    } else {
+      this._inflate.end();
+    }
+  };
+  ParserAsync.prototype._complete = function(filteredData) {
+    if (this.errord) {
+      return;
+    }
+    let normalisedBitmapData;
+    try {
+      let bitmapData = bitmapper.dataToBitMap(filteredData, this._bitmapInfo);
+      normalisedBitmapData = formatNormaliser(bitmapData, this._bitmapInfo);
+      bitmapData = null;
+    } catch (ex) {
+      this._handleError(ex);
+      return;
+    }
+    this.emit("parsed", normalisedBitmapData);
+  };
+});
+
+// node_modules/pngjs/lib/bitpacker.js
+var require_bitpacker = __commonJS((exports, module) => {
+  var constants = require_constants2();
+  module.exports = function(dataIn, width, height, options) {
+    let outHasAlpha = [constants.COLORTYPE_COLOR_ALPHA, constants.COLORTYPE_ALPHA].indexOf(options.colorType) !== -1;
+    if (options.colorType === options.inputColorType) {
+      let bigEndian = function() {
+        let buffer = new ArrayBuffer(2);
+        new DataView(buffer).setInt16(0, 256, true);
+        return new Int16Array(buffer)[0] !== 256;
+      }();
+      if (options.bitDepth === 8 || options.bitDepth === 16 && bigEndian) {
+        return dataIn;
+      }
+    }
+    let data = options.bitDepth !== 16 ? dataIn : new Uint16Array(dataIn.buffer);
+    let maxValue = 255;
+    let inBpp = constants.COLORTYPE_TO_BPP_MAP[options.inputColorType];
+    if (inBpp === 4 && !options.inputHasAlpha) {
+      inBpp = 3;
+    }
+    let outBpp = constants.COLORTYPE_TO_BPP_MAP[options.colorType];
+    if (options.bitDepth === 16) {
+      maxValue = 65535;
+      outBpp *= 2;
+    }
+    let outData = Buffer.alloc(width * height * outBpp);
+    let inIndex = 0;
+    let outIndex = 0;
+    let bgColor = options.bgColor || {};
+    if (bgColor.red === undefined) {
+      bgColor.red = maxValue;
+    }
+    if (bgColor.green === undefined) {
+      bgColor.green = maxValue;
+    }
+    if (bgColor.blue === undefined) {
+      bgColor.blue = maxValue;
+    }
+    function getRGBA() {
+      let red;
+      let green;
+      let blue;
+      let alpha = maxValue;
+      switch (options.inputColorType) {
+        case constants.COLORTYPE_COLOR_ALPHA:
+          alpha = data[inIndex + 3];
+          red = data[inIndex];
+          green = data[inIndex + 1];
+          blue = data[inIndex + 2];
+          break;
+        case constants.COLORTYPE_COLOR:
+          red = data[inIndex];
+          green = data[inIndex + 1];
+          blue = data[inIndex + 2];
+          break;
+        case constants.COLORTYPE_ALPHA:
+          alpha = data[inIndex + 1];
+          red = data[inIndex];
+          green = red;
+          blue = red;
+          break;
+        case constants.COLORTYPE_GRAYSCALE:
+          red = data[inIndex];
+          green = red;
+          blue = red;
+          break;
+        default:
+          throw new Error("input color type:" + options.inputColorType + " is not supported at present");
+      }
+      if (options.inputHasAlpha) {
+        if (!outHasAlpha) {
+          alpha /= maxValue;
+          red = Math.min(Math.max(Math.round((1 - alpha) * bgColor.red + alpha * red), 0), maxValue);
+          green = Math.min(Math.max(Math.round((1 - alpha) * bgColor.green + alpha * green), 0), maxValue);
+          blue = Math.min(Math.max(Math.round((1 - alpha) * bgColor.blue + alpha * blue), 0), maxValue);
+        }
+      }
+      return { red, green, blue, alpha };
+    }
+    for (let y = 0;y < height; y++) {
+      for (let x2 = 0;x2 < width; x2++) {
+        let rgba = getRGBA(data, inIndex);
+        switch (options.colorType) {
+          case constants.COLORTYPE_COLOR_ALPHA:
+          case constants.COLORTYPE_COLOR:
+            if (options.bitDepth === 8) {
+              outData[outIndex] = rgba.red;
+              outData[outIndex + 1] = rgba.green;
+              outData[outIndex + 2] = rgba.blue;
+              if (outHasAlpha) {
+                outData[outIndex + 3] = rgba.alpha;
+              }
+            } else {
+              outData.writeUInt16BE(rgba.red, outIndex);
+              outData.writeUInt16BE(rgba.green, outIndex + 2);
+              outData.writeUInt16BE(rgba.blue, outIndex + 4);
+              if (outHasAlpha) {
+                outData.writeUInt16BE(rgba.alpha, outIndex + 6);
+              }
+            }
+            break;
+          case constants.COLORTYPE_ALPHA:
+          case constants.COLORTYPE_GRAYSCALE: {
+            let grayscale = (rgba.red + rgba.green + rgba.blue) / 3;
+            if (options.bitDepth === 8) {
+              outData[outIndex] = grayscale;
+              if (outHasAlpha) {
+                outData[outIndex + 1] = rgba.alpha;
+              }
+            } else {
+              outData.writeUInt16BE(grayscale, outIndex);
+              if (outHasAlpha) {
+                outData.writeUInt16BE(rgba.alpha, outIndex + 2);
+              }
+            }
+            break;
+          }
+          default:
+            throw new Error("unrecognised color Type " + options.colorType);
+        }
+        inIndex += inBpp;
+        outIndex += outBpp;
+      }
+    }
+    return outData;
+  };
+});
+
+// node_modules/pngjs/lib/filter-pack.js
+var require_filter_pack = __commonJS((exports, module) => {
+  var paethPredictor = require_paeth_predictor();
+  function filterNone(pxData, pxPos, byteWidth, rawData, rawPos) {
+    for (let x2 = 0;x2 < byteWidth; x2++) {
+      rawData[rawPos + x2] = pxData[pxPos + x2];
+    }
+  }
+  function filterSumNone(pxData, pxPos, byteWidth) {
+    let sum = 0;
+    let length = pxPos + byteWidth;
+    for (let i2 = pxPos;i2 < length; i2++) {
+      sum += Math.abs(pxData[i2]);
+    }
+    return sum;
+  }
+  function filterSub(pxData, pxPos, byteWidth, rawData, rawPos, bpp) {
+    for (let x2 = 0;x2 < byteWidth; x2++) {
+      let left = x2 >= bpp ? pxData[pxPos + x2 - bpp] : 0;
+      let val = pxData[pxPos + x2] - left;
+      rawData[rawPos + x2] = val;
+    }
+  }
+  function filterSumSub(pxData, pxPos, byteWidth, bpp) {
+    let sum = 0;
+    for (let x2 = 0;x2 < byteWidth; x2++) {
+      let left = x2 >= bpp ? pxData[pxPos + x2 - bpp] : 0;
+      let val = pxData[pxPos + x2] - left;
+      sum += Math.abs(val);
+    }
+    return sum;
+  }
+  function filterUp(pxData, pxPos, byteWidth, rawData, rawPos) {
+    for (let x2 = 0;x2 < byteWidth; x2++) {
+      let up = pxPos > 0 ? pxData[pxPos + x2 - byteWidth] : 0;
+      let val = pxData[pxPos + x2] - up;
+      rawData[rawPos + x2] = val;
+    }
+  }
+  function filterSumUp(pxData, pxPos, byteWidth) {
+    let sum = 0;
+    let length = pxPos + byteWidth;
+    for (let x2 = pxPos;x2 < length; x2++) {
+      let up = pxPos > 0 ? pxData[x2 - byteWidth] : 0;
+      let val = pxData[x2] - up;
+      sum += Math.abs(val);
+    }
+    return sum;
+  }
+  function filterAvg(pxData, pxPos, byteWidth, rawData, rawPos, bpp) {
+    for (let x2 = 0;x2 < byteWidth; x2++) {
+      let left = x2 >= bpp ? pxData[pxPos + x2 - bpp] : 0;
+      let up = pxPos > 0 ? pxData[pxPos + x2 - byteWidth] : 0;
+      let val = pxData[pxPos + x2] - (left + up >> 1);
+      rawData[rawPos + x2] = val;
+    }
+  }
+  function filterSumAvg(pxData, pxPos, byteWidth, bpp) {
+    let sum = 0;
+    for (let x2 = 0;x2 < byteWidth; x2++) {
+      let left = x2 >= bpp ? pxData[pxPos + x2 - bpp] : 0;
+      let up = pxPos > 0 ? pxData[pxPos + x2 - byteWidth] : 0;
+      let val = pxData[pxPos + x2] - (left + up >> 1);
+      sum += Math.abs(val);
+    }
+    return sum;
+  }
+  function filterPaeth(pxData, pxPos, byteWidth, rawData, rawPos, bpp) {
+    for (let x2 = 0;x2 < byteWidth; x2++) {
+      let left = x2 >= bpp ? pxData[pxPos + x2 - bpp] : 0;
+      let up = pxPos > 0 ? pxData[pxPos + x2 - byteWidth] : 0;
+      let upleft = pxPos > 0 && x2 >= bpp ? pxData[pxPos + x2 - (byteWidth + bpp)] : 0;
+      let val = pxData[pxPos + x2] - paethPredictor(left, up, upleft);
+      rawData[rawPos + x2] = val;
+    }
+  }
+  function filterSumPaeth(pxData, pxPos, byteWidth, bpp) {
+    let sum = 0;
+    for (let x2 = 0;x2 < byteWidth; x2++) {
+      let left = x2 >= bpp ? pxData[pxPos + x2 - bpp] : 0;
+      let up = pxPos > 0 ? pxData[pxPos + x2 - byteWidth] : 0;
+      let upleft = pxPos > 0 && x2 >= bpp ? pxData[pxPos + x2 - (byteWidth + bpp)] : 0;
+      let val = pxData[pxPos + x2] - paethPredictor(left, up, upleft);
+      sum += Math.abs(val);
+    }
+    return sum;
+  }
+  var filters = {
+    0: filterNone,
+    1: filterSub,
+    2: filterUp,
+    3: filterAvg,
+    4: filterPaeth
+  };
+  var filterSums = {
+    0: filterSumNone,
+    1: filterSumSub,
+    2: filterSumUp,
+    3: filterSumAvg,
+    4: filterSumPaeth
+  };
+  module.exports = function(pxData, width, height, options, bpp) {
+    let filterTypes;
+    if (!("filterType" in options) || options.filterType === -1) {
+      filterTypes = [0, 1, 2, 3, 4];
+    } else if (typeof options.filterType === "number") {
+      filterTypes = [options.filterType];
+    } else {
+      throw new Error("unrecognised filter types");
+    }
+    if (options.bitDepth === 16) {
+      bpp *= 2;
+    }
+    let byteWidth = width * bpp;
+    let rawPos = 0;
+    let pxPos = 0;
+    let rawData = Buffer.alloc((byteWidth + 1) * height);
+    let sel = filterTypes[0];
+    for (let y = 0;y < height; y++) {
+      if (filterTypes.length > 1) {
+        let min = Infinity;
+        for (let i2 = 0;i2 < filterTypes.length; i2++) {
+          let sum = filterSums[filterTypes[i2]](pxData, pxPos, byteWidth, bpp);
+          if (sum < min) {
+            sel = filterTypes[i2];
+            min = sum;
+          }
+        }
+      }
+      rawData[rawPos] = sel;
+      rawPos++;
+      filters[sel](pxData, pxPos, byteWidth, rawData, rawPos, bpp);
+      rawPos += byteWidth;
+      pxPos += byteWidth;
+    }
+    return rawData;
+  };
+});
+
+// node_modules/pngjs/lib/packer.js
+var require_packer = __commonJS((exports, module) => {
+  var constants = require_constants2();
+  var CrcStream = require_crc();
+  var bitPacker = require_bitpacker();
+  var filter = require_filter_pack();
+  var zlib = __require("zlib");
+  var Packer = module.exports = function(options) {
+    this._options = options;
+    options.deflateChunkSize = options.deflateChunkSize || 32 * 1024;
+    options.deflateLevel = options.deflateLevel != null ? options.deflateLevel : 9;
+    options.deflateStrategy = options.deflateStrategy != null ? options.deflateStrategy : 3;
+    options.inputHasAlpha = options.inputHasAlpha != null ? options.inputHasAlpha : true;
+    options.deflateFactory = options.deflateFactory || zlib.createDeflate;
+    options.bitDepth = options.bitDepth || 8;
+    options.colorType = typeof options.colorType === "number" ? options.colorType : constants.COLORTYPE_COLOR_ALPHA;
+    options.inputColorType = typeof options.inputColorType === "number" ? options.inputColorType : constants.COLORTYPE_COLOR_ALPHA;
+    if ([
+      constants.COLORTYPE_GRAYSCALE,
+      constants.COLORTYPE_COLOR,
+      constants.COLORTYPE_COLOR_ALPHA,
+      constants.COLORTYPE_ALPHA
+    ].indexOf(options.colorType) === -1) {
+      throw new Error("option color type:" + options.colorType + " is not supported at present");
+    }
+    if ([
+      constants.COLORTYPE_GRAYSCALE,
+      constants.COLORTYPE_COLOR,
+      constants.COLORTYPE_COLOR_ALPHA,
+      constants.COLORTYPE_ALPHA
+    ].indexOf(options.inputColorType) === -1) {
+      throw new Error("option input color type:" + options.inputColorType + " is not supported at present");
+    }
+    if (options.bitDepth !== 8 && options.bitDepth !== 16) {
+      throw new Error("option bit depth:" + options.bitDepth + " is not supported at present");
+    }
+  };
+  Packer.prototype.getDeflateOptions = function() {
+    return {
+      chunkSize: this._options.deflateChunkSize,
+      level: this._options.deflateLevel,
+      strategy: this._options.deflateStrategy
+    };
+  };
+  Packer.prototype.createDeflate = function() {
+    return this._options.deflateFactory(this.getDeflateOptions());
+  };
+  Packer.prototype.filterData = function(data, width, height) {
+    let packedData = bitPacker(data, width, height, this._options);
+    let bpp = constants.COLORTYPE_TO_BPP_MAP[this._options.colorType];
+    let filteredData = filter(packedData, width, height, this._options, bpp);
+    return filteredData;
+  };
+  Packer.prototype._packChunk = function(type, data) {
+    let len = data ? data.length : 0;
+    let buf = Buffer.alloc(len + 12);
+    buf.writeUInt32BE(len, 0);
+    buf.writeUInt32BE(type, 4);
+    if (data) {
+      data.copy(buf, 8);
+    }
+    buf.writeInt32BE(CrcStream.crc32(buf.slice(4, buf.length - 4)), buf.length - 4);
+    return buf;
+  };
+  Packer.prototype.packGAMA = function(gamma) {
+    let buf = Buffer.alloc(4);
+    buf.writeUInt32BE(Math.floor(gamma * constants.GAMMA_DIVISION), 0);
+    return this._packChunk(constants.TYPE_gAMA, buf);
+  };
+  Packer.prototype.packIHDR = function(width, height) {
+    let buf = Buffer.alloc(13);
+    buf.writeUInt32BE(width, 0);
+    buf.writeUInt32BE(height, 4);
+    buf[8] = this._options.bitDepth;
+    buf[9] = this._options.colorType;
+    buf[10] = 0;
+    buf[11] = 0;
+    buf[12] = 0;
+    return this._packChunk(constants.TYPE_IHDR, buf);
+  };
+  Packer.prototype.packIDAT = function(data) {
+    return this._packChunk(constants.TYPE_IDAT, data);
+  };
+  Packer.prototype.packIEND = function() {
+    return this._packChunk(constants.TYPE_IEND, null);
+  };
+});
+
+// node_modules/pngjs/lib/packer-async.js
+var require_packer_async = __commonJS((exports, module) => {
+  var util3 = __require("util");
+  var Stream = __require("stream");
+  var constants = require_constants2();
+  var Packer = require_packer();
+  var PackerAsync = module.exports = function(opt) {
+    Stream.call(this);
+    let options = opt || {};
+    this._packer = new Packer(options);
+    this._deflate = this._packer.createDeflate();
+    this.readable = true;
+  };
+  util3.inherits(PackerAsync, Stream);
+  PackerAsync.prototype.pack = function(data, width, height, gamma) {
+    this.emit("data", Buffer.from(constants.PNG_SIGNATURE));
+    this.emit("data", this._packer.packIHDR(width, height));
+    if (gamma) {
+      this.emit("data", this._packer.packGAMA(gamma));
+    }
+    let filteredData = this._packer.filterData(data, width, height);
+    this._deflate.on("error", this.emit.bind(this, "error"));
+    this._deflate.on("data", function(compressedData) {
+      this.emit("data", this._packer.packIDAT(compressedData));
+    }.bind(this));
+    this._deflate.on("end", function() {
+      this.emit("data", this._packer.packIEND());
+      this.emit("end");
+    }.bind(this));
+    this._deflate.end(filteredData);
+  };
+});
+
+// node_modules/pngjs/lib/sync-inflate.js
+var require_sync_inflate = __commonJS((exports, module) => {
+  var assert2 = __require("assert").ok;
+  var zlib = __require("zlib");
+  var util3 = __require("util");
+  var kMaxLength = __require("buffer").kMaxLength;
+  function Inflate(opts) {
+    if (!(this instanceof Inflate)) {
+      return new Inflate(opts);
+    }
+    if (opts && opts.chunkSize < zlib.Z_MIN_CHUNK) {
+      opts.chunkSize = zlib.Z_MIN_CHUNK;
+    }
+    zlib.Inflate.call(this, opts);
+    this._offset = this._offset === undefined ? this._outOffset : this._offset;
+    this._buffer = this._buffer || this._outBuffer;
+    if (opts && opts.maxLength != null) {
+      this._maxLength = opts.maxLength;
+    }
+  }
+  function createInflate(opts) {
+    return new Inflate(opts);
+  }
+  function _close(engine, callback) {
+    if (callback) {
+      process.nextTick(callback);
+    }
+    if (!engine._handle) {
+      return;
+    }
+    engine._handle.close();
+    engine._handle = null;
+  }
+  Inflate.prototype._processChunk = function(chunk, flushFlag, asyncCb) {
+    if (typeof asyncCb === "function") {
+      return zlib.Inflate._processChunk.call(this, chunk, flushFlag, asyncCb);
+    }
+    let self = this;
+    let availInBefore = chunk && chunk.length;
+    let availOutBefore = this._chunkSize - this._offset;
+    let leftToInflate = this._maxLength;
+    let inOff = 0;
+    let buffers = [];
+    let nread = 0;
+    let error;
+    this.on("error", function(err2) {
+      error = err2;
+    });
+    function handleChunk(availInAfter, availOutAfter) {
+      if (self._hadError) {
+        return;
+      }
+      let have = availOutBefore - availOutAfter;
+      assert2(have >= 0, "have should not go down");
+      if (have > 0) {
+        let out = self._buffer.slice(self._offset, self._offset + have);
+        self._offset += have;
+        if (out.length > leftToInflate) {
+          out = out.slice(0, leftToInflate);
+        }
+        buffers.push(out);
+        nread += out.length;
+        leftToInflate -= out.length;
+        if (leftToInflate === 0) {
+          return false;
+        }
+      }
+      if (availOutAfter === 0 || self._offset >= self._chunkSize) {
+        availOutBefore = self._chunkSize;
+        self._offset = 0;
+        self._buffer = Buffer.allocUnsafe(self._chunkSize);
+      }
+      if (availOutAfter === 0) {
+        inOff += availInBefore - availInAfter;
+        availInBefore = availInAfter;
+        return true;
+      }
+      return false;
+    }
+    assert2(this._handle, "zlib binding closed");
+    let res;
+    do {
+      res = this._handle.writeSync(flushFlag, chunk, inOff, availInBefore, this._buffer, this._offset, availOutBefore);
+      res = res || this._writeState;
+    } while (!this._hadError && handleChunk(res[0], res[1]));
+    if (this._hadError) {
+      throw error;
+    }
+    if (nread >= kMaxLength) {
+      _close(this);
+      throw new RangeError("Cannot create final Buffer. It would be larger than 0x" + kMaxLength.toString(16) + " bytes");
+    }
+    let buf = Buffer.concat(buffers, nread);
+    _close(this);
+    return buf;
+  };
+  util3.inherits(Inflate, zlib.Inflate);
+  function zlibBufferSync(engine, buffer) {
+    if (typeof buffer === "string") {
+      buffer = Buffer.from(buffer);
+    }
+    if (!(buffer instanceof Buffer)) {
+      throw new TypeError("Not a string or buffer");
+    }
+    let flushFlag = engine._finishFlushFlag;
+    if (flushFlag == null) {
+      flushFlag = zlib.Z_FINISH;
+    }
+    return engine._processChunk(buffer, flushFlag);
+  }
+  function inflateSync2(buffer, opts) {
+    return zlibBufferSync(new Inflate(opts), buffer);
+  }
+  module.exports = exports = inflateSync2;
+  exports.Inflate = Inflate;
+  exports.createInflate = createInflate;
+  exports.inflateSync = inflateSync2;
+});
+
+// node_modules/pngjs/lib/sync-reader.js
+var require_sync_reader = __commonJS((exports, module) => {
+  var SyncReader = module.exports = function(buffer) {
+    this._buffer = buffer;
+    this._reads = [];
+  };
+  SyncReader.prototype.read = function(length, callback) {
+    this._reads.push({
+      length: Math.abs(length),
+      allowLess: length < 0,
+      func: callback
+    });
+  };
+  SyncReader.prototype.process = function() {
+    while (this._reads.length > 0 && this._buffer.length) {
+      let read = this._reads[0];
+      if (this._buffer.length && (this._buffer.length >= read.length || read.allowLess)) {
+        this._reads.shift();
+        let buf = this._buffer;
+        this._buffer = buf.slice(read.length);
+        read.func.call(this, buf.slice(0, read.length));
+      } else {
+        break;
+      }
+    }
+    if (this._reads.length > 0) {
+      return new Error("There are some read requests waitng on finished stream");
+    }
+    if (this._buffer.length > 0) {
+      return new Error("unrecognised content at end of stream");
+    }
+  };
+});
+
+// node_modules/pngjs/lib/filter-parse-sync.js
+var require_filter_parse_sync = __commonJS((exports) => {
+  var SyncReader = require_sync_reader();
+  var Filter = require_filter_parse();
+  exports.process = function(inBuffer, bitmapInfo) {
+    let outBuffers = [];
+    let reader = new SyncReader(inBuffer);
+    let filter = new Filter(bitmapInfo, {
+      read: reader.read.bind(reader),
+      write: function(bufferPart) {
+        outBuffers.push(bufferPart);
+      },
+      complete: function() {}
+    });
+    filter.start();
+    reader.process();
+    return Buffer.concat(outBuffers);
+  };
+});
+
+// node_modules/pngjs/lib/parser-sync.js
+var require_parser_sync = __commonJS((exports, module) => {
+  var hasSyncZlib = true;
+  var zlib = __require("zlib");
+  var inflateSync2 = require_sync_inflate();
+  if (!zlib.deflateSync) {
+    hasSyncZlib = false;
+  }
+  var SyncReader = require_sync_reader();
+  var FilterSync = require_filter_parse_sync();
+  var Parser = require_parser2();
+  var bitmapper = require_bitmapper();
+  var formatNormaliser = require_format_normaliser();
+  module.exports = function(buffer, options) {
+    if (!hasSyncZlib) {
+      throw new Error("To use the sync capability of this library in old node versions, please pin pngjs to v2.3.0");
+    }
+    let err2;
+    function handleError(_err_) {
+      err2 = _err_;
+    }
+    let metaData;
+    function handleMetaData(_metaData_) {
+      metaData = _metaData_;
+    }
+    function handleTransColor(transColor) {
+      metaData.transColor = transColor;
+    }
+    function handlePalette(palette) {
+      metaData.palette = palette;
+    }
+    function handleSimpleTransparency() {
+      metaData.alpha = true;
+    }
+    let gamma;
+    function handleGamma(_gamma_) {
+      gamma = _gamma_;
+    }
+    let inflateDataList = [];
+    function handleInflateData(inflatedData2) {
+      inflateDataList.push(inflatedData2);
+    }
+    let reader = new SyncReader(buffer);
+    let parser = new Parser(options, {
+      read: reader.read.bind(reader),
+      error: handleError,
+      metadata: handleMetaData,
+      gamma: handleGamma,
+      palette: handlePalette,
+      transColor: handleTransColor,
+      inflateData: handleInflateData,
+      simpleTransparency: handleSimpleTransparency
+    });
+    parser.start();
+    reader.process();
+    if (err2) {
+      throw err2;
+    }
+    let inflateData = Buffer.concat(inflateDataList);
+    inflateDataList.length = 0;
+    let inflatedData;
+    if (metaData.interlace) {
+      inflatedData = zlib.inflateSync(inflateData);
+    } else {
+      let rowSize = (metaData.width * metaData.bpp * metaData.depth + 7 >> 3) + 1;
+      let imageSize = rowSize * metaData.height;
+      inflatedData = inflateSync2(inflateData, {
+        chunkSize: imageSize,
+        maxLength: imageSize
+      });
+    }
+    inflateData = null;
+    if (!inflatedData || !inflatedData.length) {
+      throw new Error("bad png - invalid inflate data response");
+    }
+    let unfilteredData = FilterSync.process(inflatedData, metaData);
+    inflateData = null;
+    let bitmapData = bitmapper.dataToBitMap(unfilteredData, metaData);
+    unfilteredData = null;
+    let normalisedBitmapData = formatNormaliser(bitmapData, metaData);
+    metaData.data = normalisedBitmapData;
+    metaData.gamma = gamma || 0;
+    return metaData;
+  };
+});
+
+// node_modules/pngjs/lib/packer-sync.js
+var require_packer_sync = __commonJS((exports, module) => {
+  var hasSyncZlib = true;
+  var zlib = __require("zlib");
+  if (!zlib.deflateSync) {
+    hasSyncZlib = false;
+  }
+  var constants = require_constants2();
+  var Packer = require_packer();
+  module.exports = function(metaData, opt) {
+    if (!hasSyncZlib) {
+      throw new Error("To use the sync capability of this library in old node versions, please pin pngjs to v2.3.0");
+    }
+    let options = opt || {};
+    let packer = new Packer(options);
+    let chunks = [];
+    chunks.push(Buffer.from(constants.PNG_SIGNATURE));
+    chunks.push(packer.packIHDR(metaData.width, metaData.height));
+    if (metaData.gamma) {
+      chunks.push(packer.packGAMA(metaData.gamma));
+    }
+    let filteredData = packer.filterData(metaData.data, metaData.width, metaData.height);
+    let compressedData = zlib.deflateSync(filteredData, packer.getDeflateOptions());
+    filteredData = null;
+    if (!compressedData || !compressedData.length) {
+      throw new Error("bad png - invalid compressed data response");
+    }
+    chunks.push(packer.packIDAT(compressedData));
+    chunks.push(packer.packIEND());
+    return Buffer.concat(chunks);
+  };
+});
+
+// node_modules/pngjs/lib/png-sync.js
+var require_png_sync = __commonJS((exports) => {
+  var parse3 = require_parser_sync();
+  var pack = require_packer_sync();
+  exports.read = function(buffer, options) {
+    return parse3(buffer, options || {});
+  };
+  exports.write = function(png, options) {
+    return pack(png, options);
+  };
+});
+
+// node_modules/pngjs/lib/png.js
+var require_png = __commonJS((exports) => {
+  var util3 = __require("util");
+  var Stream = __require("stream");
+  var Parser = require_parser_async();
+  var Packer = require_packer_async();
+  var PNGSync = require_png_sync();
+  var PNG = exports.PNG = function(options) {
+    Stream.call(this);
+    options = options || {};
+    this.width = options.width | 0;
+    this.height = options.height | 0;
+    this.data = this.width > 0 && this.height > 0 ? Buffer.alloc(4 * this.width * this.height) : null;
+    if (options.fill && this.data) {
+      this.data.fill(0);
+    }
+    this.gamma = 0;
+    this.readable = this.writable = true;
+    this._parser = new Parser(options);
+    this._parser.on("error", this.emit.bind(this, "error"));
+    this._parser.on("close", this._handleClose.bind(this));
+    this._parser.on("metadata", this._metadata.bind(this));
+    this._parser.on("gamma", this._gamma.bind(this));
+    this._parser.on("parsed", function(data) {
+      this.data = data;
+      this.emit("parsed", data);
+    }.bind(this));
+    this._packer = new Packer(options);
+    this._packer.on("data", this.emit.bind(this, "data"));
+    this._packer.on("end", this.emit.bind(this, "end"));
+    this._parser.on("close", this._handleClose.bind(this));
+    this._packer.on("error", this.emit.bind(this, "error"));
+  };
+  util3.inherits(PNG, Stream);
+  PNG.sync = PNGSync;
+  PNG.prototype.pack = function() {
+    if (!this.data || !this.data.length) {
+      this.emit("error", "No data provided");
+      return this;
+    }
+    process.nextTick(function() {
+      this._packer.pack(this.data, this.width, this.height, this.gamma);
+    }.bind(this));
+    return this;
+  };
+  PNG.prototype.parse = function(data, callback) {
+    if (callback) {
+      let onParsed, onError;
+      onParsed = function(parsedData) {
+        this.removeListener("error", onError);
+        this.data = parsedData;
+        callback(null, this);
+      }.bind(this);
+      onError = function(err2) {
+        this.removeListener("parsed", onParsed);
+        callback(err2, null);
+      }.bind(this);
+      this.once("parsed", onParsed);
+      this.once("error", onError);
+    }
+    this.end(data);
+    return this;
+  };
+  PNG.prototype.write = function(data) {
+    this._parser.write(data);
+    return true;
+  };
+  PNG.prototype.end = function(data) {
+    this._parser.end(data);
+  };
+  PNG.prototype._metadata = function(metadata) {
+    this.width = metadata.width;
+    this.height = metadata.height;
+    this.emit("metadata", metadata);
+  };
+  PNG.prototype._gamma = function(gamma) {
+    this.gamma = gamma;
+  };
+  PNG.prototype._handleClose = function() {
+    if (!this._parser.writable && !this._packer.readable) {
+      this.emit("close");
+    }
+  };
+  PNG.bitblt = function(src, dst, srcX, srcY, width, height, deltaX, deltaY) {
+    srcX |= 0;
+    srcY |= 0;
+    width |= 0;
+    height |= 0;
+    deltaX |= 0;
+    deltaY |= 0;
+    if (srcX > src.width || srcY > src.height || srcX + width > src.width || srcY + height > src.height) {
+      throw new Error("bitblt reading outside image");
+    }
+    if (deltaX > dst.width || deltaY > dst.height || deltaX + width > dst.width || deltaY + height > dst.height) {
+      throw new Error("bitblt writing outside image");
+    }
+    for (let y = 0;y < height; y++) {
+      src.data.copy(dst.data, (deltaY + y) * dst.width + deltaX << 2, (srcY + y) * src.width + srcX << 2, (srcY + y) * src.width + srcX + width << 2);
+    }
+  };
+  PNG.prototype.bitblt = function(dst, srcX, srcY, width, height, deltaX, deltaY) {
+    PNG.bitblt(this, dst, srcX, srcY, width, height, deltaX, deltaY);
+    return this;
+  };
+  PNG.adjustGamma = function(src) {
+    if (src.gamma) {
+      for (let y = 0;y < src.height; y++) {
+        for (let x2 = 0;x2 < src.width; x2++) {
+          let idx = src.width * y + x2 << 2;
+          for (let i2 = 0;i2 < 3; i2++) {
+            let sample = src.data[idx + i2] / 255;
+            sample = Math.pow(sample, 1 / 2.2 / src.gamma);
+            src.data[idx + i2] = Math.round(sample * 255);
+          }
+        }
+      }
+      src.gamma = 0;
+    }
+  };
+  PNG.prototype.adjustGamma = function() {
+    PNG.adjustGamma(this);
+  };
+});
+
+// node_modules/qrcode/lib/renderer/utils.js
+var require_utils5 = __commonJS((exports) => {
+  function hex2rgba(hex) {
+    if (typeof hex === "number") {
+      hex = hex.toString();
+    }
+    if (typeof hex !== "string") {
+      throw new Error("Color should be defined as hex string");
+    }
+    let hexCode = hex.slice().replace("#", "").split("");
+    if (hexCode.length < 3 || hexCode.length === 5 || hexCode.length > 8) {
+      throw new Error("Invalid hex color: " + hex);
+    }
+    if (hexCode.length === 3 || hexCode.length === 4) {
+      hexCode = Array.prototype.concat.apply([], hexCode.map(function(c) {
+        return [c, c];
+      }));
+    }
+    if (hexCode.length === 6)
+      hexCode.push("F", "F");
+    const hexValue = parseInt(hexCode.join(""), 16);
+    return {
+      r: hexValue >> 24 & 255,
+      g: hexValue >> 16 & 255,
+      b: hexValue >> 8 & 255,
+      a: hexValue & 255,
+      hex: "#" + hexCode.slice(0, 6).join("")
+    };
+  }
+  exports.getOptions = function getOptions(options) {
+    if (!options)
+      options = {};
+    if (!options.color)
+      options.color = {};
+    const margin = typeof options.margin === "undefined" || options.margin === null || options.margin < 0 ? 4 : options.margin;
+    const width = options.width && options.width >= 21 ? options.width : undefined;
+    const scale = options.scale || 4;
+    return {
+      width,
+      scale: width ? 4 : scale,
+      margin,
+      color: {
+        dark: hex2rgba(options.color.dark || "#000000ff"),
+        light: hex2rgba(options.color.light || "#ffffffff")
+      },
+      type: options.type,
+      rendererOpts: options.rendererOpts || {}
+    };
+  };
+  exports.getScale = function getScale(qrSize, opts) {
+    return opts.width && opts.width >= qrSize + opts.margin * 2 ? opts.width / (qrSize + opts.margin * 2) : opts.scale;
+  };
+  exports.getImageWidth = function getImageWidth(qrSize, opts) {
+    const scale = exports.getScale(qrSize, opts);
+    return Math.floor((qrSize + opts.margin * 2) * scale);
+  };
+  exports.qrToImageData = function qrToImageData(imgData, qr, opts) {
+    const size = qr.modules.size;
+    const data = qr.modules.data;
+    const scale = exports.getScale(size, opts);
+    const symbolSize = Math.floor((size + opts.margin * 2) * scale);
+    const scaledMargin = opts.margin * scale;
+    const palette = [opts.color.light, opts.color.dark];
+    for (let i2 = 0;i2 < symbolSize; i2++) {
+      for (let j = 0;j < symbolSize; j++) {
+        let posDst = (i2 * symbolSize + j) * 4;
+        let pxColor = opts.color.light;
+        if (i2 >= scaledMargin && j >= scaledMargin && i2 < symbolSize - scaledMargin && j < symbolSize - scaledMargin) {
+          const iSrc = Math.floor((i2 - scaledMargin) / scale);
+          const jSrc = Math.floor((j - scaledMargin) / scale);
+          pxColor = palette[data[iSrc * size + jSrc] ? 1 : 0];
+        }
+        imgData[posDst++] = pxColor.r;
+        imgData[posDst++] = pxColor.g;
+        imgData[posDst++] = pxColor.b;
+        imgData[posDst] = pxColor.a;
+      }
+    }
+  };
+});
+
+// node_modules/qrcode/lib/renderer/png.js
+var require_png2 = __commonJS((exports) => {
+  var fs = __require("fs");
+  var PNG = require_png().PNG;
+  var Utils = require_utils5();
+  exports.render = function render(qrData, options) {
+    const opts = Utils.getOptions(options);
+    const pngOpts = opts.rendererOpts;
+    const size = Utils.getImageWidth(qrData.modules.size, opts);
+    pngOpts.width = size;
+    pngOpts.height = size;
+    const pngImage = new PNG(pngOpts);
+    Utils.qrToImageData(pngImage.data, qrData, opts);
+    return pngImage;
+  };
+  exports.renderToDataURL = function renderToDataURL(qrData, options, cb) {
+    if (typeof cb === "undefined") {
+      cb = options;
+      options = undefined;
+    }
+    exports.renderToBuffer(qrData, options, function(err2, output) {
+      if (err2)
+        cb(err2);
+      let url = "data:image/png;base64,";
+      url += output.toString("base64");
+      cb(null, url);
+    });
+  };
+  exports.renderToBuffer = function renderToBuffer(qrData, options, cb) {
+    if (typeof cb === "undefined") {
+      cb = options;
+      options = undefined;
+    }
+    const png = exports.render(qrData, options);
+    const buffer = [];
+    png.on("error", cb);
+    png.on("data", function(data) {
+      buffer.push(data);
+    });
+    png.on("end", function() {
+      cb(null, Buffer.concat(buffer));
+    });
+    png.pack();
+  };
+  exports.renderToFile = function renderToFile(path, qrData, options, cb) {
+    if (typeof cb === "undefined") {
+      cb = options;
+      options = undefined;
+    }
+    let called = false;
+    const done = (...args) => {
+      if (called)
+        return;
+      called = true;
+      cb.apply(null, args);
+    };
+    const stream = fs.createWriteStream(path);
+    stream.on("error", done);
+    stream.on("close", done);
+    exports.renderToFileStream(stream, qrData, options);
+  };
+  exports.renderToFileStream = function renderToFileStream(stream, qrData, options) {
+    const png = exports.render(qrData, options);
+    png.pack().pipe(stream);
+  };
+});
+
+// node_modules/qrcode/lib/renderer/utf8.js
+var require_utf8 = __commonJS((exports) => {
+  var Utils = require_utils5();
+  var BLOCK_CHAR = {
+    WW: " ",
+    WB: "▄",
+    BB: "█",
+    BW: "▀"
+  };
+  var INVERTED_BLOCK_CHAR = {
+    BB: " ",
+    BW: "▄",
+    WW: "█",
+    WB: "▀"
+  };
+  function getBlockChar(top, bottom, blocks) {
+    if (top && bottom)
+      return blocks.BB;
+    if (top && !bottom)
+      return blocks.BW;
+    if (!top && bottom)
+      return blocks.WB;
+    return blocks.WW;
+  }
+  exports.render = function(qrData, options, cb) {
+    const opts = Utils.getOptions(options);
+    let blocks = BLOCK_CHAR;
+    if (opts.color.dark.hex === "#ffffff" || opts.color.light.hex === "#000000") {
+      blocks = INVERTED_BLOCK_CHAR;
+    }
+    const size = qrData.modules.size;
+    const data = qrData.modules.data;
+    let output = "";
+    let hMargin = Array(size + opts.margin * 2 + 1).join(blocks.WW);
+    hMargin = Array(opts.margin / 2 + 1).join(hMargin + `
+`);
+    const vMargin = Array(opts.margin + 1).join(blocks.WW);
+    output += hMargin;
+    for (let i2 = 0;i2 < size; i2 += 2) {
+      output += vMargin;
+      for (let j = 0;j < size; j++) {
+        const topModule = data[i2 * size + j];
+        const bottomModule = data[(i2 + 1) * size + j];
+        output += getBlockChar(topModule, bottomModule, blocks);
+      }
+      output += vMargin + `
+`;
+    }
+    output += hMargin.slice(0, -1);
+    if (typeof cb === "function") {
+      cb(null, output);
+    }
+    return output;
+  };
+  exports.renderToFile = function renderToFile(path, qrData, options, cb) {
+    if (typeof cb === "undefined") {
+      cb = options;
+      options = undefined;
+    }
+    const fs = __require("fs");
+    const utf8 = exports.render(qrData, options);
+    fs.writeFile(path, utf8, cb);
+  };
+});
+
+// node_modules/qrcode/lib/renderer/terminal/terminal.js
+var require_terminal = __commonJS((exports) => {
+  exports.render = function(qrData, options, cb) {
+    const size = qrData.modules.size;
+    const data = qrData.modules.data;
+    const black = "\x1B[40m  \x1B[0m";
+    const white = "\x1B[47m  \x1B[0m";
+    let output = "";
+    const hMargin = Array(size + 3).join(white);
+    const vMargin = Array(2).join(white);
+    output += hMargin + `
+`;
+    for (let i2 = 0;i2 < size; ++i2) {
+      output += white;
+      for (let j = 0;j < size; j++) {
+        output += data[i2 * size + j] ? black : white;
+      }
+      output += vMargin + `
+`;
+    }
+    output += hMargin + `
+`;
+    if (typeof cb === "function") {
+      cb(null, output);
+    }
+    return output;
+  };
+});
+
+// node_modules/qrcode/lib/renderer/terminal/terminal-small.js
+var require_terminal_small = __commonJS((exports) => {
+  var backgroundWhite = "\x1B[47m";
+  var backgroundBlack = "\x1B[40m";
+  var foregroundWhite = "\x1B[37m";
+  var foregroundBlack = "\x1B[30m";
+  var reset = "\x1B[0m";
+  var lineSetupNormal = backgroundWhite + foregroundBlack;
+  var lineSetupInverse = backgroundBlack + foregroundWhite;
+  var createPalette = function(lineSetup, foregroundWhite2, foregroundBlack2) {
+    return {
+      "00": reset + " " + lineSetup,
+      "01": reset + foregroundWhite2 + "▄" + lineSetup,
+      "02": reset + foregroundBlack2 + "▄" + lineSetup,
+      10: reset + foregroundWhite2 + "▀" + lineSetup,
+      11: " ",
+      12: "▄",
+      20: reset + foregroundBlack2 + "▀" + lineSetup,
+      21: "▀",
+      22: "█"
+    };
+  };
+  var mkCodePixel = function(modules, size, x2, y) {
+    const sizePlus = size + 1;
+    if (x2 >= sizePlus || y >= sizePlus || y < -1 || x2 < -1)
+      return "0";
+    if (x2 >= size || y >= size || y < 0 || x2 < 0)
+      return "1";
+    const idx = y * size + x2;
+    return modules[idx] ? "2" : "1";
+  };
+  var mkCode = function(modules, size, x2, y) {
+    return mkCodePixel(modules, size, x2, y) + mkCodePixel(modules, size, x2, y + 1);
+  };
+  exports.render = function(qrData, options, cb) {
+    const size = qrData.modules.size;
+    const data = qrData.modules.data;
+    const inverse = !!(options && options.inverse);
+    const lineSetup = options && options.inverse ? lineSetupInverse : lineSetupNormal;
+    const white = inverse ? foregroundBlack : foregroundWhite;
+    const black = inverse ? foregroundWhite : foregroundBlack;
+    const palette = createPalette(lineSetup, white, black);
+    const newLine = reset + `
+` + lineSetup;
+    let output = lineSetup;
+    for (let y = -1;y < size + 1; y += 2) {
+      for (let x2 = -1;x2 < size; x2++) {
+        output += palette[mkCode(data, size, x2, y)];
+      }
+      output += palette[mkCode(data, size, size, y)] + newLine;
+    }
+    output += reset;
+    if (typeof cb === "function") {
+      cb(null, output);
+    }
+    return output;
+  };
+});
+
+// node_modules/qrcode/lib/renderer/terminal.js
+var require_terminal2 = __commonJS((exports) => {
+  var big = require_terminal();
+  var small = require_terminal_small();
+  exports.render = function(qrData, options, cb) {
+    if (options && options.small) {
+      return small.render(qrData, options, cb);
+    }
+    return big.render(qrData, options, cb);
+  };
+});
+
+// node_modules/qrcode/lib/renderer/svg-tag.js
+var require_svg_tag = __commonJS((exports) => {
+  var Utils = require_utils5();
+  function getColorAttrib(color, attrib) {
+    const alpha = color.a / 255;
+    const str = attrib + '="' + color.hex + '"';
+    return alpha < 1 ? str + " " + attrib + '-opacity="' + alpha.toFixed(2).slice(1) + '"' : str;
+  }
+  function svgCmd(cmd, x2, y) {
+    let str = cmd + x2;
+    if (typeof y !== "undefined")
+      str += " " + y;
+    return str;
+  }
+  function qrToPath(data, size, margin) {
+    let path = "";
+    let moveBy = 0;
+    let newRow = false;
+    let lineLength = 0;
+    for (let i2 = 0;i2 < data.length; i2++) {
+      const col = Math.floor(i2 % size);
+      const row = Math.floor(i2 / size);
+      if (!col && !newRow)
+        newRow = true;
+      if (data[i2]) {
+        lineLength++;
+        if (!(i2 > 0 && col > 0 && data[i2 - 1])) {
+          path += newRow ? svgCmd("M", col + margin, 0.5 + row + margin) : svgCmd("m", moveBy, 0);
+          moveBy = 0;
+          newRow = false;
+        }
+        if (!(col + 1 < size && data[i2 + 1])) {
+          path += svgCmd("h", lineLength);
+          lineLength = 0;
+        }
+      } else {
+        moveBy++;
+      }
+    }
+    return path;
+  }
+  exports.render = function render(qrData, options, cb) {
+    const opts = Utils.getOptions(options);
+    const size = qrData.modules.size;
+    const data = qrData.modules.data;
+    const qrcodesize = size + opts.margin * 2;
+    const bg = !opts.color.light.a ? "" : "<path " + getColorAttrib(opts.color.light, "fill") + ' d="M0 0h' + qrcodesize + "v" + qrcodesize + 'H0z"/>';
+    const path = "<path " + getColorAttrib(opts.color.dark, "stroke") + ' d="' + qrToPath(data, size, opts.margin) + '"/>';
+    const viewBox = 'viewBox="' + "0 0 " + qrcodesize + " " + qrcodesize + '"';
+    const width = !opts.width ? "" : 'width="' + opts.width + '" height="' + opts.width + '" ';
+    const svgTag = '<svg xmlns="http://www.w3.org/2000/svg" ' + width + viewBox + ' shape-rendering="crispEdges">' + bg + path + `</svg>
+`;
+    if (typeof cb === "function") {
+      cb(null, svgTag);
+    }
+    return svgTag;
+  };
+});
+
+// node_modules/qrcode/lib/renderer/svg.js
+var require_svg = __commonJS((exports) => {
+  var svgTagRenderer = require_svg_tag();
+  exports.render = svgTagRenderer.render;
+  exports.renderToFile = function renderToFile(path, qrData, options, cb) {
+    if (typeof cb === "undefined") {
+      cb = options;
+      options = undefined;
+    }
+    const fs = __require("fs");
+    const svgTag = exports.render(qrData, options);
+    const xmlStr = '<?xml version="1.0" encoding="utf-8"?>' + '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">' + svgTag;
+    fs.writeFile(path, xmlStr, cb);
+  };
+});
+
+// node_modules/qrcode/lib/renderer/canvas.js
+var require_canvas = __commonJS((exports) => {
+  var Utils = require_utils5();
+  function clearCanvas(ctx, canvas, size) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!canvas.style)
+      canvas.style = {};
+    canvas.height = size;
+    canvas.width = size;
+    canvas.style.height = size + "px";
+    canvas.style.width = size + "px";
+  }
+  function getCanvasElement() {
+    try {
+      return document.createElement("canvas");
+    } catch (e) {
+      throw new Error("You need to specify a canvas element");
+    }
+  }
+  exports.render = function render(qrData, canvas, options) {
+    let opts = options;
+    let canvasEl = canvas;
+    if (typeof opts === "undefined" && (!canvas || !canvas.getContext)) {
+      opts = canvas;
+      canvas = undefined;
+    }
+    if (!canvas) {
+      canvasEl = getCanvasElement();
+    }
+    opts = Utils.getOptions(opts);
+    const size = Utils.getImageWidth(qrData.modules.size, opts);
+    const ctx = canvasEl.getContext("2d");
+    const image = ctx.createImageData(size, size);
+    Utils.qrToImageData(image.data, qrData, opts);
+    clearCanvas(ctx, canvasEl, size);
+    ctx.putImageData(image, 0, 0);
+    return canvasEl;
+  };
+  exports.renderToDataURL = function renderToDataURL(qrData, canvas, options) {
+    let opts = options;
+    if (typeof opts === "undefined" && (!canvas || !canvas.getContext)) {
+      opts = canvas;
+      canvas = undefined;
+    }
+    if (!opts)
+      opts = {};
+    const canvasEl = exports.render(qrData, canvas, opts);
+    const type = opts.type || "image/png";
+    const rendererOpts = opts.rendererOpts || {};
+    return canvasEl.toDataURL(type, rendererOpts.quality);
+  };
+});
+
+// node_modules/qrcode/lib/browser.js
+var require_browser2 = __commonJS((exports) => {
+  var canPromise = require_can_promise();
+  var QRCode = require_qrcode();
+  var CanvasRenderer = require_canvas();
+  var SvgRenderer = require_svg_tag();
+  function renderCanvas(renderFunc, canvas, text, opts, cb) {
+    const args = [].slice.call(arguments, 1);
+    const argsNum = args.length;
+    const isLastArgCb = typeof args[argsNum - 1] === "function";
+    if (!isLastArgCb && !canPromise()) {
+      throw new Error("Callback required as last argument");
+    }
+    if (isLastArgCb) {
+      if (argsNum < 2) {
+        throw new Error("Too few arguments provided");
+      }
+      if (argsNum === 2) {
+        cb = text;
+        text = canvas;
+        canvas = opts = undefined;
+      } else if (argsNum === 3) {
+        if (canvas.getContext && typeof cb === "undefined") {
+          cb = opts;
+          opts = undefined;
+        } else {
+          cb = opts;
+          opts = text;
+          text = canvas;
+          canvas = undefined;
+        }
+      }
+    } else {
+      if (argsNum < 1) {
+        throw new Error("Too few arguments provided");
+      }
+      if (argsNum === 1) {
+        text = canvas;
+        canvas = opts = undefined;
+      } else if (argsNum === 2 && !canvas.getContext) {
+        opts = text;
+        text = canvas;
+        canvas = undefined;
+      }
+      return new Promise(function(resolve, reject) {
+        try {
+          const data = QRCode.create(text, opts);
+          resolve(renderFunc(data, canvas, opts));
+        } catch (e) {
+          reject(e);
+        }
+      });
+    }
+    try {
+      const data = QRCode.create(text, opts);
+      cb(null, renderFunc(data, canvas, opts));
+    } catch (e) {
+      cb(e);
+    }
+  }
+  exports.create = QRCode.create;
+  exports.toCanvas = renderCanvas.bind(null, CanvasRenderer.render);
+  exports.toDataURL = renderCanvas.bind(null, CanvasRenderer.renderToDataURL);
+  exports.toString = renderCanvas.bind(null, function(data, _, opts) {
+    return SvgRenderer.render(data, opts);
+  });
+});
+
+// node_modules/qrcode/lib/server.js
+var require_server = __commonJS((exports) => {
+  var canPromise = require_can_promise();
+  var QRCode = require_qrcode();
+  var PngRenderer = require_png2();
+  var Utf8Renderer = require_utf8();
+  var TerminalRenderer = require_terminal2();
+  var SvgRenderer = require_svg();
+  function checkParams(text, opts, cb) {
+    if (typeof text === "undefined") {
+      throw new Error("String required as first argument");
+    }
+    if (typeof cb === "undefined") {
+      cb = opts;
+      opts = {};
+    }
+    if (typeof cb !== "function") {
+      if (!canPromise()) {
+        throw new Error("Callback required as last argument");
+      } else {
+        opts = cb || {};
+        cb = null;
+      }
+    }
+    return {
+      opts,
+      cb
+    };
+  }
+  function getTypeFromFilename(path) {
+    return path.slice((path.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
+  }
+  function getRendererFromType(type) {
+    switch (type) {
+      case "svg":
+        return SvgRenderer;
+      case "txt":
+      case "utf8":
+        return Utf8Renderer;
+      case "png":
+      case "image/png":
+      default:
+        return PngRenderer;
+    }
+  }
+  function getStringRendererFromType(type) {
+    switch (type) {
+      case "svg":
+        return SvgRenderer;
+      case "terminal":
+        return TerminalRenderer;
+      case "utf8":
+      default:
+        return Utf8Renderer;
+    }
+  }
+  function render(renderFunc, text, params) {
+    if (!params.cb) {
+      return new Promise(function(resolve, reject) {
+        try {
+          const data = QRCode.create(text, params.opts);
+          return renderFunc(data, params.opts, function(err2, data2) {
+            return err2 ? reject(err2) : resolve(data2);
+          });
+        } catch (e) {
+          reject(e);
+        }
+      });
+    }
+    try {
+      const data = QRCode.create(text, params.opts);
+      return renderFunc(data, params.opts, params.cb);
+    } catch (e) {
+      params.cb(e);
+    }
+  }
+  exports.create = QRCode.create;
+  exports.toCanvas = require_browser2().toCanvas;
+  exports.toString = function toString(text, opts, cb) {
+    const params = checkParams(text, opts, cb);
+    const type = params.opts ? params.opts.type : undefined;
+    const renderer = getStringRendererFromType(type);
+    return render(renderer.render, text, params);
+  };
+  exports.toDataURL = function toDataURL(text, opts, cb) {
+    const params = checkParams(text, opts, cb);
+    const renderer = getRendererFromType(params.opts.type);
+    return render(renderer.renderToDataURL, text, params);
+  };
+  exports.toBuffer = function toBuffer(text, opts, cb) {
+    const params = checkParams(text, opts, cb);
+    const renderer = getRendererFromType(params.opts.type);
+    return render(renderer.renderToBuffer, text, params);
+  };
+  exports.toFile = function toFile(path, text, opts, cb) {
+    if (typeof path !== "string" || !(typeof text === "string" || typeof text === "object")) {
+      throw new Error("Invalid argument");
+    }
+    if (arguments.length < 3 && !canPromise()) {
+      throw new Error("Too few arguments provided");
+    }
+    const params = checkParams(text, opts, cb);
+    const type = params.opts.type || getTypeFromFilename(path);
+    const renderer = getRendererFromType(type);
+    const renderToFile = renderer.renderToFile.bind(null, path);
+    return render(renderToFile, text, params);
+  };
+  exports.toFileStream = function toFileStream(stream, text, opts) {
+    if (arguments.length < 2) {
+      throw new Error("Too few arguments provided");
+    }
+    const params = checkParams(text, opts, stream.emit.bind(stream, "error"));
+    const renderer = getRendererFromType("png");
+    const renderToFileStream = renderer.renderToFileStream.bind(null, stream);
+    render(renderToFileStream, text, params);
+  };
+});
+
+// src/identity/role.repository.ts
+var roleRepository;
+var init_role_repository = __esm(() => {
+  init_pool();
+  init_snowflake();
+  roleRepository = {
+    async upsert(name, description, permissions) {
+      const r2 = await query(`
+      INSERT INTO roles (id, name, description, permissions)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (name) DO UPDATE SET description = $3, permissions = $4
+      RETURNING id, name, description, permissions
+    `, [nextSnowflake(), name, description, JSON.stringify(permissions)]);
+      return r2.rows[0];
+    },
+    async getById(id) {
+      const r2 = await query("SELECT id, name, description, permissions FROM roles WHERE id = $1", [id]);
+      return r2.rowCount ? r2.rows[0] : null;
+    },
+    async getByName(name) {
+      const r2 = await query("SELECT id, name, description, permissions FROM roles WHERE name = $1", [name]);
+      return r2.rowCount ? r2.rows[0] : null;
+    }
+  };
+});
+
+// src/scripts/seed-db.ts
+var exports_seed_db = {};
+__export(exports_seed_db, {
+  seedDatabase: () => seedDatabase
+});
+async function seedDatabase() {
+  console.log("Seeding database...");
+  const adminRole = await roleRepository.upsert("admin", "Administrador del sistema", { all: true });
+  const userRole = await roleRepository.upsert("user", "Usuario estándar", { basic: true });
+  const managerRole = await roleRepository.upsert("manager", "Gerente", { management: true });
+  console.log("Roles created");
+  const banecoId = nextSnowflake();
+  await query(`
+    INSERT INTO banks (id, code, name) VALUES ($1, 'BANECO', 'Banco Económico')
+    ON CONFLICT (code) DO NOTHING
+  `, [banecoId]);
+  const testCredId = nextSnowflake();
+  const prodCredId = nextSnowflake();
+  const iathingsCredId = nextSnowflake();
+  const credentials = [
+    { id: testCredId, bankId: banecoId, accountNumber: "1041070599", accountName: "Cuenta Test", merchantId: "MERCH001", username: "test_user", password: "enc_test_pass", encryptionKey: "enc_test_key", environment: "test", apiBaseUrl: "https://apimktdesa.baneco.com.bo/ApiGateway" },
+    { id: prodCredId, bankId: banecoId, accountNumber: "5021531650", accountName: "Cuenta Producción", merchantId: "MERCH002", username: "prod_user", password: "enc_prod_pass", encryptionKey: "enc_prod_key", environment: "prod", apiBaseUrl: "https://apimkt.baneco.com.bo/ApiGateway" },
+    { id: iathingsCredId, bankId: banecoId, accountNumber: "5021979319", accountName: "IATHINGS", merchantId: "MERCH003", username: "iathings_user", password: "enc_iathings_pass", encryptionKey: "enc_iathings_key", environment: "prod", apiBaseUrl: "https://apimkt.baneco.com.bo/ApiGateway" }
+  ];
+  for (const c of credentials) {
+    await query(`
+      INSERT INTO bank_credentials (id, bank_id, account_number, account_name, merchant_id, username, password, encryption_key, environment, api_base_url)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      ON CONFLICT DO NOTHING
+    `, [c.id, c.bankId, c.accountNumber, c.accountName, c.merchantId, c.username, c.password, c.encryptionKey, c.environment, c.apiBaseUrl]);
+  }
+  console.log("Bank credentials created");
+  const users = [
+    { email: "admin@pagui.com", password: "admin123", fullName: "Administrador del Sistema", phone: "76543210", address: "La Paz, Bolivia", roleId: adminRole.id },
+    { email: "usuario@example.com", password: "usuario123", fullName: "Usuario Demo", phone: "65432109", address: "Santa Cruz, Bolivia", roleId: userRole.id },
+    { email: "gerente@example.com", password: "gerente123", fullName: "Gerente Demo", phone: "55555555", address: "Cochabamba, Bolivia", roleId: managerRole.id },
+    { email: "iathings@example.com", password: "iathings123", fullName: "IATHINGS EMPRESARIAL", phone: "77777777", address: "La Paz, Bolivia", roleId: managerRole.id }
+  ];
+  const createdUsers = [];
+  for (const u of users) {
+    try {
+      const user = await userService.create(u);
+      createdUsers.push(user);
+      console.log(`  User ${u.email} created`);
+    } catch (e) {
+      console.log(`  User ${u.email} skipped: ${e.message}`);
+    }
+  }
+  const accountConfigs = [
+    { accountNumber: "100013101", accountType: "business", bankCredentialId: prodCredId, userId: createdUsers[0].id },
+    { accountNumber: "100011102", accountType: "current", bankCredentialId: testCredId, userId: createdUsers[1].id },
+    { accountNumber: "100013103", accountType: "business", bankCredentialId: prodCredId, userId: createdUsers[2].id },
+    { accountNumber: "100013104", accountType: "business", bankCredentialId: iathingsCredId, userId: createdUsers[3].id }
+  ];
+  for (const ac of accountConfigs) {
+    const a12 = await accountRepository.create(ac);
+    await accountRepository.linkUser(ac.userId, a12.id, "owner", true);
+    console.log(`  Account ${ac.accountNumber} created`);
+  }
+  for (const u of createdUsers) {
+    await walletRepository.create({ userId: u.id, name: "Principal", type: "personal" });
+    console.log(`  Wallet for ${u.email} created`);
+  }
+  await companyRepository.upsert({
+    slug: "empsaat",
+    name: "EMPSAAT",
+    colors: { primary: "#0047AB", secondary: "#FF6600" },
+    permissions: { qr_generate: true, qr_status: true },
+    config: { apiUrl: "https://api.empsaat.org.bo" }
+  });
+  await companyRepository.upsert({
+    slug: "empresa-b",
+    name: "Farmacia Salud Total",
+    colors: { primary: "#2E7D32", secondary: "#FFC107" },
+    permissions: { qr_generate: true, qr_status: true }
+  });
+  await companyRepository.upsert({
+    slug: "empresa-c",
+    name: "Taller Mecanico Rapido",
+    colors: { primary: "#C62828", secondary: "#424242" },
+    permissions: { qr_generate: true, qr_status: true }
+  });
+  console.log("Companies created");
+  await feeRepository.create({ transactionType: "p2p", feeType: "percentage", feeValue: 0.5, feeCap: 10, minAmount: 0 });
+  await feeRepository.create({ transactionType: "withdrawal", feeType: "fixed", feeValue: 2.5 });
+  await feeRepository.create({ transactionType: "topup", feeType: "percentage", feeValue: 1, feeCap: 15 });
+  console.log("Fee rules created");
+  const storedUsers = await query("SELECT id FROM users WHERE deleted_at IS NULL");
+  for (const row of storedUsers.rows) {
+    const accounts = await accountRepository.listByUser(row.id);
+    if (accounts.length > 0) {
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+      let key = "pg_";
+      for (let i2 = 0;i2 < 40; i2++)
+        key += chars.charAt(Math.floor(Math.random() * chars.length));
+      await query(`
+        INSERT INTO api_keys (id, api_key, account_id, description, permissions, status)
+        VALUES ($1, $2, $3, $4, $5, 'active')
+        ON CONFLICT (api_key) DO NOTHING
+      `, [nextSnowflake(), key, accounts[0].id, `API Key ${accounts[0].accountNumber}`, JSON.stringify({ qr_generate: true, qr_status: true, qr_cancel: true })]);
+    }
+  }
+  console.log("API keys created");
+  console.log("Seed completed");
 }
-var init_setup_bankeco_credentials = __esm(() => {
-  init_bank_credentials_service();
-  if (false) {}
+var init_seed_db = __esm(() => {
+  init_pool();
+  init_snowflake();
+  init_role_repository();
+  init_user_service();
+  init_account_repository();
+  init_wallet_repository();
+  init_company_repository();
+  init_fee_repository();
 });
 
 // node_modules/@sinclair/typebox/build/esm/type/guard/value.mjs
@@ -30265,794 +34715,6 @@ var cors = (config) => {
   });
 };
 
-// node_modules/croner/dist/croner.min.js
-function minitz(y, m, d, h, i2, s, tz, throwOnInvalid) {
-  return minitz.fromTZ(minitz.tp(y, m, d, h, i2, s, tz), throwOnInvalid);
-}
-minitz.fromTZISO = (localTimeStr, tz, throwOnInvalid) => {
-  return minitz.fromTZ(parseISOLocal(localTimeStr, tz), throwOnInvalid);
-};
-minitz.fromTZ = function(tp, throwOnInvalid) {
-  const inDate = new Date(Date.UTC(tp.y, tp.m - 1, tp.d, tp.h, tp.i, tp.s)), offset = getTimezoneOffset(tp.tz, inDate), dateGuess = new Date(inDate.getTime() - offset), dateOffsGuess = getTimezoneOffset(tp.tz, dateGuess);
-  if (dateOffsGuess - offset === 0) {
-    return dateGuess;
-  } else {
-    const dateGuess2 = new Date(inDate.getTime() - dateOffsGuess), dateOffsGuess2 = getTimezoneOffset(tp.tz, dateGuess2);
-    if (dateOffsGuess2 - dateOffsGuess === 0) {
-      return dateGuess2;
-    } else if (!throwOnInvalid && dateOffsGuess2 - dateOffsGuess > 0) {
-      return dateGuess2;
-    } else if (!throwOnInvalid) {
-      return dateGuess;
-    } else {
-      throw new Error("Invalid date passed to fromTZ()");
-    }
-  }
-};
-minitz.toTZ = function(d, tzStr) {
-  const localDateString = d.toLocaleString("en-US", { timeZone: tzStr }).replace(/[\u202f]/, " ");
-  const td2 = new Date(localDateString);
-  return { y: td2.getFullYear(), m: td2.getMonth() + 1, d: td2.getDate(), h: td2.getHours(), i: td2.getMinutes(), s: td2.getSeconds(), tz: tzStr };
-};
-minitz.tp = (y, m, d, h, i2, s, tz) => {
-  return { y, m, d, h, i: i2, s, tz };
-};
-function getTimezoneOffset(timeZone, date2 = new Date) {
-  const tz = date2.toLocaleString("en-US", { timeZone, timeZoneName: "short" }).split(" ").slice(-1)[0];
-  const dateString = date2.toLocaleString("en-US").replace(/[\u202f]/, " ");
-  return Date.parse(`${dateString} GMT`) - Date.parse(`${dateString} ${tz}`);
-}
-function parseISOLocal(dtStr, tz) {
-  const pd = new Date(Date.parse(dtStr));
-  if (isNaN(pd)) {
-    throw new Error("minitz: Invalid ISO8601 passed to parser.");
-  }
-  const stringEnd = dtStr.substring(9);
-  if (dtStr.includes("Z") || stringEnd.includes("-") || stringEnd.includes("+")) {
-    return minitz.tp(pd.getUTCFullYear(), pd.getUTCMonth() + 1, pd.getUTCDate(), pd.getUTCHours(), pd.getUTCMinutes(), pd.getUTCSeconds(), "Etc/UTC");
-  } else {
-    return minitz.tp(pd.getFullYear(), pd.getMonth() + 1, pd.getDate(), pd.getHours(), pd.getMinutes(), pd.getSeconds(), tz);
-  }
-}
-minitz.minitz = minitz;
-function CronOptions(options) {
-  if (options === undefined) {
-    options = {};
-  }
-  delete options.name;
-  options.legacyMode = options.legacyMode === undefined ? true : options.legacyMode;
-  options.paused = options.paused === undefined ? false : options.paused;
-  options.maxRuns = options.maxRuns === undefined ? Infinity : options.maxRuns;
-  options.catch = options.catch === undefined ? false : options.catch;
-  options.interval = options.interval === undefined ? 0 : parseInt(options.interval, 10);
-  options.utcOffset = options.utcOffset === undefined ? undefined : parseInt(options.utcOffset, 10);
-  options.unref = options.unref === undefined ? false : options.unref;
-  if (options.startAt) {
-    options.startAt = new CronDate(options.startAt, options.timezone);
-  }
-  if (options.stopAt) {
-    options.stopAt = new CronDate(options.stopAt, options.timezone);
-  }
-  if (options.interval !== null) {
-    if (isNaN(options.interval)) {
-      throw new Error("CronOptions: Supplied value for interval is not a number");
-    } else if (options.interval < 0) {
-      throw new Error("CronOptions: Supplied value for interval can not be negative");
-    }
-  }
-  if (options.utcOffset !== undefined) {
-    if (isNaN(options.utcOffset)) {
-      throw new Error("CronOptions: Invalid value passed for utcOffset, should be number representing minutes offset from UTC.");
-    } else if (options.utcOffset < -870 || options.utcOffset > 870) {
-      throw new Error("CronOptions: utcOffset out of bounds.");
-    }
-    if (options.utcOffset !== undefined && options.timezone) {
-      throw new Error("CronOptions: Combining 'utcOffset' with 'timezone' is not allowed.");
-    }
-  }
-  if (options.unref !== true && options.unref !== false) {
-    throw new Error("CronOptions: Unref should be either true, false or undefined(false).");
-  }
-  return options;
-}
-var DaysOfMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-var RecursionSteps = [["month", "year", 0], ["day", "month", -1], ["hour", "day", 0], ["minute", "hour", 0], ["second", "minute", 0]];
-function CronDate(d, tz) {
-  this.tz = tz;
-  if (d && d instanceof Date) {
-    if (!isNaN(d)) {
-      this.fromDate(d);
-    } else {
-      throw new TypeError("CronDate: Invalid date passed to CronDate constructor");
-    }
-  } else if (d === undefined) {
-    this.fromDate(new Date);
-  } else if (d && typeof d === "string") {
-    this.fromString(d);
-  } else if (d instanceof CronDate) {
-    this.fromCronDate(d);
-  } else {
-    throw new TypeError("CronDate: Invalid type (" + typeof d + ") passed to CronDate constructor");
-  }
-}
-CronDate.prototype.fromDate = function(inDate) {
-  if (this.tz !== undefined) {
-    if (typeof this.tz === "number") {
-      this.ms = inDate.getUTCMilliseconds();
-      this.second = inDate.getUTCSeconds();
-      this.minute = inDate.getUTCMinutes() + this.tz;
-      this.hour = inDate.getUTCHours();
-      this.day = inDate.getUTCDate();
-      this.month = inDate.getUTCMonth();
-      this.year = inDate.getUTCFullYear();
-      this.apply();
-    } else {
-      const d = minitz.toTZ(inDate, this.tz);
-      this.ms = inDate.getMilliseconds();
-      this.second = d.s;
-      this.minute = d.i;
-      this.hour = d.h;
-      this.day = d.d;
-      this.month = d.m - 1;
-      this.year = d.y;
-    }
-  } else {
-    this.ms = inDate.getMilliseconds();
-    this.second = inDate.getSeconds();
-    this.minute = inDate.getMinutes();
-    this.hour = inDate.getHours();
-    this.day = inDate.getDate();
-    this.month = inDate.getMonth();
-    this.year = inDate.getFullYear();
-  }
-};
-CronDate.prototype.fromCronDate = function(d) {
-  this.tz = d.tz;
-  this.year = d.year;
-  this.month = d.month;
-  this.day = d.day;
-  this.hour = d.hour;
-  this.minute = d.minute;
-  this.second = d.second;
-  this.ms = d.ms;
-};
-CronDate.prototype.apply = function() {
-  if (this.month > 11 || this.day > DaysOfMonth[this.month] || this.hour > 59 || this.minute > 59 || this.second > 59 || this.hour < 0 || this.minute < 0 || this.second < 0) {
-    const d = new Date(Date.UTC(this.year, this.month, this.day, this.hour, this.minute, this.second, this.ms));
-    this.ms = d.getUTCMilliseconds();
-    this.second = d.getUTCSeconds();
-    this.minute = d.getUTCMinutes();
-    this.hour = d.getUTCHours();
-    this.day = d.getUTCDate();
-    this.month = d.getUTCMonth();
-    this.year = d.getUTCFullYear();
-    return true;
-  } else {
-    return false;
-  }
-};
-CronDate.prototype.fromString = function(str) {
-  return this.fromDate(minitz.fromTZISO(str, this.tz));
-};
-CronDate.prototype.findNext = function(options, target, pattern, offset) {
-  const originalTarget = this[target];
-  let lastDayOfMonth;
-  if (pattern.lastDayOfMonth || pattern.lastWeekdayOfMonth) {
-    if (this.month !== 1) {
-      lastDayOfMonth = DaysOfMonth[this.month];
-    } else {
-      lastDayOfMonth = new Date(Date.UTC(this.year, this.month + 1, 0, 0, 0, 0, 0)).getUTCDate();
-    }
-  }
-  const fDomWeekDay = !pattern.starDOW && target == "day" ? new Date(Date.UTC(this.year, this.month, 1, 0, 0, 0, 0)).getUTCDay() : undefined;
-  for (let i2 = this[target] + offset;i2 < pattern[target].length; i2++) {
-    let match = pattern[target][i2];
-    if (target === "day" && pattern.lastDayOfMonth && i2 - offset == lastDayOfMonth) {
-      match = true;
-    }
-    if (target === "day" && !pattern.starDOW) {
-      let dowMatch = pattern.dayOfWeek[(fDomWeekDay + (i2 - offset - 1)) % 7];
-      if (dowMatch && pattern.lastWeekdayOfMonth) {
-        dowMatch = dowMatch && i2 - offset > lastDayOfMonth - 7;
-      }
-      if (options.legacyMode && !pattern.starDOM) {
-        match = match || dowMatch;
-      } else {
-        match = match && dowMatch;
-      }
-    }
-    if (match) {
-      this[target] = i2 - offset;
-      return originalTarget !== this[target] ? 2 : 1;
-    }
-  }
-  return 3;
-};
-CronDate.prototype.recurse = function(pattern, options, doing) {
-  const res = this.findNext(options, RecursionSteps[doing][0], pattern, RecursionSteps[doing][2]);
-  if (res > 1) {
-    let resetLevel = doing + 1;
-    while (resetLevel < RecursionSteps.length) {
-      this[RecursionSteps[resetLevel][0]] = -RecursionSteps[resetLevel][2];
-      resetLevel++;
-    }
-    if (res === 3) {
-      this[RecursionSteps[doing][1]]++;
-      this[RecursionSteps[doing][0]] = -RecursionSteps[doing][2];
-      this.apply();
-      return this.recurse(pattern, options, 0);
-    } else if (this.apply()) {
-      return this.recurse(pattern, options, doing - 1);
-    }
-  }
-  doing += 1;
-  if (doing >= RecursionSteps.length) {
-    return this;
-  } else if (this.year >= 3000) {
-    return null;
-  } else {
-    return this.recurse(pattern, options, doing);
-  }
-};
-CronDate.prototype.increment = function(pattern, options, hasPreviousRun) {
-  this.second += options.interval > 1 && hasPreviousRun ? options.interval : 1;
-  this.ms = 0;
-  this.apply();
-  return this.recurse(pattern, options, 0);
-};
-CronDate.prototype.getDate = function(internal) {
-  if (internal || this.tz === undefined) {
-    return new Date(this.year, this.month, this.day, this.hour, this.minute, this.second, this.ms);
-  } else {
-    if (typeof this.tz === "number") {
-      return new Date(Date.UTC(this.year, this.month, this.day, this.hour, this.minute - this.tz, this.second, this.ms));
-    } else {
-      return minitz(this.year, this.month + 1, this.day, this.hour, this.minute, this.second, this.tz);
-    }
-  }
-};
-CronDate.prototype.getTime = function() {
-  return this.getDate().getTime();
-};
-function CronPattern(pattern, timezone) {
-  this.pattern = pattern;
-  this.timezone = timezone;
-  this.second = Array(60).fill(0);
-  this.minute = Array(60).fill(0);
-  this.hour = Array(24).fill(0);
-  this.day = Array(31).fill(0);
-  this.month = Array(12).fill(0);
-  this.dayOfWeek = Array(8).fill(0);
-  this.lastDayOfMonth = false;
-  this.lastWeekdayOfMonth = false;
-  this.starDOM = false;
-  this.starDOW = false;
-  this.parse();
-}
-CronPattern.prototype.parse = function() {
-  if (!(typeof this.pattern === "string" || this.pattern.constructor === String)) {
-    throw new TypeError("CronPattern: Pattern has to be of type string.");
-  }
-  if (this.pattern.indexOf("@") >= 0)
-    this.pattern = this.handleNicknames(this.pattern).trim();
-  const parts = this.pattern.replace(/\s+/g, " ").split(" ");
-  if (parts.length < 5 || parts.length > 6) {
-    throw new TypeError("CronPattern: invalid configuration format ('" + this.pattern + "'), exacly five or six space separated parts required.");
-  }
-  if (parts.length === 5) {
-    parts.unshift("0");
-  }
-  if (parts[3].indexOf("L") >= 0) {
-    parts[3] = parts[3].replace("L", "");
-    this.lastDayOfMonth = true;
-  }
-  if (parts[5].indexOf("L") >= 0) {
-    parts[5] = parts[5].replace("L", "");
-    this.lastWeekdayOfMonth = true;
-  }
-  if (parts[3] == "*") {
-    this.starDOM = true;
-  }
-  if (parts[4].length >= 3)
-    parts[4] = this.replaceAlphaMonths(parts[4]);
-  if (parts[5].length >= 3)
-    parts[5] = this.replaceAlphaDays(parts[5]);
-  if (parts[5] == "*") {
-    this.starDOW = true;
-  }
-  if (this.pattern.indexOf("?") >= 0) {
-    const initDate = new CronDate(new Date, this.timezone).getDate(true);
-    parts[0] = parts[0].replace("?", initDate.getSeconds());
-    parts[1] = parts[1].replace("?", initDate.getMinutes());
-    parts[2] = parts[2].replace("?", initDate.getHours());
-    if (!this.starDOM)
-      parts[3] = parts[3].replace("?", initDate.getDate());
-    parts[4] = parts[4].replace("?", initDate.getMonth() + 1);
-    if (!this.starDOW)
-      parts[5] = parts[5].replace("?", initDate.getDay());
-  }
-  this.throwAtIllegalCharacters(parts);
-  this.partToArray("second", parts[0], 0);
-  this.partToArray("minute", parts[1], 0);
-  this.partToArray("hour", parts[2], 0);
-  this.partToArray("day", parts[3], -1);
-  this.partToArray("month", parts[4], -1);
-  this.partToArray("dayOfWeek", parts[5], 0);
-  if (this.dayOfWeek[7]) {
-    this.dayOfWeek[0] = 1;
-  }
-};
-CronPattern.prototype.partToArray = function(type, conf, valueIndexOffset) {
-  const arr = this[type];
-  if (conf === "*")
-    return arr.fill(1);
-  const split = conf.split(",");
-  if (split.length > 1) {
-    for (let i2 = 0;i2 < split.length; i2++) {
-      this.partToArray(type, split[i2], valueIndexOffset);
-    }
-  } else if (conf.indexOf("-") !== -1 && conf.indexOf("/") !== -1) {
-    this.handleRangeWithStepping(conf, type, valueIndexOffset);
-  } else if (conf.indexOf("-") !== -1) {
-    this.handleRange(conf, type, valueIndexOffset);
-  } else if (conf.indexOf("/") !== -1) {
-    this.handleStepping(conf, type, valueIndexOffset);
-  } else if (conf !== "") {
-    this.handleNumber(conf, type, valueIndexOffset);
-  }
-};
-CronPattern.prototype.throwAtIllegalCharacters = function(parts) {
-  const reValidCron = /[^/*0-9,-]+/;
-  for (let i2 = 0;i2 < parts.length; i2++) {
-    if (reValidCron.test(parts[i2])) {
-      throw new TypeError("CronPattern: configuration entry " + i2 + " (" + parts[i2] + ") contains illegal characters.");
-    }
-  }
-};
-CronPattern.prototype.handleNumber = function(conf, type, valueIndexOffset) {
-  const i2 = parseInt(conf, 10) + valueIndexOffset;
-  if (isNaN(i2)) {
-    throw new TypeError("CronPattern: " + type + " is not a number: '" + conf + "'");
-  }
-  if (i2 < 0 || i2 >= this[type].length) {
-    throw new TypeError("CronPattern: " + type + " value out of range: '" + conf + "'");
-  }
-  this[type][i2] = 1;
-};
-CronPattern.prototype.handleRangeWithStepping = function(conf, type, valueIndexOffset) {
-  const matches = conf.match(/^(\d+)-(\d+)\/(\d+)$/);
-  if (matches === null)
-    throw new TypeError("CronPattern: Syntax error, illegal range with stepping: '" + conf + "'");
-  let [, lower, upper, steps] = matches;
-  lower = parseInt(lower, 10) + valueIndexOffset;
-  upper = parseInt(upper, 10) + valueIndexOffset;
-  steps = parseInt(steps, 10);
-  if (isNaN(lower))
-    throw new TypeError("CronPattern: Syntax error, illegal lower range (NaN)");
-  if (isNaN(upper))
-    throw new TypeError("CronPattern: Syntax error, illegal upper range (NaN)");
-  if (isNaN(steps))
-    throw new TypeError("CronPattern: Syntax error, illegal stepping: (NaN)");
-  if (steps === 0)
-    throw new TypeError("CronPattern: Syntax error, illegal stepping: 0");
-  if (steps > this[type].length)
-    throw new TypeError("CronPattern: Syntax error, steps cannot be greater than maximum value of part (" + this[type].length + ")");
-  if (lower < 0 || upper >= this[type].length)
-    throw new TypeError("CronPattern: Value out of range: '" + conf + "'");
-  if (lower > upper)
-    throw new TypeError("CronPattern: From value is larger than to value: '" + conf + "'");
-  for (let i2 = lower;i2 <= upper; i2 += steps) {
-    this[type][i2] = 1;
-  }
-};
-CronPattern.prototype.handleRange = function(conf, type, valueIndexOffset) {
-  const split = conf.split("-");
-  if (split.length !== 2) {
-    throw new TypeError("CronPattern: Syntax error, illegal range: '" + conf + "'");
-  }
-  const lower = parseInt(split[0], 10) + valueIndexOffset, upper = parseInt(split[1], 10) + valueIndexOffset;
-  if (isNaN(lower)) {
-    throw new TypeError("CronPattern: Syntax error, illegal lower range (NaN)");
-  } else if (isNaN(upper)) {
-    throw new TypeError("CronPattern: Syntax error, illegal upper range (NaN)");
-  }
-  if (lower < 0 || upper >= this[type].length) {
-    throw new TypeError("CronPattern: Value out of range: '" + conf + "'");
-  }
-  if (lower > upper) {
-    throw new TypeError("CronPattern: From value is larger than to value: '" + conf + "'");
-  }
-  for (let i2 = lower;i2 <= upper; i2++) {
-    this[type][i2] = 1;
-  }
-};
-CronPattern.prototype.handleStepping = function(conf, type) {
-  const split = conf.split("/");
-  if (split.length !== 2) {
-    throw new TypeError("CronPattern: Syntax error, illegal stepping: '" + conf + "'");
-  }
-  let start = 0;
-  if (split[0] !== "*") {
-    start = parseInt(split[0], 10);
-  }
-  const steps = parseInt(split[1], 10);
-  if (isNaN(steps))
-    throw new TypeError("CronPattern: Syntax error, illegal stepping: (NaN)");
-  if (steps === 0)
-    throw new TypeError("CronPattern: Syntax error, illegal stepping: 0");
-  if (steps > this[type].length)
-    throw new TypeError("CronPattern: Syntax error, max steps for part is (" + this[type].length + ")");
-  for (let i2 = start;i2 < this[type].length; i2 += steps) {
-    this[type][i2] = 1;
-  }
-};
-CronPattern.prototype.replaceAlphaDays = function(conf) {
-  return conf.replace(/-sun/gi, "-7").replace(/sun/gi, "0").replace(/mon/gi, "1").replace(/tue/gi, "2").replace(/wed/gi, "3").replace(/thu/gi, "4").replace(/fri/gi, "5").replace(/sat/gi, "6");
-};
-CronPattern.prototype.replaceAlphaMonths = function(conf) {
-  return conf.replace(/jan/gi, "1").replace(/feb/gi, "2").replace(/mar/gi, "3").replace(/apr/gi, "4").replace(/may/gi, "5").replace(/jun/gi, "6").replace(/jul/gi, "7").replace(/aug/gi, "8").replace(/sep/gi, "9").replace(/oct/gi, "10").replace(/nov/gi, "11").replace(/dec/gi, "12");
-};
-CronPattern.prototype.handleNicknames = function(pattern) {
-  const cleanPattern = pattern.trim().toLowerCase();
-  if (cleanPattern === "@yearly" || cleanPattern === "@annually") {
-    return "0 0 1 1 *";
-  } else if (cleanPattern === "@monthly") {
-    return "0 0 1 * *";
-  } else if (cleanPattern === "@weekly") {
-    return "0 0 * * 0";
-  } else if (cleanPattern === "@daily") {
-    return "0 0 * * *";
-  } else if (cleanPattern === "@hourly") {
-    return "0 * * * *";
-  } else {
-    return pattern;
-  }
-};
-function isFunction(v) {
-  return Object.prototype.toString.call(v) === "[object Function]" || typeof v === "function" || v instanceof Function;
-}
-function unrefTimer(timer) {
-  if (typeof Deno !== "undefined" && typeof Deno.unrefTimer !== "undefined") {
-    Deno.unrefTimer(timer);
-  } else if (timer && typeof timer.unref !== "undefined") {
-    timer.unref();
-  }
-}
-var maxDelay = 30 * 1000;
-var scheduledJobs = [];
-function Cron(pattern, fnOrOptions1, fnOrOptions2) {
-  if (!(this instanceof Cron)) {
-    return new Cron(pattern, fnOrOptions1, fnOrOptions2);
-  }
-  let options, func;
-  if (isFunction(fnOrOptions1)) {
-    func = fnOrOptions1;
-  } else if (typeof fnOrOptions1 === "object") {
-    options = fnOrOptions1;
-  } else if (fnOrOptions1 !== undefined) {
-    throw new Error("Cron: Invalid argument passed for optionsIn. Should be one of function, or object (options).");
-  }
-  if (isFunction(fnOrOptions2)) {
-    func = fnOrOptions2;
-  } else if (typeof fnOrOptions2 === "object") {
-    options = fnOrOptions2;
-  } else if (fnOrOptions2 !== undefined) {
-    throw new Error("Cron: Invalid argument passed for funcIn. Should be one of function, or object (options).");
-  }
-  this.name = options ? options.name : undefined;
-  this.options = CronOptions(options);
-  this._states = { kill: false, blocking: false, previousRun: undefined, currentRun: undefined, once: undefined, currentTimeout: undefined, maxRuns: options ? options.maxRuns : undefined, paused: options ? options.paused : false, pattern: undefined };
-  if (pattern && (pattern instanceof Date || typeof pattern === "string" && pattern.indexOf(":") > 0)) {
-    this._states.once = new CronDate(pattern, this.options.timezone || this.options.utcOffset);
-  } else {
-    this._states.pattern = new CronPattern(pattern, this.options.timezone);
-  }
-  if (this.name) {
-    const existing = scheduledJobs.find((j) => j.name === this.name);
-    if (existing) {
-      throw new Error("Cron: Tried to initialize new named job '" + this.name + "', but name already taken.");
-    } else {
-      scheduledJobs.push(this);
-    }
-  }
-  if (func !== undefined) {
-    this.fn = func;
-    this.schedule();
-  }
-  return this;
-}
-Cron.prototype.nextRun = function(prev) {
-  const next = this._next(prev);
-  return next ? next.getDate() : null;
-};
-Cron.prototype.nextRuns = function(n, previous) {
-  if (n > this._states.maxRuns) {
-    n = this._states.maxRuns;
-  }
-  const enumeration = [];
-  let prev = previous || this._states.currentRun;
-  while (n-- && (prev = this.nextRun(prev))) {
-    enumeration.push(prev);
-  }
-  return enumeration;
-};
-Cron.prototype.getPattern = function() {
-  return this._states.pattern ? this._states.pattern.pattern : undefined;
-};
-Cron.prototype.isRunning = function() {
-  const msLeft = this.msToNext(this._states.currentRun);
-  const isRunning = !this._states.paused;
-  const isScheduled = this.fn !== undefined;
-  const notIsKilled = !this._states.kill;
-  return isRunning && isScheduled && notIsKilled && msLeft !== null;
-};
-Cron.prototype.isStopped = function() {
-  return this._states.kill;
-};
-Cron.prototype.isBusy = function() {
-  return this._states.blocking;
-};
-Cron.prototype.currentRun = function() {
-  return this._states.currentRun ? this._states.currentRun.getDate() : null;
-};
-Cron.prototype.previousRun = function() {
-  return this._states.previousRun ? this._states.previousRun.getDate() : null;
-};
-Cron.prototype.msToNext = function(prev) {
-  const next = this._next(prev);
-  prev = new CronDate(prev, this.options.timezone || this.options.utcOffset);
-  if (next) {
-    return next.getTime(true) - prev.getTime(true);
-  } else {
-    return null;
-  }
-};
-Cron.prototype.stop = function() {
-  this._states.kill = true;
-  if (this._states.currentTimeout) {
-    clearTimeout(this._states.currentTimeout);
-  }
-  const jobIndex = scheduledJobs.indexOf(this);
-  if (jobIndex >= 0) {
-    scheduledJobs.splice(jobIndex, 1);
-  }
-};
-Cron.prototype.pause = function() {
-  this._states.paused = true;
-  return !this._states.kill;
-};
-Cron.prototype.resume = function() {
-  this._states.paused = false;
-  return !this._states.kill;
-};
-Cron.prototype.schedule = function(func, partial) {
-  if (func && this.fn) {
-    throw new Error("Cron: It is not allowed to schedule two functions using the same Croner instance.");
-  } else if (func) {
-    this.fn = func;
-  }
-  let waitMs = this.msToNext(partial ? partial : this._states.currentRun);
-  const target = this.nextRun(partial ? partial : this._states.currentRun);
-  if (waitMs === null || target === null)
-    return this;
-  if (waitMs > maxDelay) {
-    waitMs = maxDelay;
-  }
-  this._states.currentTimeout = setTimeout(() => this._checkTrigger(target), waitMs);
-  if (this._states.currentTimeout && this.options.unref) {
-    unrefTimer(this._states.currentTimeout);
-  }
-  return this;
-};
-Cron.prototype._trigger = async function(initiationDate) {
-  this._states.blocking = true;
-  this._states.currentRun = new CronDate(undefined, this.options.timezone || this.options.utcOffset);
-  if (this.options.catch) {
-    try {
-      await this.fn(this, this.options.context);
-    } catch (_e) {
-      if (isFunction(this.options.catch)) {
-        this.options.catch(_e, this);
-      }
-    }
-  } else {
-    await this.fn(this, this.options.context);
-  }
-  this._states.previousRun = new CronDate(initiationDate, this.options.timezone || this.options.utcOffset);
-  this._states.blocking = false;
-};
-Cron.prototype.trigger = async function() {
-  await this._trigger();
-};
-Cron.prototype._checkTrigger = function(target) {
-  const now = new Date, shouldRun = !this._states.paused && now.getTime() >= target, isBlocked = this._states.blocking && this.options.protect;
-  if (shouldRun && !isBlocked) {
-    this._states.maxRuns--;
-    this._trigger();
-  } else {
-    if (shouldRun && isBlocked && isFunction(this.options.protect)) {
-      setTimeout(() => this.options.protect(this), 0);
-    }
-  }
-  this.schedule(undefined, now);
-};
-Cron.prototype._next = function(prev) {
-  const hasPreviousRun = prev || this._states.currentRun ? true : false;
-  prev = new CronDate(prev, this.options.timezone || this.options.utcOffset);
-  if (this.options.startAt && prev && prev.getTime() < this.options.startAt.getTime()) {
-    prev = this.options.startAt;
-  }
-  const nextRun = this._states.once || new CronDate(prev, this.options.timezone || this.options.utcOffset).increment(this._states.pattern, this.options, hasPreviousRun);
-  if (this._states.once && this._states.once.getTime() <= prev.getTime()) {
-    return null;
-  } else if (nextRun === null || this._states.maxRuns <= 0 || this._states.kill || this.options.stopAt && nextRun.getTime() >= this.options.stopAt.getTime()) {
-    return null;
-  } else {
-    return nextRun;
-  }
-};
-Cron.Cron = Cron;
-Cron.scheduledJobs = scheduledJobs;
-
-// node_modules/@elysiajs/cron/dist/index.mjs
-var Days = /* @__PURE__ */ ((Days2) => {
-  Days2[Days2["SUNDAY"] = 0] = "SUNDAY";
-  Days2[Days2["MONDAY"] = 1] = "MONDAY";
-  Days2[Days2["TUESDAY"] = 2] = "TUESDAY";
-  Days2[Days2["WEDNESAY"] = 3] = "WEDNESAY";
-  Days2[Days2["THURSDAY"] = 4] = "THURSDAY";
-  Days2[Days2["FRIDAY"] = 5] = "FRIDAY";
-  Days2[Days2["SATURDAY"] = 6] = "SATURDAY";
-  return Days2;
-})(Days || {});
-var ConstantExpressions = /* @__PURE__ */ ((ConstantExpressions2) => {
-  ConstantExpressions2["EVERY_SECOND"] = "* * * * * *";
-  ConstantExpressions2["EVERY_5_SECONDS"] = "*/5 * * * * *";
-  ConstantExpressions2["EVERY_10_SECONDS"] = "*/10 * * * * *";
-  ConstantExpressions2["EVERY_30_SECONDS"] = "*/30 * * * * *";
-  ConstantExpressions2["EVERY_MINUTE"] = "*/1 * * * *";
-  ConstantExpressions2["EVERY_5_MINUTES"] = "0 */5 * * * *";
-  ConstantExpressions2["EVERY_10_MINUTES"] = "0 */10 * * * *";
-  ConstantExpressions2["EVERY_30_MINUTES"] = "0 */30 * * * *";
-  ConstantExpressions2["EVERY_HOUR"] = "0 0-23/1 * * *";
-  ConstantExpressions2["EVERY_2_HOURS"] = "0 0-23/2 * * *";
-  ConstantExpressions2["EVERY_3_HOURS"] = "0 0-23/3 * * *";
-  ConstantExpressions2["EVERY_4_HOURS"] = "0 0-23/4 * * *";
-  ConstantExpressions2["EVERY_5_HOURS"] = "0 0-23/5 * * *";
-  ConstantExpressions2["EVERY_6_HOURS"] = "0 0-23/6 * * *";
-  ConstantExpressions2["EVERY_7_HOURS"] = "0 0-23/7 * * *";
-  ConstantExpressions2["EVERY_8_HOURS"] = "0 0-23/8 * * *";
-  ConstantExpressions2["EVERY_9_HOURS"] = "0 0-23/9 * * *";
-  ConstantExpressions2["EVERY_10_HOURS"] = "0 0-23/10 * * *";
-  ConstantExpressions2["EVERY_11_HOURS"] = "0 0-23/11 * * *";
-  ConstantExpressions2["EVERY_12_HOURS"] = "0 0-23/12 * * *";
-  ConstantExpressions2["EVERY_DAY_AT_1AM"] = "0 01 * * *";
-  ConstantExpressions2["EVERY_DAY_AT_2AM"] = "0 02 * * *";
-  ConstantExpressions2["EVERY_DAY_AT_3AM"] = "0 03 * * *";
-  ConstantExpressions2["EVERY_DAY_AT_4AM"] = "0 04 * * *";
-  ConstantExpressions2["EVERY_DAY_AT_5AM"] = "0 05 * * *";
-  ConstantExpressions2["EVERY_DAY_AT_6AM"] = "0 06 * * *";
-  ConstantExpressions2["EVERY_DAY_AT_7AM"] = "0 07 * * *";
-  ConstantExpressions2["EVERY_DAY_AT_8AM"] = "0 08 * * *";
-  ConstantExpressions2["EVERY_DAY_AT_9AM"] = "0 09 * * *";
-  ConstantExpressions2["EVERY_DAY_AT_10AM"] = "0 10 * * *";
-  ConstantExpressions2["EVERY_DAY_AT_11AM"] = "0 11 * * *";
-  ConstantExpressions2["EVERY_DAY_AT_NOON"] = "0 12 * * *";
-  ConstantExpressions2["EVERY_DAY_AT_1PM"] = "0 13 * * *";
-  ConstantExpressions2["EVERY_DAY_AT_2PM"] = "0 14 * * *";
-  ConstantExpressions2["EVERY_DAY_AT_3PM"] = "0 15 * * *";
-  ConstantExpressions2["EVERY_DAY_AT_4PM"] = "0 16 * * *";
-  ConstantExpressions2["EVERY_DAY_AT_5PM"] = "0 17 * * *";
-  ConstantExpressions2["EVERY_DAY_AT_6PM"] = "0 18 * * *";
-  ConstantExpressions2["EVERY_DAY_AT_7PM"] = "0 19 * * *";
-  ConstantExpressions2["EVERY_DAY_AT_8PM"] = "0 20 * * *";
-  ConstantExpressions2["EVERY_DAY_AT_9PM"] = "0 21 * * *";
-  ConstantExpressions2["EVERY_DAY_AT_10PM"] = "0 22 * * *";
-  ConstantExpressions2["EVERY_DAY_AT_11PM"] = "0 23 * * *";
-  ConstantExpressions2["EVERY_DAY_AT_MIDNIGHT"] = "0 0 * * *";
-  ConstantExpressions2["EVERY_WEEK"] = "0 0 * * 0";
-  ConstantExpressions2["EVERY_WEEKDAY"] = "0 0 * * 1-5";
-  ConstantExpressions2["EVERY_WEEKEND"] = "0 0 * * 6,0";
-  ConstantExpressions2["EVERY_1ST_DAY_OF_MONTH_AT_MIDNIGHT"] = "0 0 1 * *";
-  ConstantExpressions2["EVERY_1ST_DAY_OF_MONTH_AT_NOON"] = "0 12 1 * *";
-  ConstantExpressions2["EVERY_2ND_HOUR"] = "0 */2 * * *";
-  ConstantExpressions2["EVERY_2ND_HOUR_FROM_1AM_THROUGH_11PM"] = "0 1-23/2 * * *";
-  ConstantExpressions2["EVERY_2ND_MONTH"] = "0 0 1 */2 *";
-  ConstantExpressions2["EVERY_QUARTER"] = "0 0 1 */3 *";
-  ConstantExpressions2["EVERY_6_MONTHS"] = "0 0 1 */6 *";
-  ConstantExpressions2["EVERY_YEAR"] = "0 0 1 1 *";
-  ConstantExpressions2["EVERY_30_MINUTES_BETWEEN_9AM_AND_5PM"] = "0 */30 9-17 * * *";
-  ConstantExpressions2["EVERY_30_MINUTES_BETWEEN_9AM_AND_6PM"] = "0 */30 9-18 * * *";
-  ConstantExpressions2["EVERY_30_MINUTES_BETWEEN_10AM_AND_7PM"] = "0 */30 10-19 * * *";
-  return ConstantExpressions2;
-})(ConstantExpressions || {});
-var FunctionExpressions = {
-  everySenconds(seconds = 1) {
-    return `*/${seconds} * * * * *`;
-  },
-  everyMinutes(minutes = 1) {
-    return `0 */${minutes} * * * *`;
-  },
-  everyHours(hours = 1) {
-    return `0 0-23/${hours} * * *`;
-  },
-  everyHoursAt(hours, minutes = 0) {
-    return `${minutes} 0-23/${hours} * * *`;
-  },
-  everyDayAt(time = "00:00") {
-    const [hours, minutes] = time.split(":");
-    return `${minutes} ${hours} 0 * *`;
-  },
-  everyWeekOn(day, time = "00:00") {
-    const [hours, minutes] = time.split(":");
-    return `${minutes} ${hours} * * ${day}`;
-  },
-  everyWeekdayAt(time = "00:00") {
-    const [hours, minutes] = time.split(":");
-    return `${minutes} ${hours} * * 1-5`;
-  },
-  everyWeekendAt(time = "00:00") {
-    const [hours, minutes] = time.split(":");
-    return `${minutes} ${hours} * * 6,0`;
-  },
-  everySecond() {
-    return "* * * * * *";
-  },
-  everyMinute() {
-    return "*/1 * * * *";
-  },
-  hourly() {
-    return "0 0-23/1 * * *";
-  },
-  daily() {
-    return "0 0 * * *";
-  },
-  everyWeekday() {
-    return "0 0 * * 1-5";
-  },
-  everyWeekend() {
-    return "0 0 * * 6,0";
-  },
-  weekly() {
-    return "0 0 * * 0";
-  },
-  monthly() {
-    return "0 0 1 * *";
-  },
-  everyQuarter() {
-    return "0 0 1 */3 *";
-  },
-  yearly() {
-    return "0 0 1 1 *";
-  }
-};
-var Patterns = {
-  ...FunctionExpressions,
-  ...Days,
-  ...ConstantExpressions
-};
-var cron = ({
-  pattern,
-  name,
-  run,
-  ...options
-}) => (app) => {
-  if (!pattern)
-    throw new Error("pattern is required");
-  if (!name)
-    throw new Error("name is required");
-  return app.state((store) => {
-    const prevCron = app.singleton.store?.cron ?? {};
-    return {
-      ...store,
-      cron: {
-        ...prevCron,
-        [name]: new Cron(pattern, options, () => run(app.singleton.store))
-      }
-    };
-  });
-};
-
 // node_modules/@scalar/themes/dist/presets/alternate.css2.js
 var a = `/* basic theme */
 :root {
@@ -37173,1368 +40835,1041 @@ var swagger = ({
 };
 
 // src/index.ts
-init_database();
+init_pool();
 
-// src/services/auth.service.ts
-init_database();
+// src/shared/database/migrate.ts
+init_pool();
+import { readdirSync, readFileSync, existsSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import crypto2 from "node:crypto";
 
-// src/services/user.service.ts
-init_database();
-init_error();
-var import_bcrypt = __toESM(require_bcrypt(), 1);
+// src/shared/sentry.ts
+var dsn = process.env.SENTRY_DSN;
+var initialized = false;
+var sentry = {
+  init() {
+    if (!dsn || initialized)
+      return;
+    initialized = true;
+    console.log("[sentry] initialized, DSN:", dsn.slice(0, 20) + "...");
+  },
+  captureError(error, extra) {
+    if (!initialized)
+      return;
+    console.error("[sentry] error:", error.message, extra || "");
+  },
+  captureEvent(event) {
+    if (!initialized)
+      return;
+    const label = event.level === "error" ? "[sentry]" : "[sentry]";
+    console.log(label, event.message, event.tags || "", event.extra || "");
+  },
+  setUser(userId) {
+    if (!initialized)
+      return;
+  },
+  async flush(timeoutMs = 2000) {
+    if (!initialized)
+      return;
+  }
+};
+sentry.init();
 
-class UserService {
-  async createUser(userData) {
+// src/shared/logger.ts
+import * as os from "node:os";
+var LEVELS = { debug: 0, info: 1, warn: 2, error: 3 };
+var CURRENT_LEVEL = process.env.LOG_LEVEL || "info";
+var correlationId = "";
+function setCorrelationId(id) {
+  correlationId = id;
+}
+var hostname2 = os.hostname();
+function log(level, message, meta) {
+  if (LEVELS[level] < LEVELS[CURRENT_LEVEL])
+    return;
+  const entry = {
+    timestamp: new Date().toISOString(),
+    level,
+    message,
+    hostname: hostname2,
+    pid: process.pid,
+    correlationId: correlationId || undefined,
+    ...meta
+  };
+  const output = JSON.stringify(entry);
+  if (level === "error") {
+    console.error(output);
+    if (meta?.error) {
+      sentry.captureError(meta.error instanceof Error ? meta.error : new Error(String(meta.error)), { correlationId, ...meta });
+    }
+  } else if (level === "warn") {
+    console.warn(output);
+  } else {
+    console.log(output);
+  }
+}
+var logger = {
+  debug: (msg, meta) => log("debug", msg, meta),
+  info: (msg, meta) => log("info", msg, meta),
+  warn: (msg, meta) => log("warn", msg, meta),
+  error: (msg, meta) => log("error", msg, meta),
+  child: (defaultMeta) => ({
+    debug: (msg, meta) => log("debug", msg, { ...defaultMeta, ...meta }),
+    info: (msg, meta) => log("info", msg, { ...defaultMeta, ...meta }),
+    warn: (msg, meta) => log("warn", msg, { ...defaultMeta, ...meta }),
+    error: (msg, meta) => log("error", msg, { ...defaultMeta, ...meta })
+  }),
+  flush: async () => {
+    await sentry.flush();
+  }
+};
+
+// src/shared/database/migrate.ts
+var __dirname2 = dirname(fileURLToPath(import.meta.url));
+var MIGRATIONS_DIR = join(__dirname2, "..", "..", "..", "migrations");
+async function migrateDB(forceReset = false) {
+  logger.info("Running migrations...", { forceReset });
+  if (forceReset) {
+    logger.warn("Force reset: dropping all tables and re-applying schema.sql");
+    const schemaPath = join(__dirname2, "..", "..", "..", "schema.sql");
+    if (!existsSync(schemaPath)) {
+      throw new Error("schema.sql not found");
+    }
+    const schema = readFileSync(schemaPath, "utf-8");
+    const client = await pool.connect();
     try {
-      const existingUser = await query(`
-        SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL
-      `, [userData.email]);
-      if (existingUser.rowCount && existingUser.rowCount > 0) {
-        throw new ApiError("El email ya está registrado", 400);
-      }
-      const hashedPassword = await import_bcrypt.default.hash(userData.password, 10);
-      const result = await query(`
-        INSERT INTO users (
-          email, password, full_name, phone, address, role_id, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, 'active')
-        RETURNING id
-      `, [
-        userData.email,
-        hashedPassword,
-        userData.fullName,
-        userData.phone,
-        userData.address,
-        userData.roleId
-      ]);
-      const userId = result.rows[0].id;
-      const user = await this.getUserById(userId);
-      if (!user) {
-        throw new ApiError("Error al crear usuario", 500);
-      }
-      return user;
-    } catch (error) {
-      throw error;
+      await client.query("BEGIN");
+      await client.query(schema);
+      await client.query("COMMIT");
+      logger.info("Schema applied successfully");
+    } catch (err2) {
+      await client.query("ROLLBACK");
+      logger.error("Schema migration failed", { error: String(err2) });
+      throw err2;
+    } finally {
+      client.release();
+    }
+    return;
+  }
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS _migrations (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(255) NOT NULL UNIQUE,
+      checksum VARCHAR(64) NOT NULL,
+      applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      duration_ms INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+  const migrationsDir = MIGRATIONS_DIR;
+  if (!existsSync(migrationsDir)) {
+    logger.info("No migrations directory found");
+    return;
+  }
+  const files = readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort();
+  const { rows: applied } = await query("SELECT name, checksum FROM _migrations");
+  const appliedMap = new Map(applied.map((r2) => [r2.name, r2.checksum]));
+  for (const file of files) {
+    if (appliedMap.has(file))
+      continue;
+    const sql = readFileSync(join(migrationsDir, file), "utf-8");
+    const checksum2 = crypto2.createHash("sha256").update(sql).digest("hex");
+    const start = Date.now();
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(sql);
+      await client.query("INSERT INTO _migrations (name, checksum, duration_ms) VALUES ($1, $2, $3)", [file, checksum2, Date.now() - start]);
+      await client.query("COMMIT");
+      logger.info(`Migration applied: ${file}`, { checksum: checksum2, durationMs: Date.now() - start });
+    } catch (err2) {
+      await client.query("ROLLBACK");
+      logger.error(`Migration failed: ${file}`, { error: String(err2) });
+      throw err2;
+    } finally {
+      client.release();
     }
   }
-  async getUserById(userId) {
-    try {
-      const result = await query(`
-        SELECT 
-          u.id, u.email, u.full_name as "fullName", u.phone, u.address, 
-          u.role_id as "roleId", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt",
-          r.name as "roleName"
-        FROM users u
-        JOIN roles r ON u.role_id = r.id
-        WHERE u.id = $1 AND u.deleted_at IS NULL
-      `, [userId]);
-      if (result.rowCount === 0) {
-        return null;
-      }
-      return result.rows[0];
-    } catch (error) {
-      throw error;
-    }
-  }
-  async getUserByEmail(email) {
-    try {
-      const result = await query(`
-        SELECT 
-          u.id, u.email, u.full_name as "fullName", u.business_id as "businessId",
-          u.entity_type as "entityType", u.identification_type as "identificationType",
-          u.identification_number as "identificationNumber", u.phone_number as "phoneNumber",
-          u.phone_extension as "phoneExtension", u.address, u.role_id as "roleId",
-          u.is_primary_user as "isPrimaryUser", u.parent_user_id as "parentUserId",
-          u.third_bank_credential_id as "bankCredentialId", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt",
-          r.name as "roleName"
-        FROM users u
-        JOIN roles r ON u.role_id = r.id
-        WHERE u.email = $1 AND u.deleted_at IS NULL
-      `, [email]);
-      if (result.rowCount === 0) {
-        return null;
-      }
-      return result.rows[0];
-    } catch (error) {
-      throw error;
-    }
-  }
-  async getUsers(filters = {}) {
-    try {
-      const page = filters.page || 1;
-      const limit = filters.limit || 20;
-      const offset = (page - 1) * limit;
-      let whereClause = "WHERE u.deleted_at IS NULL";
-      const params = [];
-      let paramCount = 0;
-      if (filters.search) {
-        paramCount++;
-        whereClause += ` AND (u.full_name ILIKE $${paramCount} OR u.email ILIKE $${paramCount})`;
-        params.push(`%${filters.search}%`);
-      }
-      if (filters.status) {
-        paramCount++;
-        whereClause += ` AND u.status = $${paramCount}`;
-        params.push(filters.status);
-      }
-      if (filters.roleId) {
-        paramCount++;
-        whereClause += ` AND u.role_id = $${paramCount}`;
-        params.push(filters.roleId);
-      }
-      const countResult = await query(`
-        SELECT COUNT(*) as total
-        FROM users u
-        ${whereClause}
-      `, params);
-      const totalCount = parseInt(countResult.rows[0].total);
-      const usersResult = await query(`
-        SELECT 
-          u.id, u.email, u.full_name as "fullName", u.phone, u.address, 
-          u.role_id as "roleId", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt",
-          r.name as "roleName"
-        FROM users u
-        JOIN roles r ON u.role_id = r.id
-        ${whereClause}
-        ORDER BY u.created_at DESC
-        LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
-      `, [...params, limit, offset]);
-      const users = usersResult.rows;
-      return {
-        users,
-        totalCount,
-        pagination: {
-          page,
-          limit,
-          totalPages: Math.ceil(totalCount / limit)
-        }
-      };
-    } catch (error) {
-      throw error;
-    }
-  }
-  async getEmployeeUsers(primaryUserId) {
+}
+async function getMigrationStatus() {
+  try {
+    const { rows } = await query("SELECT name, checksum, applied_at, duration_ms FROM _migrations ORDER BY applied_at");
+    return rows;
+  } catch {
     return [];
   }
-  async updateUser(userId, updateData) {
-    try {
-      const user = await this.getUserById(userId);
-      if (!user) {
-        throw new ApiError("Usuario no encontrado", 404);
-      }
-      const updateFields = [];
-      const params = [];
-      let paramCount = 0;
-      if (updateData.fullName !== undefined) {
-        paramCount++;
-        updateFields.push(`full_name = $${paramCount}`);
-        params.push(updateData.fullName);
-      }
-      if (updateData.phone !== undefined) {
-        paramCount++;
-        updateFields.push(`phone = $${paramCount}`);
-        params.push(updateData.phone);
-      }
-      if (updateData.address !== undefined) {
-        paramCount++;
-        updateFields.push(`address = $${paramCount}`);
-        params.push(updateData.address);
-      }
-      if (updateData.status !== undefined) {
-        paramCount++;
-        updateFields.push(`status = $${paramCount}`);
-        params.push(updateData.status);
-      }
-      if (updateFields.length === 0) {
-        throw new ApiError("No hay campos para actualizar", 400);
-      }
-      paramCount++;
-      updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
-      const result = await query(`
-        UPDATE users 
-        SET ${updateFields.join(", ")}
-        WHERE id = $${paramCount}
-        RETURNING id
-      `, [...params, userId]);
-      if (result.rowCount === 0) {
-        throw new ApiError("Error al actualizar usuario", 500);
-      }
-      const updatedUser = await this.getUserById(userId);
-      if (!updatedUser) {
-        throw new ApiError("Error al obtener usuario actualizado", 500);
-      }
-      return updatedUser;
-    } catch (error) {
-      throw error;
-    }
-  }
-  async changeUserPassword(userId, newPassword) {
-    try {
-      const user = await this.getUserById(userId);
-      if (!user) {
-        throw new ApiError("Usuario no encontrado", 404);
-      }
-      const hashedPassword = await import_bcrypt.default.hash(newPassword, 10);
-      const result = await query(`
-        UPDATE users 
-        SET password = $1, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2
-      `, [hashedPassword, userId]);
-      if (result.rowCount === 0) {
-        throw new ApiError("Error al cambiar contraseña", 500);
-      }
-      return true;
-    } catch (error) {
-      throw error;
-    }
-  }
-  async deleteUser(userId) {
-    try {
-      const user = await this.getUserById(userId);
-      if (!user) {
-        throw new ApiError("Usuario no encontrado", 404);
-      }
-      const result = await query(`
-        UPDATE users 
-        SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $1
-      `, [userId]);
-      if (result.rowCount === 0) {
-        throw new ApiError("Error al eliminar usuario", 500);
-      }
-      return true;
-    } catch (error) {
-      throw error;
-    }
-  }
-  async canCreateEmployees(userId) {
-    try {
-      const user = await this.getUserById(userId);
-      if (!user) {
-        return false;
-      }
-      return user.isPrimaryUser && user.entityType === "company";
-    } catch (error) {
-      return false;
-    }
-  }
-  async getUserStats(userId) {
-    try {
-      const user = await this.getUserById(userId);
-      if (!user) {
-        throw new ApiError("Usuario no encontrado", 404);
-      }
-      let stats = {
-        totalQRCodes: 0,
-        totalTransactions: 0,
-        totalEmployees: 0
-      };
-      const qrResult = await query(`
-        SELECT COUNT(*) as total FROM qr_codes 
-        WHERE user_id = $1 AND deleted_at IS NULL
-      `, [userId]);
-      stats.totalQRCodes = parseInt(qrResult.rows[0].total);
-      const transResult = await query(`
-        SELECT COUNT(*) as total FROM account_movements am
-        JOIN user_accounts ua ON am.account_id = ua.account_id
-        WHERE ua.user_id = $1 AND am.deleted_at IS NULL
-      `, [userId]);
-      stats.totalTransactions = parseInt(transResult.rows[0].total);
-      if (user.isPrimaryUser) {
-        const empResult = await query(`
-          SELECT COUNT(*) as total FROM users 
-          WHERE parent_user_id = $1 AND deleted_at IS NULL
-        `, [userId]);
-        stats.totalEmployees = parseInt(empResult.rows[0].total);
-      }
-      return stats;
-    } catch (error) {
-      throw error;
-    }
-  }
 }
-var userService = new UserService;
 
-// src/services/auth.service.ts
-init_error();
-var import_bcrypt2 = __toESM(require_bcrypt(), 1);
+// src/index.ts
+init_app_error();
+
+// src/shared/middleware/rate-limit.ts
+init_app_error();
+var store = new Map;
+function rateLimit(options = {}) {
+  const windowMs = options.windowMs || 60000;
+  const maxRequests = options.maxRequests || 60;
+  return new Elysia({ name: "rateLimit" }).derive({ as: "scoped" }, async (ctx) => {
+    const ip = ctx.headers["x-forwarded-for"] || ctx.headers["cf-connecting-ip"] || "unknown";
+    const key = `rl:${ip}:${Math.floor(Date.now() / windowMs)}`;
+    const now = Date.now();
+    let entry = store.get(key);
+    if (!entry || now > entry.resetAt) {
+      entry = { count: 0, resetAt: now + windowMs };
+      store.set(key, entry);
+    }
+    entry.count++;
+    if (entry.count > maxRequests) {
+      logger.warn("Rate limit exceeded", { ip, count: entry.count, maxRequests });
+      throw new AppError(429, "Demasiadas solicitudes. Intente más tarde.");
+    }
+    return {};
+  });
+}
+
+// src/shared/compliance/pci.service.ts
+init_pool();
+async function checkPCICompliance() {
+  const issues = [];
+  if (!process.env.ENCRYPTION_KEY || process.env.ENCRYPTION_KEY === "default-encryption-key-change-in-production!") {
+    issues.push("ENCRYPTION_KEY no configurada o es la default");
+  }
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET === "default-secret") {
+    issues.push("JWT_SECRET no configurado o es la default");
+  }
+  try {
+    const result = await query(`SELECT column_name, table_name FROM information_schema.columns
+       WHERE table_schema = 'public'
+       AND (column_name LIKE '%password%' OR column_name LIKE '%secret%' OR column_name LIKE '%token%')
+       AND data_type NOT IN ('bytea') AND is_updatable = 'YES'`);
+    for (const row of result.rows) {
+      issues.push(`Columna sensible sin cifrar: ${row.table_name}.${row.column_name}`);
+    }
+  } catch {}
+  return {
+    compliant: issues.length === 0,
+    issues
+  };
+}
+function complianceHeaders() {
+  return {
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "X-XSS-Protection": "1; mode=block",
+    "Content-Security-Policy": "default-src 'self'",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(self)",
+    "Cache-Control": "no-store",
+    Pragma: "no-cache"
+  };
+}
+async function logComplianceCheck() {
+  const result = await checkPCICompliance();
+  if (!result.compliant) {
+    logger.warn("PCI compliance issues", { issues: result.issues });
+    for (const issue of result.issues) {
+      logger.error(`PCI: ${issue}`);
+    }
+  }
+  return result;
+}
+
+// src/identity/auth.service.ts
+init_pool();
+init_app_error();
+init_snowflake();
+init_user_repository();
+var import_bcrypt = __toESM(require_bcrypt(), 1);
 var import_jsonwebtoken = __toESM(require_jsonwebtoken(), 1);
-
-// src/services/account.service.ts
-init_database();
-
-class AccountService {
-  async getUserAccounts(userId) {
-    const result = await query(`
-      SELECT 
-        a.id,
-        a.account_number as "accountNumber",
-        a.account_type as "accountType",
-        a.currency,
-        a.balance,
-        a.available_balance as "availableBalance",
-        a.status,
-        a.third_bank_credential_id as "thirdBankCredentialId",
-        a.created_at as "createdAt",
-        a.updated_at as "updatedAt",
-        ua.is_primary as "isPrimary",
-        ua.role as "userRole"
-      FROM accounts a
-      INNER JOIN user_accounts ua ON a.id = ua.account_id
-      WHERE ua.user_id = $1 AND a.status = 'active'
-      ORDER BY ua.is_primary DESC, a.created_at ASC
-    `, [userId]);
-    return result.rows;
-  }
-  async getUserAccount(userId, accountId) {
-    const result = await query(`
-      SELECT 
-        a.id,
-        a.account_number as "accountNumber",
-        a.account_type as "accountType",
-        a.currency,
-        a.balance,
-        a.available_balance as "availableBalance",
-        a.status,
-        a.third_bank_credential_id as "thirdBankCredentialId",
-        a.created_at as "createdAt",
-        a.updated_at as "updatedAt"
-      FROM accounts a
-      INNER JOIN user_accounts ua ON a.id = ua.account_id
-      WHERE ua.user_id = $1 AND a.id = $2 AND a.status = 'active'
-    `, [userId, accountId]);
-    return result.rows[0] || null;
-  }
-  async createAccountMovement(accountId, movementType, amount, description, referenceId, referenceType) {
-    const client = await pool.connect();
+var JWT_SECRET = () => process.env.JWT_SECRET || "your-secret-key";
+var JWT_REFRESH_SECRET = () => process.env.JWT_REFRESH_SECRET || "your-refresh-secret-key";
+var JWT_EXPIRES_IN = () => process.env.JWT_EXPIRES_IN || "24h";
+var authService = {
+  async login(email, password) {
+    const user = await userRepository.getByEmail(email);
+    if (!user || user.status !== "active")
+      throw new AppError(401, "Credenciales inválidas");
+    const valid = await import_bcrypt.default.compare(password, user.password);
+    if (!valid)
+      throw new AppError(401, "Credenciales inválidas");
+    const accessPayload = { userId: Number(user.id), email: user.email, roleName: user.roleName };
+    const accessToken = import_jsonwebtoken.default.sign(accessPayload, JWT_SECRET(), { expiresIn: JWT_EXPIRES_IN() });
+    const refreshPayload = { userId: Number(user.id), type: "refresh" };
+    const refreshToken = import_jsonwebtoken.default.sign(refreshPayload, JWT_REFRESH_SECRET(), { expiresIn: "30d" });
     try {
-      await client.query("BEGIN");
-      const balanceResult = await client.query("SELECT balance FROM accounts WHERE id = $1", [accountId]);
-      if (balanceResult.rows.length === 0) {
-        throw new Error("Cuenta no encontrada");
-      }
-      const balanceBefore = balanceResult.rows[0].balance;
-      const balanceAfter = balanceBefore + amount;
-      const movementResult = await client.query(`
-        INSERT INTO account_movements (
-          account_id, movement_type, amount, balance_before, balance_after,
-          description, reference_id, reference_type
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING id
-      `, [accountId, movementType, amount, balanceBefore, balanceAfter, description, referenceId, referenceType]);
-      await client.query("COMMIT");
-      return movementResult.rows[0].id;
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
-  async getAccountMovements(accountId, limit = 50, offset = 0, startDate, endDate) {
-    let queryText = `
-      SELECT 
-        id,
-        account_id as "accountId",
-        movement_type as "movementType",
-        amount,
-        balance_before as "balanceBefore",
-        balance_after as "balanceAfter",
-        description,
-        reference_id as "referenceId",
-        reference_type as "referenceType",
-        created_at as "createdAt"
-      FROM account_movements 
-      WHERE account_id = $1
-    `;
-    const params = [accountId];
-    let paramIndex = 2;
-    if (startDate) {
-      queryText += ` AND created_at >= $${paramIndex}`;
-      params.push(startDate);
-      paramIndex++;
-    }
-    if (endDate) {
-      queryText += ` AND created_at <= $${paramIndex}`;
-      params.push(endDate);
-      paramIndex++;
-    }
-    queryText += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(limit, offset);
-    const result = await query(queryText, params);
-    return result.rows;
-  }
-  async createAccount(accountNumber, accountType, currency, thirdBankCredentialId) {
-    const result = await query(`
-      INSERT INTO accounts (account_number, account_type, currency, third_bank_credential_id)
-      VALUES ($1, $2, $3, $4)
-      RETURNING id
-    `, [accountNumber, accountType, currency, thirdBankCredentialId]);
-    return result.rows[0].id;
-  }
-  async linkUserToAccount(userId, accountId, role = "viewer", isPrimary = false) {
-    await query(`
-      INSERT INTO user_accounts (user_id, account_id, role, is_primary)
-      VALUES ($1, $2, $3, $4)
-      ON CONFLICT (user_id, account_id) DO UPDATE SET
-        role = EXCLUDED.role,
-        is_primary = EXCLUDED.is_primary
-    `, [userId, accountId, role, isPrimary]);
-  }
-  async getAccountBalance(accountId) {
-    const result = await query(`
-      SELECT 
-        balance,
-        available_balance as "availableBalance"
-      FROM accounts WHERE id = $1
-    `, [accountId]);
-    if (result.rows.length === 0) {
-      throw new Error("Cuenta no encontrada");
-    }
-    return result.rows[0];
-  }
-  async transferBetweenAccounts(fromAccountId, toAccountId, amount, description) {
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
-      const fromAccountResult = await client.query("SELECT balance FROM accounts WHERE id = $1 FOR UPDATE", [fromAccountId]);
-      if (fromAccountResult.rows.length === 0) {
-        throw new Error("Cuenta origen no encontrada");
-      }
-      if (fromAccountResult.rows[0].balance < amount) {
-        throw new Error("Balance insuficiente");
-      }
-      await this.createAccountMovement(fromAccountId, "transfer_out", -amount, description || `Transferencia a cuenta ${toAccountId}`, toAccountId.toString(), "internal_transfer");
-      await this.createAccountMovement(toAccountId, "transfer_in", amount, description || `Transferencia desde cuenta ${fromAccountId}`, fromAccountId.toString(), "internal_transfer");
-      await client.query("COMMIT");
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
-}
-var account_service_default = new AccountService;
-
-// src/services/auth.service.ts
-class AuthService {
-  async authenticate(credentials) {
-    try {
-      const user = await userService.getUserByEmail(credentials.email);
-      if (!user) {
-        throw new ApiError("Credenciales inválidas", 401);
-      }
-      if (user.status !== "active") {
-        throw new ApiError("Usuario inactivo o suspendido", 401);
-      }
-      const userWithPassword = await query(`
-        SELECT password FROM users WHERE id = $1
-      `, [user.id]);
-      if (userWithPassword.rowCount === 0) {
-        throw new ApiError("Error interno del sistema", 500);
-      }
-      const isValidPassword = await import_bcrypt2.default.compare(credentials.password, userWithPassword.rows[0].password);
-      if (!isValidPassword) {
-        throw new ApiError("Credenciales inválidas", 401);
-      }
-      const userAccounts = await account_service_default.getUserAccounts(user.id);
-      const { token: accessToken, expiresIn } = this.generateAccessToken(user);
-      const { token: refreshToken, expiresIn: refreshExpiresIn } = this.generateRefreshToken(user.id);
-      await this.saveAccessToken(user.id, accessToken, expiresIn);
-      await this.saveRefreshToken(user.id, refreshToken, refreshExpiresIn);
-      return {
-        user: {
-          id: user.id,
-          email: user.email,
-          fullName: user.fullName,
-          roleName: user.roleName,
-          status: user.status,
-          accounts: userAccounts.map((account) => ({
-            id: account.id,
-            accountNumber: account.accountNumber,
-            accountType: account.accountType,
-            currency: account.currency,
-            balance: account.balance,
-            availableBalance: account.availableBalance,
-            status: account.status,
-            isPrimary: account.isPrimary
-          }))
-        },
-        accessToken,
-        refreshToken
-      };
-    } catch (error) {
-      throw error;
-    }
-  }
-  generateAccessToken(user) {
-    const payload = {
-      userId: user.id,
-      email: user.email,
-      roleName: user.roleName,
-      isPrimaryUser: user.isPrimaryUser,
-      parentUserId: user.parentUserId,
-      entityType: user.entityType,
-      businessId: user.businessId
-    };
-    const secret = process.env.JWT_SECRET || "your-secret-key";
-    const expiresIn = process.env.JWT_EXPIRES_IN || "24h";
+      await query("INSERT INTO auth_tokens (id, user_id, token_type, token) VALUES ($1, $2, $3, $4)", [nextSnowflake(), user.id, "ACCESS_TOKEN", accessToken]);
+      await query("INSERT INTO auth_tokens (id, user_id, token_type, token) VALUES ($1, $2, $3, $4)", [nextSnowflake(), user.id, "REFRESH_TOKEN", refreshToken]);
+    } catch {}
     return {
-      token: import_jsonwebtoken.default.sign(payload, secret, { expiresIn }),
-      expiresIn
-    };
-  }
-  generateRefreshToken(userId) {
-    const payload = { userId, type: "refresh" };
-    const secret = process.env.JWT_REFRESH_SECRET || "your-refresh-secret-key";
-    const expiresIn = "30d";
-    return {
-      token: import_jsonwebtoken.default.sign(payload, secret, { expiresIn }),
-      expiresIn
-    };
-  }
-  async saveAccessToken(userId, token, expiresIn) {
-    try {
-      console.log("\uD83D\uDCBE Guardando access token para usuario:", userId);
-      console.log("➕ Insertando nuevo token...");
-      const insertResult = await query(`
-        INSERT INTO auth_tokens (user_id, token_type, token)
-        VALUES ($1, 'ACCESS_TOKEN', $2)
-        RETURNING id
-      `, [userId, token]);
-      console.log("✅ Token insertado con ID:", insertResult.rows[0]?.id);
-    } catch (error) {
-      console.error("❌ Error al guardar access token:", error);
-      console.log("⚠️ Continuando sin guardar access token...");
-    }
-  }
-  async saveRefreshToken(userId, token, expiresIn) {
-    try {
-      await query(`
-        INSERT INTO auth_tokens (user_id, token_type, token)
-        VALUES ($1, 'REFRESH_TOKEN', $2)
-        ON CONFLICT (user_id, token_type) 
-        DO UPDATE SET token = $2, updated_at = CURRENT_TIMESTAMP
-      `, [userId, token]);
-    } catch (error) {
-      console.error("Error al guardar refresh token:", error);
-    }
-  }
-  async verifyRefreshToken(refreshToken) {
-    try {
-      const secret = process.env.JWT_REFRESH_SECRET || "your-refresh-secret-key";
-      const decoded = import_jsonwebtoken.default.verify(refreshToken, secret);
-      if (decoded.type !== "refresh") {
-        throw new ApiError("Token inválido", 401);
-      }
-      const tokenResult = await query(`
-        SELECT user_id FROM auth_tokens 
-        WHERE token = $1 AND token_type = 'REFRESH_TOKEN'
-      `, [refreshToken]);
-      if (tokenResult.rowCount === 0) {
-        throw new ApiError("Token expirado o inválido", 401);
-      }
-      const userId = decoded.userId;
-      const user = await userService.getUserById(userId);
-      if (!user || user.status !== "active") {
-        throw new ApiError("Usuario no encontrado o inactivo", 401);
-      }
-      const { token: accessToken } = this.generateAccessToken(user);
-      const { token: newRefreshToken, expiresIn: newRefreshExpiresIn } = this.generateRefreshToken(userId);
-      await this.saveRefreshToken(userId, newRefreshToken, newRefreshExpiresIn);
-      await this.revokeRefreshToken(refreshToken);
-      return {
-        user: {
-          id: user.id,
-          email: user.email,
-          fullName: user.fullName,
-          roleName: user.roleName,
-          status: user.status,
-          accounts: []
-        },
-        accessToken,
-        newRefreshToken
-      };
-    } catch (error) {
-      throw error;
-    }
-  }
-  async revokeRefreshToken(token) {
-    try {
-      await query(`
-        DELETE FROM auth_tokens 
-        WHERE token = $1 AND token_type = 'REFRESH_TOKEN'
-      `, [token]);
-    } catch (error) {
-      console.error("Error al revocar refresh token:", error);
-    }
-  }
-  async revokeAccessToken(token) {
-    try {
-      await query(`
-        DELETE FROM auth_tokens 
-        WHERE token = $1 AND token_type = 'ACCESS_TOKEN'
-      `, [token]);
-    } catch (error) {
-      console.error("Error al revocar access token:", error);
-    }
-  }
-  async revokeAllUserTokens(userId) {
-    try {
-      await query(`
-        DELETE FROM auth_tokens 
-        WHERE user_id = $1
-      `, [userId]);
-    } catch (error) {
-      console.error("Error al revocar tokens del usuario:", error);
-    }
-  }
-  async cleanupExpiredTokens() {
-    try {
-      console.log("ℹ️ Limpieza de tokens no requerida - JWT maneja expiración automáticamente");
-    } catch (error) {
-      console.error("Error en limpieza de tokens:", error);
-    }
-  }
-  async createUser(userData) {
-    try {
-      return await userService.createUser(userData);
-    } catch (error) {
-      throw error;
-    }
-  }
-  async getUserById(userId) {
-    try {
-      return await userService.getUserById(userId);
-    } catch (error) {
-      throw error;
-    }
-  }
-  async getUsersByCompany(primaryUserId) {
-    try {
-      const primaryUser = await userService.getUserById(primaryUserId);
-      if (!primaryUser || !primaryUser.isPrimaryUser) {
-        throw new ApiError("Usuario no es principal de empresa", 400);
-      }
-      const employees = await userService.getEmployeeUsers(primaryUserId);
-      return [primaryUser, ...employees];
-    } catch (error) {
-      throw error;
-    }
-  }
-  async updateUser(userId, updateData) {
-    try {
-      return await userService.updateUser(userId, updateData);
-    } catch (error) {
-      throw error;
-    }
-  }
-  async changeUserPassword(userId, newPassword) {
-    try {
-      return await userService.changeUserPassword(userId, newPassword);
-    } catch (error) {
-      throw error;
-    }
-  }
-  async deleteUser(userId) {
-    try {
-      return await userService.deleteUser(userId);
-    } catch (error) {
-      throw error;
-    }
-  }
-  async canCreateEmployees(userId) {
-    try {
-      return await userService.canCreateEmployees(userId);
-    } catch (error) {
-      return false;
-    }
-  }
-  async getEmployeeUsers(primaryUserId) {
-    try {
-      return await userService.getEmployeeUsers(primaryUserId);
-    } catch (error) {
-      throw error;
-    }
-  }
-  async verifyToken(token) {
-    try {
-      const secret = process.env.JWT_SECRET || "your-secret-key";
-      const decoded = import_jsonwebtoken.default.verify(token, secret);
-      if (!await this.isTokenRevoked(token)) {
-        return decoded;
-      }
-      throw new ApiError("Token revocado", 401);
-    } catch (error) {
-      if (error instanceof ApiError) {
-        throw error;
-      }
-      throw new ApiError("Token inválido o expirado", 401);
-    }
-  }
-  async isTokenRevoked(token) {
-    try {
-      const result = await query(`
-        SELECT id FROM auth_tokens 
-        WHERE token = $1
-      `, [token]);
-      return result.rowCount === 0;
-    } catch (error) {
-      console.error("Error verificando revocación de token:", error);
-      return true;
-    }
-  }
-  async getUserInfo(email) {
-    try {
-      const user = await userService.getUserByEmail(email);
-      if (!user) {
-        return null;
-      }
-      let parentUserId = user.id;
-      if (user.entityType === "company") {
-        parentUserId = user.id;
-      } else if (user.parentUserId) {
-        parentUserId = user.parentUserId;
-      }
-      return {
+      user: {
         id: user.id,
         email: user.email,
-        parentUserId,
-        role: user.roleName,
-        bankCredentialId: user.bankCredentialId || 0
-      };
-    } catch (error) {
-      console.error("Error obteniendo información del usuario:", error);
+        fullName: user.fullName,
+        roleName: user.roleName,
+        status: user.status,
+        accounts: []
+      },
+      accessToken,
+      refreshToken,
+      expiresIn: JWT_EXPIRES_IN()
+    };
+  },
+  verifyToken(token) {
+    try {
+      return import_jsonwebtoken.default.verify(token, JWT_SECRET());
+    } catch {
+      throw new AppError(401, "Token inválido o expirado");
+    }
+  },
+  async verifyTokenWithDb(token) {
+    const decoded = this.verifyToken(token);
+    const r2 = await query("SELECT id FROM auth_tokens WHERE token = $1 AND token_type = $2", [token, "ACCESS_TOKEN"]);
+    if (r2.rowCount === 0)
+      throw new AppError(401, "Token revocado");
+    return decoded;
+  },
+  async getUserInfo(email) {
+    const user = await userRepository.getByEmail(email);
+    if (!user)
       return null;
-    }
+    return { id: user.id, email: user.email, role: user.roleName };
+  },
+  async refreshAccessToken(refreshToken) {
+    const decoded = import_jsonwebtoken.default.verify(refreshToken, JWT_REFRESH_SECRET());
+    if (decoded.type !== "refresh")
+      throw new AppError(401, "Token inválido");
+    const r2 = await query("SELECT user_id FROM auth_tokens WHERE token = $1 AND token_type = $2", [refreshToken, "REFRESH_TOKEN"]);
+    if (r2.rowCount === 0)
+      throw new AppError(401, "Token expirado o inválido");
+    const userId = BigInt(decoded.userId);
+    const user = await userRepository.getById(userId);
+    if (!user || user.status !== "active")
+      throw new AppError(401, "Usuario no encontrado");
+    const accessPayload = { userId: Number(user.id), email: user.email, roleName: user.roleName };
+    const newAccessToken = import_jsonwebtoken.default.sign(accessPayload, JWT_SECRET(), { expiresIn: JWT_EXPIRES_IN() });
+    const newRefreshPayload = { userId: Number(user.id), type: "refresh" };
+    const newRefreshToken = import_jsonwebtoken.default.sign(newRefreshPayload, JWT_REFRESH_SECRET(), { expiresIn: "30d" });
+    await query("DELETE FROM auth_tokens WHERE token = $1 AND token_type = $2", [refreshToken, "REFRESH_TOKEN"]);
+    await query("INSERT INTO auth_tokens (id, user_id, token_type, token) VALUES ($1, $2, $3, $4)", [nextSnowflake(), user.id, "REFRESH_TOKEN", newRefreshToken]);
+    return { accessToken: newAccessToken, refreshToken: newRefreshToken };
+  },
+  async revokeToken(token) {
+    await query("DELETE FROM auth_tokens WHERE token = $1", [token]);
+  },
+  async revokeAllUserTokens(userId) {
+    await query("DELETE FROM auth_tokens WHERE user_id = $1", [userId]);
+  },
+  async listTokens(userId) {
+    const r2 = await query(`
+      SELECT id, token_type, token, expires_at, created_at
+      FROM auth_tokens WHERE user_id = $1 AND deleted_at IS NULL
+      ORDER BY created_at DESC
+    `, [userId]);
+    return r2.rows;
   }
+};
+
+// src/identity/auth.routes.ts
+init_user_service();
+
+// src/identity/otp.service.ts
+init_pool();
+init_app_error();
+init_snowflake();
+var OTP_RATE_LIMIT_MINUTES = 2;
+var otpService = {
+  async sendOTP(phone) {
+    const recent = await this.getRecentAttempts(phone);
+    if (recent >= 3) {
+      throw new AppError(429, "Demasiados intentos. Intente más tarde.");
+    }
+    const code = Math.floor(1e5 + Math.random() * 900000).toString();
+    await query(`
+      INSERT INTO auth_tokens (id, user_id, token, token_type, expires_at)
+      VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP + INTERVAL '5 minutes')
+    `, [nextSnowflake(), 0, `${phone}:${code}`, "OTP_SENT"]);
+    console.log(`OTP for ${phone}: ${code}`);
+  },
+  async verifyOTP(phone, code) {
+    const r2 = await query(`
+      SELECT id, token FROM auth_tokens
+      WHERE token LIKE $1 AND token_type = 'OTP_SENT' AND expires_at > CURRENT_TIMESTAMP
+      ORDER BY created_at DESC LIMIT 1
+    `, [`${phone}:%`]);
+    if (r2.rowCount === 0)
+      throw new AppError(400, "Código inválido o expirado");
+    const stored = r2.rows[0].token.split(":")[1];
+    if (stored !== code) {
+      await query("DELETE FROM auth_tokens WHERE id = $1", [r2.rows[0].id]);
+      throw new AppError(400, "Código incorrecto");
+    }
+    await query("DELETE FROM auth_tokens WHERE id = $1", [r2.rows[0].id]);
+    await query("INSERT INTO auth_tokens (id, user_id, token, token_type) VALUES ($1, 0, $2, 'OTP_VERIFIED')", [nextSnowflake(), `${phone}:${code}`]);
+    return true;
+  },
+  async getRecentAttempts(phone) {
+    const r2 = await query(`
+      SELECT COUNT(*) as count FROM auth_tokens
+      WHERE token LIKE $1 AND token_type = 'OTP_SENT'
+      AND created_at > CURRENT_TIMESTAMP - INTERVAL '${OTP_RATE_LIMIT_MINUTES} minutes'
+    `, [`${phone}%`]);
+    return parseInt(r2.rows[0].count);
+  }
+};
+
+// src/api-keys/apikey.repository.ts
+init_pool();
+init_snowflake();
+var apikeyRepository = {
+  async create(data) {
+    const r2 = await query(`
+      INSERT INTO api_keys (id, api_key, account_id, description, permissions, expires_at, status)
+      VALUES ($1, $2, $3, $4, $5, $6, 'active')
+      RETURNING *
+    `, [
+      nextSnowflake(),
+      data.apiKey,
+      data.accountId,
+      data.description || null,
+      JSON.stringify(data.permissions),
+      data.expiresAt ? new Date(data.expiresAt) : null
+    ]);
+    return r2.rows[0];
+  },
+  async findByKey(apiKey) {
+    const r2 = await query(`
+      SELECT ak.*, a.bank_credential_id as "bankCredentialId"
+      FROM api_keys ak
+      INNER JOIN accounts a ON ak.account_id = a.id
+      WHERE ak.api_key = $1 AND ak.deleted_at IS NULL
+    `, [apiKey]);
+    return r2.rowCount ? r2.rows[0] : null;
+  },
+  async listByAccount(accountId) {
+    const r2 = await query(`
+      SELECT * FROM api_keys WHERE account_id = $1 AND deleted_at IS NULL
+      AND status = 'active' ORDER BY created_at DESC
+    `, [accountId]);
+    return r2.rows;
+  },
+  async revoke(id) {
+    await query("UPDATE api_keys SET status = 'REVOKED', updated_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
+  },
+  async markExpired(id) {
+    await query("UPDATE api_keys SET status = 'EXPIRED', updated_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
+  }
+};
+
+// src/api-keys/apikey.service.ts
+function generateApiKeyString() {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let result = "";
+  for (let i2 = 0;i2 < 40; i2++)
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  return `pg_${result}`;
 }
-var authService = new AuthService;
-
-// src/services/otp.service.ts
-init_database();
-init_error();
-var UNIMTX_API_URL = "https://api.unimtx.com/";
-var ACCESS_KEY_ID = process.env.UNIMTX_ACCESS_KEY_ID || "YOUR_ACCESS_KEY_ID";
-
-class OTPService {
-  async sendOTP(phoneNumber, userId, companyId) {
-    const response = await fetch(`${UNIMTX_API_URL}?action=otp.send&accessKeyId=${ACCESS_KEY_ID}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        to: phoneNumber
-      })
-    });
-    if (!response.ok) {
-      throw new ApiError(`Error al enviar OTP: ${response.status}`, response.status);
-    }
-    const data = await response.json();
-    await this.saveOTPAttempt(phoneNumber, "SENT", userId, companyId);
-    return data;
-  }
-  async verifyOTP(phoneNumber, code, userId, companyId) {
-    const response = await fetch(`${UNIMTX_API_URL}?action=otp.verify&accessKeyId=${ACCESS_KEY_ID}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        to: phoneNumber,
-        code
-      })
-    });
-    if (!response.ok) {
-      await this.saveOTPAttempt(phoneNumber, "VERIFICATION_FAILED", userId, companyId, `HTTP error! status: ${response.status}`);
-      throw new ApiError(`Error al verificar OTP: ${response.status}`, response.status);
-    }
-    const data = await response.json();
-    await this.saveOTPAttempt(phoneNumber, "VERIFIED", userId, companyId);
-    return data;
-  }
-  async saveOTPAttempt(phoneNumber, status2, userId, companyId, errorMessage) {
-    try {
-      await query(`
-        INSERT INTO auth_tokens 
-        (user_id, token_type, token, expires_at, used_times, ip_address, user_agent) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7)`, [
-        userId || null,
-        `OTP_${status2}`,
-        phoneNumber,
-        new Date(Date.now() + 10 * 60 * 1000),
-        status2 === "VERIFIED" ? 1 : 0,
-        null,
-        errorMessage || null
-      ]);
-    } catch (error) {
-      console.error("Error guardando intento de OTP:", error);
-    }
-  }
-  async getRecentAttempts(phoneNumber, minutes = 5) {
-    try {
-      const result = await query(`
-        SELECT COUNT(*) as count 
-        FROM auth_tokens 
-        WHERE token = $1 
-        AND token_type LIKE 'OTP_%'
-        AND created_at > NOW() - INTERVAL '${minutes} minutes'
-        AND deleted_at IS NULL`, [phoneNumber]);
-      return parseInt(result.rows[0]?.count || "0", 10);
-    } catch (error) {
-      console.error("Error obteniendo intentos recientes:", error);
-      return 0;
-    }
-  }
-  async cleanupOldAttempts(hours = 24) {
-    try {
-      await query(`
-        UPDATE auth_tokens 
-        SET deleted_at = CURRENT_TIMESTAMP 
-        WHERE token_type LIKE 'OTP_%'
-        AND created_at < NOW() - INTERVAL '${hours} hours'
-        AND deleted_at IS NULL`);
-    } catch (error) {
-      console.error("Error limpiando intentos antiguos:", error);
-    }
-  }
-}
-var otpService = new OTPService;
-var otp_service_default = otpService;
-
-// src/routes/auth.routes.ts
-init_error();
-var ResponseSchema = t.Object({
-  success: t.Boolean(),
-  message: t.String(),
-  data: t.Optional(t.Any())
-});
-var AuthRequestSchema = t.Object({
-  email: t.String(),
-  password: t.String()
-});
-var RegisterRequestSchema = t.Object({
-  email: t.String(),
-  password: t.String(),
-  fullName: t.String(),
-  companyId: t.Number()
-});
-var ForgotPasswordSchema = t.Object({
-  email: t.String()
-});
-var ResetPasswordSchema = t.Object({
-  token: t.String(),
-  newPassword: t.String()
-});
-var ChangePasswordSchema = t.Object({
-  currentPassword: t.String(),
-  newPassword: t.String()
-});
-var SendOTPSchema = t.Object({
-  phoneNumber: t.String()
-});
-var VerifyOTPSchema = t.Object({
-  phoneNumber: t.String(),
-  code: t.String()
-});
-function getDeviceInfo(request) {
-  const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("cf-connecting-ip") || request.headers.get("x-real-ip") || request.headers.get("host") || "unknown";
-  const userAgent = request.headers.get("user-agent") || "unknown";
-  return { ipAddress, userAgent };
-}
-var authRoutes = new Elysia({ prefix: "/auth" }).post("/login", async ({ body, request }) => {
-  const { ipAddress, userAgent } = getDeviceInfo(request);
-  const data = await authService.authenticate({
-    email: body.email,
-    password: body.password
-  });
-  return {
-    success: true,
-    message: "Usuario autenticado exitosamente",
-    data
-  };
-}, {
-  body: AuthRequestSchema,
-  response: ResponseSchema,
-  detail: {
-    tags: ["auth"],
-    summary: "Autenticar usuario y obtener token JWT"
-  }
-}).post("/forgot-password", async ({ body, request }) => {
-  const { ipAddress, userAgent } = getDeviceInfo(request);
-  const data = await authService.requestPasswordReset(body.email, ipAddress, userAgent);
-  return {
-    success: true,
-    message: "Se ha enviado un correo para restablecer la contraseña",
-    data
-  };
-}, {
-  body: ForgotPasswordSchema,
-  detail: {
-    tags: ["auth"],
-    summary: "Solicitar restablecimiento de contraseña"
-  }
-}).post("/reset-password", async ({ body, request }) => {
-  const { ipAddress, userAgent } = getDeviceInfo(request);
-  const data = await authService.resetPassword(body.token, body.newPassword, ipAddress, userAgent);
-  return {
-    success: true,
-    message: "Contraseña restablecida exitosamente",
-    data
-  };
-}, {
-  body: ResetPasswordSchema,
-  detail: {
-    tags: ["auth"],
-    summary: "Restablecer contraseña con token"
-  }
-}).post("/change-password", async ({ body, request }) => {
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    throw new ApiError("Usuario no autenticado", 401);
-  }
-  const token = authHeader.split(" ")[1];
-  const decoded = await authService.decodeJwt(token);
-  if (!decoded || !decoded.userId) {
-    throw new ApiError("Token inválido o expirado", 401);
-  }
-  const data = await authService.changePassword(decoded.userId, body.currentPassword, body.newPassword);
-  return {
-    success: true,
-    message: "Contraseña cambiada exitosamente",
-    data
-  };
-}, {
-  body: ChangePasswordSchema,
-  detail: {
-    tags: ["auth"],
-    summary: "Cambiar contraseña del usuario autenticado"
-  }
-}).post("/send-otp", async ({ body, request }) => {
-  const recentAttempts = await otp_service_default.getRecentAttempts(body.phoneNumber, 5);
-  if (recentAttempts >= 3) {
-    throw new ApiError("Demasiados intentos recientes. Intente nuevamente en 5 minutos.", 429);
-  }
-  let userId;
-  let companyId;
-  const authHeader = request.headers.get("authorization");
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    const token = authHeader.split(" ")[1];
-    const decoded = await authService.decodeJwt(token);
-    if (decoded) {
-      userId = decoded.userId;
-      companyId = decoded.companyId;
-    }
-  }
-  const data = await otp_service_default.sendOTP(body.phoneNumber, userId, companyId);
-  return {
-    success: true,
-    message: "Se ha enviado un código OTP al número de teléfono",
-    data
-  };
-}, {
-  body: SendOTPSchema,
-  detail: {
-    tags: ["auth"],
-    summary: "Enviar código OTP al número de teléfono"
-  }
-}).post("/verify-otp", async ({ body, request }) => {
-  let userId;
-  let companyId;
-  const authHeader = request.headers.get("authorization");
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    const token = authHeader.split(" ")[1];
-    const decoded = await authService.decodeJwt(token);
-    if (decoded) {
-      userId = decoded.userId;
-      companyId = decoded.companyId;
-    }
-  }
-  const data = await otp_service_default.verifyOTP(body.phoneNumber, body.code, userId, companyId);
-  return {
-    success: true,
-    message: "Código OTP verificado exitosamente",
-    data
-  };
-}, {
-  body: VerifyOTPSchema,
-  detail: {
-    tags: ["auth"],
-    summary: "Verificar código OTP"
-  }
-}).get("/tokens", async ({ request }) => {
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    throw new ApiError("Usuario no autenticado", 401);
-  }
-  const token = authHeader.split(" ")[1];
-  const decoded = await authService.decodeJwt(token);
-  if (!decoded || !decoded.userId) {
-    throw new ApiError("Token inválido o expirado", 401);
-  }
-  const data = await authService.getUserTokens(decoded.userId);
-  return {
-    success: true,
-    message: "Se han obtenido todos los tokens del usuario autenticado",
-    data
-  };
-}, {
-  detail: {
-    tags: ["auth"],
-    summary: "Obtener todos los tokens del usuario autenticado"
-  }
-}).post("/revoke-token/:tokenId", async ({ params, request }) => {
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    throw new ApiError("Usuario no autenticado", 401);
-  }
-  const token = authHeader.split(" ")[1];
-  const decoded = await authService.decodeJwt(token);
-  if (!decoded || !decoded.userId) {
-    throw new ApiError("Token inválido o expirado", 401);
-  }
-  const data = await authService.revokeToken(parseInt(params.tokenId));
-  return {
-    success: true,
-    message: "Token revocado exitosamente",
-    data
-  };
-}, {
-  detail: {
-    tags: ["auth"],
-    summary: "Revocar un token específico"
-  }
-}).post("/revoke-all-tokens", async ({ request }) => {
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    throw new ApiError("Usuario no autenticado", 401);
-  }
-  const token = authHeader.split(" ")[1];
-  const decoded = await authService.decodeJwt(token);
-  if (!decoded || !decoded.userId) {
-    throw new ApiError("Token inválido o expirado", 401);
-  }
-  const data = await authService.revokeAllUserTokens(decoded.userId);
-  return {
-    success: true,
-    message: "Todos los tokens del usuario han sido revocados",
-    data
-  };
-}, {
-  detail: {
-    tags: ["auth"],
-    summary: "Revocar todos los tokens del usuario autenticado"
-  }
-});
-
-// src/routes/health.routes.ts
-var health_routes_default = new Elysia({ prefix: "/health" }).get("/", () => {
-  return {
-    success: true,
-    message: "Servidor funcionando correctamente",
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    environment: "development"
-  };
-}, {
-  detail: {
-    tags: ["health"],
-    summary: "Verificar el estado del servidor"
-  }
-}).get("/api", () => {
-  return {
-    success: true,
-    message: "API funcionando correctamente",
-    timestamp: new Date().toISOString(),
-    version: "1.0.0"
-  };
-}, {
-  detail: {
-    tags: ["health"],
-    summary: "Verificar el estado de la API"
-  }
-});
-
-// src/services/apikey.service.ts
-init_database();
-
-class ApiKeyService {
+var apiKeyService = {
   async verifyApiKey(apiKey) {
-    try {
-      const result = await query(`
-        SELECT 
-          ak.id, 
-          ak.user_id as "userId", 
-          ak.permissions, 
-          ak.expires_at as "expiresAt", 
-          ak.status,
-          u.third_bank_credential_id as "bankCredentialId"
-        FROM api_keys ak
-        INNER JOIN users u ON ak.user_id = u.id
-        WHERE ak.api_key = $1 AND ak.deleted_at IS NULL
-      `, [apiKey]);
-      if (result.rowCount === 0) {
-        return { isValid: false };
-      }
-      const apiKeyData = result.rows[0];
-      if (apiKeyData.status !== "active") {
-        return { isValid: false };
-      }
-      if (apiKeyData.expiresAt && new Date > new Date(apiKeyData.expiresAt)) {
-        await query(`
-          UPDATE api_keys
-          SET status = 'EXPIRED', updated_at = CURRENT_TIMESTAMP
-          WHERE id = $1
-        `, [apiKeyData.id]);
-        return { isValid: false };
-      }
-      return {
-        isValid: true,
-        userId: apiKeyData.userId,
-        bankCredentialId: apiKeyData.bankCredentialId,
-        permissions: apiKeyData.permissions
-      };
-    } catch (error) {
-      console.error("Error verificando API key:", error);
+    const key = await apikeyRepository.findByKey(apiKey);
+    if (!key || key.status !== "active")
+      return { isValid: false };
+    if (key.expiresAt && new Date > new Date(key.expiresAt)) {
+      await apikeyRepository.markExpired(key.id);
       return { isValid: false };
     }
+    return { isValid: true, accountId: key.accountId, bankCredentialId: key.bankCredentialId, permissions: key.permissions };
+  },
+  async generate(accountId, description, permissions, expiresAt) {
+    const apiKey = generateApiKeyString();
+    const key = await apikeyRepository.create({ apiKey, accountId, description, permissions, expiresAt });
+    return { ...key, apiKey };
+  },
+  async list(accountId) {
+    return apikeyRepository.listByAccount(accountId);
+  },
+  async revoke(id) {
+    await apikeyRepository.revoke(id);
   }
-  async hasPermission(apiKey, permission) {
-    const verification = await this.verifyApiKey(apiKey);
-    if (!verification.isValid || !verification.permissions) {
-      return false;
-    }
-    return verification.permissions[permission] === true;
-  }
-  async generateApiKey(userId, description, permissions, expiresAt, createdByUserId) {
-    try {
-      const userCheck = await query("SELECT id FROM users WHERE id = $1 AND deleted_at IS NULL", [userId]);
-      if (userCheck.rowCount === 0) {
-        return {
-          responseCode: 1,
-          message: "Usuario no encontrado"
-        };
-      }
-      const apiKey = generateApiKey();
-      const result = await query(`
-        INSERT INTO api_keys (
-          api_key, 
-          description, 
-          user_id, 
-          created_by_user_id,
-          permissions, 
-          expires_at,
-          status
-        ) 
-        VALUES ($1, $2, $3, $4, $5, $6, 'active')
-        RETURNING id, created_at
-      `, [
-        apiKey,
-        description,
-        userId,
-        createdByUserId || userId,
-        JSON.stringify(permissions),
-        expiresAt ? new Date(expiresAt) : null
-      ]);
-      return {
-        id: result.rows[0].id,
-        apiKey,
-        description,
-        permissions,
-        userId,
-        expiresAt,
-        status: "active",
-        createdAt: result.rows[0].created_at,
-        responseCode: 0,
-        message: "API key generada exitosamente"
-      };
-    } catch (error) {
-      console.error("Error generando API key:", error);
-      return {
-        responseCode: 1,
-        message: error instanceof Error ? error.message : "Error generando API key"
-      };
-    }
-  }
-  async listApiKeys(userId) {
-    try {
-      const result = await query(`
-        SELECT 
-          id, 
-          api_key, 
-          description, 
-          permissions, 
-          expires_at, 
-          status, 
-          created_at
-        FROM api_keys
-        WHERE user_id = $1 AND deleted_at IS NULL
-        AND status = 'active'
-        ORDER BY created_at DESC
-      `, [userId]);
-      return {
-        apiKeys: result.rows.map((row) => ({
-          id: row.id,
-          apiKey: row.api_key,
-          description: row.description,
-          permissions: row.permissions,
-          expiresAt: row.expires_at,
-          status: row.status,
-          createdAt: row.created_at
-        })),
-        responseCode: 0,
-        message: ""
-      };
-    } catch (error) {
-      console.error("Error listando API keys:", error);
-      return {
-        apiKeys: [],
-        responseCode: 1,
-        message: error instanceof Error ? error.message : "Error listando API keys"
-      };
-    }
-  }
-  async revokeApiKey(apiKeyId, userId, revokedByUserId) {
-    try {
-      const apiKeyCheck = await query(`
-        SELECT id, api_key
-        FROM api_keys
-        WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
-      `, [apiKeyId, userId]);
-      if (apiKeyCheck.rowCount === 0) {
-        return {
-          responseCode: 1,
-          message: "API key no encontrada o no pertenece al usuario"
-        };
-      }
-      await query(`
-        UPDATE api_keys
-        SET status = 'REVOKED', updated_at = CURRENT_TIMESTAMP
-        WHERE id = $1
-      `, [apiKeyId]);
-      return {
-        id: apiKeyId,
-        responseCode: 0,
-        message: "API key revocada exitosamente"
-      };
-    } catch (error) {
-      console.error("Error revocando API key:", error);
-      return {
-        responseCode: 1,
-        message: error instanceof Error ? error.message : "Error revocando API key"
-      };
-    }
-  }
-}
-var apiKeyService = new ApiKeyService;
-var apikey_service_default = apiKeyService;
+};
 
-// src/middlewares/auth.middleware.ts
-init_database();
-init_error();
-async function verifyTokenInDatabase(token) {
-  try {
-    const result = await query(`
-      SELECT id, user_id, used_times
-      FROM auth_tokens
-      WHERE token = $1
-      AND token_type = 'ACCESS_TOKEN'
-      AND deleted_at IS NULL
-    `, [token]);
-    if (result.rowCount === 0) {
-      return false;
-    }
-    const tokenData = result.rows[0];
-    await query(`
-      UPDATE auth_tokens
-      SET used_times = used_times + 1, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $1
-    `, [tokenData.id]);
-    return true;
-  } catch (error) {
-    console.error("Error verificando token en base de datos:", error);
-    return false;
-  }
+// src/shared/middleware/auth.middleware.ts
+init_app_error();
+async function verifyToken(token) {
+  const { default: jwt2 } = await Promise.resolve().then(() => __toESM(require_jsonwebtoken(), 1));
+  const secret = process.env.JWT_SECRET || "default-secret";
+  const decoded = jwt2.verify(token, secret);
+  return { userId: decoded.userId || decoded.sub, email: decoded.email, role: decoded.role || "user" };
 }
 function authMiddleware(options = { type: "jwt", level: "user" }) {
-  return new Elysia({ name: "auth" }).derive({ as: "scoped" }, async (context) => {
-    try {
-      const ipAddress = context.request.headers.get("x-forwarded-for") || context.request.headers.get("cf-connecting-ip") || context.request.headers.get("x-real-ip") || context.request.headers.get("host") || "unknown";
-      const userAgent = context.request.headers.get("user-agent") || "unknown";
-      const authHeader = context.headers.authorization;
-      if (authHeader && authHeader.startsWith("Bearer ") && (options.type === "jwt" || options.type === "all")) {
-        const token = authHeader.substring(7);
-        try {
-          const decodedToken = await authService.verifyToken(token);
-          const isValidInDb = await verifyTokenInDatabase(token);
-          if (!isValidInDb) {
-            throw new ApiError("Token no encontrado en la base de datos", 401);
-          }
-          const userInfo = await authService.getUserInfo(decodedToken.email);
-          if (!userInfo || !userInfo.id) {
-            throw new ApiError("Usuario no encontrado", 404);
-          }
-          if (options.level === "admin" && userInfo.role !== "ADMIN" && userInfo.role !== "SUPER_ADMIN") {
-            throw new ApiError("Se requiere rol de administrador", 403);
-          }
-          return {
-            auth: {
-              type: "jwt",
-              user: {
-                id: userInfo.id,
-                email: userInfo.email,
-                parentUserId: userInfo.parentUserId,
-                bankCredentialId: userInfo.bankCredentialId,
-                role: userInfo.role
-              }
-            }
-          };
-        } catch (error) {
-          console.error("Error en autenticación JWT:", error);
-          if (error instanceof ApiError) {
-            throw error;
-          }
-          throw new ApiError("Error en autenticación", 401);
+  return new Elysia({ name: "auth" }).derive({ as: "scoped" }, async (ctx) => {
+    const authHeader = ctx.headers.authorization;
+    const apiKeyHeader = ctx.headers["x-api-key"];
+    if (authHeader?.startsWith("Bearer ") && (options.type === "jwt" || options.type === "all")) {
+      const token = authHeader.substring(7);
+      try {
+        const decoded = await authService.verifyTokenWithDb(token);
+        const userInfo = await authService.getUserInfo(decoded.email);
+        if (!userInfo)
+          throw new AppError(401, "Usuario no encontrado");
+        if (options.level === "admin" && userInfo.role !== "admin") {
+          throw new AppError(403, "Se requiere rol de administrador");
         }
+        return { auth: { type: "jwt", user: userInfo } };
+      } catch (err2) {
+        if (err2 instanceof AppError)
+          throw err2;
+        throw new AppError(401, "Error en autenticación");
       }
-      const apiKeyHeader = context.headers["x-api-key"];
-      if (apiKeyHeader && (options.type === "apikey" || options.type === "all")) {
-        const apiKey = apiKeyHeader;
-        const verification = await apiKeyService.verifyApiKey(apiKey);
-        if (verification.isValid && verification.userId && verification.permissions) {
-          if (options.level === "admin" && !verification.permissions.qr_generate) {
-            throw new ApiError("Se requieren permisos de administrador", 403);
-          }
-          return {
-            auth: {
-              type: "apikey",
-              apiKeyInfo: {
-                userId: verification.userId,
-                bankCredentialId: verification.bankCredentialId,
-                permissions: verification.permissions,
-                apiKey
-              }
-            }
-          };
-        }
-        throw new ApiError("API key inválida", 401);
-      }
-      throw new ApiError(options.type === "jwt" ? "Se requiere autenticación JWT" : options.type === "apikey" ? "Se requiere API key" : "No autorizado. Se requiere autenticación válida.", 401);
-    } catch (error) {
-      console.error("Error en middleware de autenticación:", error);
-      if (error instanceof ApiError) {
-        throw error;
-      }
-      throw new ApiError("Error en autenticación", 401);
     }
+    if (apiKeyHeader && (options.type === "apikey" || options.type === "all")) {
+      const verification = await apiKeyService.verifyApiKey(apiKeyHeader);
+      if (verification.isValid && verification.accountId) {
+        if (options.level === "admin" && !verification.permissions?.qr_generate) {
+          throw new AppError(403, "Se requieren permisos de administrador");
+        }
+        return {
+          auth: {
+            type: "apikey",
+            apiKeyInfo: {
+              accountId: verification.accountId,
+              bankCredentialId: verification.bankCredentialId || null,
+              permissions: verification.permissions || {},
+              apiKey: apiKeyHeader
+            }
+          }
+        };
+      }
+      throw new AppError(401, "API key inválida");
+    }
+    const msg = options.type === "jwt" ? "JWT requerida" : options.type === "apikey" ? "API key requerida" : "Autenticación requerida";
+    throw new AppError(401, msg);
   });
 }
 
-// src/banks/baneco.api.ts
+// src/identity/auth.routes.ts
+init_pool();
+init_snowflake();
+
+// src/shared/crypto.ts
+import crypto3 from "node:crypto";
+var ALGORITHM = "aes-256-cbc";
+function getKey() {
+  const secret = process.env.ENCRYPTION_KEY || "default-encryption-key-change-in-production!";
+  return crypto3.createHash("sha256").update(secret).digest();
+}
+function encrypt(text) {
+  const key = getKey();
+  const iv = crypto3.randomBytes(16);
+  const cipher = crypto3.createCipheriv(ALGORITHM, key, iv);
+  let encrypted = cipher.update(text, "utf8", "hex");
+  encrypted += cipher.final("hex");
+  return iv.toString("hex") + ":" + encrypted;
+}
+function hash2(text) {
+  return crypto3.createHash("sha256").update(text).digest("hex");
+}
+function generateSeedPhrase() {
+  const words = [
+    "arena",
+    "brazo",
+    "casa",
+    "dedo",
+    "eco",
+    "faro",
+    "gato",
+    "hoja",
+    "isla",
+    "juez",
+    "kilo",
+    "lago",
+    "mano",
+    "nube",
+    "ojo",
+    "palo",
+    "queso",
+    "rama",
+    "sapo",
+    "taza",
+    "uno",
+    "vaca",
+    "yema",
+    "zorro",
+    "alto",
+    "bajo",
+    "cielo",
+    "dulce",
+    "este",
+    "flor",
+    "gris",
+    "hondo"
+  ];
+  const phrase = [];
+  const used = new Set;
+  while (phrase.length < 12) {
+    const idx = crypto3.randomInt(0, words.length);
+    if (!used.has(idx)) {
+      used.add(idx);
+      phrase.push(words[idx]);
+    }
+  }
+  return phrase;
+}
+
+// src/identity/auth.routes.ts
+var authRoutes = new Elysia({ prefix: "/auth" }).post("/login", async ({ body }) => {
+  return authService.login(body.email, body.password);
+}, {
+  body: t.Object({ email: t.String(), password: t.String() }),
+  detail: { tags: ["Auth"], summary: "Iniciar sesión" }
+}).post("/biometric/login", async ({ body }) => {
+  const result = await query(`SELECT u.id, u.password_hash, u.is_active FROM users u
+       JOIN devices d ON d.user_id = u.id
+       WHERE d.biometric_key_hash = $1 AND d.is_active = TRUE
+       LIMIT 1`, [body.biometricKeyHash]);
+  if (result.rows.length === 0)
+    throw new Error("Credencial biométrica no válida");
+  const user = result.rows[0];
+  if (!user.is_active)
+    throw new Error("Usuario inactivo");
+  return authService.generateTokens(user.id);
+}, {
+  body: t.Object({ biometricKeyHash: t.String() }),
+  detail: { tags: ["Auth"], summary: "Inicio de sesión biométrico" }
+}).post("/refresh", async ({ body }) => {
+  return authService.refreshAccessToken(body.refreshToken);
+}, {
+  body: t.Object({ refreshToken: t.String() }),
+  detail: { tags: ["Auth"], summary: "Refrescar token" }
+}).post("/forgot-password", async ({ body }) => {
+  await otpService.sendOTP(body.email);
+  return { message: "Si el email existe, recibirá instrucciones" };
+}, {
+  body: t.Object({ email: t.String() }),
+  detail: { tags: ["Auth"], summary: "Recuperar contraseña" }
+}).use(authMiddleware({ type: "jwt", level: "user" })).get("/tokens", async ({ auth }) => {
+  return authService.listTokens(auth.user.id);
+}).post("/revoke-token/:tokenId", async ({ params, auth }) => {
+  await authService.revokeToken(params.tokenId);
+  return { message: "Token revocado" };
+}).post("/revoke-all", async ({ auth }) => {
+  await authService.revokeAllUserTokens(auth.user.id);
+  return { message: "Todos los tokens revocados" };
+}).post("/change-password", async ({ body, auth }) => {
+  await userService.changePassword(auth.user.id, body.newPassword);
+  return { message: "Contraseña actualizada" };
+}, {
+  body: t.Object({ newPassword: t.String({ minLength: 6 }) })
+}).post("/send-otp", async ({ body }) => {
+  await otpService.sendOTP(body.phone);
+  return { message: "OTP enviado" };
+}, {
+  body: t.Object({ phone: t.String() })
+}).post("/verify-otp", async ({ body }) => {
+  await otpService.verifyOTP(body.phone, body.code);
+  return { message: "OTP verificado" };
+}, {
+  body: t.Object({ phone: t.String(), code: t.String() })
+}).post("/biometric/register", async ({ body, auth }) => {
+  const keyHash = hash2(body.biometricKey);
+  const encryptedKey = encrypt(body.biometricKey);
+  const deviceData = body.deviceName ? { name: body.deviceName, platform: body.platform || "unknown" } : {};
+  const result = await query(`INSERT INTO devices (id, user_id, name, platform, biometric_key_hash, encrypted_biometric_key, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, TRUE)
+       RETURNING id`, [nextSnowflake(), auth.user.id, deviceData.name || null, deviceData.platform || null, keyHash, encryptedKey]);
+  logger.info("Biometric key registered", { userId: auth.user.id, deviceId: result.rows[0].id });
+  return { deviceId: result.rows[0].id, message: "Credencial biométrica registrada" };
+}, {
+  body: t.Object({
+    biometricKey: t.String(),
+    deviceName: t.Optional(t.String()),
+    platform: t.Optional(t.String())
+  }),
+  detail: { tags: ["Auth"], summary: "Registrar credencial biométrica" }
+}).post("/biometric/unregister/:deviceId", async ({ params, auth }) => {
+  await query("UPDATE devices SET is_active = FALSE, biometric_key_hash = NULL, encrypted_biometric_key = NULL WHERE id = $1 AND user_id = $2", [params.deviceId, auth.user.id]);
+  return { message: "Credencial biométrica eliminada" };
+}, {
+  params: t.Object({ deviceId: t.String() }),
+  detail: { tags: ["Auth"], summary: "Eliminar credencial biométrica" }
+});
+
+// src/identity/user.routes.ts
+init_user_service();
+
+// src/identity/user-profile.repository.ts
+init_pool();
+var userProfileRepository = {
+  async upsert(userId, data) {
+    const exists = await query("SELECT user_id FROM user_profiles WHERE user_id = $1", [userId]);
+    if (exists.rowCount) {
+      const sets = [];
+      const params = [];
+      let pc = 0;
+      for (const [k, v] of Object.entries(data)) {
+        if (v === undefined)
+          continue;
+        pc++;
+        sets.push(`${k.replace(/([A-Z])/g, "_$1").toLowerCase()} = $${pc}`);
+        params.push(v);
+      }
+      if (sets.length) {
+        sets.push("updated_at = CURRENT_TIMESTAMP");
+        await query(`UPDATE user_profiles SET ${sets.join(", ")} WHERE user_id = $${pc + 1}`, [...params, userId]);
+      }
+    } else {
+      await query(`
+        INSERT INTO user_profiles (user_id, pin_hash, kyc_level, document_type, document_number, date_of_birth, nationality, daily_limit, monthly_limit)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `, [userId, data.pinHash || null, data.kycLevel || "none", data.documentType || null, data.documentNumber || null, data.dateOfBirth || null, data.nationality || null, data.dailyLimit || 5000, data.monthlyLimit || 50000]);
+    }
+  },
+  async getByUserId(userId) {
+    const r2 = await query("SELECT * FROM user_profiles WHERE user_id = $1", [userId]);
+    return r2.rowCount ? r2.rows[0] : null;
+  }
+};
+
+// src/identity/device.repository.ts
+init_pool();
+init_snowflake();
+var deviceRepository = {
+  async register(data) {
+    const r2 = await query(`
+      INSERT INTO devices (id, user_id, device_name, device_type, device_id, fcm_token, apns_token)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      ON CONFLICT (device_id) DO UPDATE SET
+        fcm_token = COALESCE($6, devices.fcm_token),
+        apns_token = COALESCE($7, devices.apns_token),
+        is_active = true, last_seen_at = CURRENT_TIMESTAMP
+      RETURNING *
+    `, [nextSnowflake(), data.userId, data.deviceName || null, data.deviceType || null, data.deviceId, data.fcmToken || null, data.apnsToken || null]);
+    return r2.rows[0];
+  },
+  async listByUser(userId) {
+    const r2 = await query("SELECT * FROM devices WHERE user_id = $1 AND is_active = true ORDER BY last_seen_at DESC NULLS LAST", [userId]);
+    return r2.rows;
+  },
+  async unregister(deviceId) {
+    await query("UPDATE devices SET is_active = false WHERE device_id = $1", [deviceId]);
+  }
+};
+
+// src/identity/user.routes.ts
+var userRoutes = new Elysia({ prefix: "/users" }).use(authMiddleware({ type: "jwt", level: "user" })).get("/", async ({ query: query2 }) => {
+  return userService.list({
+    page: query2.page ? parseInt(query2.page) : undefined,
+    limit: query2.limit ? parseInt(query2.limit) : undefined,
+    search: query2.search,
+    status: query2.status
+  });
+}, {
+  query: t.Optional(t.Object({
+    page: t.Optional(t.String()),
+    limit: t.Optional(t.String()),
+    search: t.Optional(t.String()),
+    status: t.Optional(t.String())
+  }))
+}).get("/me", async ({ auth }) => {
+  return userService.getById(auth.user.id);
+}).put("/me", async ({ body, auth }) => {
+  return userService.update(auth.user.id, body);
+}, {
+  body: t.Object({
+    fullName: t.Optional(t.String()),
+    phone: t.Optional(t.String()),
+    address: t.Optional(t.String())
+  })
+}).get("/:id", async ({ params }) => {
+  const user = await userService.getById(BigInt(params.id));
+  if (!user)
+    throw new Error("Usuario no encontrado");
+  return user;
+}).get("/me/profile", async ({ auth }) => {
+  const profile = await userProfileRepository.getByUserId(auth.user.id);
+  return profile || {};
+}).put("/me/profile", async ({ body, auth }) => {
+  await userProfileRepository.upsert(auth.user.id, body);
+  return { message: "Perfil actualizado" };
+}, {
+  body: t.Object({
+    pinHash: t.Optional(t.String()),
+    documentType: t.Optional(t.String()),
+    documentNumber: t.Optional(t.String()),
+    dateOfBirth: t.Optional(t.String()),
+    nationality: t.Optional(t.String()),
+    dailyLimit: t.Optional(t.Number()),
+    monthlyLimit: t.Optional(t.Number())
+  })
+}).get("/me/devices", async ({ auth }) => {
+  return deviceRepository.listByUser(auth.user.id);
+}).post("/me/devices", async ({ body, auth }) => {
+  return deviceRepository.register({ ...body, userId: auth.user.id });
+}, {
+  body: t.Object({
+    deviceName: t.Optional(t.String()),
+    deviceType: t.Optional(t.String()),
+    deviceId: t.String(),
+    fcmToken: t.Optional(t.String()),
+    apnsToken: t.Optional(t.String())
+  })
+});
+
+// src/banking/account/account.service.ts
+init_account_repository();
+
+// src/banking/account/account-number.service.ts
+var BANK_CODE = "100";
+var BRANCH_CODE = "01";
+function luhnCheckDigit(digits) {
+  let sum = 0;
+  let alternate = false;
+  for (let i2 = digits.length - 1;i2 >= 0; i2--) {
+    let n2 = parseInt(digits[i2], 10);
+    if (alternate) {
+      n2 *= 2;
+      if (n2 > 9)
+        n2 -= 9;
+    }
+    sum += n2;
+    alternate = !alternate;
+  }
+  return (10 - sum % 10) % 10;
+}
+var ACCOUNT_TYPE_MAP = {
+  current: "1",
+  savings: "2",
+  business: "3"
+};
+function generateAccountNumber(accountType, sequence2) {
+  const typeCode = ACCOUNT_TYPE_MAP[accountType] || "1";
+  const seqStr = sequence2.toString().padStart(2, "0").slice(-2);
+  const withoutCheck = `${BANK_CODE}${BRANCH_CODE}${typeCode}${seqStr}`;
+  return withoutCheck + luhnCheckDigit(withoutCheck);
+}
+
+// src/banking/account/account.service.ts
+var _accountSeq = 1;
+var accountService = {
+  async create(data) {
+    const num = generateAccountNumber(data.accountType, _accountSeq++);
+    const account = await accountRepository.create({
+      accountNumber: num,
+      accountType: data.accountType,
+      currency: data.currency || "BOB",
+      bankCredentialId: data.bankCredentialId
+    });
+    await accountRepository.linkUser(data.userId, account.id);
+    return account;
+  },
+  getById(id) {
+    return accountRepository.getById(id);
+  },
+  listByUser(userId) {
+    return accountRepository.listByUser(userId);
+  },
+  listAll(filters) {
+    return accountRepository.listAll(filters);
+  },
+  getMovements(accountId, filters) {
+    return accountRepository.getMovements(accountId, filters);
+  },
+  getStats(accountId) {
+    return accountRepository.getStats(accountId);
+  },
+  async createMovement(data) {
+    return accountRepository.createMovement(data);
+  }
+};
+
+// src/banking/credential/bank-credential.repository.ts
+init_pool();
+init_snowflake();
+var bankCredentialRepository = {
+  async create(data) {
+    const r2 = await query(`
+      INSERT INTO bank_credentials (id, bank_id, account_number, account_name, merchant_id,
+        username, password, encryption_key, environment, api_base_url)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING *
+    `, [
+      nextSnowflake(),
+      data.bankId,
+      data.accountNumber,
+      data.accountName,
+      data.merchantId,
+      data.username,
+      data.password,
+      data.encryptionKey,
+      data.environment,
+      data.apiBaseUrl
+    ]);
+    return r2.rows[0];
+  },
+  async getById(id) {
+    const r2 = await query("SELECT * FROM bank_credentials WHERE id = $1 AND deleted_at IS NULL", [id]);
+    return r2.rowCount ? r2.rows[0] : null;
+  },
+  async listByBank(bankId) {
+    const r2 = await query("SELECT * FROM bank_credentials WHERE bank_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC", [bankId]);
+    return r2.rows;
+  },
+  async list(filters = {}) {
+    const conditions = ["deleted_at IS NULL"];
+    const params = [];
+    let pc = 0;
+    if (filters.environment) {
+      pc++;
+      conditions.push(`environment = $${pc}`);
+      params.push(filters.environment);
+    }
+    if (filters.status) {
+      pc++;
+      conditions.push(`status = $${pc}`);
+      params.push(filters.status);
+    }
+    const where = "WHERE " + conditions.join(" AND ");
+    const r2 = await query(`SELECT * FROM bank_credentials ${where} ORDER BY created_at DESC`, params);
+    return r2.rows;
+  },
+  async update(id, data) {
+    const sets = [];
+    const params = [];
+    let pc = 0;
+    const map3 = { accountNumber: "account_number", accountName: "account_name", merchantId: "merchant_id", apiBaseUrl: "api_base_url", encryptionKey: "encryption_key" };
+    for (const [k, v] of Object.entries(data)) {
+      if (v === undefined)
+        continue;
+      pc++;
+      sets.push(`${map3[k] || k.replace(/([A-Z])/g, "_$1").toLowerCase()} = $${pc}`);
+      params.push(v);
+    }
+    if (sets.length) {
+      await query(`UPDATE bank_credentials SET ${sets.join(", ")} WHERE id = $${pc + 1}`, [...params, id]);
+    }
+  }
+};
+
+// src/banking/banking.routes.ts
+var bankingRoutes = new Elysia().use(authMiddleware({ type: "jwt", level: "user" })).get("/accounts", async ({ auth }) => {
+  const isAdmin = auth.user.role === "admin";
+  if (isAdmin) {
+    return accountService.listAll();
+  }
+  return accountService.listByUser(auth.user.id);
+}).get("/accounts/:id", async ({ params, auth }) => {
+  const account = await accountService.getById(BigInt(params.id));
+  if (!account)
+    throw new Error("Cuenta no encontrada");
+  return account;
+}).get("/accounts/:id/movements", async ({ params, query: q }) => {
+  return accountService.getMovements(BigInt(params.id), {
+    page: q.page ? parseInt(q.page) : undefined,
+    limit: q.limit ? parseInt(q.limit) : undefined,
+    from: q.from,
+    to: q.to,
+    type: q.type
+  });
+}, {
+  query: t.Optional(t.Object({
+    page: t.Optional(t.String()),
+    limit: t.Optional(t.String()),
+    from: t.Optional(t.String()),
+    to: t.Optional(t.String()),
+    type: t.Optional(t.String())
+  }))
+}).get("/accounts/:id/stats", async ({ params }) => {
+  return accountService.getStats(BigInt(params.id));
+}).get("/bank-credentials", async () => {
+  return bankCredentialRepository.list();
+});
+
+// src/payments/qr/qr.service.ts
+init_app_error();
+
+// src/payments/qr/qr.repository.ts
+init_pool();
+init_snowflake();
+var qrRepository = {
+  async create(data) {
+    const r2 = await query(`
+      INSERT INTO qr_codes (id, qr_id, transaction_id, account_id, bank_credential_id,
+        amount, currency, description, due_date, qr_image, single_use, modify_amount, wallet_id)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+      RETURNING *
+    `, [
+      nextSnowflake(),
+      data.qrId,
+      data.transactionId,
+      data.accountId,
+      data.bankCredentialId || null,
+      data.amount,
+      data.currency || "BOB",
+      data.description || null,
+      data.dueDate,
+      data.qrImage || null,
+      data.singleUse !== false,
+      data.modifyAmount === true,
+      data.walletId || null
+    ]);
+    return r2.rows[0];
+  },
+  async getByQrId(qrId) {
+    const r2 = await query("SELECT * FROM qr_codes WHERE qr_id = $1 AND deleted_at IS NULL", [qrId]);
+    return r2.rowCount ? r2.rows[0] : null;
+  },
+  async getById(id) {
+    const r2 = await query("SELECT * FROM qr_codes WHERE id = $1 AND deleted_at IS NULL", [id]);
+    return r2.rowCount ? r2.rows[0] : null;
+  },
+  async listByAccount(accountId, filters = {}) {
+    const page = filters.page || 1;
+    const limit = filters.limit || 20;
+    const offset = (page - 1) * limit;
+    const conditions = ["account_id = $1", "deleted_at IS NULL"];
+    const params = [accountId];
+    let pc = 1;
+    if (filters.status) {
+      pc++;
+      conditions.push(`status = $${pc}`);
+      params.push(filters.status);
+    }
+    if (filters.from) {
+      pc++;
+      conditions.push(`created_at >= $${pc}`);
+      params.push(filters.from);
+    }
+    if (filters.to) {
+      pc++;
+      conditions.push(`created_at <= $${pc}`);
+      params.push(filters.to);
+    }
+    const where = "WHERE " + conditions.join(" AND ");
+    const c = await query(`SELECT COUNT(*) as t FROM qr_codes ${where}`, params);
+    const r2 = await query(`SELECT * FROM qr_codes ${where} ORDER BY created_at DESC LIMIT $${pc + 1} OFFSET $${pc + 2}`, [...params, limit, offset]);
+    return { qrs: r2.rows, totalCount: parseInt(c.rows[0].t) };
+  },
+  async updateStatus(qrId, status2) {
+    await query("UPDATE qr_codes SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE qr_id = $2", [status2, qrId]);
+  },
+  async updateQrImage(qrId, qrImage) {
+    await query("UPDATE qr_codes SET qr_image = $1, updated_at = CURRENT_TIMESTAMP WHERE qr_id = $2", [qrImage, qrId]);
+  },
+  async getPayments(qrId) {
+    const r2 = await query(`
+      SELECT * FROM account_movements WHERE qr_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC
+    `, [qrId]);
+    return r2.rows;
+  }
+};
+
+// src/payments/qr/qr.service.ts
+init_account_repository();
+
+// src/banking/integration/baneco.adapter.ts
 var import_node_fetch = __toESM(require_lib4(), 1);
 
-class BanecoApi {
+class BanecoAdapter {
   apiBaseUrl;
   aesKey;
   constructor(apiBaseUrl, aesKey) {
@@ -38544,53 +41879,31 @@ class BanecoApi {
   async encryptText(text, aesKey) {
     const key = aesKey || this.aesKey;
     const url = `${this.apiBaseUrl}api/authentication/encrypt?text=${encodeURIComponent(text)}&aesKey=${key}`;
-    console.log({ url });
-    try {
-      const res = await import_node_fetch.default(url, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" }
-      });
-      if (!res.ok) {
-        throw new Error(`Error al encriptar texto: ${await res.text() || "Error desconocido"}`);
-      }
-      const data = await res.json();
-      return data;
-    } catch (error) {
-      console.error("Error en encriptación Baneco:", error);
-      throw error;
-    }
+    const res = await import_node_fetch.default(url, { method: "GET", headers: { "Content-Type": "application/json" } });
+    if (!res.ok)
+      throw new Error(`Encrypt error: ${await res.text()}`);
+    return res.json();
   }
   async getToken(username, passwordPlain) {
-    try {
-      const encryptedPassword = await this.encryptText(passwordPlain);
-      console.log({ encryptedPassword, username, passwordPlain });
-      const url = `${this.apiBaseUrl}api/authentication/authenticate`;
-      console.log({ url });
-      console.log({ body: JSON.stringify({ userName: username.replace("A", ""), password: encryptedPassword }) });
-      const res = await import_node_fetch.default(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userName: username, password: encryptedPassword })
-      });
-      console.log({ res });
-      if (!res.ok) {
-        throw new Error(`Error de autenticación: ${await res.text() || "Error desconocido"}`);
-      }
-      const data = await res.json();
-      if (data.responseCode !== 0) {
-        throw new Error(`Error de autenticación: ${data.message}`);
-      }
-      return data.token;
-    } catch (error) {
-      console.error("Error obteniendo token Baneco:", error);
-      throw error;
-    }
+    const encryptedPassword = await this.encryptText(passwordPlain);
+    const res = await import_node_fetch.default(`${this.apiBaseUrl}api/authentication/authenticate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userName: username, password: encryptedPassword })
+    });
+    if (!res.ok)
+      throw new Error(`Auth error: ${await res.text()}`);
+    const data = await res.json();
+    if (data.responseCode !== 0)
+      throw new Error(`Auth error: ${data.message}`);
+    return data.token;
   }
   async generateQr(token, transactionId, accountNumber, amount, options = {}) {
-    try {
-      const encryptedAccount = await this.encryptText(accountNumber);
-      console.log({ encryptedAccount, accountNumber });
-      const payload = {
+    const encryptedAccount = await this.encryptText(accountNumber);
+    const res = await import_node_fetch.default(`${this.apiBaseUrl}api/qrsimple/generateQR`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
         transactionId,
         accountCredit: encryptedAccount,
         currency: options.currency || "BOB",
@@ -38599,1469 +41912,2202 @@ class BanecoApi {
         dueDate: options.dueDate || "2025-12-31",
         singleUse: options.singleUse !== undefined ? options.singleUse : true,
         modifyAmount: options.modifyAmount !== undefined ? options.modifyAmount : false,
-        branchCode: options.branchCode || "E0001"
-      };
-      const res = await import_node_fetch.default(`${this.apiBaseUrl}api/qrsimple/generateQR`, {
+        branchCode: "E0001"
+      })
+    });
+    if (!res.ok)
+      throw new Error(`QR generate error: ${await res.text()}`);
+    const data = await res.json();
+    if (data.responseCode !== 0)
+      throw new Error(`QR generate error: ${data.message}`);
+    return { qrId: data.qrId, qrImage: data.qrImage, reference: data.reference };
+  }
+  async cancelQr(token, qrId) {
+    const res = await import_node_fetch.default(`${this.apiBaseUrl}api/qrsimple/cancelQR`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ qrId })
+    });
+    if (!res.ok)
+      throw new Error(`Cancel error: ${await res.text()}`);
+    const data = await res.json();
+    if (data.responseCode !== 0)
+      throw new Error(`Cancel error: ${data.message}`);
+  }
+  async getQrStatus(token, qrId) {
+    const res = await import_node_fetch.default(`${this.apiBaseUrl}api/qrsimple/v2/statusQR/${qrId}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok)
+      throw new Error(`Status error: ${await res.text()}`);
+    const data = await res.json();
+    if (data.responseCode !== 0)
+      throw new Error(`Status error: ${data.message}`);
+    return { status: data.status, amount: data.amount, currency: data.currency, description: data.description, qrImage: data.qrImage };
+  }
+  async getPaidQrsByDate(token, dateStr) {
+    const res = await import_node_fetch.default(`${this.apiBaseUrl}api/qrsimple/v2/paidQR/${dateStr}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (!res.ok || data.responseCode !== 0)
+      throw new Error(`Paid QR error: ${data.message}`);
+    return data.paymentList || [];
+  }
+}
+
+// src/payments/events/event-bus.ts
+class EventBus {
+  listeners = new Map;
+  on(event, fn) {
+    if (!this.listeners.has(event))
+      this.listeners.set(event, new Set);
+    this.listeners.get(event).add(fn);
+    return () => this.listeners.get(event)?.delete(fn);
+  }
+  emit(event, ...args) {
+    this.listeners.get(event)?.forEach((fn) => {
+      try {
+        fn(...args);
+      } catch (e) {
+        console.error(`EventBus error [${event}]:`, e);
+      }
+    });
+  }
+  removeAll() {
+    this.listeners.clear();
+  }
+}
+var eventBus = new EventBus;
+
+// src/payments/sync/payment-sync.service.ts
+init_pool();
+init_account_repository();
+var paymentSyncService = {
+  async syncQRStatus(qrId) {
+    const qr = await qrRepository.getByQrId(qrId);
+    if (!qr || qr.status === "used" || qr.status === "cancelled")
+      return { changed: false };
+    const cred = qr.bankCredentialId ? await bankCredentialRepository.getById(qr.bankCredentialId) : null;
+    if (!cred)
+      return { changed: false };
+    try {
+      const adapter = new BanecoAdapter(cred.apiBaseUrl, cred.encryptionKey);
+      const token = await adapter.getToken(cred.username, cred.password);
+      const status2 = await adapter.getQrStatus(token, qrId);
+      if (status2.status === "PAID" || status2.status === "COMPLETED") {
+        const movement = await accountRepository.createMovement({
+          accountId: qr.accountId,
+          movementType: "qr_payment",
+          amount: status2.amount,
+          balanceBefore: 0,
+          balanceAfter: 0,
+          description: `Pago QR ${qrId}`,
+          qrId,
+          transactionId: qr.transactionId,
+          paymentDate: new Date().toISOString(),
+          currency: status2.currency,
+          referenceId: qr.transactionId,
+          referenceType: "qr"
+        });
+        await qrRepository.updateStatus(qrId, "used");
+        await query(`
+          INSERT INTO payment_sync_status (qr_id, last_checked, check_count, success, final_status)
+          VALUES ($1, CURRENT_TIMESTAMP, 1, true, 'completed')
+          ON CONFLICT (qr_id) DO UPDATE SET
+            last_checked = CURRENT_TIMESTAMP, check_count = payment_sync_status.check_count + 1,
+            success = true, final_status = 'completed'
+        `, [qrId]);
+        eventBus.emit("qr.paid", { qrId, accountId: qr.accountId, amount: status2.amount, movementId: movement.id });
+        return { changed: true, status: "completed" };
+      }
+      if (status2.status === "EXPIRED" || status2.status === "CANCELLED") {
+        await qrRepository.updateStatus(qrId, status2.status.toLowerCase());
+        await query(`
+          INSERT INTO payment_sync_status (qr_id, last_checked, check_count, success, final_status)
+          VALUES ($1, CURRENT_TIMESTAMP, 1, true, $2)
+          ON CONFLICT (qr_id) DO UPDATE SET
+            last_checked = CURRENT_TIMESTAMP, check_count = payment_sync_status.check_count + 1,
+            success = true, final_status = $2
+        `, [qrId, status2.status.toLowerCase()]);
+        return { changed: true, status: status2.status.toLowerCase() };
+      }
+      await query(`
+        INSERT INTO payment_sync_status (qr_id, last_checked, check_count, success)
+        VALUES ($1, CURRENT_TIMESTAMP, 1, true)
+        ON CONFLICT (qr_id) DO UPDATE SET
+          last_checked = CURRENT_TIMESTAMP, check_count = payment_sync_status.check_count + 1, success = true
+      `, [qrId]);
+      return { changed: false };
+    } catch (e) {
+      console.error(`Sync error for QR ${qrId}:`, e);
+      await query(`
+        INSERT INTO payment_sync_status (qr_id, last_checked, success)
+        VALUES ($1, CURRENT_TIMESTAMP, false)
+        ON CONFLICT (qr_id) DO UPDATE SET last_checked = CURRENT_TIMESTAMP, success = false
+      `, [qrId]);
+      return { changed: false };
+    }
+  }
+};
+
+// src/payments/sync/payment-queue.service.ts
+var syncQueues = new Map;
+var MAX_ATTEMPTS = 20;
+function getInterval(attempts) {
+  if (attempts <= 5)
+    return 2 * 60 * 1000;
+  if (attempts <= 10)
+    return 5 * 60 * 1000;
+  return 15 * 60 * 1000;
+}
+var paymentQueueService = {
+  enqueueSync(qrId) {
+    if (syncQueues.has(qrId))
+      return;
+    this.scheduleNext(qrId, 0);
+  },
+  scheduleNext(qrId, attempts) {
+    const existing = syncQueues.get(qrId);
+    if (existing)
+      clearTimeout(existing.timer);
+    const interval = getInterval(attempts);
+    const timer = setTimeout(async () => {
+      const { changed } = await paymentSyncService.syncQRStatus(qrId);
+      const nextAttempts = attempts + 1;
+      if (!changed && nextAttempts < MAX_ATTEMPTS) {
+        this.scheduleNext(qrId, nextAttempts);
+      } else {
+        syncQueues.delete(qrId);
+      }
+    }, interval);
+    syncQueues.set(qrId, { timer, attempts });
+  },
+  stopAll() {
+    for (const [qrId, { timer }] of syncQueues) {
+      clearTimeout(timer);
+    }
+    syncQueues.clear();
+  }
+};
+
+// src/payments/qr/qr.service.ts
+var qrService = {
+  async generate(data) {
+    const account = await accountRepository.getById(data.accountId);
+    if (!account)
+      throw new AppError(404, "Cuenta no encontrada");
+    const cred = await bankCredentialRepository.getById(account.bankCredentialId);
+    if (!cred)
+      throw new AppError(400, "Credencial bancaria no configurada");
+    const adapter = new BanecoAdapter(cred.apiBaseUrl, cred.encryptionKey);
+    const token = await adapter.getToken(cred.username, cred.password);
+    const transactionId = `TXN${Date.now()}${Math.random().toString(36).slice(2, 8)}`.toUpperCase();
+    const result = await adapter.generateQr(token, transactionId, account.accountNumber, data.amount, {
+      description: data.description,
+      dueDate: data.dueDate,
+      singleUse: data.singleUse,
+      modifyAmount: data.modifyAmount,
+      currency: data.currency
+    });
+    const qr = await qrRepository.create({
+      qrId: result.qrId,
+      transactionId,
+      accountId: data.accountId,
+      bankCredentialId: account.bankCredentialId,
+      amount: data.amount,
+      currency: data.currency || "BOB",
+      description: data.description,
+      dueDate: data.dueDate || "2025-12-31",
+      qrImage: result.qrImage,
+      singleUse: data.singleUse,
+      modifyAmount: data.modifyAmount,
+      walletId: data.walletId
+    });
+    paymentQueueService.enqueueSync(result.qrId);
+    eventBus.emit("qr.created", { qrId: result.qrId, accountId: data.accountId, amount: data.amount });
+    return qr;
+  },
+  async list(accountId, filters) {
+    return qrRepository.listByAccount(accountId, filters);
+  },
+  async getDetails(qrId) {
+    return qrRepository.getByQrId(qrId);
+  },
+  async getPayments(qrId) {
+    return qrRepository.getPayments(qrId);
+  },
+  async cancel(qrId) {
+    const qr = await qrRepository.getByQrId(qrId);
+    if (!qr)
+      throw new AppError(404, "QR no encontrado");
+    if (qr.status !== "active")
+      throw new AppError(400, "El QR no está activo");
+    const cred = await bankCredentialRepository.getById(qr.bankCredentialId);
+    if (cred) {
+      try {
+        const adapter = new BanecoAdapter(cred.apiBaseUrl, cred.encryptionKey);
+        const token = await adapter.getToken(cred.username, cred.password);
+        await adapter.cancelQr(token, qrId);
+      } catch (e) {
+        console.error("Error cancelando QR en banco:", e);
+      }
+    }
+    await qrRepository.updateStatus(qrId, "cancelled");
+    eventBus.emit("qr.cancelled", { qrId, accountId: qr.accountId });
+  },
+  async handleBanecoNotification(data) {
+    const {
+      qrId,
+      transactionId,
+      amount,
+      paymentDate,
+      paymentHour,
+      currency,
+      senderName,
+      senderDocumentId,
+      senderAccount,
+      senderBankCode
+    } = data;
+    const qr = await qrRepository.getByQrId(qrId);
+    if (!qr)
+      throw new AppError(404, "QR no encontrado");
+    const movement = await accountRepository.createMovement({
+      accountId: qr.accountId,
+      movementType: "qr_payment",
+      amount,
+      balanceBefore: 0,
+      balanceAfter: 0,
+      description: `Pago QR ${qrId}`,
+      qrId,
+      transactionId,
+      paymentDate: paymentDate || new Date().toISOString(),
+      currency: currency || qr.currency,
+      senderName,
+      senderDocumentId,
+      senderAccount,
+      senderBankCode,
+      referenceId: qr.transactionId,
+      referenceType: "qr",
+      status: "completed"
+    });
+    await qrRepository.updateStatus(qrId, "used");
+    if (qr.singleUse) {
+      await qrRepository.updateStatus(qrId, "used");
+    }
+    eventBus.emit("qr.paid", { qrId, accountId: qr.accountId, amount, movementId: movement.id });
+  }
+};
+
+// src/common/qr.schema.ts
+var QRRequestSchema = t.Object({
+  amount: t.Number({ minimum: 0.01 }),
+  currency: t.Optional(t.String({ default: "BOB" })),
+  description: t.Optional(t.String()),
+  dueDate: t.Optional(t.String()),
+  singleUse: t.Optional(t.Boolean({ default: true })),
+  modifyAmount: t.Optional(t.Boolean({ default: false })),
+  accountId: t.Optional(t.Number())
+});
+
+// src/payments/qr/qr.routes.ts
+var qrRoutes = new Elysia({ prefix: "/qr" }).use(authMiddleware({ type: "all", level: "user" })).post("/generate", async ({ body, auth }) => {
+  const accountId = auth.type === "jwt" ? BigInt(body.accountId || 0) : auth.apiKeyInfo.accountId;
+  return qrService.generate({ ...body, accountId });
+}, { body: QRRequestSchema }).get("/list", async ({ query: query2, auth }) => {
+  const accountId = auth.type === "jwt" ? BigInt(query2.accountId || 0) : auth.apiKeyInfo.accountId;
+  return qrService.list(accountId, {
+    page: query2.page ? parseInt(query2.page) : undefined,
+    limit: query2.limit ? parseInt(query2.limit) : undefined,
+    status: query2.status,
+    from: query2.from,
+    to: query2.to
+  });
+}, {
+  query: t.Optional(t.Object({
+    accountId: t.Optional(t.String()),
+    page: t.Optional(t.String()),
+    limit: t.Optional(t.String()),
+    status: t.Optional(t.String()),
+    from: t.Optional(t.String()),
+    to: t.Optional(t.String())
+  }))
+}).get("/:qrId", async ({ params }) => {
+  const qr = await qrService.getDetails(params.qrId);
+  if (!qr)
+    throw new Error("QR no encontrado");
+  return qr;
+}).get("/:qrId/payments", async ({ params }) => {
+  return qrService.getPayments(params.qrId);
+}).delete("/:qrId", async ({ params }) => {
+  await qrService.cancel(params.qrId);
+  return { message: "QR cancelado" };
+});
+
+// src/payments/payment/hooks.routes.ts
+var hooksRoutes = new Elysia({ prefix: "/hooks" }).post("/baneco/notifyPayment", async ({ body }) => {
+  await qrService.handleBanecoNotification(body);
+  return { responseCode: 0, message: "Notificación recibida" };
+}, {
+  body: t.Object({
+    qrId: t.String(),
+    transactionId: t.String(),
+    amount: t.Number(),
+    paymentDate: t.Optional(t.String()),
+    paymentHour: t.Optional(t.String()),
+    currency: t.Optional(t.String()),
+    senderName: t.Optional(t.String()),
+    senderDocumentId: t.Optional(t.String()),
+    senderAccount: t.Optional(t.String()),
+    senderBankCode: t.Optional(t.String())
+  })
+});
+
+// src/shared/middleware/idempotency.ts
+init_pool();
+init_app_error();
+init_snowflake();
+function idempotency() {
+  return new Elysia({ name: "idempotency" }).derive({ as: "scoped" }, async (ctx) => {
+    const key = ctx.headers["idempotency-key"];
+    if (!key)
+      return {};
+    const existing = await query("SELECT response_body FROM idempotency_keys WHERE idempotency_key = $1 AND expires_at > CURRENT_TIMESTAMP", [key]);
+    if (existing.rowCount && existing.rowCount > 0) {
+      logger.info("Idempotency hit", { key });
+      throw new AppError(409, "Idempotency conflict", {
+        key,
+        previousResponse: existing.rows[0].response_body
+      });
+    }
+    return { idempotencyKey: key };
+  });
+}
+async function storeIdempotencyResponse(key, responseBody) {
+  try {
+    await query(`INSERT INTO idempotency_keys (id, idempotency_key, response_body, expires_at)
+       VALUES ($1, $2, $3, CURRENT_TIMESTAMP + INTERVAL '24 hours')
+       ON CONFLICT (idempotency_key) DO NOTHING`, [nextSnowflake(), key, JSON.stringify(responseBody)]);
+  } catch (e) {
+    logger.error("Failed to store idempotency", { key, error: e });
+  }
+}
+
+// src/payments/transfer/transfer.service.ts
+init_app_error();
+init_wallet_repository();
+
+// src/payments/transfer/transfer.repository.ts
+init_pool();
+init_snowflake();
+var transferRepository = {
+  async create(data) {
+    const r2 = await query(`
+      INSERT INTO transfers (id, sender_wallet_id, receiver_wallet_id, amount, fee, total,
+        currency, description, reference_type, reference_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING *
+    `, [
+      nextSnowflake(),
+      data.senderWalletId,
+      data.receiverWalletId,
+      data.amount,
+      data.fee,
+      data.total,
+      data.currency || "BOB",
+      data.description || null,
+      data.referenceType || null,
+      data.referenceId || null
+    ]);
+    return r2.rows[0];
+  },
+  async getById(id) {
+    const r2 = await query("SELECT * FROM transfers WHERE id = $1", [id]);
+    return r2.rowCount ? r2.rows[0] : null;
+  },
+  async listByWallet(walletId, limit = 20, offset = 0) {
+    const r2 = await query(`
+      SELECT * FROM transfers WHERE sender_wallet_id = $1 OR receiver_wallet_id = $1
+      ORDER BY created_at DESC LIMIT $2 OFFSET $3
+    `, [walletId, limit, offset]);
+    return r2.rows;
+  },
+  async updateStatus(id, status2) {
+    await query(`UPDATE transfers SET status = $1, completed_at = CASE WHEN $1 = 'completed' THEN CURRENT_TIMESTAMP ELSE completed_at END WHERE id = $2`, [status2, id]);
+  }
+};
+
+// src/payments/fraud/fraud.service.ts
+init_pool();
+init_snowflake();
+var DAILY_LIMIT_PERCENTAGE = 0.5;
+var SINGLE_TX_LIMIT = 1e4;
+var VELOCITY_MAX_TX = 5;
+async function evaluateFraud(params) {
+  let score = 0;
+  const reasons = [];
+  const wallet = await query("SELECT balance FROM wallets WHERE id = $1", [params.walletId]);
+  if (wallet.rows.length === 0)
+    return { allowed: false, score: 100, reasons: ["Wallet no encontrada"] };
+  const balance = parseFloat(wallet.rows[0].balance);
+  if (params.amount > balance) {
+    score += 40;
+    reasons.push("Saldo insuficiente");
+  }
+  if (params.amount > SINGLE_TX_LIMIT) {
+    score += 30;
+    reasons.push("Monto excede límite por transacción");
+  }
+  if (params.amount > balance * DAILY_LIMIT_PERCENTAGE && params.amount > 1000) {
+    score += 15;
+    reasons.push("Monto supera 50% del saldo actual");
+  }
+  const recent = await query(`SELECT COUNT(*) as cnt FROM transfers
+     WHERE source_wallet_id = $1
+       AND created_at > CURRENT_TIMESTAMP - INTERVAL '1 minute'`, [params.walletId]);
+  const recentCount = parseInt(recent.rows[0].cnt);
+  if (recentCount >= VELOCITY_MAX_TX) {
+    score += 20;
+    reasons.push("Alta velocidad de transacciones");
+  }
+  const dailySum = await query(`SELECT COALESCE(SUM(amount), 0) as total FROM transfers
+     WHERE source_wallet_id = $1
+       AND created_at > CURRENT_TIMESTAMP - INTERVAL '24 hours'`, [params.walletId]);
+  const dailyTotal = parseFloat(dailySum.rows[0].total);
+  if (dailyTotal + params.amount > balance * 0.8) {
+    score += 15;
+    reasons.push("Límite diario del 80% del saldo alcanzado");
+  }
+  if (reasons.length >= 3) {
+    score += 10;
+  }
+  const allowed = score < 60;
+  if (!allowed) {
+    await createAlert({
+      userId: params.userId,
+      alertType: "fraud_detected",
+      severity: score >= 80 ? "high" : "medium",
+      description: `Fraud score ${score}: ${reasons.join(", ")}`,
+      metadata: params
+    });
+    logger.warn("Fraud detected", { score, reasons, ...params });
+  }
+  return { allowed, score, reasons };
+}
+async function createAlert(params) {
+  await query(`INSERT INTO fraud_alerts (id, user_id, transfer_id, alert_type, severity, description, metadata)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`, [
+    nextSnowflake(),
+    params.userId || null,
+    params.transferId || null,
+    params.alertType,
+    params.severity || "medium",
+    params.description || null,
+    params.metadata ? JSON.stringify(params.metadata) : "{}"
+  ]);
+}
+async function resolveAlert(alertId, resolvedBy) {
+  await query(`UPDATE fraud_alerts SET status = 'resolved', resolved_at = CURRENT_TIMESTAMP, resolved_by = $1 WHERE id = $2`, [resolvedBy, alertId]);
+}
+async function getOpenAlerts(userId) {
+  const result = await query("SELECT * FROM fraud_alerts WHERE user_id = $1 AND status = 'open' ORDER BY created_at DESC", [userId]);
+  return result.rows;
+}
+
+// src/payments/webhooks/webhook.service.ts
+init_pool();
+init_snowflake();
+async function registerWebhook(params) {
+  const result = await query(`INSERT INTO outgoing_webhooks (id, user_id, company_id, url, secret, events)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id`, [nextSnowflake(), params.userId, params.companyId || null, params.url, params.secret || null, params.events]);
+  return result.rows[0].id;
+}
+async function dispatch(event, payload) {
+  const webhooks = await query(`SELECT id, url, secret FROM outgoing_webhooks
+     WHERE $1 = ANY(events) AND is_active = TRUE`, [event]);
+  for (const wh of webhooks.rows) {
+    await query(`INSERT INTO outgoing_webhook_jobs (id, webhook_id, event, payload)
+       VALUES ($1, $2, $3, $4)`, [nextSnowflake(), wh.id, event, JSON.stringify(payload)]);
+  }
+  if (webhooks.rows.length > 0) {
+    logger.info("Webhooks dispatched", { event, count: webhooks.rows.length });
+  }
+}
+async function processPendingJobs() {
+  const jobs = await query(`SELECT j.id, j.webhook_id, j.event, j.payload, j.retry_count, w.url, w.secret
+     FROM outgoing_webhook_jobs j
+     JOIN outgoing_webhooks w ON w.id = j.webhook_id
+     WHERE j.status = 'pending' AND j.scheduled_at <= CURRENT_TIMESTAMP
+     ORDER BY j.scheduled_at ASC
+     LIMIT 20
+     FOR UPDATE SKIP LOCKED`);
+  for (const job of jobs.rows) {
+    try {
+      const response = await fetch(job.url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          "X-Webhook-Event": job.event,
+          "X-Webhook-Signature": job.secret ? createSignature(job.secret, job.payload) : ""
         },
-        body: JSON.stringify(payload)
+        body: job.payload
       });
-      if (!res.ok) {
-        throw new Error(`Error generando QR: ${await res.text() || "Error desconocido"}`);
+      if (response.ok) {
+        await query(`UPDATE outgoing_webhook_jobs SET status = 'completed', completed_at = CURRENT_TIMESTAMP WHERE id = $1`, [job.id]);
+        await query(`UPDATE outgoing_webhooks SET last_sent_at = CURRENT_TIMESTAMP WHERE id = $1`, [job.webhook_id]);
+      } else {
+        throw new Error(`HTTP ${response.status}`);
       }
-      const data = await res.json();
-      if (data.responseCode !== 0) {
-        throw new Error(`Error generando QR: ${data.message}`);
+    } catch (err2) {
+      const retryCount = job.retry_count + 1;
+      const status2 = retryCount >= 3 ? "failed" : "pending";
+      const backoff = Math.min(Math.pow(2, retryCount) * 1e4, 600000);
+      await query(`UPDATE outgoing_webhook_jobs
+         SET status = $1, retry_count = $2, last_error = $3,
+             scheduled_at = CURRENT_TIMESTAMP + INTERVAL '${backoff} milliseconds'
+         WHERE id = $4`, [status2, retryCount, err2.message, job.id]);
+      if (status2 === "failed") {
+        await query(`UPDATE outgoing_webhooks SET last_error = $1 WHERE id = $2`, [err2.message, job.webhook_id]);
+        logger.error("Webhook job failed", { jobId: job.id, error: err2.message });
       }
-      return data;
-    } catch (error) {
-      console.error("Error generando QR Baneco:", error);
-      throw error;
-    }
-  }
-  async cancelQr(token, qrId) {
-    try {
-      const res = await import_node_fetch.default(`${this.apiBaseUrl}api/qrsimple/cancelQR`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ qrId })
-      });
-      if (!res.ok) {
-        throw new Error(`Error cancelando QR: ${await res.text() || "Error desconocido"}`);
-      }
-      const data = await res.json();
-      if (data.responseCode !== 0) {
-        throw new Error(`Error cancelando QR: ${data.message}`);
-      }
-      return data;
-    } catch (error) {
-      console.error("Error cancelando QR Baneco:", error);
-      throw error;
-    }
-  }
-  async getQrStatus(token, qrId) {
-    try {
-      const res = await import_node_fetch.default(`${this.apiBaseUrl}api/qrsimple/v2/statusQR/${qrId}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      if (!res.ok) {
-        throw new Error(`Error consultando estado QR: ${await res.text() || "Error desconocido"}`);
-      }
-      const data = await res.json();
-      if (data.responseCode !== 0) {
-        throw new Error(`Error consultando estado QR: ${data.message}`);
-      }
-      return data;
-    } catch (error) {
-      console.error("Error consultando estado QR Baneco:", error);
-      throw error;
-    }
-  }
-  async getPaidQrsByDate(token, dateStr) {
-    try {
-      const res = await import_node_fetch.default(`${this.apiBaseUrl}api/qrsimple/v2/paidQR/${dateStr}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(`Error consultando QRs pagados: ${await res.text() || "Error desconocido"}`);
-      }
-      if (data.responseCode !== 0) {
-        throw new Error(`Error consultando QRs pagados: ${data.message}`);
-      }
-      return data.paymentList || [];
-    } catch (error) {
-      console.error("Error consultando QRs pagados Baneco:", error);
-      throw error;
     }
   }
 }
-var baneco_api_default = BanecoApi;
-
-// src/services/qr.service.ts
-init_database();
-init_error();
-init_bank_credentials_service();
-var BANCO_ECONOMICO_ID = 1;
-
-class QrService {
-  async generate(userId, qrData) {
-    const currency = "BOB";
-    const config = await bankCredentialsService.getByUserId(userId);
-    const banecoApi = new baneco_api_default(config.apiBaseUrl, config.encryptionKey);
-    const client = await pool.connect();
-    await client.query("BEGIN");
-    try {
-      const token = await banecoApi.getToken(config.username, config.password);
-      const qrResponse = await banecoApi.generateQr(token, qrData.transactionId, config.accountNumber, qrData.amount, {
-        description: qrData.description || "",
-        dueDate: qrData.dueDate,
-        singleUse: qrData.singleUse !== false,
-        modifyAmount: qrData.modifyAmount || false,
-        currency
-      });
-      if (qrResponse.responseCode !== 0) {
-        throw new ApiError(`Error al generar QR: ${qrResponse.message}`, 400);
-      }
-      const qrResult = await query(`
-        INSERT INTO qr_codes (
-          qr_id, transaction_id, account_credit, user_id, third_bank_credential_id,
-          environment, currency, amount, description, due_date, single_use, modify_amount, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'active')
-        RETURNING id
-      `, [
-        qrResponse.qrId,
-        qrData.transactionId,
-        config.accountNumber,
-        userId,
-        config.id,
-        config.environment,
-        currency,
-        qrData.amount,
-        qrData.description || "",
-        qrData.dueDate,
-        qrData.singleUse !== false,
-        qrData.modifyAmount || false
-      ]);
-      const qrId = qrResult.rows[0].id;
-      return {
-        qrId: qrResponse.qrId,
-        qrImage: qrResponse.qrImage,
-        transactionId: qrData.transactionId,
-        amount: qrData.amount,
-        currency,
-        description: qrData.description,
-        dueDate: qrData.dueDate,
-        singleUse: qrData.singleUse !== false,
-        modifyAmount: qrData.modifyAmount || false,
-        status: "active"
-      };
-    } catch (error) {
-      throw new ApiError("Error al generar QR: " + (error instanceof Error ? error.message : "Unknown error"), 401);
-    }
-  }
-  async getQRList(userId, filters = {}, page = 1, limit = 20) {
-    const offset = (page - 1) * limit;
-    let whereClause = "WHERE q.user_id = $1 AND q.deleted_at IS NULL";
-    const params = [userId];
-    let paramCount = 1;
-    if (filters.status) {
-      paramCount++;
-      whereClause += ` AND q.status = $${paramCount}`;
-      params.push(filters.status);
-    }
-    if (filters.startDate) {
-      paramCount++;
-      whereClause += ` AND q.due_date >= $${paramCount}`;
-      params.push(filters.startDate);
-    }
-    if (filters.endDate) {
-      paramCount++;
-      whereClause += ` AND q.due_date <= $${paramCount}`;
-      params.push(filters.endDate);
-    }
-    const countQuery = await query(`
-      SELECT COUNT(*) as total
-      FROM qr_codes q
-      ${whereClause}
-    `, params);
-    const totalCount = parseInt(countQuery.rows[0].total);
-    const qrQuery = await query(`
-        SELECT 
-          q.qr_id as "qrId",
-          q.transaction_id as "transactionId",
-          q.created_at as "createdAt",
-          q.due_date as "dueDate",
-          q.currency,
-          q.amount,
-          q.status,
-          q.description,
-          q.single_use as "singleUse",
-          q.modify_amount as "modifyAmount"
-        FROM qr_codes q
-        ${whereClause}
-        ORDER BY q.created_at DESC
-        LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
-      `, [...params, limit, offset]);
-    const qrList = qrQuery.rows.map((row) => ({
-      qrId: row.qrId,
-      transactionId: row.transactionId,
-      createdAt: row.createdAt,
-      dueDate: row.dueDate,
-      currency: row.currency,
-      amount: parseFloat(row.amount),
-      status: row.status,
-      description: row.description,
-      singleUse: row.singleUse,
-      modifyAmount: row.modifyAmount,
-      payments: []
-    }));
-    for (const qr of qrList) {
-      const paymentsQuery = await query(`
-        SELECT 
-          am.reference_id as "transactionId",
-          am.created_at as "paymentDate",
-          'BOB' as currency,
-          am.amount,
-          am.sender_name as "senderName",
-          am.description,
-          am.reference_type as "referenceType"
-        FROM account_movements am
-        WHERE am.qr_id = $1 AND am.deleted_at IS NULL AND am.movement_type = 'qr_payment'
-        ORDER BY am.created_at DESC
-      `, [qr.qrId]);
-      qr.payments = paymentsQuery.rows.map((payment) => {
-        return {
-          qrId: qr.qrId,
-          transactionId: payment.transactionId,
-          paymentDate: payment.paymentDate,
-          paymentTime: "",
-          currency: payment.currency,
-          amount: parseFloat(payment.amount),
-          senderBankCode: "",
-          senderName: payment.senderName || "",
-          senderDocumentId: "",
-          senderAccount: "",
-          description: payment.description
-        };
-      });
-    }
-    return {
-      qrList,
-      totalCount
-    };
-  }
-  async getQRDetails(qrId, bankCredentialId) {
-    try {
-      console.log(`\uD83D\uDD0D getQRDetails: Iniciando con qrId=${qrId}, bankCredentialId=${bankCredentialId}`);
-      console.log("\uD83C\uDFE6 getQRDetails: Consultando estado en Baneco...");
-      let banecoStatus = null;
-      let banecoPayments = [];
-      try {
-        const config = await bankCredentialsService.getById(bankCredentialId);
-        console.log("\uD83D\uDD0D getQRDetails: Configuración bancaria:", config);
-        if (config) {
-          const banecoApi = new baneco_api_default(config.apiBaseUrl, config.encryptionKey);
-          try {
-            const token = await banecoApi.getToken(config.username, config.password);
-            const banecoResponse = await banecoApi.getQrStatus(token, qrId);
-            banecoStatus = banecoResponse.statusQrCode;
-            banecoPayments = banecoResponse.payment || [];
-            console.log(`✅ getQRDetails: Estado en Baneco: ${banecoStatus}, Pagos: ${banecoPayments.length}`);
-          } catch (banecoError) {
-            console.log({ banecoError });
-            console.log(`⚠️ getQRDetails: Error consultando Baneco: ${banecoError instanceof Error ? banecoError.message : "Error desconocido"}`);
-          }
-        } else {
-          console.log("⚠️ getQRDetails: Usuario sin configuración bancaria activa");
-        }
-      } catch (configError) {
-        console.log(`⚠️ getQRDetails: Error obteniendo configuración bancaria: ${configError instanceof Error ? configError.message : "Error desconocido"}`);
-      }
-      console.log("\uD83D\uDDC4️ getQRDetails: Verificando QR en base de datos...");
-      const qrQuery = await query(`
-        SELECT 
-          q.qr_id as "qrId",
-          q.transaction_id as "transactionId",
-          q.created_at as "createdAt",
-          q.due_date as "dueDate",
-          q.currency,
-          q.amount,
-          q.status,
-          q.description,
-          q.single_use as "singleUse",
-          q.modify_amount as "modifyAmount",
-          q.user_id as "userId",
-          q.third_bank_credential_id as "bankCredentialId",
-          q.environment
-        FROM qr_codes q
-        WHERE q.qr_id = $1 AND q.deleted_at IS NULL
-      `, [qrId]);
-      console.log(`\uD83D\uDCCA getQRDetails: Consulta QR completada, filas encontradas: ${qrQuery.rowCount}`);
-      if (qrQuery.rowCount === 0) {
-        console.log("⚠️ getQRDetails: No se encontró el QR");
-        return null;
-      }
-      const qr = qrQuery.rows[0];
-      console.log("✅ getQRDetails: QR encontrado:", qr);
-      const qrItem = {
-        qrId: qr.qrId,
-        transactionId: qr.transactionId,
-        createdAt: qr.createdAt,
-        dueDate: qr.dueDate,
-        currency: qr.currency,
-        amount: parseFloat(qr.amount),
-        status: qr.status,
-        description: qr.description,
-        singleUse: qr.singleUse,
-        modifyAmount: qr.modifyAmount,
-        payments: []
-      };
-      console.log("\uD83C\uDFD7️ getQRDetails: Objeto QR construido:", qrItem);
-      if (banecoStatus !== null) {
-        console.log("\uD83D\uDD04 getQRDetails: Actualizando estado en base de datos según Baneco...");
-        let newStatus = qr.status;
-        if (banecoStatus === 1 && qr.status === "active") {
-          newStatus = "used";
-        } else if (banecoStatus === 9 && qr.status === "active") {
-          newStatus = "cancelled";
-        }
-        if (newStatus !== qr.status) {
-          await query(`
-            UPDATE qr_codes 
-            SET status = $1, updated_at = CURRENT_TIMESTAMP
-            WHERE qr_id = $2
-          `, [newStatus, qrId]);
-          qrItem.status = newStatus;
-          console.log(`✅ getQRDetails: Estado actualizado de '${qr.status}' a '${newStatus}'`);
-        }
-      }
-      if (banecoPayments.length > 0) {
-        console.log(`\uD83D\uDCB3 getQRDetails: Procesando ${banecoPayments.length} pagos de Baneco...`);
-        for (const banecoPayment of banecoPayments) {
-          const existingPaymentQuery = await query(`
-            SELECT id FROM account_movements 
-            WHERE qr_id = $1 AND reference_id = $2 AND deleted_at IS NULL
-          `, [qrId, banecoPayment.transactionId]);
-          if (existingPaymentQuery.rowCount === 0) {
-            const accountQuery = await query(`
-              SELECT a.id, a.balance 
-              FROM accounts a 
-              JOIN qr_codes q ON a.id = q.account_id 
-              WHERE q.qr_id = $1
-            `, [qrId]);
-            if (accountQuery.rows.length === 0) {
-              console.log(`⚠️ getQRDetails: No se encontró cuenta para QR ${qrId}`);
-              continue;
-            }
-            const account = accountQuery.rows[0];
-            const currentBalance = parseFloat(account.balance);
-            const newBalance = currentBalance + parseFloat(banecoPayment.amount);
-            await query(`
-              INSERT INTO account_movements (
-                account_id, movement_type, amount, balance_before, balance_after,
-                description, qr_id, sender_name, reference_id, reference_type, status
-              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-            `, [
-              account.id,
-              "qr_payment",
-              banecoPayment.amount,
-              currentBalance,
-              newBalance,
-              banecoPayment.description || "Pago QR recibido",
-              qrId,
-              banecoPayment.senderName,
-              banecoPayment.transactionId,
-              "qr_payment",
-              "completed"
-            ]);
-            await query(`
-              UPDATE accounts 
-              SET balance = $1, available_balance = $1, updated_at = CURRENT_TIMESTAMP
-              WHERE id = $2
-            `, [newBalance, account.id]);
-            console.log(`✅ getQRDetails: Pago ${banecoPayment.transactionId} insertado`);
-          }
-        }
-      }
-      console.log("\uD83D\uDCB0 getQRDetails: Obteniendo pagos del QR...");
-      const paymentsQuery = await query(`
-        SELECT 
-          am.reference_id as "transactionId",
-          am.created_at as "paymentDate",
-          'BOB' as currency,
-          am.amount,
-          am.sender_name as "senderName",
-          am.description,
-          am.reference_type as "referenceType"
-        FROM account_movements am
-        WHERE am.qr_id = $1 AND am.deleted_at IS NULL AND am.movement_type = 'qr_payment'
-        ORDER BY am.created_at DESC
-      `, [qrId]);
-      console.log(`\uD83D\uDCB3 getQRDetails: Pagos encontrados: ${paymentsQuery.rowCount}`);
-      qrItem.payments = paymentsQuery.rows.map((payment) => {
-        return {
-          qrId: qr.qrId,
-          transactionId: payment.transactionId,
-          paymentDate: payment.paymentDate,
-          paymentTime: "",
-          currency: payment.currency,
-          amount: parseFloat(payment.amount),
-          senderBankCode: "",
-          senderName: payment.senderName || "",
-          senderDocumentId: "",
-          senderAccount: "",
-          description: payment.description
-        };
-      });
-      console.log("\uD83C\uDF89 getQRDetails: Método completado exitosamente");
-      console.log("\uD83D\uDCCB getQRDetails: Flujo ejecutado: Baneco → Base de datos → Actualización → Pagos");
-      return qrItem;
-    } catch (error) {
-      console.error("\uD83D\uDCA5 getQRDetails: Error capturado:", error);
-      console.error("\uD83D\uDCA5 getQRDetails: Stack trace:", error instanceof Error ? error.stack : "No stack trace");
-      throw error;
-    }
-  }
-  async cancelQR(qrId, userId) {
-    const qrQuery = await query(`
-      SELECT q.id, q.status, q.third_bank_credential_id, u.third_bank_credential_id as "userBankCredentialId"
-      FROM qr_codes q
-      JOIN users u ON q.user_id = u.id
-      WHERE q.qr_id = $1 AND q.user_id = $2 AND q.deleted_at IS NULL
-    `, [qrId, userId]);
-    if (qrQuery.rowCount === 0) {
-      throw new ApiError("QR no encontrado o no pertenece a este usuario", 404);
-    }
-    const qr = qrQuery.rows[0];
-    if (qr.status !== "active") {
-      throw new ApiError("Solo se pueden cancelar QRs activos", 400);
-    }
-    if (!qr.userBankCredentialId) {
-      throw new ApiError("El usuario no tiene configuración bancaria asignada", 400);
-    }
-    const config = await bankCredentialsService.getById(qr.userBankCredentialId);
-    if (!config) {
-      throw new ApiError("No se encontró la configuración bancaria del usuario", 400);
-    }
-    if (config.status !== "active") {
-      throw new ApiError("La configuración bancaria del usuario no está activa", 400);
-    }
-    const banecoApi = new baneco_api_default(config.apiBaseUrl, config.encryptionKey);
-    try {
-      const token = await banecoApi.getToken(config.username, config.password);
-      const cancelResponse = await banecoApi.cancelQr(token, qrId);
-      if (cancelResponse.responseCode !== 0) {
-        throw new ApiError(`Error al cancelar QR: ${cancelResponse.message}`, 400);
-      }
-      await query(`
-        UPDATE qr_codes 
-        SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
-        WHERE id = $1
-      `, [qr.id]);
-      return true;
-    } catch (error) {
-      throw error;
-    }
-  }
-  async checkQRStatus(qrId, userId) {
-    const qrQuery = await query(`
-      SELECT 
-        q.qr_id as "qrId",
-        q.transaction_id as "transactionId",
-        q.created_at as "createdAt",
-        q.due_date as "dueDate",
-        q.currency,
-        q.amount,
-        q.status,
-        q.description,
-        q.single_use as "singleUse",
-        q.modify_amount as "modifyAmount",
-        q.user_id as "userId",
-        q.third_bank_credential_id as "bankCredentialId",
-        q.environment
-      FROM qr_codes q
-      WHERE q.qr_id = $1 AND q.deleted_at IS NULL
-    `, [qrId]);
-    if (qrQuery.rowCount === 0) {
-      throw new ApiError("QR no encontrado en la base de datos", 404);
-    }
-    const qr = qrQuery.rows[0];
-    const user = await query(`
-      SELECT id, full_name, third_bank_credential_id FROM users WHERE id = $1 AND deleted_at IS NULL
-    `, [userId]);
-    if (user.rowCount === 0) {
-      throw new ApiError("Usuario no encontrado", 404);
-    }
-    const userData = user.rows[0];
-    if (!userData.third_bank_credential_id) {
-      throw new ApiError("El usuario no tiene configuración bancaria asignada", 400);
-    }
-    const config = await bankCredentialsService.getById(userData.third_bank_credential_id);
-    if (!config) {
-      throw new ApiError("No se encontró la configuración bancaria del usuario", 400);
-    }
-    if (config.status !== "active") {
-      throw new ApiError("La configuración bancaria del usuario no está activa", 400);
-    }
-    const banecoApi = new baneco_api_default(config.apiBaseUrl, config.encryptionKey);
-    try {
-      const token = await banecoApi.getToken(config.username, config.password);
-      const banecoResponse = await banecoApi.getQrStatus(token, qrId);
-      let currentStatus = qr.status;
-      if (banecoResponse.statusQrCode === 1 && qr.status === "active") {
-        currentStatus = "used";
-        await query(`
-          UPDATE qr_codes 
-          SET status = $1, updated_at = CURRENT_TIMESTAMP
-          WHERE qr_id = $2
-        `, [currentStatus, qrId]);
-      } else if (banecoResponse.statusQrCode === 9 && qr.status === "active") {
-        currentStatus = "cancelled";
-        await query(`
-          UPDATE qr_codes 
-          SET status = $1, updated_at = CURRENT_TIMESTAMP
-          WHERE qr_id = $2
-        `, [currentStatus, qrId]);
-      }
-      return {
-        qrId: qr.qrId,
-        qrImage: "",
-        transactionId: qr.transactionId,
-        amount: parseFloat(qr.amount),
-        currency: qr.currency,
-        description: qr.description,
-        dueDate: qr.dueDate,
-        singleUse: qr.singleUse,
-        modifyAmount: qr.modifyAmount,
-        status: currentStatus,
-        payments: banecoResponse.payment || []
-      };
-    } catch (error) {
-      throw new ApiError("Error al verificar estado del QR: " + (error instanceof Error ? error.message : "Unknown error"), 500);
-    }
-  }
-  async banecoQRNotify(data) {
-    const checkQR = await query(`
-      SELECT q.id, q.status, q.transaction_id as "transactionId", q.user_id as "userId" 
-      FROM qr_codes q
-      WHERE q.qr_id = $1
-    `, [data.payment.qrId]);
-    if (checkQR.rowCount === 0) {
-      throw new ApiError("QR no encontrado", 404);
-    }
-    const qrInfo = checkQR.rows[0];
-    if (qrInfo.status !== "active") {
-      throw new ApiError("QR no está activo para pago", 400);
-    }
-    const bankId = BANCO_ECONOMICO_ID;
-    const payment = data.payment;
-    const paymentDate = new Date(payment.paymentDate);
-    const client = await pool.connect();
-    await client.query("BEGIN");
-    try {
-      await client.query(`
-        UPDATE qr_codes 
-        SET status = 'used', updated_at = CURRENT_TIMESTAMP 
-        WHERE id = $1
-      `, [qrInfo.id]);
-      const checkPayment = await client.query(`
-        SELECT id FROM account_movements WHERE qr_id = $1 AND reference_id = $2
-      `, [payment.qrId, payment.transactionId]);
-      if (checkPayment.rowCount === 0) {
-        const accountQuery = await client.query(`
-          SELECT a.id, a.balance 
-          FROM accounts a 
-          JOIN qr_codes q ON a.id = q.account_id 
-          WHERE q.id = $1
-        `, [qrInfo.id]);
-        if (accountQuery.rows.length === 0) {
-          throw new ApiError("No se encontró la cuenta asociada al QR", 500);
-        }
-        const account = accountQuery.rows[0];
-        const currentBalance = parseFloat(account.balance);
-        const newBalance = currentBalance + parseFloat(payment.amount.toString());
-        await client.query(`
-          INSERT INTO account_movements (
-            account_id, movement_type, amount, balance_before, balance_after,
-            description, qr_id, sender_name, reference_id, reference_type, status
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-        `, [
-          account.id,
-          "qr_payment",
-          payment.amount.toString(),
-          currentBalance,
-          newBalance,
-          payment.description || "Pago QR recibido",
-          payment.qrId,
-          payment.senderName,
-          payment.transactionId,
-          "qr_payment",
-          "completed"
-        ]);
-        await client.query(`
-          UPDATE accounts 
-          SET balance = $1, available_balance = $1, updated_at = CURRENT_TIMESTAMP
-          WHERE id = $2
-        `, [newBalance, account.id]);
-      }
-      await client.query("COMMIT");
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
+async function getWebhooks(userId) {
+  const result = await query("SELECT id, url, events, is_active, last_sent_at, last_error, created_at FROM outgoing_webhooks WHERE user_id = $1", [userId]);
+  return result.rows;
 }
-var qrService = new QrService;
-var qr_service_default = qrService;
+async function deleteWebhook(id, userId) {
+  await query("DELETE FROM outgoing_webhooks WHERE id = $1 AND user_id = $2", [id, userId]);
+}
+function createSignature(secret, payload) {
+  const crypto4 = __require("node:crypto");
+  return crypto4.createHmac("sha256", secret).update(payload).digest("hex");
+}
+async function startWebhookProcessor(intervalMs = 15000) {
+  const timer = setInterval(processPendingJobs, intervalMs);
+  process.on("SIGINT", () => clearInterval(timer));
+  process.on("SIGTERM", () => clearInterval(timer));
+  logger.info("Webhook processor started", { intervalMs });
+}
 
-// src/schemas/qr.schemas.ts
-var QRRequestSchema = t.Object({
-  transactionId: t.String(),
-  amount: t.Number(),
-  description: t.Optional(t.String()),
-  bankId: t.Optional(t.Number({ default: 1 })),
-  dueDate: t.String(),
-  singleUse: t.Optional(t.Boolean({ default: false })),
-  modifyAmount: t.Optional(t.Boolean({ default: false }))
-});
+// src/payments/fee/fee.service.ts
+init_fee_repository();
+var feeService = {
+  async calculateFee(walletId, amount) {
+    const rules = await feeRepository.findByType("p2p");
+    return feeRepository.calculateFee(amount, rules);
+  },
+  async listAll() {
+    return feeRepository.listAll();
+  },
+  async create(data) {
+    return feeRepository.create(data);
+  },
+  async update(id, data) {
+    return feeRepository.update(id, data);
+  }
+};
 
-// src/routes/qr.routes.ts
-init_error();
-var ResponseSchema2 = t.Object({
-  success: t.Boolean(),
-  message: t.String(),
-  data: t.Optional(t.Any())
-});
-var qrRoutes = new Elysia({ prefix: "/qr" }).use(authMiddleware({ type: "all", level: "user" })).post("/generate", async ({ body, auth }) => {
-  let userId;
-  let bankCredentialId;
-  if (auth?.type === "jwt") {
-    userId = auth.user.id;
-    bankCredentialId = auth.user.bankCredentialId;
-  } else if (auth?.type === "apikey") {
-    const hasPermission = await apikey_service_default.hasPermission(auth.apiKeyInfo.apiKey, "qr_generate");
-    if (!hasPermission) {
-      throw new ApiError("API Key no tiene permisos para generar QR", 403);
+// src/payments/transfer/transfer.service.ts
+var transferService = {
+  async p2p(senderWalletId, receiverWalletId, amount, options) {
+    if (amount <= 0)
+      throw new AppError(400, "Monto inválido");
+    if (senderWalletId === receiverWalletId)
+      throw new AppError(400, "No puedes transferirte a ti mismo");
+    const sender = await walletRepository.getById(senderWalletId);
+    const receiver = await walletRepository.getById(receiverWalletId);
+    if (!sender || !receiver)
+      throw new AppError(404, "Billetera no encontrada");
+    if (sender.balance < amount)
+      throw new AppError(400, "Saldo insuficiente");
+    if (sender.availableBalance < amount)
+      throw new AppError(400, "Saldo disponible insuficiente");
+    if (options?.userId) {
+      const fraudCheck = await evaluateFraud({
+        userId: options.userId,
+        walletId: senderWalletId,
+        amount,
+        ip: options.ip,
+        deviceId: options.deviceId
+      });
+      if (!fraudCheck.allowed) {
+        throw new AppError(403, `Transferencia bloqueada por seguridad (score: ${fraudCheck.score}): ${fraudCheck.reasons.join(", ")}`);
+      }
     }
-    userId = auth.apiKeyInfo.userId;
-    bankCredentialId = auth.apiKeyInfo.bankCredentialId;
-  } else {
-    throw new ApiError("No autorizado", 401);
-  }
-  if (!userId) {
-    throw new ApiError("Usuario no autenticado", 401);
-  }
-  const data = await qr_service_default.generate(userId, body, bankCredentialId);
-  return {
-    success: true,
-    message: "QR generado exitosamente",
-    data
-  };
-}, {
-  body: QRRequestSchema,
-  response: ResponseSchema2,
-  detail: {
-    tags: ["qr"],
-    summary: "Generar código QR para cobro"
-  }
-}).delete("/cancelQR", async ({ body, auth }) => {
-  let userId;
-  if (auth?.type === "jwt") {
-    userId = auth.user.id;
-  } else if (auth?.type === "apikey") {
-    const hasPermission = await apikey_service_default.hasPermission(auth.apiKeyInfo.apiKey, "qr_cancel");
-    if (!hasPermission) {
-      throw new ApiError("API Key no tiene permisos para cancelar QR", 403);
+    const fee = await feeService.calculateFee(senderWalletId, amount);
+    const total = amount + fee;
+    if (sender.availableBalance < total)
+      throw new AppError(400, "Saldo insuficiente para cubrir monto + comisión");
+    const transfer = await transferRepository.create({
+      senderWalletId,
+      receiverWalletId,
+      amount,
+      fee,
+      total,
+      description: options?.description,
+      referenceType: "p2p"
+    });
+    await walletRepository.updateBalance(sender.id, sender.balance - total, sender.availableBalance - total);
+    await walletRepository.updateBalance(receiver.id, receiver.balance + amount, receiver.availableBalance + amount);
+    await transferRepository.updateStatus(transfer.id, "completed");
+    const result = await transferRepository.getById(transfer.id);
+    eventBus.emit("transfer.completed", { transferId: transfer.id, senderWalletId, receiverWalletId, amount, fee });
+    if (options?.idempotencyKey) {
+      await storeIdempotencyResponse(options.idempotencyKey, result);
     }
-    userId = auth.apiKeyInfo.userId;
-  } else {
-    throw new ApiError("No autorizado", 401);
+    await dispatch("transfer.completed", {
+      transferId: String(transfer.id),
+      senderWalletId: String(senderWalletId),
+      receiverWalletId: String(receiverWalletId),
+      amount,
+      fee,
+      status: "completed"
+    });
+    logger.info("P2P transfer completed", {
+      transferId: transfer.id,
+      amount,
+      fee,
+      senderWalletId,
+      receiverWalletId
+    });
+    return result;
+  },
+  async listByWallet(walletId, limit = 20, offset = 0) {
+    return transferRepository.listByWallet(walletId, limit, offset);
+  },
+  async getById(id) {
+    return transferRepository.getById(id);
   }
-  const data = await qr_service_default.cancelQR(body.qrId, userId);
-  return {
-    success: true,
-    message: "QR cancelado exitosamente",
-    data
-  };
+};
+
+// src/payments/payment/payment.routes.ts
+init_wallet_repository();
+
+// src/payments/notification/notif.repository.ts
+init_pool();
+init_snowflake();
+var notifRepository = {
+  async create(data) {
+    const r2 = await query(`
+      INSERT INTO notifications (id, user_id, type, title, body, data)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+    `, [nextSnowflake(), data.userId, data.type, data.title, data.body || null, data.data ? JSON.stringify(data.data) : null]);
+    return r2.rows[0];
+  },
+  async listByUser(userId, limit = 50, offset = 0) {
+    const r2 = await query(`
+      SELECT * FROM notifications WHERE user_id = $1
+      ORDER BY created_at DESC LIMIT $2 OFFSET $3
+    `, [userId, limit, offset]);
+    return r2.rows;
+  },
+  async markRead(id) {
+    await query("UPDATE notifications SET is_read = true WHERE id = $1", [id]);
+  },
+  async markAllRead(userId) {
+    await query("UPDATE notifications SET is_read = true WHERE user_id = $1", [userId]);
+  },
+  async countUnread(userId) {
+    const r2 = await query("SELECT COUNT(*) as c FROM notifications WHERE user_id = $1 AND is_read = false", [userId]);
+    return parseInt(r2.rows[0].c);
+  }
+};
+
+// src/payments/payment/payment.routes.ts
+var paymentRoutes = new Elysia().use(authMiddleware({ type: "jwt", level: "user" })).use(idempotency()).post("/transfers/p2p", async ({ body, auth, request, idempotencyKey }) => {
+  const senderWallet = await walletRepository.getDefault(auth.user.id);
+  if (!senderWallet)
+    throw new Error("Billetera no encontrada");
+  const ip = request.headers.get("x-forwarded-for") || request.headers.get("cf-connecting-ip") || "";
+  const deviceId = request.headers.get("x-device-id") || undefined;
+  return transferService.p2p(senderWallet.id, BigInt(body.receiverWalletId), body.amount, {
+    description: body.description,
+    idempotencyKey,
+    ip,
+    deviceId,
+    userId: auth.user.id
+  });
 }, {
   body: t.Object({
-    qrId: t.String()
+    receiverWalletId: t.String(),
+    amount: t.Number({ minimum: 0.01 }),
+    description: t.Optional(t.String())
   }),
-  response: ResponseSchema2,
-  detail: {
-    tags: ["qr"],
-    summary: "Cancelar código QR"
-  }
-}).get("/:id/status", async ({ params, auth }) => {
-  let userId;
-  let bankCredentialId;
-  if (auth?.type === "jwt") {
-    userId = auth.user.id;
-    bankCredentialId = auth.user.bankCredentialId;
-  } else if (auth?.type === "apikey") {
-    const hasPermission = await apikey_service_default.hasPermission(auth.apiKeyInfo.apiKey, "qr_status");
-    if (!hasPermission) {
-      throw new ApiError("API Key no tiene permisos para verificar estado de QR", 403);
-    }
-    userId = auth.apiKeyInfo.userId;
-    bankCredentialId = auth.apiKeyInfo.bankCredentialId;
-  } else {
-    throw new ApiError("No autorizado", 401);
-  }
-  const data = await qr_service_default.getQRDetails(params.id, bankCredentialId);
-  return {
-    success: true,
-    message: "Estado del QR verificado",
-    data
-  };
+  detail: { tags: ["Payments"], summary: "Transferencia P2P" }
+}).get("/transfers", async ({ query: query2, auth }) => {
+  const walletId = query2.walletId ? BigInt(query2.walletId) : (await walletRepository.getDefault(auth.user.id))?.id;
+  if (!walletId)
+    throw new Error("Billetera no encontrada");
+  return transferService.listByWallet(walletId);
 }, {
-  params: t.Object({
-    id: t.String()
+  query: t.Optional(t.Object({ walletId: t.Optional(t.String()) })),
+  detail: { tags: ["Payments"], summary: "Historial de transferencias" }
+}).get("/wallets", async ({ auth }) => {
+  return walletRepository.listByUser(auth.user.id);
+}, {
+  detail: { tags: ["Payments"], summary: "Listar billeteras" }
+}).post("/wallets", async ({ body, auth }) => {
+  return walletRepository.create({ userId: auth.user.id, ...body });
+}, {
+  body: t.Object({
+    name: t.Optional(t.String()),
+    type: t.Optional(t.String()),
+    currency: t.Optional(t.String())
   }),
-  response: ResponseSchema2,
-  detail: {
-    tags: ["qr"],
-    summary: "Verificar estado de un código QR"
-  }
-}).get("/list", async ({ query: query2, auth }) => {
-  let userId;
-  if (auth?.type === "jwt") {
-    userId = auth.user.id;
-  } else if (auth?.type === "apikey") {
-    const hasPermission = await apikey_service_default.hasPermission(auth.apiKeyInfo.apiKey, "qr_status");
-    if (!hasPermission) {
-      throw new ApiError("API Key no tiene permisos para listar QRs", 403);
+  detail: { tags: ["Payments"], summary: "Crear billetera" }
+}).get("/notifications", async ({ auth }) => {
+  return notifRepository.listByUser(auth.user.id);
+}, {
+  detail: { tags: ["Payments"], summary: "Listar notificaciones" }
+}).post("/notifications/:id/read", async ({ params }) => {
+  await notifRepository.markRead(BigInt(params.id));
+  return { message: "Notificación marcada como leída" };
+}, {
+  params: t.Object({ id: t.String() }),
+  detail: { tags: ["Payments"], summary: "Marcar notificación como leída" }
+}).post("/notifications/read-all", async ({ auth }) => {
+  await notifRepository.markAllRead(auth.user.id);
+  return { message: "Todas marcadas como leídas" };
+}, {
+  detail: { tags: ["Payments"], summary: "Marcar todas como leídas" }
+}).get("/notifications/unread-count", async ({ auth }) => {
+  return { count: await notifRepository.countUnread(auth.user.id) };
+}, {
+  detail: { tags: ["Payments"], summary: "Contar no leídas" }
+}).get("/fees", async () => {
+  return feeService.listAll();
+}, {
+  detail: { tags: ["Payments"], summary: "Listar reglas de comisiones" }
+});
+
+// src/payments/events/sse.service.ts
+var clients = new Map;
+function broadcast(type, data) {
+  const msg = `event: ${type}
+data: ${JSON.stringify(data)}
+
+`;
+  clients.forEach((c) => c.send(msg));
+}
+var sseService = {
+  addClient(id, send, close) {
+    clients.set(id, { id, send, close });
+    send(`event: connected
+data: ${JSON.stringify({ clientId: id })}
+
+`);
+  },
+  removeClient(id) {
+    clients.delete(id);
+  },
+  sendToClient(id, event, data) {
+    const client = clients.get(id);
+    if (client) {
+      client.send(`event: ${event}
+data: ${JSON.stringify(data)}
+
+`);
     }
-    userId = auth.apiKeyInfo.userId;
-  } else {
-    throw new ApiError("Se requiere autenticación válida para esta operación", 401);
+  },
+  getStats() {
+    return { connectedClients: clients.size };
+  },
+  closeAll() {
+    clients.forEach((c) => c.close());
+    clients.clear();
   }
-  const data = await qr_service_default.getQRList(userId, {
-    status: query2.status,
-    startDate: query2.startDate,
-    endDate: query2.endDate
+};
+eventBus.on("qr.paid", (data) => broadcast("qr_payment", data));
+eventBus.on("qr.created", (data) => broadcast("qr_created", data));
+eventBus.on("qr.cancelled", (data) => broadcast("qr_cancelled", data));
+eventBus.on("transfer.completed", (data) => broadcast("transfer_completed", data));
+
+// src/payments/events/sse.controller.ts
+var clientCounter = 0;
+var sseRoutes = new Elysia({ prefix: "/events" }).get("/stream", ({ set: set2, request }) => {
+  const clientId = `sse_${++clientCounter}_${Date.now()}`;
+  set2.headers["Content-Type"] = "text/event-stream";
+  set2.headers["Cache-Control"] = "no-cache";
+  set2.headers["Connection"] = "keep-alive";
+  const stream = new ReadableStream({
+    start(controller) {
+      sseService.addClient(clientId, (data) => {
+        try {
+          controller.enqueue(new TextEncoder().encode(data));
+        } catch {}
+      }, () => {
+        try {
+          controller.close();
+        } catch {}
+      });
+      request.signal.addEventListener("abort", () => {
+        sseService.removeClient(clientId);
+      });
+    }
   });
+  return stream;
+}).get("/stats", () => {
+  return sseService.getStats();
+}).get("/test-auth", () => {
+  return { message: "SSE auth test" };
+});
+
+// src/collections/providers/empsaat/empsaat.service.ts
+var import_node_fetch2 = __toESM(require_lib4(), 1);
+var EMPSAAT_API = process.env.EMPSAAT_API_URL || "https://api.empsaat.org.bo";
+var EMPSAAT_API_KEY = process.env.EMPSAAT_API_KEY || "";
+
+class EmpsaatProvider {
+  getCompanySlug() {
+    return "empsaat";
+  }
+  async request(path, options = {}) {
+    const res = await import_node_fetch2.default(`${EMPSAAT_API}${path}`, {
+      headers: { "Content-Type": "application/json", "X-API-Key": EMPSAAT_API_KEY },
+      ...options
+    });
+    if (!res.ok)
+      throw new Error(`EMPSAAT error: ${await res.text()}`);
+    return res.json();
+  }
+  async queryDebts(request) {
+    return this.request(`/deudas?keyword=${encodeURIComponent(request.keyword)}&type=${request.type || "ci"}`);
+  }
+  async createTransaction(abonado, amount, description) {
+    return this.request(`/deudas/${abonado}/transaction`, {
+      method: "POST",
+      body: JSON.stringify({ amount, description: description || `Pago QR ${abonado}` })
+    });
+  }
+  async completeTransaction(transactionId, paymentRef) {
+    return this.request(`/deudas/transaction/complete`, {
+      method: "POST",
+      body: JSON.stringify({ transactionId, paymentRef })
+    });
+  }
+  async getHistory(abonado) {
+    return this.request(`/deudas/${abonado}/transactions`);
+  }
+}
+
+// src/collections/providers/empsaat/empsaat.controller.ts
+var empsaat = new EmpsaatProvider;
+var empsaatRoutes = new Elysia({ prefix: "/collections/empsaat" }).use(authMiddleware({ type: "apikey", level: "user" })).get("/deudas", async ({ query: query2 }) => {
+  return empsaat.queryDebts({ keyword: query2.keyword, type: query2.type });
+}, {
+  query: t.Object({ keyword: t.String(), type: t.Optional(t.String()) })
+}).post("/deudas/:abonado/transaction", async ({ params, body }) => {
+  return empsaat.createTransaction(params.abonado, body.amount, body.description);
+}, {
+  body: t.Object({ amount: t.Number(), description: t.Optional(t.String()) })
+}).post("/deudas/transaction/complete", async ({ body }) => {
+  return empsaat.completeTransaction(body.transactionId, body.paymentRef);
+}, {
+  body: t.Object({ transactionId: t.String(), paymentRef: t.Optional(t.String()) })
+}).get("/deudas/:abonado/transactions", async ({ params }) => {
+  return empsaat.getHistory(params.abonado);
+});
+
+// src/collections/collections.routes.ts
+init_company_repository();
+var collectionsRoutes = new Elysia().use(empsaatRoutes).get("/companies", async () => {
+  return companyRepository.listActive();
+}).get("/companies/:slug", async ({ params }) => {
+  const company = await companyRepository.getBySlug(params.slug);
+  if (!company)
+    throw new Error("Empresa no encontrada");
+  return company;
+});
+
+// src/api-keys/apikey.routes.ts
+var apiKeyRoutes = new Elysia({ prefix: "/apikeys" }).use(authMiddleware({ type: "jwt", level: "user" })).post("/", async ({ body, auth }) => {
+  return apiKeyService.generate(auth.user.id, body.description, body.permissions, body.expiresAt);
+}, {
+  body: t.Object({
+    description: t.String(),
+    permissions: t.Object({
+      qr_generate: t.Optional(t.Boolean()),
+      qr_status: t.Optional(t.Boolean()),
+      qr_cancel: t.Optional(t.Boolean())
+    }),
+    expiresAt: t.Optional(t.String())
+  })
+}).get("/", async ({ auth }) => {
+  return apiKeyService.list(auth.user.id);
+}).delete("/:id", async ({ params }) => {
+  await apiKeyService.revoke(BigInt(params.id));
+  return { message: "API key revocada" };
+});
+
+// src/monitoring/health.controller.ts
+init_pool();
+import * as os2 from "os";
+var startTime = Date.now();
+var healthRoutes = new Elysia({ prefix: "/health" }).get("/", () => ({
+  status: "ok",
+  version: "2.0.0",
+  timestamp: new Date().toISOString(),
+  uptime: Math.floor((Date.now() - startTime) / 1000)
+})).get("/api", async () => {
+  try {
+    await pool.query("SELECT 1");
+    return { status: "ok", database: "connected", timestamp: new Date().toISOString() };
+  } catch {
+    return { status: "error", database: "disconnected", timestamp: new Date().toISOString() };
+  }
+}).get("/readiness", async () => {
+  const checks = {
+    database: false,
+    memory: false
+  };
+  try {
+    await pool.query("SELECT 1");
+    checks.database = true;
+  } catch {}
+  const mem = process.memoryUsage();
+  checks.memory = mem.heapUsed < 500 * 1024 * 1024;
+  const healthy = Object.values(checks).every(Boolean);
   return {
-    success: true,
-    message: "QR listados exitosamente",
-    data
+    status: healthy ? "ready" : "not_ready",
+    checks,
+    timestamp: new Date().toISOString()
   };
 }, {
-  query: t.Object({
-    status: t.Optional(t.String()),
+  detail: { tags: ["Monitoring"], summary: "Readiness check for k8s" }
+}).get("/liveness", async () => {
+  return { status: "alive", timestamp: new Date().toISOString() };
+}, {
+  detail: { tags: ["Monitoring"], summary: "Liveness check for k8s" }
+}).get("/stats", () => {
+  const mem = process.memoryUsage();
+  const cpus2 = os2.cpus();
+  return {
+    uptime: Math.floor((Date.now() - startTime) / 1000),
+    memory: {
+      heapUsed: Math.round(mem.heapUsed / 1024 / 1024) + "MB",
+      heapTotal: Math.round(mem.heapTotal / 1024 / 1024) + "MB",
+      rss: Math.round(mem.rss / 1024 / 1024) + "MB"
+    },
+    cpu: {
+      cores: cpus2.length,
+      model: cpus2[0]?.model || "unknown",
+      loadAvg: os2.loadavg()
+    },
+    pid: process.pid,
+    platform: process.platform,
+    nodeVersion: process.version
+  };
+}, {
+  detail: { tags: ["Monitoring"], summary: "Stats detalladas del servidor" }
+}).get("/migrations", async () => {
+  const migrations = await getMigrationStatus();
+  return { migrations };
+}, {
+  detail: { tags: ["Monitoring"], summary: "Estado de migraciones" }
+}).get("/metrics", async () => {
+  const dbResult = await pool.query("SELECT count(*) as total FROM information_schema.tables WHERE table_schema = 'public'");
+  const { rows: activeUsers } = await pool.query("SELECT count(*) as cnt FROM users WHERE is_active = true");
+  const { rows: totalWallets } = await pool.query("SELECT count(*) as cnt FROM wallets");
+  const { rows: totalTransfers } = await pool.query("SELECT count(*) as cnt, coalesce(sum(amount), 0) as total_amount FROM transfers");
+  const mem = process.memoryUsage();
+  return {
+    database: {
+      tables: parseInt(dbResult.rows[0].total),
+      activeUsers: parseInt(activeUsers[0].cnt),
+      wallets: parseInt(totalWallets[0].cnt)
+    },
+    transfers: {
+      total: parseInt(totalTransfers[0].cnt),
+      totalAmount: parseFloat(totalTransfers[0].total_amount)
+    },
+    memory: {
+      heapUsed: Math.round(mem.heapUsed / 1024 / 1024) + "MB",
+      rss: Math.round(mem.rss / 1024 / 1024) + "MB"
+    },
+    uptime: Math.floor((Date.now() - startTime) / 1000)
+  };
+}, {
+  detail: { tags: ["Monitoring"], summary: "Métricas de negocio" }
+});
+
+// src/payments/fraud/fraud.routes.ts
+var fraudRoutes = new Elysia({ prefix: "/fraud" }).derive(authMiddleware).get("/alerts", async ({ userId }) => {
+  return await getOpenAlerts(userId);
+}, {
+  detail: { tags: ["Fraud"], summary: "Obtener alertas de fraude activas" }
+}).post("/alerts/:id/resolve", async ({ params, userId }) => {
+  await resolveAlert(params.id, userId);
+  return { success: true };
+}, {
+  params: t.Object({ id: t.String() }),
+  detail: { tags: ["Fraud"], summary: "Resolver alerta de fraude" }
+});
+
+// src/payments/fx/fx.service.ts
+init_pool();
+init_snowflake();
+var SUPPORTED_CURRENCIES = ["BOB", "USD", "EUR", "BRL", "ARS", "CLP", "PEN", "COP"];
+async function getRate(base, target) {
+  const result = await query(`SELECT rate FROM fx_rates
+     WHERE base_currency = $1 AND target_currency = $2
+       AND (valid_until IS NULL OR valid_until > CURRENT_TIMESTAMP)
+       AND valid_from <= CURRENT_TIMESTAMP
+     ORDER BY valid_from DESC LIMIT 1`, [base.toUpperCase(), target.toUpperCase()]);
+  if (result.rows.length === 0)
+    return null;
+  return parseFloat(result.rows[0].rate);
+}
+async function convert2(amount, from, to) {
+  if (from === to)
+    return { amount, rate: 1 };
+  const rate = await getRate(from, to);
+  if (!rate)
+    return null;
+  return { amount: Math.round(amount * rate * 100) / 100, rate };
+}
+async function setRate(base, target, rate, source = "manual") {
+  await query(`INSERT INTO fx_rates (id, base_currency, target_currency, rate, source)
+     VALUES ($1, $2, $3, $4, $5)`, [nextSnowflake(), base.toUpperCase(), target.toUpperCase(), rate, source]);
+  logger.info("FX rate updated", { base, target, rate, source });
+}
+async function getAllRates() {
+  const result = await query(`SELECT DISTINCT ON (base_currency, target_currency)
+       base_currency, target_currency, rate, source, valid_from
+     FROM fx_rates
+     WHERE valid_until IS NULL OR valid_until > CURRENT_TIMESTAMP
+     ORDER BY base_currency, target_currency, valid_from DESC`);
+  return result.rows;
+}
+async function getSupportedCurrencies() {
+  return SUPPORTED_CURRENCIES;
+}
+
+// src/payments/fx/fx.routes.ts
+init_app_error();
+var fxRoutes = new Elysia({ prefix: "/fx" }).derive(authMiddleware).get("/rates", async () => {
+  return { currencies: await getSupportedCurrencies(), rates: await getAllRates() };
+}, {
+  detail: { tags: ["FX"], summary: "Obtener todas las tasas de cambio" }
+}).get("/rate/:base/:target", async ({ params }) => {
+  const rate = await getRate(params.base, params.target);
+  if (!rate)
+    throw new AppError(404, "Tasa de cambio no encontrada");
+  return { base: params.base, target: params.target, rate };
+}, {
+  params: t.Object({ base: t.String(), target: t.String() }),
+  detail: { tags: ["FX"], summary: "Obtener tasa de cambio específica" }
+}).post("/convert", async ({ body }) => {
+  const result = await convert2(body.amount, body.from, body.to);
+  if (!result)
+    throw new AppError(404, "Tasa de cambio no disponible");
+  return result;
+}, {
+  body: t.Object({
+    amount: t.Number({ minimum: 0.01 }),
+    from: t.String({ minLength: 3, maxLength: 3 }),
+    to: t.String({ minLength: 3, maxLength: 3 })
+  }),
+  detail: { tags: ["FX"], summary: "Convertir moneda" }
+}).post("/rates", async ({ body }) => {
+  await setRate(body.base, body.target, body.rate, body.source);
+  return { success: true };
+}, {
+  body: t.Object({
+    base: t.String({ minLength: 3, maxLength: 3 }),
+    target: t.String({ minLength: 3, maxLength: 3 }),
+    rate: t.Number({ minimum: 0.0001 }),
+    source: t.Optional(t.String())
+  })
+});
+
+// src/payments/webhooks/webhook.routes.ts
+var webhookRoutes = new Elysia({ prefix: "/webhooks" }).derive(authMiddleware).get("/", async ({ userId }) => {
+  return await getWebhooks(userId);
+}, {
+  detail: { tags: ["Webhooks"], summary: "Listar webhooks del usuario" }
+}).post("/", async ({ userId, body }) => {
+  const id = await registerWebhook({
+    userId,
+    url: body.url,
+    secret: body.secret,
+    events: body.events,
+    companyId: body.companyId
+  });
+  return { id };
+}, {
+  body: t.Object({
+    url: t.String({ format: "uri" }),
+    secret: t.Optional(t.String()),
+    events: t.Array(t.String()),
+    companyId: t.Optional(t.String())
+  }),
+  detail: { tags: ["Webhooks"], summary: "Registrar nuevo webhook" }
+}).delete("/:id", async ({ params, userId }) => {
+  await deleteWebhook(params.id, userId);
+  return { success: true };
+}, {
+  params: t.Object({ id: t.String() }),
+  detail: { tags: ["Webhooks"], summary: "Eliminar webhook" }
+});
+
+// src/payments/reconciliation/reconciliation.service.ts
+init_pool();
+init_snowflake();
+async function reconcile(params) {
+  const difference = Math.round((params.bankAmount - params.localAmount) * 100) / 100;
+  const status2 = Math.abs(difference) < 0.01 ? "matched" : "mismatch";
+  const result = await query(`INSERT INTO reconciliation_logs
+       (id, bank_account_id, source, external_reference, local_amount, bank_amount, difference, status, notes, reconciled_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
+     RETURNING id`, [
+    nextSnowflake(),
+    params.bankAccountId,
+    params.source,
+    params.externalReference,
+    params.localAmount,
+    params.bankAmount,
+    difference,
+    status2,
+    params.notes || null
+  ]);
+  if (status2 === "mismatch") {
+    logger.warn("Reconciliation mismatch", {
+      accountId: params.bankAccountId,
+      ref: params.externalReference,
+      local: params.localAmount,
+      bank: params.bankAmount,
+      diff: difference
+    });
+  }
+  return { id: result.rows[0].id, status: status2, difference };
+}
+async function getReconciliationLogs(accountId, limit = 50) {
+  const result = await query(`SELECT * FROM reconciliation_logs
+     WHERE bank_account_id = $1
+     ORDER BY created_at DESC LIMIT $2`, [accountId, limit]);
+  return result.rows;
+}
+async function getPendingReconciliations(userId) {
+  const result = await query(`SELECT r.*, a.account_number, a.alias
+     FROM reconciliation_logs r
+     JOIN accounts a ON a.id = r.bank_account_id
+     JOIN user_accounts ua ON ua.account_id = a.id
+     WHERE ua.user_id = $1 AND r.status IN ('pending', 'mismatch')
+     ORDER BY r.created_at DESC`, [userId]);
+  return result.rows;
+}
+async function reconcileAccount(accountId) {
+  const transfers = await query(`SELECT id, amount, reference, created_at FROM transfers
+     WHERE source_account_id = $1 AND created_at > CURRENT_TIMESTAMP - INTERVAL '7 days'
+     ORDER BY created_at`);
+  const results = [];
+  for (const t3 of transfers.rows) {
+    const bankRef = t3.reference || `TXN-${t3.id}`;
+    const result = await reconcile({
+      bankAccountId: accountId,
+      externalReference: bankRef,
+      localAmount: parseFloat(t3.amount),
+      bankAmount: parseFloat(t3.amount),
+      source: "auto",
+      notes: `Reconciliación automática transferencia ${t3.id}`
+    });
+    results.push(result);
+  }
+  logger.info("Account reconciled", { accountId, count: results.length });
+  return results;
+}
+
+// src/payments/reconciliation/reconciliation.routes.ts
+var reconciliationRoutes = new Elysia({ prefix: "/reconciliation" }).derive(authMiddleware).post("/account/:accountId", async ({ params }) => {
+  return { results: await reconcileAccount(params.accountId) };
+}, {
+  params: t.Object({ accountId: t.String() }),
+  detail: { tags: ["Reconciliation"], summary: "Reconciliar cuenta bancaria" }
+}).get("/pending", async ({ userId }) => {
+  return await getPendingReconciliations(userId);
+}, {
+  detail: { tags: ["Reconciliation"], summary: "Reconciliaciones pendientes" }
+}).get("/logs/:accountId", async ({ params }) => {
+  return await getReconciliationLogs(params.accountId);
+}, {
+  params: t.Object({ accountId: t.String() }),
+  detail: { tags: ["Reconciliation"], summary: "Logs de reconciliación" }
+}).post("/manual", async ({ userId, body }) => {
+  return await reconcile({
+    bankAccountId: body.accountId,
+    externalReference: body.externalReference,
+    localAmount: body.localAmount,
+    bankAmount: body.bankAmount,
+    source: "manual",
+    notes: body.notes
+  });
+}, {
+  body: t.Object({
+    accountId: t.String(),
+    externalReference: t.String(),
+    localAmount: t.Number(),
+    bankAmount: t.Number(),
+    notes: t.Optional(t.String())
+  }),
+  detail: { tags: ["Reconciliation"], summary: "Reconciliación manual" }
+});
+
+// src/payments/wallet/wallet-backup.service.ts
+init_pool();
+init_snowflake();
+async function createBackup(walletId, userId) {
+  const seedPhrase = generateSeedPhrase();
+  const phraseStr = seedPhrase.join(" ");
+  const encryptedSeedPhrase = encrypt(phraseStr);
+  const seedPhraseHash = hash2(phraseStr);
+  await query(`INSERT INTO wallet_backups (id, wallet_id, user_id, seed_phrase_hash, encrypted_seed_phrase)
+     VALUES ($1, $2, $3, $4, $5)`, [nextSnowflake(), walletId, userId, seedPhraseHash, encryptedSeedPhrase]);
+  logger.info("Wallet backup created", { walletId, userId });
+  return { seedPhrase };
+}
+async function verifyBackup(walletId, userId) {
+  await query(`UPDATE wallet_backups SET verified = TRUE, verified_at = CURRENT_TIMESTAMP
+     WHERE wallet_id = $1 AND user_id = $2`, [walletId, userId]);
+}
+async function getBackupStatus(walletId) {
+  const result = await query("SELECT verified, created_at, verified_at FROM wallet_backups WHERE wallet_id = $1 ORDER BY created_at DESC LIMIT 1", [walletId]);
+  return result.rows[0] || null;
+}
+
+// src/payments/wallet/wallet-backup.routes.ts
+var walletBackupRoutes = new Elysia({ prefix: "/wallet" }).derive(authMiddleware).post("/:walletId/backup", async ({ params, userId }) => {
+  return await createBackup(params.walletId, userId);
+}, {
+  params: t.Object({ walletId: t.String() }),
+  detail: { tags: ["Wallet"], summary: "Crear respaldo de wallet (seed phrase)" }
+}).post("/:walletId/backup/verify", async ({ params, userId }) => {
+  await verifyBackup(params.walletId, userId);
+  return { success: true };
+}, {
+  params: t.Object({ walletId: t.String() }),
+  detail: { tags: ["Wallet"], summary: "Verificar respaldo de wallet" }
+}).get("/:walletId/backup", async ({ params }) => {
+  return await getBackupStatus(params.walletId);
+}, {
+  params: t.Object({ walletId: t.String() }),
+  detail: { tags: ["Wallet"], summary: "Estado del respaldo" }
+});
+
+// src/shared/ws.ts
+import crypto4 from "node:crypto";
+var clients2 = new Map;
+var wsRoutes = new Elysia().ws("/ws", {
+  async open(ws) {
+    const url = new URL(ws.data?.url || "ws://localhost/ws");
+    const token = url.searchParams.get("token");
+    const userId = url.searchParams.get("userId");
+    if (!token || !userId) {
+      ws.close(4001, "Authentication required");
+      return;
+    }
+    try {
+      const payload = await verifyToken(token);
+      if (String(payload.userId) !== userId) {
+        ws.close(4003, "Invalid token");
+        return;
+      }
+    } catch {
+      ws.close(4002, "Invalid token");
+      return;
+    }
+    const clientId = crypto4.randomUUID();
+    clients2.set(clientId, {
+      ws,
+      userId,
+      subscriptions: new Set,
+      connectedAt: Date.now()
+    });
+    ws.data = { clientId };
+    ws.send(JSON.stringify({ type: "connected", clientId }));
+    logger.info("WS client connected", { userId, clientId });
+  },
+  message(ws, raw) {
+    try {
+      const msg = JSON.parse(raw);
+      const client = clients2.get(ws.data?.clientId);
+      if (!client)
+        return;
+      switch (msg.type) {
+        case "subscribe": {
+          if (msg.channel) {
+            client.subscriptions.add(msg.channel);
+            ws.send(JSON.stringify({ type: "subscribed", channel: msg.channel }));
+          }
+          break;
+        }
+        case "unsubscribe": {
+          if (msg.channel) {
+            client.subscriptions.delete(msg.channel);
+            ws.send(JSON.stringify({ type: "unsubscribed", channel: msg.channel }));
+          }
+          break;
+        }
+        case "ping": {
+          ws.send(JSON.stringify({ type: "pong" }));
+          break;
+        }
+        default: {
+          ws.send(JSON.stringify({ type: "error", message: `Unknown message type: ${msg.type}` }));
+        }
+      }
+    } catch {
+      ws.send(JSON.stringify({ type: "error", message: "Invalid JSON" }));
+    }
+  },
+  close(ws) {
+    const clientId = ws.data?.clientId;
+    if (clientId) {
+      const client = clients2.get(clientId);
+      logger.info("WS client disconnected", { userId: client?.userId, clientId });
+      clients2.delete(clientId);
+    }
+  }
+});
+
+// src/payments/subscription/subscription.service.ts
+init_pool();
+init_snowflake();
+init_wallet_repository();
+async function createSubscription(params) {
+  const result = await query(`INSERT INTO subscriptions (id, user_id, wallet_id, receiver_wallet_id, amount, description, interval_type, start_date, end_date, max_payments)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+     RETURNING id`, [
+    nextSnowflake(),
+    params.userId,
+    params.walletId,
+    params.receiverWalletId,
+    params.amount,
+    params.description || null,
+    params.interval,
+    params.startDate || new Date,
+    params.endDate || null,
+    params.maxPayments || null
+  ]);
+  logger.info("Subscription created", { id: result.rows[0].id, ...params });
+  return { id: result.rows[0].id };
+}
+async function cancelSubscription(id) {
+  await query("UPDATE subscriptions SET is_active = FALSE, cancelled_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
+}
+async function listSubscriptions(userId) {
+  const result = await query("SELECT * FROM subscriptions WHERE user_id = $1 ORDER BY created_at DESC", [userId]);
+  return result.rows;
+}
+
+// src/payments/subscription/subscription.routes.ts
+var subscriptionRoutes = new Elysia({ prefix: "/subscriptions" }).derive(authMiddleware).get("/", async ({ userId }) => {
+  return await listSubscriptions(userId);
+}, {
+  detail: { tags: ["Subscriptions"], summary: "Listar suscripciones" }
+}).post("/", async ({ userId, body }) => {
+  return await createSubscription({ userId, ...body });
+}, {
+  body: t.Object({
+    walletId: t.String(),
+    receiverWalletId: t.String(),
+    amount: t.Number({ minimum: 0.01 }),
+    description: t.Optional(t.String()),
+    interval: t.Enum({ daily: "daily", weekly: "weekly", monthly: "monthly", yearly: "yearly" }),
     startDate: t.Optional(t.String()),
     endDate: t.Optional(t.String()),
-    bankId: t.Optional(t.Numeric())
+    maxPayments: t.Optional(t.Number())
   }),
-  response: ResponseSchema2,
-  detail: {
-    tags: ["qr"],
-    summary: "Listar códigos QR con filtros"
-  }
+  detail: { tags: ["Subscriptions"], summary: "Crear suscripción de pago" }
+}).post("/:id/cancel", async ({ params }) => {
+  await cancelSubscription(params.id);
+  return { success: true };
+}, {
+  params: t.Object({ id: t.String() }),
+  detail: { tags: ["Subscriptions"], summary: "Cancelar suscripción" }
 });
 
-// src/routes/apikey.routes.ts
-init_error();
-var ResponseSchema3 = t.Object({
-  success: t.Boolean(),
-  message: t.String(),
-  data: t.Optional(t.Any())
-});
-var CreateApiKeySchema = t.Object({
-  description: t.String(),
-  permissions: t.Object({
-    qr_generate: t.Boolean(),
-    qr_status: t.Boolean(),
-    qr_cancel: t.Boolean()
-  }),
-  expiresAt: t.Optional(t.String())
-});
-var apiKeyRoutes = new Elysia({ prefix: "/apikeys" }).use(authMiddleware({ type: "jwt", level: "user" })).post("/", async ({ body, auth }) => {
-  try {
-    if (auth?.type !== "jwt" || !auth.user) {
-      throw new ApiError("No autorizado", 401);
-    }
-    const result = await apiKeyService.generateApiKey(auth.user.id, body.description, body.permissions, body.expiresAt, auth.user.id);
-    if (result.responseCode !== 0) {
-      throw new ApiError(result.message, 400);
-    }
-    return {
-      success: true,
-      message: "API key creada exitosamente",
-      data: {
-        id: result.id,
-        apiKey: result.apiKey,
-        description: result.description,
-        permissions: result.permissions,
-        userId: result.userId,
-        expiresAt: result.expiresAt,
-        status: result.status,
-        createdAt: result.createdAt
-      }
-    };
-  } catch (error) {
-    throw new ApiError(error instanceof Error ? error.message : "Error al crear API key", error instanceof ApiError ? error.statusCode : 500);
-  }
-}, {
-  body: CreateApiKeySchema,
-  response: ResponseSchema3,
-  detail: {
-    tags: ["apikeys"],
-    summary: "Crear nueva API key para el usuario autenticado"
-  }
-}).get("/", async ({ auth }) => {
-  try {
-    if (auth?.type !== "jwt" || !auth.user) {
-      throw new ApiError("No autorizado", 401);
-    }
-    const result = await apiKeyService.listApiKeys(auth.user.id);
-    if (result.responseCode !== 0) {
-      throw new ApiError(result.message, 400);
-    }
-    return {
-      success: true,
-      message: "API keys listadas exitosamente",
-      data: {
-        apiKeys: result.apiKeys
-      }
-    };
-  } catch (error) {
-    throw new ApiError(error instanceof Error ? error.message : "Error al listar API keys", error instanceof ApiError ? error.statusCode : 500);
-  }
-}, {
-  detail: {
-    tags: ["apikeys"],
-    summary: "Listar API keys del usuario autenticado"
-  }
-}).delete("/:id", async ({ params, auth }) => {
-  try {
-    const apiKeyId = parseInt(params.id);
-    if (auth?.type !== "jwt" || !auth.user) {
-      throw new ApiError("No autorizado", 401);
-    }
-    const result = await apiKeyService.revokeApiKey(apiKeyId, auth.user.id, auth.user.id);
-    if (result.responseCode !== 0) {
-      throw new ApiError(result.message, 400);
-    }
-    return {
-      success: true,
-      message: "API key revocada exitosamente",
-      data: result
-    };
-  } catch (error) {
-    throw new ApiError(error instanceof Error ? error.message : "Error al revocar API key", error instanceof ApiError ? error.statusCode : 500);
-  }
-}, {
-  params: t.Object({
-    id: t.String()
-  }),
-  response: ResponseSchema3,
-  detail: {
-    tags: ["apikeys"],
-    summary: "Revocar API key del usuario autenticado"
-  }
-});
-
-// src/routes/admin/users.routes.ts
-init_error();
-var usersRoutes = new Elysia({ prefix: "/users" }).use(authMiddleware({ type: "jwt", level: "admin" })).get("/", async ({ query: query2, auth }) => {
-  try {
-    const { page = 1, limit = 20, search, status: status2, entityType, roleId, isPrimaryUser } = query2;
-    const users = await userService.getUsers({
-      page: parseInt(page),
-      limit: parseInt(limit),
-      search,
-      status: status2,
-      entityType,
-      roleId: roleId ? parseInt(roleId) : undefined,
-      isPrimaryUser: isPrimaryUser === "true"
+// src/payments/split/split.service.ts
+init_snowflake();
+init_wallet_repository();
+async function createSplitPayment(senderWalletId, recipients, description) {
+  const totalFromRecipients = recipients.reduce((sum, r2) => sum + r2.amount, 0);
+  const sender = await walletRepository.getById(senderWalletId);
+  if (!sender)
+    throw new Error("Billetera no encontrada");
+  if (sender.availableBalance < totalFromRecipients)
+    throw new Error("Saldo insuficiente");
+  const splitGroupId = nextSnowflake();
+  const results = [];
+  for (const recipient of recipients) {
+    const transfer = await transferRepository.create({
+      senderWalletId: BigInt(senderWalletId),
+      receiverWalletId: BigInt(recipient.walletId),
+      amount: recipient.amount,
+      fee: 0,
+      total: recipient.amount,
+      description: description ? `${description} (split ${recipient.percentage}%)` : `Pago compartido ${splitGroupId}`,
+      referenceType: "split"
     });
-    return {
-      success: true,
-      data: users,
-      pagination: users.pagination
-    };
-  } catch (error) {
-    throw new ApiError(error instanceof Error ? error.message : "Error al listar usuarios", error instanceof ApiError ? error.statusCode : 500);
+    await walletRepository.updateBalance(BigInt(senderWalletId), sender.balance - recipient.amount, sender.availableBalance - recipient.amount);
+    await walletRepository.updateBalance(BigInt(recipient.walletId), 0, 0);
+    await transferRepository.updateStatus(transfer.id, "completed");
+    results.push({ transferId: transfer.id, recipientWalletId: recipient.walletId, amount: recipient.amount });
   }
-});
-
-// src/routes/public.routes.ts
-var publicRoutes = new Elysia().use(health_routes_default);
-
-// src/schemas/baneco.scheamas.ts
-var BANECO_PaymentQRSchema = Type.Object({
-  qrId: Type.String({ description: "Identificador único del QR" }),
-  transactionId: Type.String({ description: "Número de transacción del banco" }),
-  paymentDate: Type.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$", description: "Fecha del pago" }),
-  paymentTime: Type.String({ pattern: "^\\d{2}:\\d{2}:\\d{2}$", description: "Hora del pago (formato HH:mm:ss)" }),
-  currency: Type.Union([
-    Type.Literal("BOB"),
-    Type.Literal("USD")
-  ], { description: "Moneda del pago (BOB o USD)" }),
-  amount: Type.Number({ description: "Importe del pago recibido" }),
-  senderBankCode: Type.String({ description: "Código ASFI del banco que origina el pago" }),
-  senderName: Type.String({ description: "Nombre o razón social de quien envía el pago" }),
-  senderDocumentId: Type.String({ description: "Número de documento (no se usa, retorna cero)" }),
-  senderAccount: Type.String({ description: "Cuenta de origen (dato ofuscado)" }),
-  description: Type.String({ description: "Glosa del QR" }),
-  branchCode: Type.Optional(Type.String({ description: "Código de sucursal solicitante" }))
-});
-var BANECO_QRGenerateRequestSchema = Type.Object({
-  transactionId: Type.String({ description: "ID único de la transacción en el comercio" }),
-  accountCredit: Type.String({ description: "Cuenta destino encriptada con AES" }),
-  currency: Type.Union([
-    Type.Literal("BOB"),
-    Type.Literal("USD")
-  ], { description: "Moneda del pago" }),
-  amount: Type.Number({ description: "Importe del QR con máximo 2 decimales" }),
-  description: Type.Optional(Type.String({ description: "Nota del cobro (opcional)" })),
-  dueDate: Type.String({ format: "date", description: "Fecha de vencimiento (yyyy-MM-dd)" }),
-  singleUse: Type.Boolean({ description: "Permite solo un pago si es true" }),
-  modifyAmount: Type.Boolean({ description: "Permite pagar con importe distinto si es true" }),
-  branchCode: Type.Optional(Type.String({ maxLength: 5, description: "Código de sucursal (máx 5 caracteres)" }))
-});
-var BANECO_QRGenerateResponseSchema = Type.Object({
-  qrId: Type.String({ description: "Identificador único del QR generado" }),
-  qrImage: Type.String({ description: "Imagen del QR en base64" }),
-  responseCode: Type.Integer({ description: "Código de respuesta (0 = éxito)" }),
-  message: Type.String({ description: "Mensaje adicional o de error" })
-});
-var BANECO_QRCancelRequestSchema = Type.Object({
-  qrId: Type.String({ description: "Identificador único del QR a anular" })
-});
-var BANECO_QRCancelResponseSchema = Type.Object({
-  responseCode: Type.Integer({ description: "Código de respuesta (0 = éxito)" }),
-  message: Type.String({ description: "Mensaje adicional o de error" })
-});
-var BANECO_QRStatusResponseSchema = Type.Object({
-  statusQrCode: Type.Integer({
-    description: "Estado del QR: 0 = pendiente, 1 = pagado, 9 = anulado"
-  }),
-  payment: Type.Optional(Type.Array(BANECO_PaymentQRSchema, {
-    description: "Lista de pagos asociados (si el estado es 1)"
-  })),
-  responseCode: Type.Integer({ description: "Código de respuesta" }),
-  message: Type.String({ description: "Mensaje de error si corresponde" })
-});
-var BANECO_NotifyPaymentQRRequestSchema = Type.Object({
-  payment: BANECO_PaymentQRSchema
-});
-var BANECO_NotifyPaymentQRResponseSchema = Type.Object({
-  responseCode: Type.Integer({ description: "Código de respuesta (0 = éxito)" }),
-  message: Type.String({ description: "Mensaje adicional o de error" })
-});
-var BANECO_PaidQRResponseSchema = Type.Object({
-  paymentList: Type.Array(BANECO_PaymentQRSchema, {
-    description: "Lista de pagos realizados en la fecha consultada"
-  }),
-  responseCode: Type.Integer({ description: "Código de respuesta (0 = éxito)" }),
-  message: Type.String({ description: "Mensaje adicional o de error" })
-});
-var BANECO_AuthRequestSchema = Type.Object({
-  userName: Type.String({ description: "Nombre de usuario asignado por el banco" }),
-  password: Type.String({ description: "Contraseña cifrada con AES" })
-});
-var BANECO_AuthResponseSchema = Type.Object({
-  token: Type.String({ description: "Token JWT para autenticar solicitudes" }),
-  responseCode: Type.Integer({ description: "Código de respuesta (0 = éxito)" }),
-  message: Type.String({ description: "Mensaje adicional o de error" })
-});
-
-// src/routes/hooks.route.ts
-init_error();
-var hooksRoutes = new Elysia({ prefix: "/hooks" }).post("/baneco/notifyPayment", async ({ body }) => {
-  try {
-    await qr_service_default.banecoQRNotify(body);
-    return {
-      responseCode: 0,
-      message: ""
-    };
-  } catch (error) {
-    return {
-      responseCode: 1,
-      message: error instanceof ApiError ? error.message : "Error al procesar la notificación de pago"
-    };
-  }
-}, {
-  NoValidate: true,
-  body: t.NoValidate(BANECO_NotifyPaymentQRRequestSchema),
-  detail: {
-    tags: ["hooks"],
-    summary: "Recibir notificación de pago de QR desde Baneco"
-  }
-});
-
-// src/routes/accounts.routes.ts
-init_error();
-var ResponseSchema4 = t.Object({
-  success: t.Boolean(),
-  message: t.String(),
-  data: t.Optional(t.Any())
-});
-var accountRoutes = new Elysia({ prefix: "/accounts" }).use(authMiddleware({ type: "all", level: "user" })).get("/", async ({ auth }) => {
-  try {
-    const userId = auth.type === "jwt" ? auth.user.id : auth.apiKeyInfo.userId;
-    const accounts = await account_service_default.getUserAccounts(userId);
-    return {
-      success: true,
-      data: accounts,
-      message: "Cuentas obtenidas exitosamente"
-    };
-  } catch (error) {
-    console.error("Error obteniendo cuentas:", error);
-    throw new ApiError("Error interno del servidor", 500);
-  }
-}, {
-  response: ResponseSchema4,
-  detail: {
-    tags: ["accounts"],
-    summary: "Obtener todas las cuentas del usuario autenticado"
-  }
-}).get("/:id", async ({ params, auth }) => {
-  try {
-    const userId = auth.type === "jwt" ? auth.user.id : auth.apiKeyInfo.userId;
-    const accountId = parseInt(params.id);
-    if (isNaN(accountId)) {
-      throw new ApiError("ID de cuenta inválido", 400);
-    }
-    const account = await account_service_default.getUserAccount(userId, accountId);
-    if (!account) {
-      throw new ApiError("Cuenta no encontrada o no tienes acceso", 404);
-    }
-    return {
-      success: true,
-      data: account,
-      message: "Cuenta obtenida exitosamente"
-    };
-  } catch (error) {
-    console.error("Error obteniendo cuenta:", error);
-    if (error instanceof ApiError) {
-      throw error;
-    }
-    throw new ApiError("Error interno del servidor", 500);
-  }
-}, {
-  params: t.Object({
-    id: t.String()
-  }),
-  response: ResponseSchema4,
-  detail: {
-    tags: ["accounts"],
-    summary: "Obtener una cuenta específica del usuario"
-  }
-}).get("/:id/balance", async ({ params, auth }) => {
-  try {
-    const userId = auth.type === "jwt" ? auth.user.id : auth.apiKeyInfo.userId;
-    const accountId = parseInt(params.id);
-    if (isNaN(accountId)) {
-      throw new ApiError("ID de cuenta inválido", 400);
-    }
-    const balance = await account_service_default.getAccountBalance(accountId);
-    return {
-      success: true,
-      data: balance,
-      message: "Balance obtenido exitosamente"
-    };
-  } catch (error) {
-    console.error("Error obteniendo balance:", error);
-    if (error instanceof ApiError) {
-      throw error;
-    }
-    throw new ApiError("Error interno del servidor", 500);
-  }
-}, {
-  params: t.Object({
-    id: t.String()
-  }),
-  response: ResponseSchema4,
-  detail: {
-    tags: ["accounts"],
-    summary: "Obtener balance actual de una cuenta"
-  }
-}).get("/:id/movements", async ({ params, query: query2, auth }) => {
-  try {
-    const userId = auth.type === "jwt" ? auth.user.id : auth.apiKeyInfo.userId;
-    const accountId = parseInt(params.id);
-    const page = parseInt(query2.page || "1");
-    const pageSize = parseInt(query2.pageSize || "20");
-    if (isNaN(accountId)) {
-      throw new ApiError("ID de cuenta inválido", 400);
-    }
-    const account = await account_service_default.getUserAccount(userId, accountId);
-    if (!account) {
-      throw new ApiError("Cuenta no encontrada o no tienes acceso", 404);
-    }
-    const offset = (page - 1) * pageSize;
-    const movements = await account_service_default.getAccountMovements(accountId, pageSize, offset);
-    return {
-      success: true,
-      data: movements,
-      pagination: {
-        page,
-        pageSize,
-        total: movements.length
-      },
-      message: "Movimientos obtenidos exitosamente"
-    };
-  } catch (error) {
-    console.error("Error obteniendo movimientos:", error);
-    if (error instanceof ApiError) {
-      throw error;
-    }
-    throw new ApiError("Error interno del servidor", 500);
-  }
-}, {
-  params: t.Object({
-    id: t.String()
-  }),
-  query: t.Object({
-    page: t.Optional(t.String()),
-    pageSize: t.Optional(t.String())
-  }),
-  response: ResponseSchema4,
-  detail: {
-    tags: ["accounts"],
-    summary: "Obtener historial de movimientos de una cuenta"
-  }
-}).post("/:id/movements", async ({ params, body, auth }) => {
-  try {
-    const userId = auth.type === "jwt" ? auth.user.id : auth.apiKeyInfo.userId;
-    const accountId = parseInt(params.id);
-    const { movementType, amount, description } = body;
-    if (isNaN(accountId)) {
-      throw new ApiError("ID de cuenta inválido", 400);
-    }
-    if (!movementType || !amount) {
-      throw new ApiError("Tipo de movimiento y monto son requeridos", 400);
-    }
-    const account = await account_service_default.getUserAccount(userId, accountId);
-    if (!account) {
-      throw new ApiError("Cuenta no encontrada o no tienes acceso", 404);
-    }
-    const movementId = await account_service_default.createAccountMovement(accountId, movementType, amount, description);
-    return {
-      success: true,
-      data: { movementId },
-      message: "Movimiento creado exitosamente"
-    };
-  } catch (error) {
-    console.error("Error creando movimiento:", error);
-    if (error instanceof ApiError) {
-      throw error;
-    }
-    throw new ApiError("Error interno del servidor", 500);
-  }
-}, {
-  params: t.Object({
-    id: t.String()
-  }),
-  body: t.Object({
-    movementType: t.String(),
-    amount: t.Number(),
-    description: t.Optional(t.String())
-  }),
-  response: ResponseSchema4,
-  detail: {
-    tags: ["accounts"],
-    summary: "Crear un nuevo movimiento en una cuenta"
-  }
-}).post("/:id/transfer", async ({ params, body, auth }) => {
-  try {
-    const userId = auth.type === "jwt" ? auth.user.id : auth.apiKeyInfo.userId;
-    const fromAccountId = parseInt(params.id);
-    const { toAccountId, amount, description } = body;
-    if (isNaN(fromAccountId) || isNaN(toAccountId)) {
-      throw new ApiError("IDs de cuenta inválidos", 400);
-    }
-    if (!amount || amount <= 0) {
-      throw new ApiError("Monto debe ser mayor a 0", 400);
-    }
-    const fromAccount = await account_service_default.getUserAccount(userId, fromAccountId);
-    if (!fromAccount) {
-      throw new ApiError("Cuenta origen no encontrada o no tienes acceso", 404);
-    }
-    const transferId = await account_service_default.transferBetweenAccounts(fromAccountId, toAccountId, amount, description);
-    return {
-      success: true,
-      data: { transferId },
-      message: "Transferencia realizada exitosamente"
-    };
-  } catch (error) {
-    console.error("Error realizando transferencia:", error);
-    if (error instanceof ApiError) {
-      throw error;
-    }
-    throw new ApiError("Error interno del servidor", 500);
-  }
-}, {
-  params: t.Object({
-    id: t.String()
-  }),
-  body: t.Object({
-    toAccountId: t.Number(),
-    amount: t.Number(),
-    description: t.Optional(t.String())
-  }),
-  response: ResponseSchema4,
-  detail: {
-    tags: ["accounts"],
-    summary: "Transferir dinero entre cuentas"
-  }
-});
-var accounts_routes_default = accountRoutes;
-
-// src/routes/index.ts
-var routes = new Elysia({ prefix: "/api" }).use(publicRoutes).use(hooksRoutes).use(authRoutes).use(health_routes_default).use(qrRoutes).use(apiKeyRoutes).use(accounts_routes_default).use(usersRoutes);
-
-// src/scripts/seed-db.ts
-init_database();
-async function seedDatabase() {
-  try {
-    console.log("\uD83C\uDF31 Iniciando seed de la base de datos...");
-    console.log("\uD83D\uDD04 Ejecutando migraciones...");
-    const { migrateAddApiBaseUrl: migrateAddApiBaseUrl2 } = await Promise.resolve().then(() => (init_migrate_add_api_base_url(), exports_migrate_add_api_base_url));
-    await migrateAddApiBaseUrl2();
-    console.log("Insertando roles predefinidos...");
-    const superAdminRole = await query(`
-      INSERT INTO roles (name, description, permissions)
-      VALUES ('admin', 'Administrador del sistema', '{"all": true}')
-      ON CONFLICT (name) DO UPDATE SET 
-        description = 'Administrador del sistema',
-        permissions = '{"all": true}'
-      RETURNING id
-    `);
-    const userRole = await query(`
-      INSERT INTO roles (name, description, permissions)
-      VALUES ('user', 'Usuario estándar', '{"basic": true}')
-      ON CONFLICT (name) DO UPDATE SET 
-        description = 'Usuario estándar',
-        permissions = '{"basic": true}'
-      RETURNING id
-    `);
-    const managerRole = await query(`
-      INSERT INTO roles (name, description, permissions)
-      VALUES ('manager', 'Gerente', '{"management": true}')
-      ON CONFLICT (name) DO UPDATE SET 
-        description = 'Gerente',
-        permissions = '{"management": true}'
-      RETURNING id
-    `);
-    console.log("Roles insertados exitosamente");
-    console.log("Inicializando credenciales bancarias del sistema...");
-    const { setupBanecoCredentials: setupBanecoCredentials2 } = await Promise.resolve().then(() => (init_setup_bankeco_credentials(), exports_setup_bankeco_credentials));
-    const { testCredential, prodCredential } = await setupBanecoCredentials2();
-    console.log("Credenciales bancarias configuradas exitosamente");
-    console.log("Creando usuario administrador...");
-    const adminData = {
-      email: "admin@pagui.com",
-      password: "admin123",
-      fullName: "Administrador del Sistema",
-      phone: "76543210",
-      address: "La Paz, Bolivia",
-      roleId: superAdminRole.rows[0].id
-    };
-    const admin = await userService.createUser(adminData);
-    console.log(`Usuario administrador creado con ID: ${admin.id}`);
-    console.log("Creando usuario de ejemplo...");
-    const userData = {
-      email: "usuario@example.com",
-      password: "usuario123",
-      fullName: "Usuario Demo",
-      phone: "65432109",
-      address: "Santa Cruz, Bolivia",
-      roleId: userRole.rows[0].id
-    };
-    const user = await userService.createUser(userData);
-    console.log(`Usuario creado con ID: ${user.id}`);
-    console.log("Creando usuario gerente...");
-    const managerData = {
-      email: "gerente@example.com",
-      password: "gerente123",
-      fullName: "Gerente Demo",
-      phone: "55555555",
-      address: "Cochabamba, Bolivia",
-      roleId: managerRole.rows[0].id
-    };
-    const manager = await userService.createUser(managerData);
-    console.log(`Gerente creado con ID: ${manager.id}`);
-    console.log("Creando cuentas bancarias...");
-    const adminAccount = await query(`
-      INSERT INTO accounts (account_number, account_type, currency, balance, available_balance, third_bank_credential_id)
-      VALUES ($1, 'business', 'BOB', 10000.00, 10000.00, $2)
-      RETURNING id
-    `, ["ADM001", prodCredential.id]);
-    const userAccount = await query(`
-      INSERT INTO accounts (account_number, account_type, currency, balance, available_balance, third_bank_credential_id)
-      VALUES ($1, 'current', 'BOB', 5000.00, 5000.00, $2)
-      RETURNING id
-    `, ["USR001", testCredential.id]);
-    const managerAccount = await query(`
-      INSERT INTO accounts (account_number, account_type, currency, balance, available_balance, third_bank_credential_id)
-      VALUES ($1, 'business', 'BOB', 7500.00, 7500.00, $2)
-      RETURNING id
-    `, ["MGR001", prodCredential.id]);
-    console.log("Cuentas bancarias creadas exitosamente");
-    console.log("Creando relaciones usuario-cuenta...");
-    await query(`
-      INSERT INTO user_accounts (user_id, account_id, role, is_primary)
-      VALUES ($1, $2, 'owner', true)
-    `, [admin.id, adminAccount.rows[0].id]);
-    await query(`
-      INSERT INTO user_accounts (user_id, account_id, role, is_primary)
-      VALUES ($1, $2, 'owner', true)
-    `, [user.id, userAccount.rows[0].id]);
-    await query(`
-      INSERT INTO user_accounts (user_id, account_id, role, is_primary)
-      VALUES ($1, $2, 'owner', true)
-    `, [manager.id, managerAccount.rows[0].id]);
-    console.log("Relaciones usuario-cuenta creadas exitosamente");
-    console.log("Creando API key...");
-    const apiKey = generateApiKey2();
-    await query(`
-      INSERT INTO api_keys (api_key, user_id, description, status)
-      VALUES ($1, $2, 'API Key de demostración', 'active')
-      ON CONFLICT (api_key) DO NOTHING
-    `, [apiKey, user.id]);
-    console.log(`API key generada: ${apiKey}`);
-    console.log("Creando tokens de autenticación...");
-    const tokens = [
-      {
-        userId: admin.id,
-        token: generateApiKey2(),
-        expiresAt: new Date(Date.now() + 604800000)
-      },
-      {
-        userId: user.id,
-        token: generateApiKey2(),
-        expiresAt: new Date(Date.now() + 2592000000)
-      }
-    ];
-    for (const tokenData of tokens) {
-      await query(`
-        INSERT INTO auth_tokens (user_id, token, expires_at)
-        VALUES ($1, $2, $3)
-        ON CONFLICT (token) DO NOTHING
-      `, [tokenData.userId, tokenData.token, tokenData.expiresAt.toISOString()]);
-    }
-    console.log("Tokens de autenticación creados exitosamente");
-    console.log("✅ Seed de la base de datos completado exitosamente");
-    console.log(`
-\uD83D\uDCCA Resumen del seed:`);
-    console.log(`- Roles: 3 (admin, user, manager)`);
-    console.log(`- Usuarios: 3 (Administrador, Usuario, Gerente)`);
-    console.log(`- Cuentas bancarias: 3`);
-    console.log(`- Relaciones usuario-cuenta: 3`);
-    console.log(`- Credenciales bancarias: 2 (Test + Producción)`);
-    console.log(`- API Keys: 1`);
-    console.log(`- Tokens de autenticación: 2`);
-    console.log(`
-\uD83C\uDFE6 Credenciales Bancarias:`);
-    console.log(`- Test (ID: ${testCredential.id}): ${testCredential.accountNumber} - ${testCredential.username}`);
-    console.log(`- Producción (ID: ${prodCredential.id}): ${prodCredential.accountNumber} - ${prodCredential.username}`);
-    console.log(`
-\uD83D\uDCB0 Cuentas Bancarias:`);
-    console.log(`- Administrador: ${adminAccount.rows[0].id} (ADM001) - BOB 10,000.00`);
-    console.log(`- Usuario: ${userAccount.rows[0].id} (USR001) - BOB 5,000.00`);
-    console.log(`- Gerente: ${managerAccount.rows[0].id} (MGR001) - BOB 7,500.00`);
-  } catch (error) {
-    console.error("❌ Error durante el seed:", error);
-    throw error;
-  }
+  logger.info("Split payment completed", { splitGroupId, total: totalFromRecipients, recipients: recipients.length });
+  return { splitGroupId, transactions: results };
 }
-function generateApiKey2() {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let result = "";
-  for (let i2 = 0;i2 < 32; i2++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+function calculateSplit(total, percentages) {
+  const sum = percentages.reduce((a12, b) => a12 + b, 0);
+  if (Math.abs(sum - 100) > 0.01)
+    throw new Error("Porcentajes deben sumar 100%");
+  let remaining = total;
+  const result = [];
+  for (let i2 = 0;i2 < percentages.length; i2++) {
+    const pct = percentages[i2];
+    const isLast = i2 === percentages.length - 1;
+    const amount = isLast ? remaining : Math.round(total * pct / 100 * 100) / 100;
+    remaining -= amount;
+    result.push({ percentage: pct, amount });
   }
   return result;
 }
-if (false) {}
 
-// src/index.ts
-init_error();
-var PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
-var app = new Elysia().use(swagger({
-  documentation: {
-    info: {
-      title: "API de Pagos con QR",
-      version: "1.0.0",
-      description: "API para generación y gestión de códigos QR de pago"
-    },
-    tags: [
-      { name: "auth", description: "Endpoints de autenticación" },
-      { name: "qr", description: "Endpoints para gestión de códigos QR" },
-      { name: "admin", description: "Endpoints de administración" },
-      { name: "companies", description: "Endpoints para gestión de empresas" },
-      { name: "banks", description: "Endpoints para gestión de bancos" },
-      { name: "api-keys", description: "Endpoints para gestión de API keys" }
-    ]
-  },
-  provider: "swagger-ui"
-})).use(cors({
-  origin: () => true,
-  credentials: true,
-  methods: "*"
-})).use(cron({
-  name: "monitor-tasks",
-  pattern: "0 * * * *",
-  run() {
-    console.log("⏰ Running scheduled monitoring tasks");
-  }
-})).error({ ApiError }).onError(({ code, error, set: set2 }) => {
-  console.error(error);
-  if (code === "VALIDATION") {
-    set2.status = 400;
-    return {
-      success: false,
-      message: error.message
-    };
-  }
-  if (error instanceof ApiError) {
-    set2.status = error.statusCode;
-    return {
-      success: false,
-      message: error.message
-    };
-  }
-  set2.status = 500;
-  return {
-    success: false,
-    message: "Internal Server Error"
-  };
-});
-app.get("/", () => ({
-  status: "online",
-  timestamp: new Date().toISOString(),
-  auth_provider: "zitadel"
-}));
-app.use(publicRoutes);
-app.use(routes);
-async function start() {
+// src/payments/split/split.routes.ts
+init_app_error();
+var splitRoutes = new Elysia({ prefix: "/split" }).derive(authMiddleware).post("/pay", async ({ body }) => {
+  return await createSplitPayment(body.senderWalletId, body.recipients, body.description);
+}, {
+  body: t.Object({
+    senderWalletId: t.String(),
+    recipients: t.Array(t.Object({
+      walletId: t.String(),
+      amount: t.Number({ minimum: 0.01 }),
+      percentage: t.Number({ minimum: 0.01 })
+    })),
+    description: t.Optional(t.String())
+  }),
+  detail: { tags: ["Split"], summary: "Pago compartido múltiple" }
+}).post("/calculate", async ({ body }) => {
   try {
-    const args = process.argv.slice(2);
-    const command = args[0]?.toLowerCase();
-    console.log(command);
-    await testConnection();
-    if (command === "init-db" || command === "create-db") {
-      console.log("\uD83D\uDDC4️ Inicializando la base de datos...");
-      await migrateDB();
-      process.exit(0);
+    const items = calculateSplit(body.total, body.percentages);
+    return { total: body.total, items };
+  } catch (err2) {
+    throw new AppError(400, err2.message);
+  }
+}, {
+  body: t.Object({
+    total: t.Number({ minimum: 0.01 }),
+    percentages: t.Array(t.Number({ minimum: 0.01 }))
+  }),
+  detail: { tags: ["Split"], summary: "Calcular división de pago" }
+});
+
+// src/payments/merchant/merchant.service.ts
+init_pool();
+init_snowflake();
+init_wallet_repository();
+async function registerMerchant(params) {
+  const wallet = await walletRepository.create({
+    userId: BigInt(params.userId),
+    name: params.businessName,
+    type: "merchant",
+    currency: "BOB"
+  });
+  const id = nextSnowflake();
+  await query(`INSERT INTO merchants (id, user_id, wallet_id, business_name, business_category, tax_id, phone, address, commission_rate)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     ON CONFLICT (user_id) DO UPDATE SET business_name = $4, is_active = TRUE`, [
+    id,
+    params.userId,
+    wallet.id,
+    params.businessName,
+    params.businessCategory,
+    params.taxId,
+    params.phone,
+    params.address || null,
+    params.commissionRate || 0.5
+  ]);
+  logger.info("Merchant registered", { merchantId: id, businessName: params.businessName });
+  return { merchantId: id, walletId: wallet.id };
+}
+async function processMerchantPayment(params) {
+  const merchant = await query("SELECT * FROM merchants WHERE id = $1 AND is_active = TRUE AND is_verified = TRUE", [params.merchantId]);
+  if (merchant.rows.length === 0)
+    throw new Error("Comercio no encontrado o inactivo");
+  const m2 = merchant.rows[0];
+  const commission = Math.round(params.amount * parseFloat(m2.commission_rate) * 100) / 1e4;
+  const netAmount = params.amount - commission;
+  const customer = await walletRepository.getById(BigInt(params.customerWalletId));
+  if (!customer || customer.availableBalance < params.amount)
+    throw new Error("Saldo insuficiente");
+  const transfer = await transferRepository.create({
+    senderWalletId: BigInt(params.customerWalletId),
+    receiverWalletId: m2.wallet_id,
+    amount: params.amount,
+    fee: commission,
+    total: params.amount,
+    description: params.description || `Pago a ${m2.business_name}`,
+    referenceType: "merchant_payment"
+  });
+  await transferRepository.updateStatus(transfer.id, "completed");
+  await walletRepository.updateBalance(BigInt(params.customerWalletId), customer.balance - params.amount, customer.availableBalance - params.amount);
+  logger.info("Merchant payment processed", {
+    merchantId: params.merchantId,
+    amount: params.amount,
+    commission,
+    netAmount,
+    transferId: transfer.id
+  });
+  return { transferId: transfer.id, merchantName: m2.business_name, amount: params.amount, commission, netAmount };
+}
+async function generateMerchantQR(merchantId) {
+  const merchant = await query("SELECT * FROM merchants WHERE id = $1", [merchantId]);
+  if (merchant.rows.length === 0)
+    throw new Error("Comercio no encontrado");
+  const m2 = merchant.rows[0];
+  const qrData = JSON.stringify({
+    type: "merchant",
+    merchantId: String(merchantId),
+    businessName: m2.business_name,
+    walletId: String(m2.wallet_id)
+  });
+  const { default: QRCode } = await Promise.resolve().then(() => __toESM(require_server(), 1));
+  const qrImage = await QRCode.toDataURL(qrData);
+  return { qrData, qrImage, businessName: m2.business_name };
+}
+
+// src/payments/merchant/merchant.routes.ts
+var merchantRoutes = new Elysia({ prefix: "/merchants" }).derive(authMiddleware).post("/register", async ({ userId, body }) => {
+  return await registerMerchant({ userId, ...body });
+}, {
+  body: t.Object({
+    businessName: t.String({ minLength: 3 }),
+    businessCategory: t.String(),
+    taxId: t.String(),
+    phone: t.String(),
+    address: t.Optional(t.String()),
+    commissionRate: t.Optional(t.Number())
+  }),
+  detail: { tags: ["Merchant"], summary: "Registrar comercio" }
+}).get("/:id/qr", async ({ params }) => {
+  return await generateMerchantQR(params.id);
+}, {
+  params: t.Object({ id: t.String() }),
+  detail: { tags: ["Merchant"], summary: "Generar QR de comercio" }
+}).post("/pay", async ({ body }) => {
+  return await processMerchantPayment(body);
+}, {
+  body: t.Object({
+    merchantId: t.String(),
+    customerWalletId: t.String(),
+    amount: t.Number({ minimum: 0.01 }),
+    description: t.Optional(t.String())
+  }),
+  detail: { tags: ["Merchant"], summary: "Pagar en comercio" }
+});
+
+// src/payments/push/push.service.ts
+init_pool();
+async function sendPush(userId, payload) {
+  const devices = await query(`SELECT fcm_token, apns_token, platform FROM devices
+     WHERE user_id = $1 AND is_active = TRUE
+       AND (fcm_token IS NOT NULL OR apns_token IS NOT NULL)`, [userId]);
+  let sent = 0;
+  for (const device of devices.rows) {
+    if (device.fcm_token) {
+      await sendFCM(device.fcm_token, payload).catch((e) => logger.error("FCM send failed", { error: e.message, userId }));
+      sent++;
     }
-    if (command === "seed") {
-      console.log("\uD83C\uDF31 Ejecutando seed de la base de datos...");
-      await migrateDB();
-      await seedDatabase();
-      process.exit(0);
+    if (device.apns_token) {
+      await sendAPNS(device.apns_token, payload).catch((e) => logger.error("APNS send failed", { error: e.message, userId }));
+      sent++;
     }
-    if (!command) {
-      app.listen(PORT);
-      console.log(`\uD83D\uDE80 Servidor iniciado en http://localhost:${PORT}`);
-      console.log(`\uD83D\uDCDA Documentación de la API disponible en http://localhost:${PORT}/swagger`);
-    } else {
-      console.log(`❌ Comando desconocido: ${command}`);
-      console.log("Comandos disponibles: init-db, seed");
-      process.exit(1);
-    }
-  } catch (error) {
-    console.error("Error iniciando la aplicación:", error);
-    process.exit(1);
+  }
+  return sent;
+}
+async function sendFCM(token, payload) {
+  const serverKey = process.env.FCM_SERVER_KEY;
+  if (!serverKey) {
+    logger.warn("FCM_SERVER_KEY not configured");
+    return;
+  }
+  const res = await fetch("https://fcm.googleapis.com/fcm/send", {
+    method: "POST",
+    headers: {
+      Authorization: `key=${serverKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      to: token,
+      notification: {
+        title: payload.title,
+        body: payload.body,
+        sound: payload.sound || "default",
+        badge: payload.badge || 1
+      },
+      data: payload.data || {},
+      priority: "high"
+    })
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`FCM error ${res.status}: ${text}`);
   }
 }
-start();
+async function sendAPNS(token, payload) {
+  const keyId = process.env.APNS_KEY_ID;
+  const teamId = process.env.APNS_TEAM_ID;
+  const keyFile = process.env.APNS_KEY_FILE;
+  if (!keyId || !teamId || !keyFile) {
+    logger.warn("APNS not configured");
+    return;
+  }
+  const res = await fetch(`https://api.push.apple.com/3/device/${token}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${await generateAPNSToken(keyId, teamId, keyFile)}`,
+      "apns-topic": "bo.pagui.app"
+    },
+    body: JSON.stringify({
+      aps: {
+        alert: { title: payload.title, body: payload.body },
+        sound: payload.sound || "default",
+        badge: payload.badge || 1
+      },
+      data: payload.data || {}
+    })
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`APNS error ${res.status}: ${text}`);
+  }
+}
+async function generateAPNSToken(keyId, teamId, keyFile) {
+  const { readFileSync: readFileSync2 } = await import("node:fs");
+  const { createSign } = await import("node:crypto");
+  const key = readFileSync2(keyFile);
+  const token = createSign("ES256").update("").end().sign({
+    key,
+    format: "pem"
+  }, "base64");
+  return `${teamId}.${keyId}.${token}`;
+}
+async function registerDeviceToken(userId, token, platform) {
+  const column = platform === "ios" ? "apns_token" : "fcm_token";
+  await query(`UPDATE devices SET ${column} = $1 WHERE user_id = $2 AND is_active = TRUE ORDER BY last_seen_at DESC LIMIT 1`, [token, userId]);
+  logger.info("Device push token registered", { platform, userId });
+}
+
+// src/payments/push/push.routes.ts
+var pushRoutes = new Elysia({ prefix: "/push" }).derive(authMiddleware).post("/register", async ({ userId, body }) => {
+  await registerDeviceToken(userId, body.token, body.platform);
+  return { success: true };
+}, {
+  body: t.Object({
+    token: t.String(),
+    platform: t.Enum({ ios: "ios", android: "android" })
+  }),
+  detail: { tags: ["Push"], summary: "Registrar token de push notification" }
+}).post("/test", async ({ userId, body }) => {
+  const sent = await sendPush(userId, body);
+  return { sent };
+}, {
+  body: t.Object({
+    title: t.String(),
+    body: t.String(),
+    data: t.Optional(t.Record(t.String(), t.String()))
+  }),
+  detail: { tags: ["Push"], summary: "Enviar push de prueba" }
+});
+
+// src/payments/cash/cash.service.ts
+init_pool();
+init_snowflake();
+init_wallet_repository();
+async function registerAgent(params) {
+  const wallet = await walletRepository.create({
+    userId: BigInt(params.userId),
+    name: params.name,
+    type: "agent",
+    currency: "BOB"
+  });
+  const id = nextSnowflake();
+  await query(`INSERT INTO cash_agents (id, user_id, wallet_id, name, phone, address, lat, lng, operating_hours)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`, [
+    id,
+    params.userId,
+    wallet.id,
+    params.name,
+    params.phone,
+    params.address,
+    params.lat,
+    params.lng,
+    params.operatingHours || null
+  ]);
+  logger.info("Cash agent registered", { agentId: id, name: params.name });
+  return { agentId: id, walletId: wallet.id };
+}
+async function processCashTransaction(params) {
+  const agent = await query("SELECT wallet_id, name FROM cash_agents WHERE id = $1 AND is_active = TRUE", [params.agentId]);
+  if (agent.rows.length === 0)
+    throw new Error("Agente no encontrado o inactivo");
+  const fee = params.direction === "cash_in" ? 0 : Math.round(params.amount * 0.01 * 100) / 100;
+  const total = params.direction === "cash_out" ? params.amount + fee : params.amount;
+  if (params.direction === "cash_in") {
+    const senderWallet = await walletRepository.getById(BigInt(params.userWalletId));
+    if (!senderWallet)
+      throw new Error("Billetera no encontrada");
+    const transfer = await transferRepository.create({
+      senderWalletId: BigInt(agent.rows[0].wallet_id),
+      receiverWalletId: BigInt(params.userWalletId),
+      amount: params.amount,
+      fee,
+      total,
+      description: `Cash-in en ${agent.rows[0].name}`,
+      referenceType: "cash_in"
+    });
+    await transferRepository.updateStatus(transfer.id, "completed");
+    await walletRepository.updateBalance(BigInt(params.userWalletId), senderWallet.balance + params.amount, senderWallet.availableBalance + params.amount);
+    logger.info("Cash-in processed", { agentId: params.agentId, amount: params.amount });
+    return { transferId: transfer.id, direction: "cash_in" };
+  } else {
+    const senderWallet = await walletRepository.getById(BigInt(params.userWalletId));
+    if (!senderWallet || senderWallet.availableBalance < total)
+      throw new Error("Saldo insuficiente");
+    const transfer = await transferRepository.create({
+      senderWalletId: BigInt(params.userWalletId),
+      receiverWalletId: BigInt(agent.rows[0].wallet_id),
+      amount: params.amount,
+      fee,
+      total,
+      description: `Cash-out en ${agent.rows[0].name}`,
+      referenceType: "cash_out"
+    });
+    await transferRepository.updateStatus(transfer.id, "completed");
+    await walletRepository.updateBalance(BigInt(params.userWalletId), senderWallet.balance - total, senderWallet.availableBalance - total);
+    logger.info("Cash-out processed", { agentId: params.agentId, amount: params.amount, fee });
+    return { transferId: transfer.id, direction: "cash_out", fee };
+  }
+}
+async function getNearbyAgents(params) {
+  const radius = params.radiusKm || 5;
+  const result = await query(`SELECT id, name, address, phone, lat, lng, operating_hours,
+            (6371 * acos(cos(radians($1)) * cos(radians(lat))
+            * cos(radians(lng) - radians($2)) + sin(radians($1))
+            * sin(radians(lat)))) AS distance_km
+     FROM cash_agents
+     WHERE is_active = TRUE
+     HAVING distance_km < $3
+     ORDER BY distance_km ASC
+     LIMIT 20`, [params.lat, params.lng, radius]);
+  return result.rows;
+}
+
+// src/payments/cash/cash.routes.ts
+var cashRoutes = new Elysia({ prefix: "/cash" }).derive(authMiddleware).post("/agents/register", async ({ userId, body }) => {
+  return await registerAgent({ userId, ...body });
+}, {
+  body: t.Object({
+    name: t.String({ minLength: 3 }),
+    phone: t.String(),
+    address: t.String(),
+    lat: t.Number(),
+    lng: t.Number(),
+    operatingHours: t.Optional(t.String())
+  }),
+  detail: { tags: ["Cash"], summary: "Registrar agente de cash" }
+}).post("/transaction", async ({ userId, body }) => {
+  return await processCashTransaction({ userId, ...body });
+}, {
+  body: t.Object({
+    agentId: t.String(),
+    userWalletId: t.String(),
+    amount: t.Number({ minimum: 0.01 }),
+    direction: t.Enum({ cash_in: "cash_in", cash_out: "cash_out" }),
+    reference: t.String()
+  }),
+  detail: { tags: ["Cash"], summary: "Cash-in o Cash-out" }
+}).get("/agents/nearby", async ({ query: query2 }) => {
+  return await getNearbyAgents({
+    lat: parseFloat(query2.lat),
+    lng: parseFloat(query2.lng),
+    radiusKm: parseFloat(query2.radius || "5")
+  });
+}, {
+  query: t.Object({
+    lat: t.String(),
+    lng: t.String(),
+    radius: t.Optional(t.String())
+  }),
+  detail: { tags: ["Cash"], summary: "Agentes cercanos" }
+});
+
+// src/payments/offline/nfc-offline.service.ts
+init_pool();
+init_snowflake();
+init_wallet_repository();
+import crypto5 from "node:crypto";
+async function createNFCOfflinePayload(params) {
+  const nonce = crypto5.randomUUID().replace(/-/g, "").slice(0, 16);
+  const timestamp = Date.now();
+  const nfcId = nextSnowflake();
+  const payload = `${nfcId}:${params.senderWalletId}:${params.receiverWalletId}:${params.amount}:${timestamp}:${nonce}`;
+  const signature = hash2(payload);
+  return {
+    nfcId,
+    payload: {
+      nfcId: String(nfcId),
+      senderWalletId: String(params.senderWalletId),
+      receiverWalletId: String(params.receiverWalletId),
+      amount: params.amount,
+      timestamp,
+      nonce,
+      signature
+    },
+    qrData: JSON.stringify({
+      type: "nfc_offline",
+      nfcId: String(nfcId),
+      senderWalletId: String(params.senderWalletId),
+      amount: params.amount,
+      timestamp,
+      signature
+    })
+  };
+}
+async function processNFCTransaction(tx) {
+  const expected = `${tx.nfcId}:${tx.senderWalletId}:${tx.receiverWalletId}:${tx.amount}:${tx.timestamp}:${tx.nonce}`;
+  if (hash2(expected) !== tx.signature) {
+    logger.warn("NFC invalid signature", { nfcId: tx.nfcId });
+    throw new Error("Firma NFC inválida");
+  }
+  const age = Date.now() - tx.timestamp;
+  if (age > 300000) {
+    throw new Error("Transacción NFC expirada (más de 5 min)");
+  }
+  const existing = await query("SELECT id FROM transfers WHERE reference = $1", [`nfc-${tx.nfcId}`]);
+  if (existing.rows.length > 0) {
+    throw new Error("Transacción NFC ya procesada");
+  }
+  const sender = await walletRepository.getById(tx.senderWalletId);
+  if (!sender || sender.availableBalance < tx.amount) {
+    throw new Error("Saldo insuficiente");
+  }
+  const transfer = await transferRepository.create({
+    senderWalletId: tx.senderWalletId,
+    receiverWalletId: tx.receiverWalletId,
+    amount: tx.amount,
+    fee: 0,
+    total: tx.amount,
+    description: `Pago NFC offline ${tx.nfcId}`,
+    reference: `nfc-${tx.nfcId}`,
+    referenceType: "nfc_offline"
+  });
+  await walletRepository.updateBalance(tx.senderWalletId, sender.balance - tx.amount, sender.availableBalance - tx.amount);
+  await transferRepository.updateStatus(transfer.id, "completed");
+  logger.info("NFC offline payment processed", {
+    nfcId: tx.nfcId,
+    amount: tx.amount,
+    age: `${age}ms`
+  });
+  return { transferId: transfer.id };
+}
+
+// src/payments/offline/nfc-offline.routes.ts
+var nfcRoutes = new Elysia({ prefix: "/nfc" }).derive(authMiddleware).post("/prepare", async ({ body }) => {
+  return await createNFCOfflinePayload(body);
+}, {
+  body: t.Object({
+    senderWalletId: t.String(),
+    receiverWalletId: t.String(),
+    amount: t.Number({ minimum: 0.01 })
+  }),
+  detail: { tags: ["NFC"], summary: "Preparar pago NFC offline" }
+}).post("/process", async ({ body }) => {
+  return await processNFCTransaction({
+    nfcId: body.nfcId,
+    senderWalletId: BigInt(body.senderWalletId),
+    receiverWalletId: BigInt(body.receiverWalletId),
+    amount: body.amount,
+    timestamp: body.timestamp,
+    signature: body.signature,
+    nonce: body.nonce
+  });
+}, {
+  body: t.Object({
+    nfcId: t.String(),
+    senderWalletId: t.String(),
+    receiverWalletId: t.String(),
+    amount: t.Number(),
+    timestamp: t.Number(),
+    signature: t.String(),
+    nonce: t.String()
+  }),
+  detail: { tags: ["NFC"], summary: "Procesar pago NFC offline" }
+});
+
+// src/shared/kyc/kyc.service.ts
+init_pool();
+init_snowflake();
+async function submitKYC(params) {
+  const id = nextSnowflake();
+  await query(`INSERT INTO user_profiles (id, user_id, full_name, document_type, document_number, birth_date, nationality, address, kyc_level, kyc_submitted_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'basic', CURRENT_TIMESTAMP)
+     ON CONFLICT (user_id) DO UPDATE SET
+       full_name = $3, document_type = $4, document_number = $5,
+       birth_date = $6, nationality = $7, address = $8,
+       kyc_level = CASE WHEN user_profiles.kyc_level = 'none' THEN 'basic' ELSE user_profiles.kyc_level END,
+       kyc_submitted_at = CURRENT_TIMESTAMP`, [
+    id,
+    params.userId,
+    params.fullName,
+    params.documentType,
+    params.documentNumber,
+    params.birthDate,
+    params.nationality,
+    params.address
+  ]);
+  logger.info("KYC submitted", { userId: params.userId, level: "basic" });
+  return { kycId: id, level: "basic" };
+}
+async function approveKYC(userId, level = "verified") {
+  await query(`UPDATE user_profiles SET kyc_level = $1, kyc_verified_at = CURRENT_TIMESTAMP, kyc_verified_by = 'system'
+     WHERE user_id = $2`, [level, userId]);
+  logger.info("KYC approved", { userId, level });
+  if (level === "premium") {
+    await query("UPDATE wallets SET daily_limit = 50000, monthly_limit = 500000 WHERE user_id = $1", [userId]);
+  } else if (level === "verified") {
+    await query("UPDATE wallets SET daily_limit = 10000, monthly_limit = 100000 WHERE user_id = $1", [userId]);
+  }
+}
+async function rejectKYC(userId, reason) {
+  await query(`UPDATE user_profiles SET kyc_level = 'none', kyc_rejection_reason = $1 WHERE user_id = $2`, [reason, userId]);
+  logger.info("KYC rejected", { userId, reason });
+}
+async function getKYCStatus(userId) {
+  const result = await query("SELECT kyc_level FROM user_profiles WHERE user_id = $1", [userId]);
+  return result.rows[0]?.kyc_level || "none";
+}
+async function getPendingKYC(limit = 50) {
+  const result = await query(`SELECT up.*, u.email FROM user_profiles up
+     JOIN users u ON u.id = up.user_id
+     WHERE up.kyc_level = 'basic' AND up.kyc_verified_at IS NULL
+     ORDER BY up.kyc_submitted_at ASC LIMIT $1`, [limit]);
+  return result.rows;
+}
+
+// src/shared/kyc/kyc.routes.ts
+var kycRoutes = new Elysia({ prefix: "/kyc" }).derive(authMiddleware).post("/submit", async ({ userId, body }) => {
+  return await submitKYC({ userId, ...body });
+}, {
+  body: t.Object({
+    fullName: t.String({ minLength: 3 }),
+    documentType: t.Enum({ ci: "ci", passport: "passport", nit: "nit" }),
+    documentNumber: t.String({ minLength: 5 }),
+    birthDate: t.String(),
+    nationality: t.String(),
+    address: t.String(),
+    selfieBase64: t.Optional(t.String()),
+    documentFrontBase64: t.Optional(t.String()),
+    documentBackBase64: t.Optional(t.String())
+  }),
+  detail: { tags: ["KYC"], summary: "Enviar documentación KYC" }
+}).get("/status", async ({ userId }) => {
+  return { level: await getKYCStatus(userId) };
+}, {
+  detail: { tags: ["KYC"], summary: "Estado KYC" }
+}).post("/:userId/approve", async ({ params, body }) => {
+  await approveKYC(params.userId, body.level);
+  return { success: true };
+}, {
+  params: t.Object({ userId: t.String() }),
+  body: t.Object({ level: t.Optional(t.String()) }),
+  detail: { tags: ["KYC"], summary: "Aprobar KYC (admin)" }
+}).post("/:userId/reject", async ({ params, body }) => {
+  await rejectKYC(params.userId, body.reason);
+  return { success: true };
+}, {
+  params: t.Object({ userId: t.String() }),
+  body: t.Object({ reason: t.String() }),
+  detail: { tags: ["KYC"], summary: "Rechazar KYC (admin)" }
+}).get("/pending", async () => {
+  return await getPendingKYC();
+}, {
+  detail: { tags: ["KYC"], summary: "KYC pendientes (admin)" }
+});
+
+// src/shared/compliance/retention.service.ts
+init_pool();
+var POLICIES = [
+  { table: "audit_logs", retentionDays: 365, deleteBeforeColumn: "created_at" },
+  { table: "auth_tokens", retentionDays: 90, deleteBeforeColumn: "created_at" },
+  { table: "idempotency_keys", retentionDays: 30, deleteBeforeColumn: "created_at" },
+  { table: "outgoing_webhook_jobs", retentionDays: 30, deleteBeforeColumn: "created_at" },
+  { table: "payment_sync_status", retentionDays: 90, deleteBeforeColumn: "created_at" },
+  { table: "reconciliation_logs", retentionDays: 365, deleteBeforeColumn: "created_at" },
+  { table: "notifications", retentionDays: 180, deleteBeforeColumn: "created_at" },
+  { table: "fraud_alerts", retentionDays: 730, deleteBeforeColumn: "created_at", archiveBeforeDelete: true }
+];
+async function applyRetentionPolicies(dryRun = false) {
+  let totalDeleted = 0;
+  let totalArchived = 0;
+  const details = [];
+  for (const policy of POLICIES) {
+    const column = policy.deleteBeforeColumn || "created_at";
+    const cutoff = `CURRENT_TIMESTAMP - INTERVAL '${policy.retentionDays} days'`;
+    try {
+      let archived = 0;
+      if (policy.archiveBeforeDelete && !dryRun) {
+        const archiveResult = await query(`CREATE TABLE IF AS SELECT * FROM ${policy.table} WHERE ${column} < ${cutoff}`, []);
+        archived = archiveResult.rowCount || 0;
+        totalArchived += archived;
+      }
+      if (!dryRun) {
+        const result = await query(`DELETE FROM ${policy.table} WHERE ${column} < ${cutoff}`);
+        const deleted = result.rowCount || 0;
+        totalDeleted += deleted;
+        details.push({ table: policy.table, deleted, archived });
+        if (deleted > 0) {
+          logger.info("Retention cleanup", { table: policy.table, deletedRecords: deleted });
+        }
+      } else {
+        const result = await query(`SELECT COUNT(*) as count FROM ${policy.table} WHERE ${column} < ${cutoff}`);
+        const toDelete = parseInt(result.rows[0]?.count || "0");
+        details.push({ table: policy.table, deleted: toDelete, archived: 0 });
+      }
+    } catch (err2) {
+      logger.error("Retention policy failed", { table: policy.table, error: String(err2) });
+      details.push({ table: policy.table, deleted: 0, archived: 0 });
+    }
+  }
+  return { deleted: totalDeleted, archived: totalArchived, details };
+}
+async function getRetentionStatus() {
+  const results = [];
+  for (const policy of POLICIES) {
+    try {
+      const result = await query(`SELECT COUNT(*) as count FROM ${policy.table}`);
+      results.push({
+        table: policy.table,
+        policyDays: policy.retentionDays,
+        currentRecords: parseInt(result.rows[0]?.count || "0")
+      });
+    } catch {
+      results.push({ table: policy.table, policyDays: policy.retentionDays, currentRecords: -1 });
+    }
+  }
+  return results;
+}
+
+// src/shared/audit/audit.service.ts
+init_pool();
+init_snowflake();
+async function logAudit(params) {
+  try {
+    await query(`INSERT INTO audit_logs (id, user_id, action, resource_type, resource_id, details, ip_address, user_agent)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, [
+      nextSnowflake(),
+      params.userId || null,
+      params.action,
+      params.resourceType || null,
+      params.resourceId || null,
+      params.details ? JSON.stringify(params.details) : null,
+      params.ip || null,
+      params.userAgent || null
+    ]);
+  } catch (err2) {
+    logger.error("Audit log failed", { error: String(err2), action: params.action });
+  }
+}
+
+// src/shared/compliance/compliance.routes.ts
+var complianceRoutes = new Elysia({ prefix: "/compliance" }).derive(authMiddleware).get("/pci", async () => {
+  return await logComplianceCheck();
+}, {
+  detail: { tags: ["Compliance"], summary: "Verificar compliance PCI-DSS" }
+}).post("/retention/run", async () => {
+  await logAudit({ action: "compliance.check", details: { type: "retention_run" } });
+  return await applyRetentionPolicies(false);
+}, {
+  detail: { tags: ["Compliance"], summary: "Ejecutar limpieza por retención" }
+}).get("/retention/dry-run", async () => {
+  return await applyRetentionPolicies(true);
+}, {
+  detail: { tags: ["Compliance"], summary: "Simular limpieza (sin borrar)" }
+}).get("/retention/status", async () => {
+  return await getRetentionStatus();
+}, {
+  detail: { tags: ["Compliance"], summary: "Estado de retención por tabla" }
+});
+
+// src/index.ts
+sentry.init();
+var app = new Elysia().onRequest(({ request }) => {
+  const id = crypto.randomUUID();
+  setCorrelationId(id);
+}).onResponse(({ set: set2 }) => {
+  Object.assign(set2.headers || {}, complianceHeaders());
+}).use(swagger({ path: "/swagger" })).use(cors({ origin: () => true })).use(rateLimit({ windowMs: 60000, maxRequests: 120 })).use(healthRoutes).use(authRoutes).use(userRoutes).use(bankingRoutes).use(qrRoutes).use(hooksRoutes).use(paymentRoutes).use(sseRoutes).use(collectionsRoutes).use(apiKeyRoutes).use(fraudRoutes).use(fxRoutes).use(webhookRoutes).use(reconciliationRoutes).use(walletBackupRoutes).use(wsRoutes).use(subscriptionRoutes).use(splitRoutes).use(merchantRoutes).use(pushRoutes).use(cashRoutes).use(nfcRoutes).use(kycRoutes).use(complianceRoutes).onError(({ code, error, set: set2, request }) => {
+  if (error instanceof AppError) {
+    set2.status = error.statusCode;
+    logger.warn("App error", { statusCode: error.statusCode, message: error.message, path: new URL(request.url).pathname });
+    return { error: error.message, details: error.details };
+  }
+  if (code === "NOT_FOUND") {
+    set2.status = 404;
+    return { error: "Ruta no encontrada" };
+  }
+  if (code === "VALIDATION") {
+    set2.status = 400;
+    return { error: "Error de validación" };
+  }
+  logger.error("Unhandled error", { error: String(error), path: new URL(request.url).pathname });
+  sentry.captureError(error instanceof Error ? error : new Error(String(error)), {
+    code,
+    path: new URL(request.url).pathname
+  });
+  set2.status = 500;
+  return { error: "Error interno del servidor" };
+});
+var mode = process.argv[2];
+if (mode === "init-db") {
+  migrateDB(true).then(() => process.exit(0));
+} else if (mode === "seed") {
+  migrateDB(true).then(async () => {
+    const { seedDatabase: seedDatabase2 } = await Promise.resolve().then(() => (init_seed_db(), exports_seed_db));
+    await seedDatabase2();
+    process.exit(0);
+  });
+} else {
+  migrateDB(false).then(async () => {
+    testConnection();
+    startWebhookProcessor();
+    logger.info("All services initialized", {
+      redis: !!process.env.REDIS_URL,
+      sentry: !!process.env.SENTRY_DSN,
+      otel: !!process.env.OTEL_EXPORTER_OTLP_ENDPOINT
+    });
+    const port = parseInt(process.env.PORT || "3000");
+    app.listen(port, () => logger.info(`Server on :${port}`));
+  });
+}
+process.on("SIGINT", () => {
+  logger.info("Shutting down...");
+  sseService.closeAll();
+  paymentQueueService.stopAll();
+  logger.flush?.();
+  process.exit(0);
+});
+process.on("SIGTERM", () => {
+  logger.info("Shutting down...");
+  sseService.closeAll();
+  paymentQueueService.stopAll();
+  logger.flush?.();
+  process.exit(0);
+});

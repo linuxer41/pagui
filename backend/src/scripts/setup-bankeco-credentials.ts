@@ -1,108 +1,58 @@
-import { bankCredentialsService } from '../services/bank-credentials.service';
+import { query } from '../shared/database/pool'
+import { bankCredentialRepository } from '../banking/credential/bank-credential.repository'
 
 export async function setupBanecoCredentials() {
   try {
-    console.log('🏦 Configurando credenciales de Banco Económico...');
-    
-    // Verificar si ya existen credenciales
-    const existingCredentials = await bankCredentialsService.getAll();
-    
-    if (existingCredentials.length > 0) {
-      console.log('⚠️  Ya existen credenciales bancarias. Eliminando las existentes...');
-      
-      // Eliminar credenciales existentes
-      for (const credential of existingCredentials) {
-        await bankCredentialsService.delete(credential.id);
-      }
-      
-      console.log('✅ Credenciales existentes eliminadas');
+    console.log('Setting up Banco Económico credentials...')
+
+    const existing = await bankCredentialRepository.list()
+    for (const cred of existing) {
+      await query('UPDATE bank_credentials SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1', [cred.id])
     }
-    
-    // Crear credenciales de PRUEBA (Test)
-    console.log('📝 Creando credenciales de PRUEBA...');
-    
-      const testCredential = await bankCredentialsService.create({
-       accountNumber: '1041070599',
-       accountName: 'Cuenta Test Banco Económico',
-       merchantId: 'BANECO_TEST_MERCHANT',
-       username: '1649710',
-       password: '1234',
-       encryptionKey: '6F09E3167E1D40829207B01041A65B12', // Clave AES del banco (NO encriptada)
-       environment: 'test', // 'test' = test
-       apiBaseUrl: 'https://apimktdesa.baneco.com.bo/ApiGateway/'
-     });
-    
-    console.log(`✅ Credenciales de PRUEBA creadas con ID: ${testCredential.id}`);
-    console.log(`   Usuario: ${testCredential.username}`);
-    console.log(`   Cuenta: ${testCredential.accountNumber}`);
-    console.log(`   Entorno: Test (${testCredential.environment})`);
-    
-    // Crear credenciales de PRODUCCIÓN
-    console.log('🚀 Creando credenciales de PRODUCCIÓN...');
-    
-         const prodCredential = await bankCredentialsService.create({
-       accountNumber: '5021531650',
-       accountName: 'Cuenta Producción Banco Económico',
-       merchantId: 'BANECO_PROD_MERCHANT',
-       username: 'A96661050',
-       password: 'Anarkia41?',
-       encryptionKey: '320A7492A2334CDDADD8230D251B917C', // Clave AES del banco (NO encriptada)
-       environment: 'prod', // 'prod' = producción
-       apiBaseUrl: 'https://apimkt.baneco.com.bo/ApiGateway/'
-     });
-    
-    console.log(`✅ Credenciales de PRODUCCIÓN creadas con ID: ${prodCredential.id}`);
-    console.log(`   Usuario: ${prodCredential.username}`);
-    console.log(`   Cuenta: ${prodCredential.accountNumber}`);
-    console.log(`   Entorno: Producción (${prodCredential.environment})`);
-    
-    // Crear credenciales de IATHINGS (Tercero)
-    console.log('🏢 Creando credenciales de IATHINGS...');
-    
-    const iathingsCredential = await bankCredentialsService.create({
-      accountNumber: '5021979319',
+    console.log('Existing credentials removed')
+
+    const testCredential = await bankCredentialRepository.create({
+      bankId: 0n, accountNumber: '1041070599',
+      accountName: 'Cuenta Test Banco Económico',
+      merchantId: 'BANECO_TEST_MERCHANT',
+      username: '1649710', password: '1234',
+      encryptionKey: '6F09E3167E1D40829207B01041A65B12',
+      environment: 'test',
+      apiBaseUrl: 'https://apimktdesa.baneco.com.bo/ApiGateway/',
+    })
+    console.log(`Test credentials created: ${testCredential.id}`)
+
+    const prodCredential = await bankCredentialRepository.create({
+      bankId: 0n, accountNumber: '5021531650',
+      accountName: 'Cuenta Producción Banco Económico',
+      merchantId: 'BANECO_PROD_MERCHANT',
+      username: 'A96661050', password: 'Anarkia41?',
+      encryptionKey: '320A7492A2334CDDADD8230D251B917C',
+      environment: 'prod',
+      apiBaseUrl: 'https://apimkt.baneco.com.bo/ApiGateway/',
+    })
+    console.log(`Prod credentials created: ${prodCredential.id}`)
+
+    const iathingsCredential = await bankCredentialRepository.create({
+      bankId: 0n, accountNumber: '5021979319',
       accountName: 'IATHINGS BANECO',
       merchantId: 'IATHINGS_MERCHANT',
-      username: 'A100874750',
-      password: 'Anarkia41?', // Misma contraseña de producción
-      encryptionKey: 'AEA5CA5D649B47D0A16B95CB28C4DC1B', // Clave AES de IATHINGS
-      environment: 'prod', // Producción
-      apiBaseUrl: 'https://apimkt.baneco.com.bo/ApiGateway/'
-    });
-    
-    console.log(`✅ Credenciales de IATHINGS creadas con ID: ${iathingsCredential.id}`);
-    console.log(`   Usuario: ${iathingsCredential.username}`);
-    console.log(`   Cuenta: ${iathingsCredential.accountNumber}`);
-    console.log(`   Entorno: Producción (${iathingsCredential.environment})`);
-    
-    console.log('\n🎯 Configuración completada:');
-    console.log(`   - Credenciales de PRUEBA: ${testCredential.id}`);
-    console.log(`   - Credenciales de PRODUCCIÓN: ${prodCredential.id}`);
-    console.log(`   - Credenciales de IATHINGS: ${iathingsCredential.id}`);
-    console.log(`   - URL de Test: https://apimktdesa.baneco.com.bo/ApiGateway/`);
-    console.log(`   - URL de Producción: https://apimkt.baneco.com.bo/ApiGateway/`);
-    
-    return {
-      testCredential,
-      prodCredential,
-      iathingsCredential
-    };
-    
+      username: 'A100874750', password: 'Anarkia41?',
+      encryptionKey: 'AEA5CA5D649B47D0A16B95CB28C4DC1B',
+      environment: 'prod',
+      apiBaseUrl: 'https://apimkt.baneco.com.bo/ApiGateway/',
+    })
+    console.log(`IATHINGS credentials created: ${iathingsCredential.id}`)
+
+    return { testCredential, prodCredential, iathingsCredential }
   } catch (error) {
-    console.error('❌ Error configurando credenciales de Banco Económico:', error);
-    throw error;
+    console.error('Error setting up Baneco credentials:', error)
+    throw error
   }
 }
 
-// Ejecutar si se llama directamente
-if (require.main === module) {
+if (import.meta.main) {
   setupBanecoCredentials()
-    .then(() => {
-      console.log('\n✅ Configuración de Banco Económico completada exitosamente');
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error('\n❌ Error en la configuración:', error);
-      process.exit(1);
-    });
+    .then(() => { console.log('Done'); process.exit(0) })
+    .catch((e) => { console.error(e); process.exit(1) })
 }

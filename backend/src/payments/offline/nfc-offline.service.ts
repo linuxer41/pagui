@@ -1,0 +1,130 @@
+import { query } from '../../shared/database/pool'
+import { nextSnowflake } from '../../shared/snowflake'
+import { walletRepository } from '../wallet/wallet.repository'
+import { transferRepository } from '../transfer/transfer.repository'
+import { logger } from '../../shared/logger'
+import { hash } from '../../shared/crypto'
+import crypto from 'node:crypto'
+
+interface NFCTransaction {
+  nfcId: string
+  senderWalletId: bigint
+  receiverWalletId: bigint
+  amount: number
+  timestamp: number
+  signature: string
+  nonce: string
+}
+
+export async function createNFCOfflinePayload(params: {
+  senderWalletId: bigint | string
+  amount: number
+  receiverWalletId: bigint | string
+}) {
+  const nonce = crypto.randomUUID().replace(/-/g, '').slice(0, 16)
+  const timestamp = Date.now()
+  const nfcId = nextSnowflake()
+
+  const payload = `${nfcId}:${params.senderWalletId}:${params.receiverWalletId}:${params.amount}:${timestamp}:${nonce}`
+  const signature = hash(payload)
+
+  return {
+    nfcId,
+    payload: {
+      nfcId: String(nfcId),
+      senderWalletId: String(params.senderWalletId),
+      receiverWalletId: String(params.receiverWalletId),
+      amount: params.amount,
+      timestamp,
+      nonce,
+      signature,
+    },
+    qrData: JSON.stringify({
+      type: 'nfc_offline',
+      nfcId: String(nfcId),
+      senderWalletId: String(params.senderWalletId),
+      amount: params.amount,
+      timestamp,
+      signature,
+    }),
+  }
+}
+
+export async function processNFCTransaction(tx: NFCTransaction) {
+  const expected = `${tx.nfcId}:${tx.senderWalletId}:${tx.receiverWalletId}:${tx.amount}:${tx.timestamp}:${tx.nonce}`
+  if (hash(expected) !== tx.signature) {
+    logger.warn('NFC invalid signature', { nfcId: tx.nfcId })
+    throw new Error('Firma NFC inválida')
+  }
+
+  const age = Date.now() - tx.timestamp
+  if (age > 300_000) {
+    throw new Error('Transacción NFC expirada (más de 5 min)')
+  }
+
+  const existing = await query('SELECT id FROM transfers WHERE reference = $1', [`nfc-${tx.nfcId}`])
+  if (existing.rows.length > 0) {
+    throw new Error('Transacción NFC ya procesada')
+  }
+
+  const sender = await walletRepository.getById(tx.senderWalletId)
+  if (!sender || sender.availableBalance < tx.amount) {
+    throw new Error('Saldo insuficiente')
+  }
+
+  const transfer = await transferRepository.create({
+    senderWalletId: tx.senderWalletId,
+    receiverWalletId: tx.receiverWalletId,
+    amount: tx.amount,
+    fee: 0,
+    total: tx.amount,
+    description: `Pago NFC offline ${tx.nfcId}`,
+    reference: `nfc-${tx.nfcId}`,
+    referenceType: 'nfc_offline',
+  })
+
+  await walletRepository.updateBalance(
+    tx.senderWalletId,
+    sender.balance - tx.amount,
+    sender.availableBalance - tx.amount
+  )
+  await transferRepository.updateStatus(transfer.id, 'completed')
+
+  logger.info('NFC offline payment processed', {
+    nfcId: tx.nfcId,
+    amount: tx.amount,
+    age: `${age}ms`,
+  })
+
+  return { transferId: transfer.id }
+}
+
+export async function syncPendingNFC(userId: bigint | string) {
+  const pending = await query(
+    `SELECT * FROM nfc_pending
+     WHERE receiver_user_id = $1 AND status = 'pending' AND expires_at > CURRENT_TIMESTAMP
+     ORDER BY created_at ASC`,
+    [userId]
+  )
+
+  const results = []
+  for (const p of pending.rows) {
+    try {
+      const result = await processNFCTransaction({
+        nfcId: p.nfc_id,
+        senderWalletId: p.sender_wallet_id,
+        receiverWalletId: p.receiver_wallet_id,
+        amount: parseFloat(p.amount),
+        timestamp: new Date(p.created_at).getTime(),
+        signature: p.signature,
+        nonce: p.nonce,
+      })
+      await query("UPDATE nfc_pending SET status = 'completed' WHERE id = $1", [p.id])
+      results.push(result)
+    } catch {
+      await query("UPDATE nfc_pending SET status = 'failed' WHERE id = $1", [p.id])
+    }
+  }
+
+  return results
+}

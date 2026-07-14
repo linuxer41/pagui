@@ -1,57 +1,33 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
-  import { Loader } from '@lucide/svelte';
-  
-  // Props
-  export let variant: 'primary' | 'secondary' | 'danger' | 'ghost' = 'primary';
-  export let type: 'button' | 'submit' | 'reset' = 'button';
-  export let disabled: boolean = false;
-  export let loading: boolean = false;
-  export let fullWidth: boolean = false;
-  export let size: 'sm' | 'md' | 'lg' = 'md';
-  export let icon: any = null; // Componente de icono de Lucide
-  export let iconPosition: 'left' | 'right' = 'left';
-  
-  // Eventos
-  const dispatch = createEventDispatcher();
-  
-  // Clases CSS
-  let classes = '';
-  $: classes = `btn btn-${variant} size-${size} ${fullWidth ? 'full-width' : ''} ${iconPosition === 'right' ? 'icon-right' : ''}`;
-  
-  // Manejador de clic
-  function handleClick(event: MouseEvent) {
-    if (!disabled && !loading) {
-      dispatch('click', event);
-    }
-  }
+  import { LoaderCircle } from '@lucide/svelte'
+  let className = ''
+  export { className as class }
+  export let variant: 'primary' | 'secondary' | 'danger' | 'ghost' | 'outline' = 'primary'
+  export let size: 'sm' | 'md' | 'lg' = 'md'
+  export let loading = false
+  export let disabled = false
+  export let fullWidth = false
+  export let type: 'button' | 'submit' | 'reset' = 'button'
+  export let icon: any = undefined
+  export let iconPosition: 'left' | 'right' = 'left'
 </script>
 
-<button 
-  {type} 
-  class={classes} 
-  disabled={disabled || loading} 
-  on:click={handleClick}
-  {...$$restProps}
+<button
+  {type}
+  class="btn btn-{variant} btn-{size} {fullWidth ? 'btn-full' : ''} {className}"
+  {disabled}
+  on:click
 >
   {#if loading}
-    <span class="loader-icon">
-      <Loader size={size === 'sm' ? 16 : size === 'lg' ? 22 : 18} />
-    </span>
-  {:else if icon && iconPosition === 'left'}
-    <span class="btn-icon">
-      <svelte:component this={icon} size={size === 'sm' ? 16 : size === 'lg' ? 20 : 18} strokeWidth={1.75} />
-    </span>
-  {/if}
-  
-  <span class="btn-text">
-    <slot />
-  </span>
-  
-  {#if icon && iconPosition === 'right' && !loading}
-    <span class="btn-icon">
-      <svelte:component this={icon} size={size === 'sm' ? 16 : size === 'lg' ? 20 : 18} strokeWidth={1.75} />
-    </span>
+    <LoaderCircle class="btn-spinner" size={size === 'sm' ? 14 : size === 'lg' ? 22 : 18} />
+  {:else}
+    {#if icon && iconPosition === 'left'}
+      <svelte:component this={icon} size={size === 'sm' ? 14 : size === 'lg' ? 22 : 18} />
+    {/if}
+    <span class="btn-label"><slot /></span>
+    {#if icon && iconPosition === 'right'}
+      <svelte:component this={icon} size={size === 'sm' ? 14 : size === 'lg' ? 22 : 18} />
+    {/if}
   {/if}
 </button>
 
@@ -60,161 +36,79 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: var(--space-2);
     border: none;
-    cursor: pointer;
-    transition: transform 0.15s ease;
-    user-select: none;
+    border-radius: var(--radius-lg);
+    font-weight: 600;
+    letter-spacing: var(--tracking-normal);
+    transition: all var(--duration-normal) var(--ease-out);
     position: relative;
     overflow: hidden;
-    font-weight: 600;
-    gap: 0.5rem;
-    border-radius: var(--border-radius-xl);
-    letter-spacing: -0.01em;
-    min-height: 54px;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    white-space: nowrap;
+    user-select: none;
+    -webkit-user-select: none;
   }
-  
+  .btn:active:not(:disabled) { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-full { width: 100%; }
+
+  /* Sizes */
+  .btn-sm { height: 32px; padding: 0 var(--space-3); font-size: var(--text-sm); border-radius: var(--radius-md); }
+  .btn-md { height: 44px; padding: 0 var(--space-5); font-size: var(--text-base); }
+  .btn-lg { height: 52px; padding: 0 var(--space-6); font-size: var(--text-lg); border-radius: var(--radius-xl); }
+
+  /* Primary */
   .btn-primary {
-    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+    background: var(--primary-gradient);
     color: white;
-    box-shadow: 0 4px 10px rgba(58, 102, 255, 0.2);
+    box-shadow: 0 4px 14px rgba(79, 70, 229, 0.25);
   }
-  
-  .btn-primary:hover:not(:disabled) {
-    background: linear-gradient(135deg, var(--primary-light), var(--primary-color));
-    transform: translateY(-1px);
-    box-shadow: 0 6px 12px rgba(58, 102, 255, 0.25);
+  .btn-primary:hover:not(:disabled) { box-shadow: 0 6px 20px rgba(79, 70, 229, 0.35); }
+  .btn-primary::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0.08);
+    opacity: 0;
+    transition: opacity var(--duration-fast) var(--ease-out);
   }
-  
-  .btn-primary:active:not(:disabled) {
-    transform: scale(0.98);
-    box-shadow: 0 2px 4px rgba(58, 102, 255, 0.15);
-  }
-  
+  .btn-primary:hover:not(:disabled)::after { opacity: 1; }
+
+  /* Secondary */
   .btn-secondary {
     background: var(--surface);
-    color: var(--primary-color);
-    border: 1px solid rgba(58, 102, 255, 0.15);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-xs);
   }
-  
-  .btn-secondary:hover:not(:disabled) {
-    border-color: rgba(58, 102, 255, 0.3);
-    transform: translateY(-1px);
-  }
-  
-  .btn-secondary:active:not(:disabled) {
-    transform: scale(0.98);
-  }
-  
+  .btn-secondary:hover:not(:disabled) { background: var(--surface-hover); border-color: var(--text-tertiary); }
+
+  /* Danger */
   .btn-danger {
-    background: linear-gradient(135deg, #FF5A69, #E53F4E);
+    background: linear-gradient(135deg, #EF4444, #DC2626);
     color: white;
-    box-shadow: 0 4px 10px rgba(255, 71, 87, 0.2);
+    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.2);
   }
-  
-  .btn-danger:hover:not(:disabled) {
-    background: linear-gradient(135deg, #FF6B78, #FF5A69);
-    transform: translateY(-1px);
-    box-shadow: 0 6px 12px rgba(255, 71, 87, 0.25);
-  }
-  
-  .btn-danger:active:not(:disabled) {
-    transform: scale(0.98);
-    box-shadow: 0 2px 4px rgba(255, 71, 87, 0.15);
-  }
-  
+  .btn-danger:hover:not(:disabled) { box-shadow: 0 6px 20px rgba(239, 68, 68, 0.3); }
+
+  /* Ghost */
   .btn-ghost {
     background: transparent;
+    color: var(--text-secondary);
+  }
+  .btn-ghost:hover:not(:disabled) { background: var(--surface-hover); color: var(--text-primary); }
+
+  /* Outline */
+  .btn-outline {
+    background: transparent;
     color: var(--primary-color);
-    border: none;
-    box-shadow: none;
+    border: 1.5px solid var(--primary-color);
   }
-  .btn-ghost:hover:not(:disabled) {
-    background: rgba(58, 102, 255, 0.07);
-    color: var(--primary-dark);
-    transform: translateY(-1px);
-  }
-  .btn-ghost:active:not(:disabled) {
-    background: rgba(58, 102, 255, 0.13);
-    color: var(--primary-dark);
-    transform: scale(0.98);
-  }
-  
-  .btn:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
-    transform: none !important;
-  }
-  
-  /* Tamaños */
-  .size-sm {
-    padding: 0.5rem 1rem;
-    font-size: 0.875rem;
-    min-height: 40px;
-    border-radius: 10px;
-  }
-  
-  .size-md {
-    padding: 0.7rem 1.2rem;
-    font-size: 0.95rem;
-  }
-  
-  .size-lg {
-    padding: 0.9rem 1.5rem;
-    font-size: 1rem;
-    min-height: 56px;
-    border-radius: 14px;
-  }
-  
-  .full-width {
-    width: 100%;
-  }
-  
-  /* Iconos */
-  .btn-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  
-  .icon-right {
-    flex-direction: row-reverse;
-  }
-  
-  .loader-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    animation: spin 1s linear infinite;
-  }
-  
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-  
-  /* Efecto ripple */
-  .btn::after {
-    content: '';
-    display: block;
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    top: 0;
-    left: 0;
-    pointer-events: none;
-    background-image: radial-gradient(circle, #fff 10%, transparent 10.01%);
-    background-repeat: no-repeat;
-    background-position: 50%;
-    transform: scale(10, 10);
-    opacity: 0;
-    transition: transform 0.4s, opacity 0.5s;
-  }
-  
-  .btn:active::after {
-    transform: scale(0, 0);
-    opacity: 0.3;
-    transition: 0s;
-  }
-</style> 
+  .btn-outline:hover:not(:disabled) { background: var(--primary-subtle); }
+
+  /* Label */
+  .btn-label { position: relative; z-index: 1; }
+
+  /* Spinner */
+  .btn-spinner { animation: spin 0.8s linear infinite; }
+</style>

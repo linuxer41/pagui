@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import RouteLayout from '$lib/components/layouts/RouteLayout.svelte';
   import Button from '$lib/components/Button.svelte';
   import api from '$lib/api';
   import { Bell, BellOff, CheckCheck, ArrowLeft } from '@lucide/svelte';
@@ -43,48 +42,36 @@
   }
 </script>
 
-<RouteLayout title="Notificaciones">
-  <div slot="right">
+<div class="page-header">
+  <span class="page-header-title">Notificaciones</span>
+  <div class="page-header-actions">
     {#if unreadCount > 0}
-      <button class="mark-all" on:click={markAllRead} aria-label="Marcar todas como leídas">
+      <button onclick={markAllRead} aria-label="Marcar todas como leídas" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;border:none;background:var(--surface);border-radius:var(--radius-full);color:var(--primary-color);box-shadow:var(--shadow-xs);cursor:pointer;transition:all var(--duration-fast) var(--ease-out)">
         <CheckCheck size={18} />
       </button>
     {/if}
   </div>
+</div>
 
+<div class="page-content" style="padding-top:var(--space-4)">
   {#if loading}
-    <p class="loading">Cargando...</p>
+    <div style="text-align:center;padding:2rem;color:var(--text-secondary)">Cargando...</div>
   {:else if notifications.length === 0}
-    <div class="empty">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:var(--space-4);padding:3rem 1rem;color:var(--text-secondary)">
       <BellOff size={48} />
-      <p>No hay notificaciones</p>
+      <p style="margin:0;font-size:var(--text-sm)">No hay notificaciones</p>
     </div>
   {:else}
-    <div class="list">
+    <div class="section-card" style="display:flex;flex-direction:column;padding:var(--space-2)">
       {#each notifications as n}
-        <button class="card" class:unread={!n.is_read} on:click={() => !n.is_read && markRead(n.id)}>
-          <div class="dot" class:unread={!n.is_read}></div>
-          <div class="info">
-            <p class="msg">{n.message || n.title || 'Notificación'}</p>
-            <span class="date">{new Date(n.created_at || n.date).toLocaleDateString('es-BO')}</span>
+        <button onclick={() => !n.is_read && markRead(n.id)} style="display:flex;align-items:flex-start;gap:var(--space-3);padding:var(--space-3);background:transparent;border:none;border-bottom:1px solid var(--border);cursor:pointer;text-align:left;width:100%;transition:background var(--duration-fast) var(--ease-out)">
+          <div style="width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:0.4rem;background:{n.is_read ? 'transparent' : 'var(--primary-color)'}"></div>
+          <div style="flex:1;min-width:0">
+            <p style="margin:0 0 var(--space-1);font-size:var(--text-sm);color:var(--text-primary);{!n.is_read ? 'font-weight:600' : ''}">{n.message || n.title || 'Notificación'}</p>
+            <span style="font-size:var(--text-xs);color:var(--text-secondary)">{new Date(n.created_at || n.date).toLocaleDateString('es-BO')}</span>
           </div>
         </button>
       {/each}
     </div>
   {/if}
-</RouteLayout>
-
-<style>
-  .mark-all { background: none; border: none; color: var(--primary); cursor: pointer; padding: 0.25rem; }
-  .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
-  .empty { display: flex; flex-direction: column; align-items: center; gap: 1rem; padding: 3rem 1rem; color: var(--text-secondary); }
-  .list { display: flex; flex-direction: column; gap: 0.25rem; }
-  .card { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.875rem 0.75rem; background: transparent; border: none; border-bottom: 1px solid var(--border); cursor: pointer; text-align: left; width: 100%; }
-  .card.unread { background: rgba(33, 150, 243, 0.05); }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: transparent; flex-shrink: 0; margin-top: 0.4rem; }
-  .dot.unread { background: var(--primary); }
-  .info { flex: 1; }
-  .msg { margin: 0; font-size: 0.9rem; color: var(--text-primary); }
-  .card.unread .msg { font-weight: 600; }
-  .date { font-size: 0.75rem; color: var(--text-secondary); }
-</style>
+</div>

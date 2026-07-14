@@ -1,5 +1,4 @@
-import { EmpsaatService } from './EmpsaatService';
-import { getEmpresaConfig } from '../config/empresas';
+import { defaultEmpsaatService } from './EmpsaatService';
 
 export interface PaymentNotification {
   qrId: string;
@@ -15,8 +14,9 @@ export interface PaymentNotification {
 export class PaymentNotificationService {
   private static instance: PaymentNotificationService;
   private pollingIntervals = new Map<string, NodeJS.Timeout>();
-  private maxPollingTime = 30 * 60 * 1000; // 30 minutos
-  private pollingInterval = 10 * 1000; // 10 segundos
+  private paymentStatuses = new Map<string, PaymentNotification>();
+  private maxPollingTime = 30 * 60 * 1000;
+  private pollingInterval = 10 * 1000;
 
   static getInstance(): PaymentNotificationService {
     if (!PaymentNotificationService.instance) {
@@ -25,7 +25,6 @@ export class PaymentNotificationService {
     return PaymentNotificationService.instance;
   }
 
-  // Iniciar monitoreo de pago
   async startPaymentMonitoring(
     qrId: string,
     transactionId: string,
@@ -36,14 +35,7 @@ export class PaymentNotificationService {
     empresaSlug: string
   ) {
     console.log(`Iniciando monitoreo de pago para QR: ${qrId}`);
-    
-    // Obtener configuración de la empresa
-    const empresa = getEmpresaConfig(empresaSlug);
-    if (!empresa?.apiKey) {
-      throw new Error('Configuración de empresa no encontrada');
-    }
 
-    // Actualizar estado inicial
     this.updatePaymentStatus(qrId, {
       qrId,
       status: 'pending',
@@ -55,10 +47,8 @@ export class PaymentNotificationService {
       timestamp: Date.now()
     });
 
-    // Iniciar polling
-    this.startPolling(qrId, abonado, empresa.apiKey, empresaSlug);
+    this.startPolling(qrId, abonado, empresaSlug);
 
-    // Configurar timeout
     setTimeout(() => {
       this.stopPolling(qrId);
       this.updatePaymentStatus(qrId, {
@@ -74,26 +64,22 @@ export class PaymentNotificationService {
     }, this.maxPollingTime);
   }
 
-  // Iniciar polling del estado del QR
-  private startPolling(qrId: string, abonado: string, apiKey: string, empresaSlug: string) {
+  private startPolling(qrId: string, abonado: string, empresaSlug: string) {
     const interval = setInterval(async () => {
       try {
         console.log(`Verificando estado de pago para QR: ${qrId}`);
-        
-        // Verificar si hay deudas pendientes
-        const response = await EmpsaatService.buscarDeudasPorCriterio(abonado, 'abonado', apiKey);
-        
+
+        const response = await defaultEmpsaatService.buscarDeudasPorCriterio(abonado, 'abonado');
+
         if (response.success && response.data?.deudas) {
           const abonadoData = response.data.deudas.find((a: any) => a.abonado.abonado.toString() === abonado);
-          
+
           if (abonadoData) {
-            // Verificar si las deudas específicas siguen pendientes
             const deudasPendientes = this.checkPendingDebts(abonadoData, qrId);
-            
+
             if (deudasPendientes.length === 0) {
-              // Todas las deudas fueron pagadas
               console.log(`Pago confirmado para QR: ${qrId}`);
-              await this.processPayment(qrId, abonado, apiKey, empresaSlug);
+              await this.processPayment(qrId, abonado, empresaSlug);
               this.stopPolling(qrId);
             }
           }
@@ -106,14 +92,12 @@ export class PaymentNotificationService {
     this.pollingIntervals.set(qrId, interval);
   }
 
-  // Verificar deudas pendientes
   private checkPendingDebts(abonadoData: any, qrId: string): any[] {
     const status = this.getPaymentStatus(qrId);
     if (!status) return [];
 
     const pendingDebts = [];
 
-    // Verificar deudas de agua
     for (const deudaAgua of status.deudasAgua) {
       const deudaApi = abonadoData.deudasAgua.find((d: any) => d.factura === deudaAgua.factura);
       if (deudaApi && !deudaApi.fechaPago) {
@@ -121,10 +105,9 @@ export class PaymentNotificationService {
       }
     }
 
-    // Verificar deudas de servicios
     for (const deudaServicio of status.deudasServicios) {
-      const deudaApi = abonadoData.deudasServicios.find((d: any) => 
-        (d.noSolicitud === deudaServicio.noSolicitud) || 
+      const deudaApi = abonadoData.deudasServicios.find((d: any) =>
+        (d.noSolicitud === deudaServicio.noSolicitud) ||
         (d.idServicio === deudaServicio.noSolicitud) ||
         (d.id === deudaServicio.noSolicitud)
       );
@@ -136,17 +119,15 @@ export class PaymentNotificationService {
     return pendingDebts;
   }
 
-  // Procesar pago cuando se confirma
-  private async processPayment(qrId: string, abonado: string, apiKey: string, empresaSlug: string) {
+  private async processPayment(qrId: string, abonado: string, empresaSlug: string) {
     try {
       const status = this.getPaymentStatus(qrId);
       if (!status) return;
 
       console.log(`Procesando pago para QR: ${qrId}`);
 
-      // Llamar a la API de EMPSAAT para integrar el pago
-      const response = await this.integratePayment(abonado, status.deudasAgua, status.deudasServicios, apiKey);
-      
+      const response = await this.integratePayment(abonado, status.deudasAgua, status.deudasServicios);
+
       if (response.success) {
         this.updatePaymentStatus(qrId, {
           ...status,
@@ -175,52 +156,24 @@ export class PaymentNotificationService {
     }
   }
 
-  // Integrar pago con EMPSAAT usando el nuevo flujo de transacciones
-  private async integratePayment(abonado: string, deudasAgua: any[], deudasServicios: any[], apiKey: string) {
+  private async integratePayment(abonado: string, deudasAgua: any[], deudasServicios: any[]) {
     try {
-      // Obtener el transaction_id del estado del pago
       const status = this.getPaymentStatusByAbonado(abonado);
       if (!status || !status.transactionId) {
         throw new Error('No se encontró transaction_id para completar la transacción');
       }
 
-      // Preparar datos para completar la transacción en EMPSAAT
       const paymentData = {
         transactionId: status.transactionId,
-        paymentMethod: 'qr', // Método de pago por QR
+        paymentMethod: 'qr' as const,
         amountPaid: status.amount
       };
 
-      console.log('Completando transacción EMPSAAT con datos:', paymentData);
+      console.log('Completando transacción vía backend Pagui:', paymentData);
 
-      // Hacer llamada a la API de EMPSAAT para completar la transacción
-      const response = await fetch('http://localhost:3002/deudas/transaction/complete', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': apiKey
-        },
-        body: JSON.stringify(paymentData)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(`Error en API de EMPSAAT: ${response.status} - ${errorData?.error || 'Error desconocido'}`);
-      }
-
-      const result = await response.json();
-      
-      if (result.success) {
-        console.log('Transacción completada exitosamente en EMPSAAT:', result.data);
-        return {
-          success: true,
-          data: result.data
-        };
-      } else {
-        throw new Error(result.error || 'Error al completar transacción en EMPSAAT');
-      }
+      return await defaultEmpsaatService.completarTransaccion(paymentData);
     } catch (error) {
-      console.error('Error integrando pago con EMPSAAT:', error);
+      console.error('Error integrando pago:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Error desconocido'
@@ -228,9 +181,8 @@ export class PaymentNotificationService {
     }
   }
 
-  // Método auxiliar para obtener el estado de pago por abonado
   private getPaymentStatusByAbonado(abonado: string): PaymentNotification | null {
-    for (const [qrId, status] of this.paymentStatuses.entries()) {
+    for (const [, status] of this.paymentStatuses.entries()) {
       if (status.abonado === abonado) {
         return status;
       }
@@ -238,7 +190,6 @@ export class PaymentNotificationService {
     return null;
   }
 
-  // Detener polling
   stopPolling(qrId: string) {
     const interval = this.pollingIntervals.get(qrId);
     if (interval) {
@@ -248,21 +199,17 @@ export class PaymentNotificationService {
     }
   }
 
-  // Actualizar estado de pago
   private updatePaymentStatus(qrId: string, status: PaymentNotification) {
-    // Aquí se podría notificar a través de SSE
+    this.paymentStatuses.set(qrId, status);
     console.log(`Estado de pago actualizado para QR ${qrId}:`, status.status);
   }
 
-  // Obtener estado de pago
   getPaymentStatus(qrId: string): PaymentNotification | undefined {
-    // Aquí se podría obtener del store de estados
-    return undefined;
+    return this.paymentStatuses.get(qrId);
   }
 
-  // Limpiar recursos
   cleanup() {
-    for (const [qrId, interval] of this.pollingIntervals.entries()) {
+    for (const [, interval] of this.pollingIntervals.entries()) {
       clearInterval(interval);
     }
     this.pollingIntervals.clear();

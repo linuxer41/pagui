@@ -14,7 +14,7 @@
   export let autocomplete: string | undefined = undefined
 </script>
 
-<div class="input-wrapper {error ? 'has-error' : ''} {disabled ? 'is-disabled' : ''} {className}">
+<div class="input-wrapper {error ? 'has-error' : ''} {disabled ? 'is-disabled' : ''} {icon ? 'has-icon' : ''} {className}">
   {#if icon}
     <svelte:component this={icon} class="input-icon" size={18} />
   {/if}
@@ -26,13 +26,9 @@
     {placeholder}
     {disabled}
     {required}
-    {autocomplete}
+    autocomplete={autocomplete as any}
     class="input-field"
     class:has-value={value !== '' && value !== undefined}
-    on:input
-    on:change
-    on:blur
-    on:focus
   />
   {#if label}
     <label for={id} class="input-label">{label}</label>

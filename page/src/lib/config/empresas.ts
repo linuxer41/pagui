@@ -22,8 +22,8 @@ export interface EmpresaConfig {
   }
 }
 
-const PAGUI_API_KEY = 'pg_YMcIjsyOJsnTc4DaurDi3Hu3fOVjK0usiYrIp6U2'
-const PAGUI_BASE_URL = 'https://pagui-api.iathings.com'
+const PAGUI_API_KEY = process.env.PUBLIC_PAGUI_API_KEY || 'pg_YMcIjsyOJsnTc4DaurDi3Hu3fOVjK0usiYrIp6U2'
+const PAGUI_BASE_URL = process.env.PUBLIC_PAGUI_API_URL || 'http://localhost:3000'
 
 export const empresasConfig: Record<string, EmpresaConfig> = {
   empsaat: {

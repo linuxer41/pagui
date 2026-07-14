@@ -1,7 +1,7 @@
 <script lang="ts">
   import { X } from '@lucide/svelte'
 
-  let { open = false, title = '', maxWidth = '400px', showClose = true, onclose, children } = $props()
+  let { open = false, title = '', maxWidth = '400px', showClose = true, onclose = undefined, children } = $props()
 
   function handleBackdropClick(e: MouseEvent) {
     if (e.target === e.currentTarget) onclose?.()

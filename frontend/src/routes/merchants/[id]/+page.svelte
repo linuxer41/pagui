@@ -1,7 +1,6 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
-  import RouteLayout from '$lib/components/layouts/RouteLayout.svelte';
   import Button from '$lib/components/Button.svelte';
   import Input from '$lib/components/Input.svelte';
   import api from '$lib/api';
@@ -42,41 +41,38 @@
   }
 </script>
 
-<RouteLayout title={merchant?.business_name || 'Comercio'}>
+<div class="page-header">
+  <span class="page-header-title">{merchant?.business_name || 'Comercio'}</span>
+</div>
+
+<div class="page-content" style="display:flex;flex-direction:column;gap:var(--space-4);padding-top:var(--space-4)">
   {#if loading}
-    <p class="loading">Cargando...</p>
+    <div style="text-align:center;padding:2rem;color:var(--text-secondary)">Cargando...</div>
   {:else if merchant}
-    <div class="header-card">
-      <Store size={32} />
-      <h2>{merchant.business_name}</h2>
-      <p>{merchant.business_category} • {merchant.is_verified ? '✅ Verificado' : '⏳ Pendiente'}</p>
+    <div class="section-card" style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:var(--space-3)">
+      <div style="width:56px;height:56px;border-radius:var(--radius-2xl);background:var(--primary-subtle);color:var(--primary-color);display:flex;align-items:center;justify-content:center">
+        <Store size={28} />
+      </div>
+      <h2 style="font-size:var(--text-lg);font-weight:700;margin:0;color:var(--text-primary)">{merchant.business_name}</h2>
+      <p style="font-size:var(--text-sm);color:var(--text-secondary);margin:0">{merchant.business_category} <span style="margin:0 var(--space-2)">•</span> {#if merchant.is_verified}<span class="badge-success">Verificado</span>{:else}<span class="badge-warning">Pendiente</span>{/if}</p>
     </div>
 
-    <div class="section">
-      <h3>QR de cobro</h3>
-      <Button on:click={handleGenerateQR}><QrCode size={16} /> Generar QR</Button>
+    <div class="section-card" style="display:flex;flex-direction:column;gap:var(--space-4)">
+      <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary)">QR de cobro</div>
+      <Button onclick={handleGenerateQR}><QrCode size={16} /> Generar QR</Button>
       {#if qrImage}
-        <img src={qrImage} alt="QR" class="qr" />
+        <img src={qrImage} alt="QR" style="width:200px;height:200px;display:block;margin:0 auto" />
       {/if}
     </div>
 
-    <div class="section">
-      <h3>Pagar en este comercio</h3>
+    <div class="section-card" style="display:flex;flex-direction:column;gap:var(--space-4)">
+      <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary)">Pagar en este comercio</div>
       <Input id="wallet" label="Tu billetera" bind:value={payWalletId} placeholder="ID de tu wallet" />
       <Input id="pamount" label="Monto" type="number" bind:value={payAmount} placeholder="0.00" />
-      <Button on:click={handlePay} loading={paying} fullWidth>Pagar</Button>
-      {#if payResult}<div class="msg">{payResult}</div>{/if}
+      <Button onclick={handlePay} loading={paying} fullWidth>Pagar</Button>
+      {#if payResult}
+        <div style="padding:0.75rem;border-radius:var(--radius-lg);font-size:var(--text-sm);background:var(--success-bg);color:var(--success-color)">{payResult}</div>
+      {/if}
     </div>
   {/if}
-</RouteLayout>
-
-<style>
-  .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
-  .header-card { text-align: center; padding: 1.5rem; background: var(--surface); border-radius: 12px; margin-bottom: 1rem; border: 1px solid var(--border); }
-  .header-card h2 { margin: 0.5rem 0 0.25rem; }
-  .header-card p { margin: 0; color: var(--text-secondary); font-size: 0.9rem; }
-  .section { background: var(--surface); border-radius: 12px; padding: 1rem; margin-bottom: 1rem; border: 1px solid var(--border); }
-  .section h3 { margin: 0 0 0.75rem; font-size: 0.95rem; }
-  .qr { width: 200px; height: 200px; display: block; margin: 1rem auto; }
-  .msg { margin-top: 0.5rem; padding: 0.5rem; border-radius: 8px; background: #e8f5e9; color: #2e7d32; }
-</style>
+</div>

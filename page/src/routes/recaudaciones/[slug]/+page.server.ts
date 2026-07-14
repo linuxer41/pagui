@@ -3,9 +3,7 @@ import { EmpsaatService } from '$lib/services/EmpsaatService';
 import { QRService } from '$lib/services/QRService';
 import { PaymentNotificationService } from '$lib/services/PaymentNotificationService';
 import { fail, error } from '@sveltejs/kit';
-
-// Helper para simplificar respuestas de error
-const errorResponse = (message: string, status = 400) => fail(status, { error: message });
+import { PUBLIC_PAGUI_API_URL, PUBLIC_PAGUI_API_KEY } from '$env/static/public';
 import type { 
   QRGenerationAPIResponse, 
   QRStatusAPIResponse, 
@@ -20,6 +18,21 @@ import type {
   DeudasResponse
 } from '$lib/types/empsaat';
 
+// Helper para simplificar respuestas de error
+const errorResponse = (message: string, status = 400) => fail(status, { error: message });
+
+async function fetchFromBackend<T>(endpoint: string): Promise<T | null> {
+  try {
+    const res = await fetch(`${PUBLIC_PAGUI_API_URL}${endpoint}`, {
+      headers: { 'x-api-key': PUBLIC_PAGUI_API_KEY },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data || json;
+  } catch {
+    return null;
+  }
+}
 
 export const load = async ({ params, url }) => {
   const { slug } = params;
@@ -31,13 +44,35 @@ export const load = async ({ params, url }) => {
     });
   }
 
-  // Solo obtener datos públicos de la empresa para la interfaz
-  const empresa = getEmpresaConfig(slug);
+  // Intentar obtener empresa desde el backend
+  let empresa = null;
+  const backendEmpresa = await fetchFromBackend<any>(`/collections/companies/${slug}`);
   
-  if (!empresa) {
-    throw error(404, {
-      message: `La empresa ${slug} no existe o no está configurada en el sistema`
-    });
+  if (backendEmpresa) {
+    empresa = {
+      id: backendEmpresa.slug,
+      slug: backendEmpresa.slug,
+      nombre: backendEmpresa.name,
+      logo: backendEmpresa.logo_url || '🏢',
+      descripcion: backendEmpresa.name,
+      color: backendEmpresa.colors?.primary || 'rgb(var(--primary))',
+      gradiente: backendEmpresa.colors?.gradient || 'var(--gradient-primary)',
+      instrucciones: backendEmpresa.config?.instructions || 'Ingresa tu código de cliente',
+      webUrl: backendEmpresa.config?.web_url || '',
+      paguiApikey: PUBLIC_PAGUI_API_KEY,
+      paguiBaseUrl: PUBLIC_PAGUI_API_URL,
+      permisos: backendEmpresa.permissions || [],
+      activa: backendEmpresa.is_active !== false,
+    };
+  } else {
+    // Fallback: usar configuración local
+    const localEmpresa = getEmpresaConfig(slug);
+    if (!localEmpresa) {
+      throw error(404, {
+        message: `La empresa ${slug} no existe o no está configurada en el sistema`
+      });
+    }
+    empresa = localEmpresa;
   }
 
   return {
@@ -52,8 +87,9 @@ export const load = async ({ params, url }) => {
       instrucciones: empresa.instrucciones,
       webUrl: empresa.webUrl,
     },
-    // Solo incluir abonado si se pasó por URL
     ...(abonado && { abonado }),
+    paguiApikey: empresa.paguiApikey || PUBLIC_PAGUI_API_KEY,
+    paguiBaseUrl: empresa.paguiBaseUrl || PUBLIC_PAGUI_API_URL,
     slug
   };
 };
@@ -90,7 +126,7 @@ export const actions = {
       // Si es EMPSAAT, usamos el servicio real
       if (slug === 'empsaat') {
         // Crear instancia del servicio con la configuración de la empresa
-        const empsaatService = new EmpsaatService(empresa);
+        const empsaatService = new EmpsaatService(empresa.paguiBaseUrl, empresa.paguiApikey);
         
         // Buscar deudas por criterio a través del servicio
         const response = await empsaatService.buscarDeudasPorCriterio(keyword.trim(), type as 'nombre' | 'documento' | 'abonado');
@@ -193,7 +229,7 @@ export const actions = {
       if (slug === 'empsaat') {
         try {
           // Crear instancia del servicio con la configuración de la empresa
-          const empsaatService = new EmpsaatService(empresa);
+          const empsaatService = new EmpsaatService(empresa.paguiBaseUrl, empresa.paguiApikey);
           
           // Paso 1: Crear transacción en EMPSAAT
           const transaccionData = {
@@ -220,7 +256,7 @@ export const actions = {
           console.log('Transacción creada exitosamente:', transaccion);
           
           // Paso 2: Generar QR con los datos de la transacción
-          const qrService = new QRService(empresa);
+          const qrService = new QRService(empresa.paguiBaseUrl, empresa.paguiApikey);
           
           // Crear descripción basada en la transacción
           let descripcion = `Pago EMPSAAT - Abonado ${abonado}`;
@@ -415,7 +451,7 @@ export const actions = {
           }
           
           // Crear instancia del servicio con la configuración de la empresa
-          const empsaatService = new EmpsaatService(empresa);
+          const empsaatService = new EmpsaatService(empresa.paguiBaseUrl, empresa.paguiApikey);
           
           // Recalcular totales con la API de EMPSAAT para validación
           const response = await empsaatService.buscarDeudasPorCriterio(numeroCuenta, 'abonado');
@@ -479,7 +515,7 @@ export const actions = {
           }
           
           // Crear instancia del servicio de QR con la configuración de la empresa
-          const qrService = new QRService(empresa);
+          const qrService = new QRService(empresa.paguiBaseUrl, empresa.paguiApikey);
           
           // Generar QR de forma simplificada
           const qrData = await qrService.generarQR({
@@ -562,7 +598,7 @@ export const actions = {
       if (slug === 'empsaat') {
         try {
           // Crear instancia del servicio de QR con la configuración de la empresa
-          const qrService = new QRService(empresa);
+          const qrService = new QRService(empresa.paguiBaseUrl, empresa.paguiApikey);
           
           // Verificar estado del QR de forma simplificada
           const statusData = await qrService.verificarEstadoQR(qrId);
@@ -622,7 +658,7 @@ export const actions = {
       if (slug === 'empsaat') {
         try {
           // Crear instancia del servicio de QR con la configuración de la empresa
-          const qrService = new QRService(empresa);
+          const qrService = new QRService(empresa.paguiBaseUrl, empresa.paguiApikey);
           
           // Cancelar QR de forma simplificada
           const cancelData = await qrService.cancelarQR(qrId);
@@ -709,7 +745,7 @@ export const actions = {
       if (slug === 'empsaat') {
         try {
           // Crear instancia del servicio con la configuración de la empresa
-          const empsaatService = new EmpsaatService(empresa);
+          const empsaatService = new EmpsaatService(empresa.paguiBaseUrl, empresa.paguiApikey);
           
           // Completar transacción en EMPSAAT
           const pagoData = {
@@ -791,7 +827,7 @@ export const actions = {
       if (slug === 'empsaat') {
         try {
           // Crear instancia del servicio con la configuración de la empresa
-          const empsaatService = new EmpsaatService(empresa);
+          const empsaatService = new EmpsaatService(empresa.paguiBaseUrl, empresa.paguiApikey);
           
           // Obtener historial de transacciones
           const historialResponse = await empsaatService.obtenerHistorialTransacciones(abonado);
@@ -868,7 +904,7 @@ export const actions = {
       if (slug === 'empsaat') {
         try {
           // Crear instancia del servicio de QR con la configuración de la empresa
-          const qrService = new QRService(empresa);
+          const qrService = new QRService(empresa.paguiBaseUrl, empresa.paguiApikey);
           
           // Obtener pagos del QR de forma simplificada
           const paymentsData = await qrService.obtenerPagosQR(qrId);

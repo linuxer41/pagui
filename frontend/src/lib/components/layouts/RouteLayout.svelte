@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ArrowLeft } from '@lucide/svelte'
 
-  let { title = '', right, children } = $props()
+  let { title = '', right = undefined, children } = $props()
 </script>
 
 <div class="route-layout safe-top">

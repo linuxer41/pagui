@@ -2,7 +2,6 @@
   import { onMount } from 'svelte';
   import Button from '$lib/components/Button.svelte';
   import Input from '$lib/components/Input.svelte';
-  import RouteLayout from '$lib/components/layouts/RouteLayout.svelte';
   import api from '$lib/api';
   import { Webhook, Plus, Trash2 } from '@lucide/svelte';
 
@@ -44,69 +43,55 @@
   }
 </script>
 
-<RouteLayout title="Webhooks">
-  <div class="header-actions">
-    <Button on:click={() => showForm = !showForm} size="sm"><Plus size={16} /> Nuevo</Button>
+<div class="page-header">
+  <span class="page-header-title">Webhooks</span>
+  <div class="page-header-actions">
+    <Button onclick={() => showForm = !showForm} size="sm"><Plus size={16} /> Nuevo</Button>
   </div>
+</div>
 
+<div class="page-content" style="display:flex;flex-direction:column;gap:var(--space-4);padding-top:var(--space-4)">
   {#if showForm}
-    <div class="form-card">
-      <h3>Nuevo webhook</h3>
+    <div class="section-card" style="display:flex;flex-direction:column;gap:var(--space-4)">
+      <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary)">Nuevo webhook</div>
       <Input id="url" label="URL del webhook" bind:value={url} placeholder="https://ejemplo.com/webhook" />
       <Input id="sec" label="Secret (HMAC)" bind:value={secret} placeholder="Opcional" />
       <Input id="evt" label="Eventos (separados por coma)" bind:value={events}
         placeholder="transfer.completed, fraud.alert" />
-      <small>Disponibles: {eventOptions.join(', ')}</small>
-      {#if error}<div class="msg error">{error}</div>{/if}
-      <div class="form-actions">
-        <Button variant="ghost" on:click={() => showForm = false}>Cancelar</Button>
-        <Button on:click={handleCreate} loading={saving}>Crear</Button>
+      <div style="font-size:var(--text-xs);color:var(--text-tertiary);margin-top:-0.5rem">Disponibles: {eventOptions.join(', ')}</div>
+      {#if error}
+        <div style="padding:0.75rem;border-radius:var(--radius-lg);font-size:var(--text-sm);background:var(--error-bg);color:var(--error-color)">{error}</div>
+      {/if}
+      <div style="display:flex;gap:var(--space-3);justify-content:flex-end">
+        <Button variant="ghost" onclick={() => showForm = false}>Cancelar</Button>
+        <Button onclick={handleCreate} loading={saving}>Crear</Button>
       </div>
     </div>
   {/if}
 
   {#if loading}
-    <p class="loading">Cargando...</p>
+    <div style="text-align:center;padding:2rem;color:var(--text-secondary)">Cargando...</div>
   {:else if webhooks.length === 0}
-    <div class="empty">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:var(--space-4);padding:3rem 1rem;color:var(--text-secondary)">
       <Webhook size={48} />
-      <p>No hay webhooks registrados</p>
+      <p style="margin:0;font-size:var(--text-sm)">No hay webhooks registrados</p>
     </div>
   {:else}
-    <div class="list">
+    <div style="display:flex;flex-direction:column;gap:var(--space-3)">
       {#each webhooks as w}
-        <div class="card">
-          <div class="card-body">
-            <h4>{w.url}</h4>
-            <div class="events">
-              {#each w.events as e}<span class="event-badge">{e}</span>{/each}
+        <div class="section-card" style="display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3)">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:var(--text-sm);color:var(--text-primary);margin:0 0 var(--space-2);word-break:break-all">{w.url}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:var(--space-2);margin-bottom:var(--space-2)">
+              {#each w.events as e}<span class="badge" style="font-size:0.7rem;padding:0.15rem 0.5rem">{e}</span>{/each}
             </div>
-            <small>{w.is_active ? '✅ Activo' : '❌ Inactivo'}</small>
+            <span style="font-size:var(--text-xs);color:var(--text-secondary)">{w.is_active ? '✅ Activo' : '❌ Inactivo'}</span>
           </div>
-          <button class="delete-btn" on:click={() => handleDelete(w.id)} aria-label="Eliminar">
+          <button onclick={() => handleDelete(w.id)} aria-label="Eliminar" style="background:none;border:none;color:var(--error-color);cursor:pointer;padding:var(--space-2);flex-shrink:0">
             <Trash2 size={16} />
           </button>
         </div>
       {/each}
     </div>
   {/if}
-</RouteLayout>
-
-<style>
-  .header-actions { display: flex; justify-content: flex-end; margin-bottom: 0.5rem; }
-  .form-card { background: var(--surface); border-radius: 12px; padding: 1rem; margin-bottom: 1rem; border: 1px solid var(--border); }
-  .form-card h3 { margin: 0 0 0.75rem; }
-  .form-card small { display: block; font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem; }
-  .form-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.75rem; }
-  .msg { padding: 0.5rem; background: #ffebee; color: #c62828; border-radius: 8px; font-size: 0.85rem; }
-  .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
-  .empty { display: flex; flex-direction: column; align-items: center; gap: 1rem; padding: 3rem 1rem; color: var(--text-secondary); }
-  .list { display: flex; flex-direction: column; gap: 0.5rem; }
-  .card { display: flex; justify-content: space-between; align-items: flex-start; padding: 1rem; background: var(--surface); border-radius: 12px; border: 1px solid var(--border); }
-  .card-body { flex: 1; }
-  .card-body h4 { margin: 0 0 0.5rem; font-size: 0.85rem; word-break: break-all; }
-  .events { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-bottom: 0.25rem; }
-  .event-badge { font-size: 0.7rem; background: #e3f2fd; color: #1976d2; padding: 0.1rem 0.4rem; border-radius: 99px; }
-  .card-body small { font-size: 0.75rem; color: var(--text-secondary); }
-  .delete-btn { background: none; border: none; color: #ef5350; cursor: pointer; padding: 0.5rem; }
-</style>
+</div>

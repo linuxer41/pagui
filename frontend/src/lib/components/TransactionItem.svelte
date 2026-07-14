@@ -88,7 +88,7 @@
 <Modal 
   open={showModal} 
   title="Detalles de transacción" 
-  on:close={closeModal}
+  onclose={closeModal}
   maxWidth="550px"
 >
   <TransactionDetails {transaction} {currency} />

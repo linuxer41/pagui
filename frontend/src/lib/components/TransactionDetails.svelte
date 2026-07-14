@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Transaction } from '$lib/api';
   import { ArrowDownLeft, ArrowUpRight, CalendarDays, Clock, Tag, FileText } from '@lucide/svelte';
-  import { scale } from 'svelte/transition';
+  import { scale, fade } from 'svelte/transition';
 
   export let transaction: Transaction;
   export let currency = 'USD';

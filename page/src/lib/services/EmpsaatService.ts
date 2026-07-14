@@ -5,17 +5,25 @@ import type {
   CompletarTransaccionRequest,
   TransaccionResponse,
 } from '../types/empsaat'
-import type { EmpresaConfig } from '../config/empresas'
+
+const DEFAULT_API_URL = process.env.PUBLIC_PAGUI_API_URL || 'http://localhost:3000'
+const DEFAULT_API_KEY = process.env.PUBLIC_PAGUI_API_KEY || ''
 
 /**
  * Servicio para EMPSAAT
- * Ahora enruta a través del backend Pagui para mantener las API keys seguras.
+ * Enruta a través del backend Pagui para mantener las API keys seguras.
  */
 export class EmpsaatService {
-  private empresaConfig: EmpresaConfig
+  private baseUrl: string
+  private apiKey: string
 
-  constructor(empresaConfig: EmpresaConfig) {
-    this.empresaConfig = empresaConfig
+  constructor(baseUrl?: string, apiKey?: string) {
+    this.baseUrl = baseUrl || DEFAULT_API_URL
+    this.apiKey = apiKey || DEFAULT_API_KEY
+  }
+
+  static create(baseUrl?: string, apiKey?: string): EmpsaatService {
+    return new EmpsaatService(baseUrl, apiKey)
   }
 
   private async callApi<T>(
@@ -24,12 +32,12 @@ export class EmpsaatService {
     body?: unknown
   ): Promise<ServerResponse<T>> {
     const response = await fetch(
-      `${this.empresaConfig.paguiBaseUrl}/collections/empsaat${endpoint}`,
+      `${this.baseUrl}/collections/empsaat${endpoint}`,
       {
         method,
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': this.empresaConfig.paguiApikey,
+          'x-api-key': this.apiKey,
         },
         body: body ? JSON.stringify(body) : undefined,
       }
@@ -81,3 +89,5 @@ export class EmpsaatService {
     )
   }
 }
+
+export const defaultEmpsaatService = new EmpsaatService()

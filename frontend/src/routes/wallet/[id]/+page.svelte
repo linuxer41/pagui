@@ -2,7 +2,6 @@
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import RouteLayout from '$lib/components/layouts/RouteLayout.svelte';
   import Button from '$lib/components/Button.svelte';
   import api from '$lib/api';
   import { ShieldCheck, ArrowLeftRight, Download, History } from '@lucide/svelte';
@@ -41,59 +40,54 @@
   }
 </script>
 
-<RouteLayout title={wallet?.name || 'Billetera'}>
+<div class="page-header">
+  <button class="page-header-back" onclick={() => goto('/wallet')}>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+  </button>
+  <span class="page-header-title">{wallet?.name || 'Billetera'}</span>
+</div>
+<div class="page-content">
   {#if loading}
-    <p class="loading">Cargando...</p>
+    <div style="text-align:center;padding:2rem;color:var(--text-secondary)">Cargando...</div>
   {:else if wallet}
-    <div class="hero">
-      <h1>Bs. {Number(wallet.balance).toFixed(2)}</h1>
-      <p>Disponible: Bs. {Number(wallet.available_balance).toFixed(2)}</p>
+    <div style="text-align:center;padding:1.5rem 0">
+      <div style="font-size:2rem;font-weight:700;margin:0;color:var(--primary-color)">Bs. {Number(wallet.balance).toFixed(2)}</div>
+      <div style="margin:0.25rem 0 0;color:var(--text-secondary);font-size:var(--text-sm)">Disponible: Bs. {Number(wallet.available_balance).toFixed(2)}</div>
     </div>
 
-    <div class="actions">
-      <button class="action-btn" on:click={() => goto('/transfers/p2p')}>
-        <ArrowLeftRight /> Transferir
+    <div style="display:flex;gap:var(--space-4);padding-bottom:1.25rem">
+      <button style="flex:1;display:flex;align-items:center;justify-content:center;gap:0.5rem;padding:0.75rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);cursor:pointer;font-size:0.9rem;color:var(--text-primary);transition:all var(--duration-fast) var(--ease-out)" onclick={() => goto('/transfers/p2p')}>
+        <ArrowLeftRight size={18} /> Transferir
       </button>
-      <button class="action-btn" on:click={() => goto('/transactions')}>
-        <History /> Historial
+      <button style="flex:1;display:flex;align-items:center;justify-content:center;gap:0.5rem;padding:0.75rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);cursor:pointer;font-size:0.9rem;color:var(--text-primary);transition:all var(--duration-fast) var(--ease-out)" onclick={() => goto('/transactions')}>
+        <History size={18} /> Historial
       </button>
     </div>
 
-    <div class="section">
-      <h3>Respaldo de seguridad</h3>
+    <div class="section-card">
+      <div style="font-weight:600;font-size:0.95rem;margin-bottom:0.75rem">Respaldo de seguridad</div>
       {#if backupStatus?.verified}
-        <div class="verified">✅ Respaldo verificado</div>
+        <div style="color:var(--success-color);font-weight:600;display:flex;align-items:center;gap:0.5rem">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Respaldo verificado
+        </div>
       {:else if seedPhrase}
-        <div class="seed-phrase">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:1rem">
           {#each seedPhrase as word, i}
-            <span class="word">{i + 1}. {word}</span>
+            <div style="background:var(--bg-primary);padding:0.5rem;border-radius:var(--radius-lg);font-size:0.85rem;font-family:monospace">{i + 1}. {word}</div>
           {/each}
         </div>
-        <p class="warning">⚠️ Guarda estas 12 palabras en un lugar seguro. Nadie más te las pedirá.</p>
-        <Button on:click={handleVerify} size="sm">Verificar respaldo</Button>
+        <div style="font-size:var(--text-sm);color:var(--warning-color);padding:0.5rem;background:var(--warning-bg);border-radius:var(--radius-lg);margin-bottom:0.75rem">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px"><path d="M12 9v4"/><path d="M10.363 3.591 1.5 20.06a1 1 0 0 0 .874 1.44h19.252a1 1 0 0 0 .874-1.44l-8.863-16.469a1 1 0 0 0-1.748 0Z"/><path d="M12 16h.01"/></svg>
+          Guarda estas 12 palabras en un lugar seguro. Nadie más te las pedirá.
+        </div>
+        <Button onclick={handleVerify} size="sm">Verificar respaldo</Button>
       {:else}
-        <p class="desc">Protege tu billetera con una frase semilla</p>
-        <Button on:click={handleBackup} loading={backingUp} fullWidth>
+        <div style="font-size:var(--text-sm);color:var(--text-secondary);margin-bottom:0.75rem">Protege tu billetera con una frase semilla</div>
+        <Button onclick={handleBackup} loading={backingUp} fullWidth>
           <ShieldCheck size={16} /> Crear respaldo
         </Button>
       {/if}
     </div>
   {/if}
-</RouteLayout>
-
-<style>
-  .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
-  .hero { text-align: center; padding: 1.5rem; }
-  .hero h1 { font-size: 2rem; margin: 0; color: var(--primary); }
-  .hero p { margin: 0.25rem 0 0; color: var(--text-secondary); }
-  .actions { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
-  .action-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.75rem; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; font-size: 0.9rem; color: var(--text-primary); }
-  .action-btn:hover { background: var(--hover); }
-  .section { background: var(--surface); border-radius: 12px; padding: 1rem; border: 1px solid var(--border); }
-  .section h3 { margin: 0 0 0.75rem; font-size: 0.95rem; }
-  .verified { color: #2e7d32; font-weight: 600; }
-  .desc { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.75rem; }
-  .seed-phrase { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem; }
-  .word { background: var(--background); padding: 0.5rem; border-radius: 6px; font-size: 0.85rem; font-family: monospace; }
-  .warning { font-size: 0.8rem; color: #e65100; padding: 0.5rem; background: #fff3e0; border-radius: 6px; }
-</style>
+</div>

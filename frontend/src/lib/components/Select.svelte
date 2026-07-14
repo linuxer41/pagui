@@ -1,174 +1,145 @@
 <script lang="ts">
-  // Props
-  export let id: string = '';
-  export let name: string = '';
-  export let value: string = '';
-  export let disabled: boolean = false;
-  export let required: boolean = false;
-  export let icon: any = null; // Componente de icono de Lucide
-  export let label: string = '';
-  export let error: string = '';
-  export let options: { value: string, label: string }[] = [];
-  
-  // Clases CSS
-  $: hasIcon = !!icon;
-  $: hasError = !!error;
+  let className = ''
+  export { className as class }
+  export let id: string = ''
+  export let name: string = ''
+  export let value: string = ''
+  export let disabled: boolean = false
+  export let required: boolean = false
+  export let icon: any = null
+  export let label: string = ''
+  export let error: string = ''
+  export let options: { value: string, label: string }[] = []
 </script>
 
-<div class="select-field">
+<div class="select-field {error ? 'has-error' : ''} {disabled ? 'is-disabled' : ''} {className}">
   {#if label}
-    <label for={id}>{label}</label>
+    <label for={id} class="select-label">{label}</label>
   {/if}
-  
-  <div class="select-wrapper" class:has-error={hasError}>
-    {#if hasIcon}
+
+  <div class="select-wrapper">
+    {#if icon}
       <span class="select-icon">
-        <svelte:component this={icon} size={18} strokeWidth={1.75} />
+        <svelte:component this={icon} size={18} />
       </span>
     {/if}
-    
+
     <select
       {id}
       {name}
       bind:value
       {disabled}
       {required}
-      class:with-icon={hasIcon}
-      {...$$restProps}
+      class:has-icon={!!icon}
     >
       {#each options as option}
         <option value={option.value}>{option.label}</option>
       {/each}
       <slot></slot>
     </select>
-    
+
     <span class="select-arrow"></span>
   </div>
-  
-  {#if hasError}
+
+  {#if error}
     <div class="select-error">{error}</div>
   {/if}
 </div>
 
 <style>
   .select-field {
-    margin-bottom: var(--spacing-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
   }
-  
-  label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 500;
+
+  .select-label {
+    font-size: var(--text-sm);
+    font-weight: 600;
     color: var(--text-primary);
-    font-size: 1rem;
-    transition: var(--hover-transition);
   }
-  
+
   .select-wrapper {
     position: relative;
   }
-  
+
   .select-icon {
     position: absolute;
-    left: 0.75rem;
+    left: 14px;
     top: 50%;
     transform: translateY(-50%);
-    color: var(--text-secondary);
+    color: var(--text-tertiary);
     display: flex;
     align-items: center;
-    justify-content: center;
     z-index: 1;
-    transition: var(--hover-transition);
+    transition: color var(--duration-fast) var(--ease-out);
   }
-  
+
   select {
     width: 100%;
-    padding: 0.8rem 0.9rem;
-    padding-right: 2.5rem;
-    font-size: 1rem;
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-md);
-    background-color: var(--surface);
-    transition: var(--hover-transition);
+    height: 48px;
+    padding: 0 40px 0 14px;
+    font-size: var(--text-base);
+    color: var(--text-primary);
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all var(--duration-normal) var(--ease-out);
     appearance: none;
     -webkit-appearance: none;
-    color: var(--text-primary);
-    cursor: pointer;
-    box-shadow: var(--shadow-sm);
-    min-height: 3rem;
-  }
-  
-  select.with-icon {
-    padding-left: 2.75rem;
-  }
-  
-  select:focus {
     outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(58, 102, 255, 0.1);
   }
-  
-  select:focus + .select-icon {
+
+  select.has-icon {
+    padding-left: 44px;
+  }
+
+  select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px var(--primary-subtle);
+  }
+
+  select:focus + .select-arrow {
+    transform: translateY(-50%) rotate(180deg);
     color: var(--primary-color);
   }
-  
+
   select:disabled {
-    background-color: var(--surface-hover);
-    opacity: 0.7;
+    opacity: 0.5;
     cursor: not-allowed;
+    background: var(--bg-secondary);
   }
-  
+
   .select-arrow {
     position: absolute;
-    right: 0.875rem;
+    right: 14px;
     top: 50%;
     transform: translateY(-50%);
+    width: 10px;
+    height: 10px;
+    border-right: 2px solid var(--text-tertiary);
+    border-bottom: 2px solid var(--text-tertiary);
+    transform: translateY(-70%) rotate(45deg);
+    transition: all var(--duration-fast) var(--ease-out);
     pointer-events: none;
-    width: 0.9rem;
-    height: 0.9rem;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%234A5163' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: contain;
-    transition: var(--hover-transition);
   }
-  
-  select:focus ~ .select-arrow {
-    transform: translateY(-50%) rotate(180deg);
-  }
-  
+
   .has-error select {
     border-color: var(--error-color);
   }
-  
+
   .has-error select:focus {
-    box-shadow: 0 0 0 3px rgba(233, 58, 74, 0.1);
+    box-shadow: 0 0 0 3px var(--error-bg);
   }
-  
+
   .has-error .select-icon {
     color: var(--error-color);
   }
-  
+
   .select-error {
-    margin-top: 0.25rem;
+    font-size: var(--text-xs);
     color: var(--error-color);
-    font-size: 0.875rem;
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
+    font-weight: 500;
   }
-  
-  .select-error::before {
-    content: "!";
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 14px;
-    height: 14px;
-    background-color: var(--error-color);
-    color: white;
-    border-radius: 50%;
-    font-size: 0.625rem;
-    font-weight: bold;
-  }
-</style> 
+</style>

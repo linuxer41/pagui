@@ -2,19 +2,16 @@
   import { page } from '$app/stores';
   import Toast from '$lib/components/Toast.svelte';
   import { theme } from '$lib/stores/theme';
-
   import { onMount } from 'svelte';
   import { M3 } from "tauri-plugin-m3";
   import '../app.css';
   import { sseService } from '$lib/services/sseService';
-  
-  // Verificar token expirado
+  import { Home, ArrowLeftRight, Wallet, User, LayoutGrid } from '@lucide/svelte';
+  import { goto } from '$app/navigation';
+
   onMount(async () => {
-    // get insets for compensating EdgeToEdge display
-    // either already scale compensated or raw
     let deviceInsets = await M3.getInsets();
     if (deviceInsets && deviceInsets.adjustedInsetTop) {
-      // Creamos una regla CSS que modifica las propiedades :root
       const style = document.createElement('style');
       style.innerHTML = `
         :root {
@@ -23,32 +20,56 @@
         }
       `;
       document.head.appendChild(style);
-      
-      // Debugear si las variables CSS se están aplicando correctamente
-      console.log('--adjust-top:', getComputedStyle(document.documentElement).getPropertyValue('--adjust-top'));
-      console.log('--adjust-bottom:', getComputedStyle(document.documentElement).getPropertyValue('--adjust-bottom'));
     }
     await theme.applyTheme($theme);
-    
-    // Inicializar servicio SSE globalmente
-    // El servicio SSE se conectará automáticamente cuando el usuario esté autenticado
-    console.log('SSE Service initialized globally');
+    sseService;
   });
-  
-  // Obtener la ruta actual
-  $: currentPath = $page.url.pathname;
-  
-  // Determinar si es la página principal
-  $: isMainPage = currentPath === '/';
+
+  let currentPath = $page.url.pathname;
+
+  const navItems = [
+    { href: '/', icon: Home, label: 'Inicio' },
+    { href: '/transfers', icon: ArrowLeftRight, label: 'Transferir' },
+    { href: '/wallet', icon: Wallet, label: 'Billeteras' },
+    { href: '/profile', icon: User, label: 'Perfil' },
+  ];
 </script>
 
 <Toast />
 
-<!-- Estructura del layout básica -->
 {#if currentPath.startsWith('/auth/') || currentPath.startsWith('/init')}
-  <!-- Sin layout para páginas de autenticación o inicialización -->
   <slot />
 {:else}
-  <!-- Para cualquier otra página (incluyendo la principal), mostramos el slot directo -->
-  <slot />
+  <div class="app-shell">
+    <main class="app-main">
+      <slot />
+    </main>
+    <nav class="bottom-nav">
+      {#each navItems as item}
+        <button
+          class="nav-item"
+          class:active={currentPath === item.href || (item.href !== '/' && currentPath.startsWith(item.href))}
+          onclick={() => goto(item.href)}
+        >
+          <svelte:component this={item.icon} size={22} />
+          <span class="nav-item-label">{item.label}</span>
+        </button>
+      {/each}
+    </nav>
+  </div>
 {/if}
+
+<style>
+  .app-shell {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  .app-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+</style>

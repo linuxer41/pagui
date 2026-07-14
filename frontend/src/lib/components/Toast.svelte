@@ -4,7 +4,7 @@
   import { CheckCircle, XCircle, Info, AlertTriangle, X } from '@lucide/svelte';
   import { fly, fade } from 'svelte/transition';
 
-  let icons = {
+  const icons: Record<string, typeof CheckCircle> = {
     success: CheckCircle,
     error: XCircle,
     info: Info,
@@ -20,7 +20,7 @@
       out:fade={{ duration: 200 }}
     >
       <span class="toast-icon">
-        <svelte:component this={icons[toast.type] || Info} size={18} />
+        <svelte:component this={icons[toast.type || 'info']} size={18} />
       </span>
       <span class="toast-message">{toast.message}</span>
       <button class="toast-close" on:click={() => toasts.remove(toast.id)} aria-label="Cerrar">

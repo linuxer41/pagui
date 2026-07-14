@@ -1,7 +1,8 @@
+import { PUBLIC_PAGUI_API_URL, PUBLIC_PAGUI_API_KEY } from '$env/static/public'
 import type { QRGenerationAPIResponse, QRStatusAPIResponse, QRCancellationAPIResponse, QRPaymentsAPIResponse } from '../types/api';
 
-const DEFAULT_API_URL = process.env.PUBLIC_PAGUI_API_URL || 'http://localhost:3000'
-const DEFAULT_API_KEY = process.env.PUBLIC_PAGUI_API_KEY || ''
+const DEFAULT_API_URL = PUBLIC_PAGUI_API_URL || 'http://localhost:3000'
+const DEFAULT_API_KEY = PUBLIC_PAGUI_API_KEY || ''
 
 export class QRService {
   private baseUrl: string

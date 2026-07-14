@@ -1,3 +1,4 @@
+import { PUBLIC_PAGUI_API_URL, PUBLIC_PAGUI_API_KEY } from '$env/static/public'
 import type { ServerResponse } from '../types/api'
 import type {
   DeudasResponse,
@@ -6,8 +7,8 @@ import type {
   TransaccionResponse,
 } from '../types/empsaat'
 
-const DEFAULT_API_URL = process.env.PUBLIC_PAGUI_API_URL || 'http://localhost:3000'
-const DEFAULT_API_KEY = process.env.PUBLIC_PAGUI_API_KEY || ''
+const DEFAULT_API_URL = PUBLIC_PAGUI_API_URL || 'http://localhost:3000'
+const DEFAULT_API_KEY = PUBLIC_PAGUI_API_KEY || ''
 
 /**
  * Servicio para EMPSAAT

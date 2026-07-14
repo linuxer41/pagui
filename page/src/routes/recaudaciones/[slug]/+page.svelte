@@ -61,18 +61,15 @@
   interface PageData {
     empresa: Empresa;
     slug?: string;
-    codigoCliente?: string;
-    deudas?: Deuda[];
-    cliente?: Cliente;
-    tieneDeuda?: boolean;
   }
   
   export let data: PageData;
   
-  let { empresa, slug, codigoCliente, cliente } = data;
+  let { empresa, slug } = data;
   
   // Si la empresa no tiene propiedad usaQR, asumimos que sí lo usa
   empresa = { ...empresa, usaQR: empresa.usaQR !== undefined ? empresa.usaQR : true };
+  let cliente: any = undefined;
   let codigoClienteInput = '';
   let isLoading = false;
   let searchResult: any = null;
@@ -480,17 +477,17 @@
       
      const actionResult: ActionResult = deserialize(await response.text());
       
-     if (actionResult.type === 'success' && actionResult.data?.success) {
-       qrStatus = actionResult.data.qrStatus;
-         
-         // Si el QR está pagado, usado o expirado, detener el polling
-       if (actionResult.data.qrStatus.status === 'paid' || 
-           actionResult.data.qrStatus.status === 'used' || 
-           actionResult.data.qrStatus.status === 'expired') {
-           detenerPollingEstado();
-         }
-         
-       return actionResult.data.qrStatus;
+      if (actionResult.type === 'success' && actionResult.data?.success) {
+        qrStatus = actionResult.data.data;
+          
+          // Si el QR está pagado, usado o expirado, detener el polling
+        if (actionResult.data.data.status === 'paid' || 
+            actionResult.data.data.status === 'used' || 
+            actionResult.data.data.status === 'expired') {
+            detenerPollingEstado();
+          }
+          
+        return actionResult.data.data;
      } else if (actionResult.type === 'failure') {
       console.error('Error verificando estado:', actionResult.data?.error);
         return null;

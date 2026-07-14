@@ -1,3 +1,4 @@
+import { PUBLIC_PAGUI_API_URL, PUBLIC_PAGUI_API_KEY } from '$env/static/public'
 import type { QRGenerationAPIResponse, QRStatusAPIResponse, QRCancellationAPIResponse, QRPaymentsAPIResponse } from '../types/api';
 
 /**
@@ -5,8 +6,8 @@ import type { QRGenerationAPIResponse, QRStatusAPIResponse, QRCancellationAPIRes
  * Directo y simple, sin abstracciones innecesarias
  */
 export class QRService {
-  private static readonly PAGUI_BASE_URL = 'https://api.pagui.com'; // URL real de Pagui
-  private static readonly PAGUI_API_KEY = process.env.PAGUI_API_KEY || '';
+  private static readonly PAGUI_BASE_URL = PUBLIC_PAGUI_API_URL || 'http://localhost:3000';
+  private static readonly PAGUI_API_KEY = PUBLIC_PAGUI_API_KEY || '';
 
   /**
    * Realiza una llamada HTTP simple a la API de Pagui

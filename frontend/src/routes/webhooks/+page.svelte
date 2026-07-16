@@ -1,9 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import Button from '$lib/components/Button.svelte';
-  import Input from '$lib/components/Input.svelte';
   import api from '$lib/api';
   import { Webhook, Plus, Trash2 } from '@lucide/svelte';
+  import PageLayout from '$lib/components/layouts/PageLayout.svelte';
+  import Section from '$lib/components/Section.svelte';
+  import PillButton from '$lib/components/ui/PillButton.svelte';
+  import GhostButton from '$lib/components/ui/GhostButton.svelte';
+  import TextField from '$lib/components/ui/TextField.svelte';
+  import Skeleton from '$lib/components/Skeleton.svelte';
+  import EmptyState from '$lib/components/EmptyState.svelte';
 
   let webhooks: any[] = [];
   let loading = true;
@@ -15,8 +20,8 @@
 
   onMount(async () => {
     try {
-      const res = await api.listWebhooks();
-      if (res.success) webhooks = res.data || [];
+      const res: any = await api.listWebhooks();
+      if (res.success) webhooks = res.data?.data || [];
     } catch {}
     finally { loading = false; }
   });
@@ -26,9 +31,9 @@
     saving = true; error = '';
     try {
       const eventList = events ? events.split(',').map(e => e.trim()).filter(Boolean) : eventOptions;
-      const res = await api.registerWebhook({ url, secret: secret || undefined, events: eventList });
-      if (res.success) {
-        webhooks = [{ id: res.data?.id, url, events: eventList, is_active: true }, ...webhooks];
+      const res: any = await api.registerWebhook({ url, secret: secret || undefined, events: eventList });
+      if (res && res.success !== false) {
+        webhooks = [{ id: res.data?.id ?? res.id, url, events: eventList, is_active: true }, ...webhooks];
         showForm = false; url = ''; secret = ''; events = '';
       } else error = res.message || 'Error';
     } catch (e: any) { error = e.message; }
@@ -43,55 +48,58 @@
   }
 </script>
 
-<div class="page-header">
-  <span class="page-header-title">Webhooks</span>
-  <div class="page-header-actions">
-    <Button onclick={() => showForm = !showForm} size="sm"><Plus size={16} /> Nuevo</Button>
-  </div>
-</div>
+<PageLayout title="Webhooks">
+  <PillButton label="Nuevo" onClick={() => showForm = !showForm} />
 
-<div class="page-content" style="display:flex;flex-direction:column;gap:var(--space-4);padding-top:var(--space-4)">
   {#if showForm}
-    <div class="section-card" style="display:flex;flex-direction:column;gap:var(--space-4)">
-      <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary)">Nuevo webhook</div>
-      <Input id="url" label="URL del webhook" bind:value={url} placeholder="https://ejemplo.com/webhook" />
-      <Input id="sec" label="Secret (HMAC)" bind:value={secret} placeholder="Opcional" />
-      <Input id="evt" label="Eventos (separados por coma)" bind:value={events}
-        placeholder="transfer.completed, fraud.alert" />
-      <div style="font-size:var(--text-xs);color:var(--text-tertiary);margin-top:-0.5rem">Disponibles: {eventOptions.join(', ')}</div>
-      {#if error}
-        <div style="padding:0.75rem;border-radius:var(--radius-lg);font-size:var(--text-sm);background:var(--error-bg);color:var(--error-color)">{error}</div>
-      {/if}
-      <div style="display:flex;gap:var(--space-3);justify-content:flex-end">
-        <Button variant="ghost" onclick={() => showForm = false}>Cancelar</Button>
-        <Button onclick={handleCreate} loading={saving}>Crear</Button>
+    <Section label="Nuevo webhook">
+      <div class="form">
+        <TextField label="URL del webhook" bind:value={url} placeholder="https://ejemplo.com/webhook" />
+        <TextField label="Secret (HMAC)" bind:value={secret} placeholder="Opcional" />
+        <TextField label="Eventos (separados por coma)" bind:value={events} placeholder="transfer.completed, fraud.alert" />
+        <div class="event-hint">Disponibles: {eventOptions.join(', ')}</div>
+        {#if error}<div class="msg error">{error}</div>{/if}
+        <div class="form-actions">
+          <GhostButton onClick={() => showForm = false}>Cancelar</GhostButton>
+          <PillButton label="Crear" onClick={handleCreate} loading={saving} />
+        </div>
       </div>
-    </div>
+    </Section>
   {/if}
 
   {#if loading}
-    <div style="text-align:center;padding:2rem;color:var(--text-secondary)">Cargando...</div>
+    <Skeleton width="100%" height="80px" radius="md" count={3} gap="space-2" />
   {:else if webhooks.length === 0}
-    <div style="display:flex;flex-direction:column;align-items:center;gap:var(--space-4);padding:3rem 1rem;color:var(--text-secondary)">
-      <Webhook size={48} />
-      <p style="margin:0;font-size:var(--text-sm)">No hay webhooks registrados</p>
-    </div>
+    <EmptyState icon={Webhook} title="No hay webhooks registrados" />
   {:else}
-    <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+    <div class="wh-list">
       {#each webhooks as w}
-        <div class="section-card" style="display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3)">
-          <div style="flex:1;min-width:0">
-            <div style="font-weight:600;font-size:var(--text-sm);color:var(--text-primary);margin:0 0 var(--space-2);word-break:break-all">{w.url}</div>
-            <div style="display:flex;flex-wrap:wrap;gap:var(--space-2);margin-bottom:var(--space-2)">
-              {#each w.events as e}<span class="badge" style="font-size:0.7rem;padding:0.15rem 0.5rem">{e}</span>{/each}
+        <div class="wh-card">
+          <div class="wh-body">
+            <div class="wh-url">{w.url}</div>
+            <div class="wh-events">
+              {#each w.events as e}<span class="badge-tag">{e}</span>{/each}
             </div>
-            <span style="font-size:var(--text-xs);color:var(--text-secondary)">{w.is_active ? '✅ Activo' : '❌ Inactivo'}</span>
+            <span class="wh-status">{w.is_active ? 'Activo' : 'Inactivo'}</span>
           </div>
-          <button onclick={() => handleDelete(w.id)} aria-label="Eliminar" style="background:none;border:none;color:var(--error-color);cursor:pointer;padding:var(--space-2);flex-shrink:0">
-            <Trash2 size={16} />
-          </button>
+          <button class="wh-delete" onclick={() => handleDelete(w.id)} aria-label="Eliminar"><Trash2 size={16} /></button>
         </div>
       {/each}
     </div>
   {/if}
-</div>
+</PageLayout>
+
+<style>
+  .form { display: flex; flex-direction: column; gap: var(--space-4); }
+  .event-hint { font-size: var(--text-xs); color: rgba(var(--text-tertiary-rgb), 0.7); margin-top: calc(-1 * var(--space-2)); }
+  .msg { padding: var(--space-3); border-radius: var(--radius-lg); font-size: var(--text-sm); font-weight: 500; background: rgba(var(--error-rgb), 0.1); color: rgba(var(--error-rgb), 1); }
+  .form-actions { display: flex; gap: var(--space-2); justify-content: flex-end; }
+  .wh-list { display: flex; flex-direction: column; gap: var(--space-3); }
+  .wh-card { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-3); background: rgba(var(--surface-rgb), 1); border-radius: var(--radius-xl); padding: var(--space-4); border: 1px solid rgba(var(--border-rgb), 0.5); }
+  .wh-body { flex: 1; min-width: 0; }
+  .wh-url { font-weight: 600; font-size: var(--text-sm); color: rgba(var(--text-primary-rgb), 1); word-break: break-all; }
+  .wh-events { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: var(--space-2) 0; }
+  .badge-tag { font-size: 0.65rem; background: rgba(var(--primary-rgb), 0.15); color: var(--primary); padding: 0.1rem 0.4rem; border-radius: 4px; }
+  .wh-status { font-size: var(--text-xs); color: rgba(var(--text-secondary-rgb), 1); }
+  .wh-delete { background: none; border: none; color: rgba(var(--error-rgb), 1); cursor: pointer; padding: var(--space-2); flex-shrink: 0; }
+</style>

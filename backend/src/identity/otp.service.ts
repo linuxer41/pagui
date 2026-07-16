@@ -1,6 +1,7 @@
 import { query } from '../shared/database/pool'
 import { AppError } from '../shared/errors/app-error'
 import { nextSnowflake } from '../shared/snowflake'
+import { logger } from '../shared/logger'
 
 const OTP_RATE_LIMIT_MINUTES = 2
 
@@ -15,7 +16,7 @@ export const otpService = {
       INSERT INTO auth_tokens (id, user_id, token, token_type, expires_at)
       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP + INTERVAL '5 minutes')
     `, [nextSnowflake(), 0, `${phone}:${code}`, 'OTP_SENT'])
-    console.log(`OTP for ${phone}: ${code}`)
+    logger.info('OTP sent', { phone })
   },
 
   async verifyOTP(phone: string, code: string): Promise<boolean> {
@@ -42,7 +43,7 @@ export const otpService = {
     const r = await query(`
       SELECT COUNT(*) as count FROM auth_tokens
       WHERE token LIKE $1 AND token_type = 'OTP_SENT'
-      AND created_at > CURRENT_TIMESTAMP - INTERVAL '${OTP_RATE_LIMIT_MINUTES} minutes'
+      AND created_at > CURRENT_TIMESTAMP - INTERVAL '2 minutes'
     `, [`${phone}%`])
     return parseInt(r.rows[0].count)
   },

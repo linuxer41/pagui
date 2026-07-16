@@ -5,12 +5,8 @@ let clientCounter = 0
 
 export const sseRoutes = new Elysia({ prefix: '/events' })
 
-  .get('/stream', ({ set, request }) => {
+  .get('/stream', ({ request }) => {
     const clientId = `sse_${++clientCounter}_${Date.now()}`
-
-    set.headers['Content-Type'] = 'text/event-stream'
-    set.headers['Cache-Control'] = 'no-cache'
-    set.headers['Connection'] = 'keep-alive'
 
     const stream = new ReadableStream({
       start(controller) {
@@ -30,13 +26,26 @@ export const sseRoutes = new Elysia({ prefix: '/events' })
       },
     })
 
-    return stream
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
+      },
+    })
+  }, {
+    detail: { tags: ['Events'], summary: 'Stream SSE en tiempo real' },
   })
 
   .get('/stats', () => {
     return sseService.getStats()
+  }, {
+    detail: { tags: ['Events'], summary: 'Estadísticas del servidor SSE' },
   })
 
   .get('/test-auth', () => {
     return { message: 'SSE auth test' }
+  }, {
+    detail: { tags: ['Events'], summary: 'Test de autenticación SSE' },
   })

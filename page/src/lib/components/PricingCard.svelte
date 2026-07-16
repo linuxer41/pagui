@@ -21,10 +21,10 @@
   class="pricing-card fade-in"
   class:featured
   style="animation-delay: {delay}ms;"
-  on:click={handleClick}
+  onclick={handleClick}
   role="button"
   tabindex="0"
-  on:keydown={(e) => e.key === 'Enter' && handleClick()}
+  onkeydown={(e) => e.key === 'Enter' && handleClick()}
 >
   {#if featured}
     <div class="pricing-badge">Más Popular</div>

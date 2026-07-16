@@ -1,46 +1,39 @@
-/**
- * Pruebas para endpoints de health check
- */
 import { describe, expect, it } from "bun:test";
 import { BASE_URL, TestUtils } from "./setup.js";
 
 describe("Health Check", () => {
-  it("debería responder en el endpoint raíz", async () => {
+  it("el endpoint raíz debería responder 404", async () => {
     const response = await TestUtils.makeRequest(`${BASE_URL}/`);
-    
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(404);
     const result = await response.json();
-    
-    expect(result).toHaveProperty("status");
-    expect(result.status).toBe("online");
-    expect(result).toHaveProperty("timestamp");
-    expect(result).toHaveProperty("auth_provider");
-    expect(result.auth_provider).toBe("zitadel");
+    expect(result).toHaveProperty("error");
   });
 
   it("debería responder en el endpoint de health", async () => {
     const response = await TestUtils.makeRequest(`${BASE_URL}/health`);
-    
     expect(response.status).toBe(200);
-    const result = await response.json();
-    
-    expect(result.success).toBe(true);
-    expect(result.message).toBe("Servidor funcionando correctamente");
+    const body = await response.json();
+    const result = body.data ?? body;
+    expect(result.status).toBe("ok");
     expect(result).toHaveProperty("timestamp");
     expect(result).toHaveProperty("uptime");
-    expect(result).toHaveProperty("environment");
+    expect(result).toHaveProperty("version");
   });
 
   it("debería responder en el endpoint de health/api", async () => {
     const response = await TestUtils.makeRequest(`${BASE_URL}/health/api`);
-    
     expect(response.status).toBe(200);
-    const result = await response.json();
-    
-    expect(result.success).toBe(true);
-    expect(result.message).toBe("API funcionando correctamente");
+    const body = await response.json();
+    const result = body.data ?? body;
+    expect(result.status).toBe("ok");
+    expect(result).toHaveProperty("database");
     expect(result).toHaveProperty("timestamp");
-    expect(result).toHaveProperty("version");
-    expect(result.version).toBe("1.0.0");
+  });
+
+  it("debería responder con versión 2.0.0 en /health", async () => {
+    const response = await TestUtils.makeRequest(`${BASE_URL}/health`);
+    const body = await response.json();
+    const result = body.data ?? body;
+    expect(result.version).toBe("2.0.0");
   });
 });

@@ -1,10 +1,11 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import api from '$lib/api';
-  import RouteLayout from '$lib/components/layouts/RouteLayout.svelte';
+
   import { onMount } from 'svelte';
   import { fade, fly } from 'svelte/transition';
   import { QrCode, Clock, CheckCircle, XCircle, Eye, Calendar } from '@lucide/svelte';
+import PageLayout from '$lib/components/layouts/PageLayout.svelte';
   
   interface QRItem {
     id: string;
@@ -40,10 +41,10 @@
     errorMessage = '';
     
     try {
-      const response = await api.getQrList(currentPage, pageSize);
+      const response = await api.listQRs({ page: currentPage, limit: pageSize });
       
       if (response.success && response.data) {
-        qrList = response.data;
+        qrList = (response.data || []) as any;
         hasMorePages = qrList.length === pageSize;
       } else {
         throw new Error(response.message || 'Error en la respuesta del servidor');
@@ -63,10 +64,10 @@
     
     currentPage++;
     try {
-      const response = await api.getQrList(currentPage, pageSize);
+      const response = await api.listQRs({ page: currentPage, limit: pageSize });
       
       if (response.success && response.data) {
-        qrList = [...qrList, ...response.data];
+        qrList = [...qrList, ...(response.data as any)];
         hasMorePages = response.data.length === pageSize;
       }
     } catch (error) {
@@ -162,12 +163,8 @@
   });
 </script>
 
-<RouteLayout title="Historial de QRs">
+<PageLayout title="Historial de Cobros">
   <div class="qr-history-page" in:fade={{ duration: 300 }}>
-    <div class="page-header">
-      <h1>Historial de QRs</h1>
-      <p class="page-description">Lista de todos los códigos QR generados</p>
-    </div>
     
     {#if isLoading}
       <div class="loading-container">
@@ -241,7 +238,7 @@
       </div>
     {/if}
   </div>
-</RouteLayout>
+</PageLayout>
 
 <style>
   .qr-history-page {
@@ -251,23 +248,7 @@
     padding-bottom: 2rem;
   }
   
-  .page-header {
-    text-align: center;
-    margin-bottom: 1rem;
-  }
-  
-  .page-header h1 {
-    margin: 0 0 0.5rem 0;
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-  
-  .page-description {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    margin: 0;
-  }
+
   
   .qr-list {
     display: flex;
@@ -281,11 +262,11 @@
     align-items: center;
     gap: 1rem;
     padding: 1.2rem;
-    background: var(--surface);
+    background: rgba(var(--surface-rgb), 1);
     border-radius: 0.75rem;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: var(--card-shadow);
-    border: 1px solid var(--border-color);
+    border: 1px solid rgba(var(--border-rgb), 1);
     margin-bottom: 0.5rem;
     cursor: pointer;
   }
@@ -293,8 +274,8 @@
   .qr-item:hover {
     transform: translateY(-0.125rem);
     box-shadow: var(--shadow-md);
-    border-color: var(--primary-color);
-    background: linear-gradient(135deg, var(--surface) 0%, rgba(0, 202, 141, 0.02) 100%);
+    border-color: var(--primary);
+    background: linear-gradient(135deg, rgba(var(--surface-rgb), 1) 0%, rgba(0, 202, 141, 0.02) 100%);
   }
   
   .qr-icon {
@@ -306,7 +287,7 @@
     justify-content: center;
     flex-shrink: 0;
     background: linear-gradient(135deg, rgba(0, 202, 141, 0.15) 0%, rgba(0, 202, 141, 0.05) 100%);
-    color: var(--primary-color);
+    color: var(--primary);
     border: 1px solid rgba(0, 202, 141, 0.2);
   }
   
@@ -317,7 +298,7 @@
   
   .qr-title {
     font-weight: 600;
-    color: var(--text-primary);
+    color: rgba(var(--text-primary-rgb), 1);
     margin-bottom: 0.25rem;
     font-size: 0.875rem;
   }
@@ -330,7 +311,7 @@
   
   .qr-date {
     font-size: 0.75rem;
-    color: var(--text-secondary);
+    color: rgba(var(--text-secondary-rgb), 1);
     display: flex;
     align-items: center;
     gap: 0.25rem;
@@ -338,7 +319,7 @@
   
   .qr-payer {
     font-size: 0.7rem;
-    color: var(--success-color);
+    color: rgba(var(--success-rgb), 1);
     background: rgba(0, 202, 141, 0.1);
     padding: 0.125rem 0.5rem;
     border-radius: 0.75rem;
@@ -355,7 +336,7 @@
   .qr-amount {
     font-weight: 600;
     font-size: 0.875rem;
-    color: var(--text-primary);
+    color: rgba(var(--text-primary-rgb), 1);
   }
   
   .qr-status {
@@ -368,7 +349,7 @@
   
   .status-success {
     background-color: rgba(0, 202, 141, 0.1);
-    color: var(--success-color);
+    color: rgba(var(--success-rgb), 1);
   }
   
   .status-warning {
@@ -378,12 +359,12 @@
   
   .status-error {
     background-color: rgba(233, 58, 74, 0.1);
-    color: var(--error-color);
+    color: rgba(var(--error-rgb), 1);
   }
   
   .status-default {
     background-color: rgba(0, 0, 0, 0.05);
-    color: var(--text-secondary);
+    color: rgba(var(--text-secondary-rgb), 1);
   }
   
   .qr-action {
@@ -392,7 +373,7 @@
   }
   
   .view-button {
-    background: var(--primary-color);
+    background: var(--primary);
     color: white;
     border: none;
     padding: 0.5rem;
@@ -405,7 +386,7 @@
   }
   
   .view-button:hover {
-    background: var(--primary-dark);
+    background: #CC6A00;
     transform: scale(1.05);
   }
   
@@ -416,7 +397,7 @@
   }
   
   .load-more-button {
-    background: var(--primary-color);
+    background: var(--primary);
     color: white;
     border: none;
     padding: 0.75rem 1.5rem;
@@ -428,7 +409,7 @@
   }
   
   .load-more-button:hover:not(:disabled) {
-    background: var(--primary-dark);
+    background: #CC6A00;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
@@ -446,7 +427,7 @@
     align-items: center;
     justify-content: center;
     padding: 3rem 0;
-    color: var(--text-secondary);
+    color: rgba(var(--text-secondary-rgb), 1);
     gap: 1rem;
     text-align: center;
   }
@@ -455,7 +436,7 @@
     width: 2.5rem;
     height: 2.5rem;
     border: 3px solid rgba(0, 0, 0, 0.1);
-    border-top-color: var(--primary-color);
+    border-top-color: var(--primary);
     border-radius: 50%;
     animation: spin 1s ease-in-out infinite;
   }
@@ -465,7 +446,7 @@
   }
   
   .error-container {
-    color: var(--error-color);
+    color: rgba(var(--error-rgb), 1);
   }
   
   .error-icon {
@@ -478,22 +459,22 @@
     justify-content: center;
     font-size: 1.5rem;
     font-weight: bold;
-    color: var(--error-color);
+    color: rgba(var(--error-rgb), 1);
     margin-bottom: 0.5rem;
   }
   
   .error-container h3 {
     margin: 0;
-    color: var(--error-color);
+    color: rgba(var(--error-rgb), 1);
   }
   
   .error-container p {
-    color: var(--text-secondary);
+    color: rgba(var(--text-secondary-rgb), 1);
     margin-bottom: 1rem;
   }
   
   .retry-button {
-    background: var(--primary-color);
+    background: var(--primary);
     color: white;
     border: none;
     padding: 0.6rem 1.2rem;
@@ -505,36 +486,36 @@
   }
   
   .retry-button:hover {
-    background: var(--primary-dark);
+    background: #CC6A00;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
   
   .empty-container {
-    background: var(--surface);
+    background: rgba(var(--surface-rgb), 1);
     border-radius: 0.75rem;
-    border: 1px dashed var(--border-color);
+    border: 1px dashed rgba(var(--border-rgb), 1);
     margin: 0 1rem;
     padding: 4rem 1rem;
   }
   
   .empty-container :global(svg) {
-    color: var(--text-secondary);
+    color: rgba(var(--text-secondary-rgb), 1);
     margin-bottom: 1rem;
   }
   
   .empty-container h3 {
     margin: 0 0 0.5rem 0;
-    color: var(--text-primary);
+    color: rgba(var(--text-primary-rgb), 1);
   }
   
   .empty-container p {
     margin: 0 0 1.5rem 0;
-    color: var(--text-secondary);
+    color: rgba(var(--text-secondary-rgb), 1);
   }
   
   .generate-button {
-    background: var(--primary-color);
+    background: var(--primary);
     color: white;
     border: none;
     padding: 0.75rem 1.5rem;
@@ -546,7 +527,7 @@
   }
   
   .generate-button:hover {
-    background: var(--primary-dark);
+    background: #CC6A00;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }

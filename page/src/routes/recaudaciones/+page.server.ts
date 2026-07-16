@@ -1,25 +1,26 @@
+import { BaseApiClient, ApiKeyAuthProvider } from '@pagui/shared'
 import { empresasConfig } from '$lib/config/empresas';
 import { PUBLIC_PAGUI_API_URL, PUBLIC_PAGUI_API_KEY } from '$env/static/public';
 
+const apiClient = new BaseApiClient(
+  PUBLIC_PAGUI_API_URL || 'http://localhost:3000',
+  new ApiKeyAuthProvider(PUBLIC_PAGUI_API_KEY || '')
+);
+
 async function fetchFromBackend<T>(endpoint: string): Promise<T | null> {
   try {
-    const res = await fetch(`${PUBLIC_PAGUI_API_URL}${endpoint}`, {
-      headers: { 'x-api-key': PUBLIC_PAGUI_API_KEY },
-    });
-    if (!res.ok) return null;
-    const json = await res.json();
-    return json.data || json;
+    const json = await apiClient.get<any>(endpoint);
+    return json.data?.data ?? json.data ?? json;
   } catch {
     return null;
   }
 }
 
 export async function load() {
-  // Intentar obtener empresas desde el backend
   let empresasDisponibles: any[] = [];
 
   const backendEmpresas = await fetchFromBackend<any[]>('/collections/companies');
-  
+
   if (backendEmpresas && backendEmpresas.length > 0) {
     empresasDisponibles = backendEmpresas.map((emp: any) => ({
       id: emp.slug,
@@ -32,7 +33,6 @@ export async function load() {
       ubicacion: emp.config?.location || 'Bolivia',
     }));
   } else {
-    // Fallback: usar configuración local
     empresasDisponibles = Object.values(empresasConfig)
       .filter(empresa => empresa.activa)
       .map(empresa => ({

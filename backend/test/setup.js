@@ -5,7 +5,8 @@
 
 // Configuración de la aplicación
 export const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3000';
-export const TIMEOUT = 30000; // 30 segundos para pruebas más robustas
+export const PUBLIC_API_URL = process.env.TEST_PUBLIC_API_URL || 'http://localhost:3001';
+export const TIMEOUT = 60000; // 60 segundos para Baneco
 
 // Configuración de base de datos principal (no de pruebas)
 export const TEST_DATABASE_URL = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/payments';
@@ -49,8 +50,8 @@ export class TestUtils {
 
         const result = await response.json();
         
-        if (result.success && result.data && result.data.auth && result.data.auth.accessToken) {
-          const token = result.data.auth.accessToken;
+        const token = result.data?.accessToken ?? result.accessToken;
+        if (token) {
           this.authTokens.set(testName, token);
           console.log(`✅ Token obtenido para ${testName} en intento ${attempt}`);
           return token;
@@ -137,6 +138,7 @@ export class TestUtils {
 // Configuración global para todas las pruebas
 export const TEST_CONFIG = {
   BASE_URL,
+  PUBLIC_API_URL,
   TIMEOUT,
   TEST_CREDENTIALS,
   TEST_DATABASE_URL

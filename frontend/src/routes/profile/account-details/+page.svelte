@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import Button from '$lib/components/Button.svelte';
-  import RouteLayout from '$lib/components/layouts/RouteLayout.svelte';
+
+  import PageLayout from '$lib/components/layouts/PageLayout.svelte';
   import { 
     ArrowLeft,
     User,
@@ -60,7 +60,7 @@
   };
 
   // Función para alternar sección del acordeón
-  function toggleSection(section: string) {
+  function toggleSection(section: keyof typeof expandedSections) {
     expandedSections[section] = !expandedSections[section];
     expandedSections = { ...expandedSections };
   }
@@ -105,7 +105,7 @@
   <title>Detalles de la Cuenta | Pagui</title>
 </svelte:head>
 
-<RouteLayout title="Detalles de la Cuenta">
+<PageLayout title="Detalles de la cuenta">
 <div class="account-details-page">
 
   <!-- Información de la cuenta -->
@@ -166,7 +166,7 @@
         <div class="accordion-content">
           <div class="info-grid">
             <div class="info-item">
-              <label>Nombre completo</label>
+              <span>Nombre completo</span>
               {#if isEditing}
                 <input 
                   type="text" 
@@ -179,7 +179,7 @@
             </div>
             
                          <div class="info-item">
-               <label>Fecha de nacimiento</label>
+               <span>Fecha de nacimiento</span>
                <span class="info-value non-editable">{formatDate(userInfo.birthDate)}</span>
              </div>
           </div>
@@ -205,12 +205,12 @@
         <div class="accordion-content">
           <div class="info-grid">
                          <div class="info-item">
-               <label>Email</label>
+               <span>Email</span>
                <span class="info-value non-editable">{userInfo.email}</span>
              </div>
             
             <div class="info-item">
-              <label>Teléfono</label>
+              <span>Teléfono</span>
               {#if isEditing}
                 <input 
                   type="tel" 
@@ -223,7 +223,7 @@
             </div>
             
             <div class="info-item full-width">
-              <label>Dirección</label>
+              <span>Dirección</span>
               {#if isEditing}
                 <input 
                   type="text" 
@@ -238,7 +238,7 @@
             
             
             <div class="info-item">
-              <label>País</label>
+              <span>País</span>
               {#if isEditing}
                 <input 
                   type="text" 
@@ -273,7 +273,7 @@
           <div class="accordion-content">
             <div class="info-grid">
               <div class="info-item">
-                <label>Nombre de la empresa</label>
+                <span>Nombre de la empresa</span>
                 {#if isEditing}
                   <input 
                     type="text" 
@@ -286,7 +286,7 @@
               </div>
               
               <div class="info-item">
-                <label>Cargo</label>
+                <span>Cargo</span>
                 {#if isEditing}
                   <input 
                     type="text" 
@@ -299,7 +299,7 @@
               </div>
               
               <div class="info-item">
-                <label>Tipo de negocio</label>
+                <span>Tipo de negocio</span>
                 {#if isEditing}
                   <input 
                     type="text" 
@@ -312,7 +312,7 @@
               </div>
               
               <div class="info-item">
-                <label>NIT/RUC</label>
+                <span>NIT/RUC</span>
                 {#if isEditing}
                   <input 
                     type="text" 
@@ -325,7 +325,7 @@
               </div>
               
               <div class="info-item full-width">
-                <label>Sitio web</label>
+                <span>Sitio web</span>
                 {#if isEditing}
                   <input 
                     type="url" 
@@ -352,14 +352,14 @@
 
 
   </div>
-</div>
-</RouteLayout>
+  </div>
+</PageLayout>
 
 <style>
   .account-details-page {
     max-width: 700px;
     margin: 0 auto;
-    padding: var(--spacing-lg) var(--spacing-md);
+    padding: var(--space-6) var(--space-4);
   }
 
 
@@ -367,27 +367,27 @@
   .account-info {
     background: var(--background);
     border: none;
-    border-radius: var(--border-radius-md);
-    padding: var(--spacing-md);
-    margin-bottom: var(--spacing-lg);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    margin-bottom: var(--space-6);
   }
 
   .info-header {
     display: flex;
     align-items: center;
-    gap: var(--spacing-lg);
+    gap: var(--space-6);
   }
 
   .user-avatar {
     width: 60px;
     height: 60px;
     border-radius: 50%;
-    background: var(--surface);
-    border: 2px solid var(--border-color);
+    background: rgba(var(--surface-rgb), 1);
+    border: 2px solid rgba(var(--border-rgb), 1);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--primary-color);
+    color: var(--primary);
     flex-shrink: 0;
   }
 
@@ -396,27 +396,27 @@
   }
 
   .user-summary h2 {
-    margin: 0 0 var(--spacing-xs) 0;
+    margin: 0 0 var(--space-1) 0;
     font-size: 1.3rem;
     font-weight: 600;
-    color: var(--text-primary);
+    color: rgba(var(--text-primary-rgb), 1);
   }
 
   .user-email {
-    margin: 0 0 var(--spacing-xs) 0;
-    color: var(--text-secondary);
+    margin: 0 0 var(--space-1) 0;
+    color: rgba(var(--text-secondary-rgb), 1);
     font-size: 1rem;
   }
 
   .account-type-selector {
     display: flex;
     align-items: center;
-    gap: var(--spacing-sm);
+    gap: var(--space-2);
   }
 
   .account-type-badge {
     padding: 4px 8px;
-    border-radius: var(--border-radius-sm);
+    border-radius: var(--radius-sm);
     font-size: 0.75rem;
     font-weight: 500;
     text-transform: none;
@@ -424,13 +424,13 @@
   }
 
   .account-type-badge.personal {
-    background: var(--surface);
-    color: var(--primary-color);
-    border: 1px solid var(--primary-color);
+    background: rgba(var(--surface-rgb), 1);
+    color: var(--primary);
+    border: 1px solid var(--primary);
   }
 
   .account-type-badge.business {
-    background: var(--surface);
+    background: rgba(var(--surface-rgb), 1);
     color: var(--accent-color);
     border: 1px solid var(--accent-color);
   }
@@ -438,24 +438,24 @@
   .toggle-account-type {
     background: none;
     border: none;
-    color: var(--text-secondary);
+    color: rgba(var(--text-secondary-rgb), 1);
     cursor: pointer;
-    padding: var(--spacing-xs);
-    border-radius: var(--border-radius-sm);
+    padding: var(--space-1);
+    border-radius: var(--radius-sm);
     transition: all 0.2s;
   }
 
   .toggle-account-type:hover {
-    background: var(--surface-hover);
-    color: var(--primary-color);
+    background: rgba(var(--surface-alt-rgb), 1);
+    color: var(--primary);
   }
 
   .edit-button {
     background: none;
     border: none;
-    color: var(--primary-color);
+    color: var(--primary);
     padding: 8px 16px;
-    border-radius: var(--border-radius-md);
+    border-radius: var(--radius-md);
     font-size: 0.9rem;
     font-weight: 500;
     cursor: pointer;
@@ -468,18 +468,18 @@
   }
 
   .edit-button:hover {
-    background: var(--surface-hover);
+    background: rgba(var(--surface-alt-rgb), 1);
     text-decoration: none;
   }
 
   .edit-actions {
     display: flex;
-    gap: var(--spacing-sm);
+    gap: var(--space-2);
   }
 
   .action-button {
     padding: 8px 16px;
-    border-radius: var(--border-radius-md);
+    border-radius: var(--radius-md);
     font-size: 0.9rem;
     font-weight: 500;
     cursor: pointer;
@@ -491,43 +491,43 @@
   }
 
   .action-button.cancel {
-    background: var(--surface);
-    color: var(--text-secondary);
+    background: rgba(var(--surface-rgb), 1);
+    color: rgba(var(--text-secondary-rgb), 1);
   }
 
   .action-button.cancel:hover {
-    background: var(--surface-hover);
-    color: var(--text-primary);
+    background: rgba(var(--surface-alt-rgb), 1);
+    color: rgba(var(--text-primary-rgb), 1);
   }
 
   .action-button.save {
-    background: var(--primary-color);
+    background: var(--primary);
     color: white;
   }
 
   .action-button.save:hover {
-    background: var(--primary-dark);
+    background: #CC6A00;
   }
 
   .accordion {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: var(--space-4);
   }
 
   .accordion-section {
     background: var(--background);
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-md);
+    border: 1px solid rgba(var(--border-rgb), 1);
+    border-radius: var(--radius-md);
     overflow: hidden;
-    margin-bottom: var(--spacing-sm);
+    margin-bottom: var(--space-2);
   }
 
   .accordion-header {
     width: 100%;
     background: none;
     border: none;
-    padding: var(--spacing-md);
+    padding: var(--space-4);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -537,52 +537,52 @@
   }
 
   .accordion-header:hover {
-    background: var(--surface-hover);
+    background: rgba(var(--surface-alt-rgb), 1);
   }
 
   .header-content {
     display: flex;
     align-items: center;
-    gap: var(--spacing-sm);
-    color: var(--text-primary);
+    gap: var(--space-2);
+    color: rgba(var(--text-primary-rgb), 1);
     font-weight: 500;
     font-size: 1rem;
   }
 
   .accordion-content {
-    padding: 0 var(--spacing-md) var(--spacing-md);
+    padding: 0 var(--space-4) var(--space-4);
   }
 
   .info-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: var(--spacing-md);
+    gap: var(--space-4);
   }
 
   .info-item {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-xs);
+    gap: var(--space-1);
   }
 
   .info-item.full-width {
     grid-column: 1 / -1;
   }
 
-  .info-item label {
+  .info-item span {
     font-size: 0.85rem;
     font-weight: 500;
-    color: var(--text-secondary);
+    color: rgba(var(--text-secondary-rgb), 1);
     text-transform: none;
     letter-spacing: 0.2px;
   }
 
   .info-item input {
-    padding: var(--spacing-sm);
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-sm);
-    background: var(--surface);
-    color: var(--text-primary);
+    padding: var(--space-2);
+    border: 1px solid rgba(var(--border-rgb), 1);
+    border-radius: var(--radius-sm);
+    background: rgba(var(--surface-rgb), 1);
+    color: rgba(var(--text-primary-rgb), 1);
     font-family: inherit;
     font-size: 0.95rem;
     transition: border-color 0.2s, box-shadow 0.2s;
@@ -590,34 +590,34 @@
 
   .info-item input:focus {
     outline: none;
-    border-color: var(--primary-color);
+    border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(58, 102, 255, 0.1);
   }
 
   .info-item input::placeholder {
-    color: var(--text-secondary);
+    color: rgba(var(--text-secondary-rgb), 1);
     opacity: 0.6;
   }
 
   .info-value {
-    color: var(--text-primary);
+    color: rgba(var(--text-primary-rgb), 1);
     font-size: 0.95rem;
-    padding: var(--spacing-xs) 0;
+    padding: var(--space-1) 0;
   }
 
   .info-value a {
-    color: var(--primary-color);
+    color: var(--primary);
     text-decoration: none;
     transition: color 0.2s;
   }
 
   .info-value a:hover {
-    color: var(--primary-dark);
+    color: #CC6A00;
     text-decoration: underline;
   }
 
   .info-value.non-editable {
-    color: var(--text-secondary);
+    color: rgba(var(--text-secondary-rgb), 1);
     font-style: italic;
     opacity: 0.8;
   }
@@ -631,7 +631,7 @@
     .info-header {
       flex-direction: column;
       text-align: center;
-      gap: var(--spacing-md);
+      gap: var(--space-4);
     }
     
     .edit-actions {

@@ -1,32 +1,17 @@
 <script lang="ts">
-  let className = ''
-  export { className as class }
-  export let id: string = ''
-  export let name: string = ''
-  export let checked: boolean = false
-  export let required: boolean = false
-  export let label: string = ''
-  export let linkText: string = ''
-  export let linkHref: string = ''
-  export let disabled: boolean = false
+  import type { Snippet } from 'svelte'
+  let { id = '', name = '', checked = $bindable(false), required = false, label = '', linkText = '', linkHref = '', disabled = false, children }: { id?: string; name?: string; checked?: boolean; required?: boolean; label?: string; linkText?: string; linkHref?: string; disabled?: boolean; children?: Snippet } = $props()
 </script>
 
-<label class="checkbox-label {disabled ? 'is-disabled' : ''} {className}" for={id}>
-  <input
-    {id}
-    {name}
-    type="checkbox"
-    bind:checked
-    {required}
-    {disabled}
-  />
+<label class="checkbox-label {disabled ? 'is-disabled' : ''}" for={id}>
+  <input {id} {name} type="checkbox" bind:checked {required} {disabled} />
   <span class="checkbox-checkmark"></span>
   <span class="checkbox-text">
     {label}
     {#if linkText && linkHref}
       <a href={linkHref} class="checkbox-link" target="_blank" rel="noopener noreferrer">{linkText}</a>
     {/if}
-    <slot></slot>
+    {#if children}{@render children()}{/if}
   </span>
 </label>
 
@@ -40,7 +25,7 @@
     cursor: pointer;
     user-select: none;
     position: relative;
-    color: var(--text-primary);
+    color: rgba(var(--text-primary-rgb), 1);
   }
   .checkbox-label.is-disabled {
     opacity: 0.5;
@@ -56,9 +41,9 @@
     width: 20px;
     height: 20px;
     min-width: 20px;
-    border: 2px solid var(--border);
+    border: 2px solid var(--input);
     border-radius: var(--radius-sm);
-    transition: all var(--duration-fast) var(--ease-out);
+    transition: all var(--duration-fast) ease-out;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -70,7 +55,7 @@
     content: '';
     width: 6px;
     height: 10px;
-    border: 2px solid white;
+    border: 2px solid var(--primary-foreground);
     border-top: none;
     border-left: none;
     transform: rotate(45deg) scale(0);
@@ -79,20 +64,20 @@
     top: 1px;
   }
   .checkbox-label input:checked + .checkbox-checkmark {
-    background: var(--primary-color);
-    border-color: var(--primary-color);
+    background: var(--primary);
+    border-color: var(--primary);
   }
   .checkbox-label input:checked + .checkbox-checkmark::after {
     transform: rotate(45deg) scale(1);
   }
   .checkbox-label input:focus-visible + .checkbox-checkmark {
-    box-shadow: 0 0 0 3px var(--primary-subtle);
+    box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
   }
   .checkbox-text {
     flex: 1;
   }
   .checkbox-link {
-    color: var(--primary-color);
+    color: var(--primary);
     text-decoration: none;
     margin-left: 0.2em;
   }

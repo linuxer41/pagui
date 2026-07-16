@@ -1,16 +1,19 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
-  import Button from '$lib/components/Button.svelte';
-  import Input from '$lib/components/Input.svelte';
   import api from '$lib/api';
-  import { ArrowLeft } from '@lucide/svelte';
+  import PageLayout from '$lib/components/layouts/PageLayout.svelte';
+  import { Banknote, MapPin, UserPlus } from '@lucide/svelte';
+  import PillButton from '$lib/components/ui/PillButton.svelte';
+  import TextField from '$lib/components/ui/TextField.svelte';
+  import AmountField from '$lib/components/ui/AmountField.svelte';
 
-  let mode: 'in' | 'out' | 'register' | 'nearby' = 'in';
-  let agentId = ''; let walletId = ''; let amount = 0; let reference = '';
-  let agentName = ''; let agentPhone = ''; let agentAddress = '';
-  let agentLat = -16.5; let agentLng = -68.15;
-  let loading = false; let error = ''; let result = '';
-  let agents: any[] = [];
+  let mode: 'in' | 'out' | 'register' | 'nearby' = $state('in');
+  let agentId = $state(''); let walletId = $state(''); let amount = $state(0); let reference = $state('');
+  let agentName = $state(''); let agentPhone = $state(''); let agentAddress = $state('');
+  let agentLatStr = $state('-16.5'); let agentLngStr = $state('-68.15');
+  let loading = $state(false); let error = $state(''); let result = $state('');
+  let agents: any[] = $state([]);
+  let agentLat = $derived(parseFloat(agentLatStr) || -16.5)
+  let agentLng = $derived(parseFloat(agentLngStr) || -68.15)
 
   async function handleTransaction() {
     if (!agentId || !walletId || amount <= 0) { error = 'Complete todos los campos'; return; }
@@ -38,71 +41,67 @@
     loading = true;
     try {
       const res = await api.getNearbyAgents(agentLat, agentLng);
-      if (res.success) agents = res.data || [];
+      if (res.success) agents = res.data?.data || [];
     } catch (e: any) { error = e.message; }
     finally { loading = false; }
   }
 </script>
 
-<div class="page-header">
-  <button class="page-header-back" onclick={() => history.back()}>
-    <ArrowLeft size={20} />
-  </button>
-  <h1 class="page-header-title">Cash</h1>
-</div>
+<PageLayout title="Cash">
 
-<div class="page-content">
-  <div style="display:flex;gap:var(--space-1);background:var(--surface);border-radius:var(--radius-xl);padding:var(--space-1);border:1px solid var(--border);margin-bottom:var(--space-4)">
-    {#each ['in', 'out', 'register', 'nearby'] as m}
-      <button
-        style="flex:1;padding:var(--space-2) var(--space-1);border:none;background:{mode === m ? 'var(--primary-color)' : 'transparent'};border-radius:var(--radius-lg);cursor:pointer;font-size:var(--text-sm);color:{mode === m ? 'white' : 'var(--text-secondary)'};font-weight:{mode === m ? 600 : 400};transition:all var(--duration-fast) var(--ease-out)"
-        onclick={() => { mode = m; result = ''; error = ''; }}
-      >
+  <div class="tab-bar">
+    {#each (['in', 'out', 'register', 'nearby'] as const) as m}
+      <button class="tab" class:active={mode === m}
+        onclick={() => { mode = m; result = ''; error = ''; }}>
         {m === 'in' ? 'Cash-in' : m === 'out' ? 'Cash-out' : m === 'register' ? 'Agente' : 'Cercanos'}
       </button>
     {/each}
   </div>
 
   {#if mode === 'in' || mode === 'out'}
-    <div class="section-card">
-      <div class="form-group">
-        <Input id="agent" label="ID Agente" bind:value={agentId} placeholder="ID del agente" />
-        <Input id="w" label="Tu billetera" bind:value={walletId} placeholder="Wallet ID" />
-        <Input id="a" label="Monto (Bs)" type="number" bind:value={amount} placeholder="0.00" />
-        <Input id="r" label="Referencia" bind:value={reference} placeholder="Opcional" />
-        {#if error}<div style="padding:var(--space-3);border-radius:var(--radius-lg);font-size:var(--text-sm);background:var(--error-bg);color:var(--error-color)">{error}</div>{/if}
-        {#if result}<div style="padding:var(--space-3);border-radius:var(--radius-lg);font-size:var(--text-sm);background:var(--success-bg);color:var(--success-color)">{result}</div>{/if}
-        <Button onclick={handleTransaction} loading={loading} fullWidth>
-          {mode === 'in' ? 'Depositar efectivo' : 'Retirar efectivo'}
-        </Button>
-      </div>
+    <div class="form">
+      <TextField label="ID Agente" bind:value={agentId} placeholder="ID del agente" />
+      <TextField label="Tu billetera" bind:value={walletId} placeholder="Wallet ID" />
+      <AmountField label="Monto" bind:value={amount} />
+      <TextField label="Referencia" bind:value={reference} placeholder="Opcional" />
+      {#if error}<div class="msg error">{error}</div>{/if}
+      {#if result}<div class="msg success">{result}</div>{/if}
+      <PillButton label={mode === 'in' ? 'Depositar efectivo' : 'Retirar efectivo'} onClick={handleTransaction} {loading} fullWidth />
     </div>
   {:else if mode === 'register'}
-    <div class="section-card">
-      <div class="form-group">
-        <Input id="an" label="Nombre del agente" bind:value={agentName} placeholder="Nombre" />
-        <Input id="ap" label="Teléfono" bind:value={agentPhone} placeholder="+591" />
-        <Input id="aa" label="Dirección" bind:value={agentAddress} placeholder="Dirección" />
-        <Input id="alat" label="Latitud" type="number" bind:value={agentLat} />
-        <Input id="alng" label="Longitud" type="number" bind:value={agentLng} />
-        {#if error}<div style="padding:var(--space-3);border-radius:var(--radius-lg);font-size:var(--text-sm);background:var(--error-bg);color:var(--error-color)">{error}</div>{/if}
-        {#if result}<div style="padding:var(--space-3);border-radius:var(--radius-lg);font-size:var(--text-sm);background:var(--success-bg);color:var(--success-color)">{result}</div>{/if}
-        <Button onclick={handleRegisterAgent} loading={loading} fullWidth>Registrar agente</Button>
-      </div>
+    <div class="form">
+      <TextField label="Nombre del agente" bind:value={agentName} placeholder="Nombre" />
+      <TextField label="Teléfono" bind:value={agentPhone} placeholder="+591" />
+      <TextField label="Dirección" bind:value={agentAddress} placeholder="Dirección" />
+      <TextField label="Latitud" bind:value={agentLatStr} placeholder="-16.5" />
+      <TextField label="Longitud" bind:value={agentLngStr} placeholder="-68.15" />
+      {#if error}<div class="msg error">{error}</div>{/if}
+      {#if result}<div class="msg success">{result}</div>{/if}
+      <PillButton label="Registrar agente" onClick={handleRegisterAgent} {loading} fullWidth />
     </div>
   {:else}
-    <div class="section-card">
-      <div class="form-group">
-        <Input id="lat" label="Tu latitud" type="number" bind:value={agentLat} />
-        <Input id="lng" label="Tu longitud" type="number" bind:value={agentLng} />
-        <Button onclick={handleNearby} loading={loading} fullWidth>Buscar agentes cerca</Button>
-        {#each agents as a}
-          <div style="background:var(--surface);border-radius:var(--radius-lg);padding:var(--space-3);border:1px solid var(--border)">
-            <strong style="font-size:var(--text-sm)">{a.name}</strong>
-            <p style="margin:var(--space-1) 0 0;font-size:var(--text-sm);color:var(--text-secondary)">{a.address}{a.distance_km ? ' • ' + Number(a.distance_km).toFixed(1) + ' km' : ''}</p>
-          </div>
-        {/each}
-      </div>
+    <div class="form">
+      <TextField label="Tu latitud" bind:value={agentLatStr} placeholder="-16.5" />
+      <TextField label="Tu longitud" bind:value={agentLngStr} placeholder="-68.15" />
+      <PillButton label="Buscar agentes cerca" onClick={handleNearby} {loading} fullWidth />
+      {#each agents as a}
+        <div class="agent-card">
+          <strong>{a.name}</strong>
+          <p>{a.address}{a.distance_km ? ' • ' + Number(a.distance_km).toFixed(1) + ' km' : ''}</p>
+        </div>
+      {/each}
     </div>
   {/if}
-</div>
+</PageLayout>
+
+<style>
+  .tab-bar { display: flex; gap: var(--space-1); background: rgba(var(--surface-rgb), 1); border-radius: var(--radius-xl); padding: var(--space-1); border: 1px solid rgba(var(--border-rgb), 0.5); }
+  .tab { flex: 1; padding: var(--space-2) var(--space-1); border: none; border-radius: var(--radius-lg); cursor: pointer; font-size: var(--text-sm); color: rgba(var(--text-secondary-rgb), 1); font-weight: 400; }
+  .tab.active { background: var(--primary); color: white; font-weight: 600; }
+  .form { display: flex; flex-direction: column; gap: var(--space-4); }
+  .msg { padding: var(--space-3); border-radius: var(--radius-lg); font-size: var(--text-sm); font-weight: 500; }
+  .msg.error { background: rgba(var(--error-rgb), 0.1); color: rgba(var(--error-rgb), 1); }
+  .msg.success { background: rgba(var(--success-rgb), 0.1); color: rgba(var(--success-rgb), 1); }
+  .agent-card { background: rgba(var(--surface-rgb), 1); border-radius: var(--radius-lg); padding: var(--space-3); border: 1px solid rgba(var(--border-rgb), 0.5); }
+  .agent-card p { margin: var(--space-1) 0 0; font-size: var(--text-sm); color: rgba(var(--text-secondary-rgb), 1); }
+</style>

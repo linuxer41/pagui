@@ -1,11 +1,12 @@
 import { Elysia, t } from 'elysia'
 import { authMiddleware } from '../middleware/auth.middleware'
 import { submitKYC, getKYCStatus, approveKYC, rejectKYC, getPendingKYC } from './kyc.service'
+import { ok, list } from '../response'
 
 export const kycRoutes = new Elysia({ prefix: '/kyc' })
   .derive(authMiddleware)
   .post('/submit', async ({ userId, body }) => {
-    return await submitKYC({ userId, ...body })
+    return ok(await submitKYC({ userId, ...body }))
   }, {
     body: t.Object({
       fullName: t.String({ minLength: 3 }),
@@ -21,13 +22,13 @@ export const kycRoutes = new Elysia({ prefix: '/kyc' })
     detail: { tags: ['KYC'], summary: 'Enviar documentación KYC' },
   })
   .get('/status', async ({ userId }) => {
-    return { level: await getKYCStatus(userId) }
+    return ok({ level: await getKYCStatus(userId) })
   }, {
     detail: { tags: ['KYC'], summary: 'Estado KYC' },
   })
   .post('/:userId/approve', async ({ params, body }) => {
     await approveKYC(params.userId, body.level as any)
-    return { success: true }
+    return ok(null)
   }, {
     params: t.Object({ userId: t.String() }),
     body: t.Object({ level: t.Optional(t.String()) }),
@@ -35,14 +36,15 @@ export const kycRoutes = new Elysia({ prefix: '/kyc' })
   })
   .post('/:userId/reject', async ({ params, body }) => {
     await rejectKYC(params.userId, body.reason)
-    return { success: true }
+    return ok(null)
   }, {
     params: t.Object({ userId: t.String() }),
     body: t.Object({ reason: t.String() }),
     detail: { tags: ['KYC'], summary: 'Rechazar KYC (admin)' },
   })
   .get('/pending', async () => {
-    return await getPendingKYC()
+    const pending = await getPendingKYC()
+    return list(pending, undefined, 'KYC pendientes listados exitosamente')
   }, {
     detail: { tags: ['KYC'], summary: 'KYC pendientes (admin)' },
   })

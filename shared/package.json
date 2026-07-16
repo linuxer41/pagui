@@ -1,0 +1,23 @@
+{
+  "name": "@pagui/shared",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "bun build --target=node --format=esm --outdir=dist ./src/index.ts",
+    "postbuild": "bunx tsc --emitDeclarationOnly --outDir dist",
+    "prepublishOnly": "bun run build",
+    "typecheck": "bunx tsc --noEmit"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.52"
+  }
+}

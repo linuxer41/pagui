@@ -1,15 +1,16 @@
 import { query } from '../shared/database/pool'
 import { bankCredentialRepository } from '../banking/credential/bank-credential.repository'
+import { logger } from '../shared/logger'
 
 export async function setupBanecoCredentials() {
   try {
-    console.log('Setting up Banco Económico credentials...')
+    logger.info('Setting up Banco Económico credentials')
 
     const existing = await bankCredentialRepository.list()
     for (const cred of existing) {
       await query('UPDATE bank_credentials SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1', [cred.id])
     }
-    console.log('Existing credentials removed')
+    logger.info('Existing credentials removed')
 
     const testCredential = await bankCredentialRepository.create({
       bankId: 0n, accountNumber: '1041070599',
@@ -20,7 +21,7 @@ export async function setupBanecoCredentials() {
       environment: 'test',
       apiBaseUrl: 'https://apimktdesa.baneco.com.bo/ApiGateway/',
     })
-    console.log(`Test credentials created: ${testCredential.id}`)
+    logger.info('Test credentials created', { id: testCredential.id })
 
     const prodCredential = await bankCredentialRepository.create({
       bankId: 0n, accountNumber: '5021531650',
@@ -31,7 +32,7 @@ export async function setupBanecoCredentials() {
       environment: 'prod',
       apiBaseUrl: 'https://apimkt.baneco.com.bo/ApiGateway/',
     })
-    console.log(`Prod credentials created: ${prodCredential.id}`)
+    logger.info('Prod credentials created', { id: prodCredential.id })
 
     const iathingsCredential = await bankCredentialRepository.create({
       bankId: 0n, accountNumber: '5021979319',
@@ -42,17 +43,17 @@ export async function setupBanecoCredentials() {
       environment: 'prod',
       apiBaseUrl: 'https://apimkt.baneco.com.bo/ApiGateway/',
     })
-    console.log(`IATHINGS credentials created: ${iathingsCredential.id}`)
+    logger.info('IATHINGS credentials created', { id: iathingsCredential.id })
 
     return { testCredential, prodCredential, iathingsCredential }
   } catch (error) {
-    console.error('Error setting up Baneco credentials:', error)
+    logger.error('Error setting up Baneco credentials', { error: String(error) })
     throw error
   }
 }
 
 if (import.meta.main) {
   setupBanecoCredentials()
-    .then(() => { console.log('Done'); process.exit(0) })
-    .catch((e) => { console.error(e); process.exit(1) })
+    .then(() => { logger.info('Done'); process.exit(0) })
+    .catch((e) => { logger.error(String(e)); process.exit(1) })
 }

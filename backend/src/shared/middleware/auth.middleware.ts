@@ -1,18 +1,27 @@
 import { Elysia } from 'elysia'
+import { Role } from '@pagui/shared'
 import { authService } from '../../identity/auth.service'
 import { apiKeyService } from '../../api-keys/apikey.service'
 import { AppError } from '../errors/app-error'
 
-export async function verifyToken(token: string): Promise<{ userId: string; email: string; role: string }> {
+export async function verifyToken(token: string): Promise<{ userId: string; email: string; role: number }> {
   const { default: jwt } = await import('jsonwebtoken')
   const secret = process.env.JWT_SECRET || 'default-secret'
   const decoded = jwt.verify(token, secret) as any
-  return { userId: decoded.userId || decoded.sub, email: decoded.email, role: decoded.role || 'user' }
+  return { userId: decoded.userId || decoded.sub, email: decoded.email, role: decoded.role ?? Role.User }
+}
+
+export function requireRole(...roles: Role[]) {
+  return (auth: { user: { role: number } }): void => {
+    if (!roles.includes(auth.user.role)) {
+      throw new AppError(403, 'No tienes permisos para realizar esta acción')
+    }
+  }
 }
 
 interface JWTAuthData {
   type: 'jwt'
-  user: { id: bigint; email: string; role: string }
+  user: { id: bigint; email: string; role: number }
 }
 
 interface APIKeyAuthData {
@@ -46,10 +55,10 @@ export function authMiddleware<T extends 'jwt' | 'apikey' | 'all'>(
           const decoded = await authService.verifyTokenWithDb(token)
           const userInfo = await authService.getUserInfo(decoded.email)
           if (!userInfo) throw new AppError(401, 'Usuario no encontrado')
-          if (options.level === 'admin' && userInfo.role !== 'admin') {
+          if (options.level === 'admin' && userInfo.role !== Role.Admin && userInfo.role !== Role.Super) {
             throw new AppError(403, 'Se requiere rol de administrador')
           }
-          return { auth: { type: 'jwt' as const, user: userInfo as { id: bigint; email: string; role: string } } } as ReturnType
+          return { auth: { type: 'jwt' as const, user: userInfo as { id: bigint; email: string; role: number } } } as ReturnType
         } catch (err) {
           if (err instanceof AppError) throw err
           throw new AppError(401, 'Error en autenticación')

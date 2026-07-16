@@ -2,8 +2,7 @@
   import { auth } from '$lib/stores/auth';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import Button from '$lib/components/Button.svelte';
-  import RouteLayout from '$lib/components/layouts/RouteLayout.svelte';
+  import PillButton from '$lib/components/ui/PillButton.svelte';
   import api from '$lib/api';
   import { get } from 'svelte/store';
   import { 
@@ -22,6 +21,9 @@
     XCircle,
     Clock
   } from '@lucide/svelte';
+  import EmptyState from '$lib/components/EmptyState.svelte';
+  import Skeleton from '$lib/components/Skeleton.svelte';
+  import PageLayout from '$lib/components/layouts/PageLayout.svelte';
   
   // Estado de las API keys
   let apiKeys: any[] = [];
@@ -70,7 +72,7 @@
       const response = await api.listApiKeys({ token: authStore.token });
       
       if (response.success) {
-        apiKeys = response.data?.apiKeys || [];
+        apiKeys = response.data || [];
       } else {
         throw new Error(response.message || 'Error cargando API keys');
       }
@@ -208,13 +210,13 @@
   // Obtener estado de la API key
   function getApiKeyStatus(apiKey: any) {
     if (apiKey.status === 'active') {
-      return { text: 'Activa', icon: CheckCircle, color: 'var(--success-color)' };
+      return { text: 'Activa', icon: CheckCircle, color: 'rgba(var(--success-rgb), 1)' };
     } else if (apiKey.status === 'expired') {
-      return { text: 'Expirada', icon: XCircle, color: 'var(--error-color)' };
+      return { text: 'Expirada', icon: XCircle, color: 'rgba(var(--error-rgb), 1)' };
     } else if (apiKey.status === 'revoked') {
-      return { text: 'Revocada', icon: XCircle, color: 'var(--error-color)' };
+      return { text: 'Revocada', icon: XCircle, color: 'rgba(var(--error-rgb), 1)' };
     } else {
-      return { text: 'Desconocido', icon: Clock, color: 'var(--text-secondary)' };
+      return { text: 'Desconocido', icon: Clock, color: 'rgba(var(--text-secondary-rgb), 1)' };
     }
   }
   
@@ -229,7 +231,7 @@
   <title>API Keys | Pagui</title>
 </svelte:head>
 
-<RouteLayout title="API Keys">
+<PageLayout title="API Keys">
   <div class="page-intro">
     <div class="intro-icon">
       <Key size={24} />
@@ -307,10 +309,7 @@
         </div>
         
         <div class="new-key-actions">
-          <Button variant="primary" on:click={closeNewKeyPanel}>
-            <Check />
-            Entendido
-          </Button>
+          <PillButton label="Entendido" onClick={closeNewKeyPanel} fullWidth />
         </div>
       </div>
     </div>
@@ -339,7 +338,7 @@
         </div>
         
         <div class="permissions-section">
-          <label>Permisos</label>
+          <span>Permisos</span>
           <div class="permissions-grid">
             <div class="permission-category">
               <h4>Permisos QR</h4>
@@ -368,15 +367,13 @@
           </div>
         </div>
         
-        <Button 
-          variant="primary" 
-          on:click={createApiKey} 
+        <PillButton 
+          label="Crear API Key" 
+          onClick={createApiKey} 
           disabled={isCreating || !newKeyName.trim()}
           loading={isCreating}
-        >
-          <PlusCircle />
-          Crear API Key
-        </Button>
+          fullWidth
+        />
       </div>
     </div>
   {/if}
@@ -391,16 +388,9 @@
     </div>
     
     {#if loading}
-      <div class="loading-state">
-        <RefreshCw size={40} class="spinning" />
-        <p>Cargando API keys...</p>
-      </div>
+      <Skeleton width="100%" height="120px" radius="lg" count={3} gap="space-2" />
     {:else if apiKeys.length === 0}
-      <div class="empty-state">
-        <Key size={40} opacity={0.3} />
-        <p>No tienes API keys creadas</p>
-        <p class="empty-subtitle">Crea tu primera API key para comenzar a integrar aplicaciones</p>
-      </div>
+      <EmptyState icon={Key} title="No tienes API keys creadas" message="Crea tu primera API key para comenzar a integrar aplicaciones" />
     {:else}
       {#each apiKeys as apiKey (apiKey.id)}
         <div class="api-key-card">
@@ -482,24 +472,24 @@
       {/each}
     {/if}
   </div>
-</RouteLayout>
+</PageLayout>
 
 <style>
   .page-intro {
     display: flex;
     align-items: flex-start;
-    gap: var(--spacing-md);
-    background: var(--surface);
-    padding: var(--spacing-lg);
-    border-radius: var(--border-radius-lg);
-    margin-bottom: var(--spacing-lg);
+    gap: var(--space-4);
+    background: rgba(var(--surface-rgb), 1);
+    padding: var(--space-6);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--space-6);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   }
   
   .intro-icon {
     width: 48px;
     height: 48px;
-    border-radius: var(--border-radius-md);
+    border-radius: var(--radius-md);
     background: rgba(16, 185, 129, 0.1);
     color: #10b981;
     display: flex;
@@ -513,9 +503,9 @@
   }
   
   .page-intro p {
-    margin: 0 0 var(--spacing-sm) 0;
+    margin: 0 0 var(--space-2) 0;
     font-size: 0.95rem;
-    color: var(--text-secondary);
+    color: rgba(var(--text-secondary-rgb), 1);
     line-height: 1.5;
   }
   
@@ -523,11 +513,11 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: var(--primary-color);
+    background: var(--primary);
     color: white;
     border: none;
     padding: 8px 16px;
-    border-radius: var(--border-radius-md);
+    border-radius: var(--radius-md);
     font-size: 0.9rem;
     font-weight: 500;
     cursor: pointer;
@@ -535,7 +525,7 @@
   }
   
   .doc-button:hover {
-    background: var(--primary-dark);
+    background: #CC6A00;
   }
   
   /* Documentation styles moved to separate page */
@@ -543,12 +533,12 @@
   .error-message {
     display: flex;
     align-items: center;
-    gap: var(--spacing-sm);
+    gap: var(--space-2);
     background: rgba(239, 68, 68, 0.1);
     color: #ef4444;
-    padding: var(--spacing-md);
-    border-radius: var(--border-radius-md);
-    margin-bottom: var(--spacing-lg);
+    padding: var(--space-4);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-6);
     border: 1px solid rgba(239, 68, 68, 0.2);
   }
   
@@ -560,7 +550,7 @@
     color: white;
     border: none;
     padding: 6px 12px;
-    border-radius: var(--border-radius-sm);
+    border-radius: var(--radius-sm);
     font-size: 0.85rem;
     cursor: pointer;
     transition: all 0.2s;
@@ -571,44 +561,44 @@
   }
   
   .create-key-section, .api-keys-list, .new-key-panel {
-    background: var(--surface);
-    border-radius: var(--border-radius-lg);
-    padding: var(--spacing-lg);
+    background: rgba(var(--surface-rgb), 1);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    margin-bottom: var(--spacing-lg);
+    margin-bottom: var(--space-6);
   }
   
   .create-key-section h2, .api-keys-list h2, .new-key-header h2 {
     font-size: 1.25rem;
     font-weight: 600;
-    margin: 0 0 var(--spacing-md);
-    color: var(--text-primary);
+    margin: 0 0 var(--space-4);
+    color: rgba(var(--text-primary-rgb), 1);
   }
   
   .list-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--spacing-md);
+    margin-bottom: var(--space-4);
   }
   
   .refresh-button {
     display: flex;
     align-items: center;
     gap: 6px;
-    background: var(--surface);
-    border: 1px solid var(--border-color);
-    color: var(--text-secondary);
+    background: rgba(var(--surface-rgb), 1);
+    border: 1px solid rgba(var(--border-rgb), 1);
+    color: rgba(var(--text-secondary-rgb), 1);
     padding: 8px 16px;
-    border-radius: var(--border-radius-md);
+    border-radius: var(--radius-md);
     font-size: 0.9rem;
     cursor: pointer;
     transition: all 0.2s;
   }
   
   .refresh-button:hover:not(:disabled) {
-    background: var(--surface-hover);
-    color: var(--text-primary);
+    background: rgba(var(--surface-alt-rgb), 1);
+    color: rgba(var(--text-primary-rgb), 1);
   }
   
   .refresh-button:disabled {
@@ -619,7 +609,7 @@
   .create-key-form {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: var(--space-4);
   }
   
   .form-field {
@@ -631,62 +621,62 @@
   .form-field label {
     font-size: 0.9rem;
     font-weight: 500;
-    color: var(--text-secondary);
+    color: rgba(var(--text-secondary-rgb), 1);
   }
   
   .form-field input {
     padding: 12px;
-    border-radius: var(--border-radius-md);
-    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(var(--border-rgb), 1);
     background: var(--background);
     font-size: 1rem;
-    color: var(--text-primary);
+    color: rgba(var(--text-primary-rgb), 1);
   }
   
   .form-field input:focus {
     outline: none;
-    border-color: var(--primary-color);
+    border-color: var(--primary);
     box-shadow: 0 0 0 2px rgba(58, 102, 255, 0.1);
   }
   
   .permissions-section {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: var(--space-2);
   }
   
   .permissions-section label {
     font-size: 0.9rem;
     font-weight: 500;
-    color: var(--text-secondary);
+    color: rgba(var(--text-secondary-rgb), 1);
   }
   
   .permissions-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: var(--spacing-md);
+    gap: var(--space-4);
     max-width: 400px;
   }
   
   .permission-category {
     background: var(--background);
-    padding: var(--spacing-md);
-    border-radius: var(--border-radius-md);
-    border: 1px solid var(--border-color);
+    padding: var(--space-4);
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(var(--border-rgb), 1);
   }
   
   .permission-category h4 {
     font-size: 0.9rem;
     font-weight: 600;
-    margin: 0 0 var(--spacing-sm);
-    color: var(--text-primary);
+    margin: 0 0 var(--space-2);
+    color: rgba(var(--text-primary-rgb), 1);
   }
   
   .permission-checkbox {
     display: flex;
     align-items: center;
-    gap: var(--spacing-sm);
-    margin-bottom: var(--spacing-xs);
+    gap: var(--space-2);
+    margin-bottom: var(--space-1);
     cursor: pointer;
   }
   
@@ -696,7 +686,7 @@
   
   .permission-checkbox span {
     font-size: 0.85rem;
-    color: var(--text-secondary);
+    color: rgba(var(--text-secondary-rgb), 1);
   }
   
   .new-key-panel {
@@ -705,7 +695,7 @@
   }
   
   .new-key-header {
-    margin-bottom: var(--spacing-md);
+    margin-bottom: var(--space-4);
   }
   
   .warning {
@@ -714,37 +704,37 @@
     gap: 8px;
     color: var(--warning-color, #f59e0b);
     font-weight: 500;
-    margin: var(--spacing-sm) 0 0;
+    margin: var(--space-2) 0 0;
   }
   
   .new-key-details {
     background: var(--background);
-    padding: var(--spacing-md);
-    border-radius: var(--border-radius-md);
+    padding: var(--space-4);
+    border-radius: var(--radius-md);
   }
   
   .key-name {
     font-weight: 600;
-    margin-bottom: var(--spacing-xs);
-    color: var(--text-primary);
+    margin-bottom: var(--space-1);
+    color: rgba(var(--text-primary-rgb), 1);
   }
   
   .key-value-container {
     display: flex;
     align-items: center;
-    gap: var(--spacing-xs);
-    margin-bottom: var(--spacing-sm);
+    gap: var(--space-1);
+    margin-bottom: var(--space-2);
   }
   
   .key-value {
     flex: 1;
     font-family: monospace;
     padding: 10px;
-    background: var(--surface);
-    border-radius: var(--border-radius-sm);
-    border: 1px solid var(--border-color);
+    background: rgba(var(--surface-rgb), 1);
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(var(--border-rgb), 1);
     font-size: 0.9rem;
-    color: var(--text-primary);
+    color: rgba(var(--text-primary-rgb), 1);
     overflow-x: auto;
     white-space: nowrap;
   }
@@ -752,8 +742,8 @@
   .key-info {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-xs);
-    margin-bottom: var(--spacing-md);
+    gap: var(--space-1);
+    margin-bottom: var(--space-4);
   }
   
   .key-created, .key-expires {
@@ -761,7 +751,7 @@
     align-items: center;
     gap: 6px;
     font-size: 0.85rem;
-    color: var(--text-secondary);
+    color: rgba(var(--text-secondary-rgb), 1);
   }
   
   .new-key-actions {
@@ -777,51 +767,34 @@
     align-items: center;
     justify-content: center;
     background: var(--background);
-    border: 1px solid var(--border-color);
-    color: var(--text-secondary);
+    border: 1px solid rgba(var(--border-rgb), 1);
+    color: rgba(var(--text-secondary-rgb), 1);
     cursor: pointer;
     transition: all 0.2s ease;
   }
   
   .icon-button:hover {
-    background: var(--surface-hover);
-    border-color: var(--primary-color);
+    background: rgba(var(--surface-alt-rgb), 1);
+    border-color: var(--primary);
   }
   
   .toggle-visibility {
-    color: var(--primary-color);
+    color: var(--primary);
   }
   
   .copy-button {
-    color: var(--text-secondary);
+    color: rgba(var(--text-secondary-rgb), 1);
   }
   
-  .loading-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: var(--spacing-md);
-    padding: var(--spacing-xl) 0;
-    color: var(--text-secondary);
-    text-align: center;
-  }
+
   
-  .spinning {
-    animation: spin 1s linear infinite;
-  }
-  
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
   
   .api-key-card {
     background: var(--background);
-    border-radius: var(--border-radius-md);
-    padding: var(--spacing-md);
-    margin-bottom: var(--spacing-md);
-    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+    border: 1px solid rgba(var(--border-rgb), 1);
   }
   
   .api-key-card:last-child {
@@ -832,7 +805,7 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: var(--spacing-sm);
+    margin-bottom: var(--space-2);
   }
   
   .api-key-info {
@@ -841,8 +814,8 @@
   
   .api-key-name {
     font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: var(--spacing-xs);
+    color: rgba(var(--text-primary-rgb), 1);
+    margin-bottom: var(--space-1);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -891,7 +864,7 @@
   
   .confirm-button, .cancel-button {
     padding: 4px 8px;
-    border-radius: var(--border-radius-sm);
+    border-radius: var(--radius-sm);
     border: none;
     font-size: 0.8rem;
     cursor: pointer;
@@ -903,51 +876,51 @@
   }
   
   .cancel-button {
-    background: var(--border-color);
-    color: var(--text-secondary);
+    background: rgba(var(--border-rgb), 1);
+    color: rgba(var(--text-secondary-rgb), 1);
   }
   
   .api-key-value {
     display: flex;
     align-items: center;
-    gap: var(--spacing-sm);
+    gap: var(--space-2);
     font-family: monospace;
     font-size: 0.9rem;
-    color: var(--text-secondary);
-    margin-bottom: var(--spacing-sm);
-    background: var(--surface);
-    padding: var(--spacing-sm);
-    border-radius: var(--border-radius-sm);
-    border: 1px solid var(--border-color);
+    color: rgba(var(--text-secondary-rgb), 1);
+    margin-bottom: var(--space-2);
+    background: rgba(var(--surface-rgb), 1);
+    padding: var(--space-2);
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(var(--border-rgb), 1);
   }
   
   .key-prefix {
-    color: var(--text-primary);
+    color: rgba(var(--text-primary-rgb), 1);
     font-weight: 500;
   }
   
   .copy-mini {
     background: none;
     border: none;
-    color: var(--text-secondary);
+    color: rgba(var(--text-secondary-rgb), 1);
     cursor: pointer;
     padding: 4px;
-    border-radius: var(--border-radius-sm);
+    border-radius: var(--radius-sm);
     transition: all 0.2s;
   }
   
   .copy-mini:hover {
-    background: var(--surface-hover);
-    color: var(--primary-color);
+    background: rgba(var(--surface-alt-rgb), 1);
+    color: var(--primary);
   }
   
   .api-key-dates {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--spacing-sm);
+    gap: var(--space-2);
     font-size: 0.8rem;
-    color: var(--text-secondary);
-    margin-bottom: var(--spacing-sm);
+    color: rgba(var(--text-secondary-rgb), 1);
+    margin-bottom: var(--space-2);
   }
   
   .date-item {
@@ -963,30 +936,30 @@
   .api-key-permissions {
     display: flex;
     align-items: center;
-    gap: var(--spacing-sm);
+    gap: var(--space-2);
   }
   
   .permissions-label {
     font-size: 0.8rem;
-    color: var(--text-secondary);
+    color: rgba(var(--text-secondary-rgb), 1);
     font-weight: 500;
   }
   
   .permission-tags {
     display: flex;
-    gap: var(--spacing-xs);
+    gap: var(--space-1);
   }
   
   .permission-tag {
     padding: 2px 8px;
-    border-radius: var(--border-radius-sm);
+    border-radius: var(--radius-sm);
     font-size: 0.75rem;
     font-weight: 500;
     color: white;
   }
   
   .permission-tag.qr-generate {
-    background: var(--primary-color);
+    background: var(--primary);
   }
   
   .permission-tag.qr-status {
@@ -997,21 +970,6 @@
     background: var(--success-color, #10b981);
   }
   
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: var(--spacing-md);
-    padding: var(--spacing-xl) 0;
-    color: var(--text-secondary);
-    text-align: center;
-  }
-  
-  .empty-subtitle {
-    font-size: 0.9rem;
-    opacity: 0.7;
-  }
   
   @keyframes pulse {
     0% {
@@ -1033,7 +991,7 @@
     
     .list-header {
       flex-direction: column;
-      gap: var(--spacing-sm);
+      gap: var(--space-2);
       align-items: flex-start;
     }
     

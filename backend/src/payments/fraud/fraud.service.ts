@@ -42,7 +42,7 @@ export async function evaluateFraud(params: {
 
   const recent = await query(
     `SELECT COUNT(*) as cnt FROM transfers
-     WHERE source_wallet_id = $1
+     WHERE sender_wallet_id = $1
        AND created_at > CURRENT_TIMESTAMP - INTERVAL '1 minute'`,
     [params.walletId]
   )
@@ -54,7 +54,7 @@ export async function evaluateFraud(params: {
 
   const dailySum = await query(
     `SELECT COALESCE(SUM(amount), 0) as total FROM transfers
-     WHERE source_wallet_id = $1
+     WHERE sender_wallet_id = $1
        AND created_at > CURRENT_TIMESTAMP - INTERVAL '24 hours'`,
     [params.walletId]
   )
@@ -78,7 +78,10 @@ export async function evaluateFraud(params: {
       description: `Fraud score ${score}: ${reasons.join(', ')}`,
       metadata: params as any,
     })
-    logger.warn('Fraud detected', { score, reasons, ...params })
+    const safeParams = Object.fromEntries(
+      Object.entries(params as Record<string, unknown>).map(([k, v]) => [k, typeof v === 'bigint' ? Number(v) : v])
+    )
+    logger.warn('Fraud detected', { score, reasons, ...safeParams })
   }
 
   return { allowed, score, reasons }
@@ -102,7 +105,7 @@ export async function createAlert(params: {
       params.alertType,
       params.severity || 'medium',
       params.description || null,
-      params.metadata ? JSON.stringify(params.metadata) : '{}',
+      params.metadata ? JSON.stringify(params.metadata, (_k, v) => typeof v === 'bigint' ? Number(v) : v) : '{}',
     ]
   )
 }

@@ -47,7 +47,7 @@
                       src="/{empresa.logo}" 
                       alt="Logo {empresa.nombre}" 
                       class="logo-image"
-                      on:error={handleImageError}
+                      onerror={handleImageError}
                     />
                   {:else}
                     <span class="logo-icon">{empresa.logo || '🏢'}</span>

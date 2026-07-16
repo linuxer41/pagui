@@ -21,10 +21,10 @@
   bind:this={cardElement}
   class="feature-card fade-in"
   style="animation-delay: {delay}ms;"
-  on:click={handleClick}
+  onclick={handleClick}
   role="button"
   tabindex="0"
-  on:keydown={(e) => e.key === 'Enter' && handleClick()}
+  onkeydown={(e) => e.key === 'Enter' && handleClick()}
 >
   <div class="feature-icon">
     <svelte:component this={icon} size="28" />

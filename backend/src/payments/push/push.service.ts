@@ -1,5 +1,6 @@
 import { query } from '../../shared/database/pool'
 import { logger } from '../../shared/logger'
+import { AppError } from '../../shared/errors/app-error'
 
 interface PushPayload {
   title: string
@@ -72,7 +73,7 @@ async function sendFCM(token: string, payload: PushPayload) {
 
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`FCM error ${res.status}: ${text}`)
+    throw new AppError(502, `FCM error ${res.status}: ${text}`)
   }
 }
 
@@ -105,7 +106,7 @@ async function sendAPNS(token: string, payload: PushPayload) {
 
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`APNS error ${res.status}: ${text}`)
+    throw new AppError(502, `APNS error ${res.status}: ${text}`)
   }
 }
 
@@ -113,7 +114,9 @@ async function generateAPNSToken(keyId: string, teamId: string, keyFile: string)
   const { readFileSync } = await import('node:fs')
   const { createSign } = await import('node:crypto')
   const key = readFileSync(keyFile)
-  const token = createSign('ES256').update('').end().sign({
+  const now = Math.floor(Date.now() / 1000)
+  const payload = `{ "iss": "${teamId}", "iat": ${now} }`
+  const token = createSign('ES256').update(payload).end().sign({
     key,
     format: 'pem',
   } as any, 'base64')

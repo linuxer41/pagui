@@ -6,11 +6,11 @@ import { nextSnowflake } from '../../shared/snowflake'
 let _accountSeq = 1
 
 export const accountService = {
-  async create(data: { accountType: string; currency?: string; bankCredentialId: bigint; userId: bigint }): Promise<AccountRow> {
+  async create(data: { accountType: string; accountLevel?: string; accountSubtype?: string; currency?: string; bankCredentialId?: bigint; userId: bigint }): Promise<AccountRow> {
     const num = generateAccountNumber(data.accountType, _accountSeq++)
     const account = await accountRepository.create({
-      accountNumber: num, accountType: data.accountType,
-      currency: data.currency || 'BOB', bankCredentialId: data.bankCredentialId,
+      accountNumber: num, accountType: data.accountType, accountLevel: data.accountLevel, accountSubtype: data.accountSubtype,
+      currency: data.currency || 'BOB', bankCredentialId: data.bankCredentialId, userId: data.userId,
     })
     await accountRepository.linkUser(data.userId, account.id)
     return account

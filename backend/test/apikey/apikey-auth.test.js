@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'bun:test';
-import { TestUtils, BASE_URL, TIMEOUT } from '../setup.js';
+import { TestUtils, PUBLIC_API_URL, BASE_URL, TIMEOUT } from '../setup.js';
 
 describe('API Key Authentication Tests', () => {
   let authToken;
@@ -36,6 +36,11 @@ describe('API Key Authentication Tests', () => {
       body: JSON.stringify(apiKeyData)
     });
 
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Error creating API key (${response.status}): ${text}`);
+    }
+
     const result = await response.json();
     testApiKey = result.data.apiKey;
     testAccountId = result.data.accountId;
@@ -43,7 +48,7 @@ describe('API Key Authentication Tests', () => {
 
   describe('Autenticación con API Key en Headers', () => {
     it('debería autenticar correctamente con API key válida', async () => {
-      const response = await fetch(`${BASE_URL}/health`, {
+      const response = await fetch(`${PUBLIC_API_URL}/qr/list`, {
         method: 'GET',
         headers: {
           'X-API-Key': testApiKey
@@ -54,7 +59,7 @@ describe('API Key Authentication Tests', () => {
     }, TIMEOUT);
 
     it('debería rechazar API key inválida', async () => {
-      const response = await fetch(`${BASE_URL}/health`, {
+      const response = await fetch(`${PUBLIC_API_URL}/qr/list`, {
         method: 'GET',
         headers: {
           'X-API-Key': 'pg_invalid_key_123'
@@ -65,7 +70,7 @@ describe('API Key Authentication Tests', () => {
     }, TIMEOUT);
 
     it('debería rechazar API key sin prefijo pg_', async () => {
-      const response = await fetch(`${BASE_URL}/health`, {
+      const response = await fetch(`${PUBLIC_API_URL}/qr/list`, {
         method: 'GET',
         headers: {
           'X-API-Key': 'invalid_key_without_prefix'
@@ -76,7 +81,7 @@ describe('API Key Authentication Tests', () => {
     }, TIMEOUT);
 
     it('debería rechazar solicitud sin API key', async () => {
-      const response = await fetch(`${BASE_URL}/health`, {
+      const response = await fetch(`${PUBLIC_API_URL}/qr/list`, {
         method: 'GET'
       });
 
@@ -90,8 +95,8 @@ describe('API Key Authentication Tests', () => {
       const apiKeyData = {
         description: 'API Key con permisos específicos',
         permissions: {
-          qr_generate: true,
-          qr_status: false,
+          qr_generate: false,
+          qr_status: true,
           qr_cancel: false
         }
       };
@@ -108,8 +113,8 @@ describe('API Key Authentication Tests', () => {
       const createResult = await createResponse.json();
       const specificApiKey = createResult.data.apiKey;
 
-      // Probar acceso a endpoint que requiere qr_generate
-      const response = await fetch(`${BASE_URL}/health`, {
+      // Probar acceso a endpoint con API key que tiene permisos correctos
+      const response = await fetch(`${PUBLIC_API_URL}/qr/list`, {
         method: 'GET',
         headers: {
           'X-API-Key': specificApiKey
@@ -142,16 +147,16 @@ describe('API Key Authentication Tests', () => {
       const createResult = await createResponse.json();
       const noPermissionsApiKey = createResult.data.apiKey;
 
-      // Probar acceso a endpoint que requiere permisos
-      const response = await fetch(`${BASE_URL}/health`, {
+      // Probar acceso a endpoint protegido con API key sin permisos
+      const response = await fetch(`${PUBLIC_API_URL}/qr/list`, {
         method: 'GET',
         headers: {
           'X-API-Key': noPermissionsApiKey
         }
       });
 
-      // Dependiendo de la implementación, podría ser 200 (health no requiere permisos) o 403
-      expect([200, 403]).toContain(response.status);
+      // Ahora en la API pública se verifica que la API key tenga permisos específicos
+      expect(response.status).toBe(403);
     }, TIMEOUT);
   });
 
@@ -181,8 +186,8 @@ describe('API Key Authentication Tests', () => {
       const createResult = await createResponse.json();
       const expiredApiKey = createResult.data.apiKey;
 
-      // Probar acceso con API key expirada
-      const response = await fetch(`${BASE_URL}/health`, {
+      // Probar acceso con API key expirada en endpoint protegido
+      const response = await fetch(`${PUBLIC_API_URL}/qr/list`, {
         method: 'GET',
         headers: {
           'X-API-Key': expiredApiKey
@@ -226,8 +231,8 @@ describe('API Key Authentication Tests', () => {
         }
       });
 
-      // Probar acceso con API key revocada
-      const response = await fetch(`${BASE_URL}/health`, {
+      // Probar acceso con API key revocada en endpoint protegido
+      const response = await fetch(`${PUBLIC_API_URL}/qr/list`, {
         method: 'GET',
         headers: {
           'X-API-Key': apiKeyToRevokeValue
@@ -258,7 +263,7 @@ describe('API Key Authentication Tests', () => {
       ];
 
       for (const invalidKey of invalidFormats) {
-        const response = await fetch(`${BASE_URL}/health`, {
+        const response = await fetch(`${PUBLIC_API_URL}/qr/list`, {
           method: 'GET',
           headers: {
             'X-API-Key': invalidKey
@@ -280,7 +285,7 @@ describe('API Key Authentication Tests', () => {
       ];
 
       for (const header of headerVariations) {
-        const response = await fetch(`${BASE_URL}/health`, {
+        const response = await fetch(`${PUBLIC_API_URL}/qr/list`, {
           method: 'GET',
           headers: {
             [header]: testApiKey
@@ -317,15 +322,15 @@ describe('API Key Authentication Tests', () => {
       const createResult = await createResponse.json();
       const secondApiKey = createResult.data.apiKey;
 
-      // Ambas API keys deberían funcionar
-      const response1 = await fetch(`${BASE_URL}/health`, {
+      // Ambas API keys deberían funcionar en endpoint protegido
+      const response1 = await fetch(`${PUBLIC_API_URL}/qr/list`, {
         method: 'GET',
         headers: {
           'X-API-Key': testApiKey
         }
       });
 
-      const response2 = await fetch(`${BASE_URL}/health`, {
+      const response2 = await fetch(`${PUBLIC_API_URL}/qr/list`, {
         method: 'GET',
         headers: {
           'X-API-Key': secondApiKey

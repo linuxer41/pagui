@@ -1,4 +1,5 @@
 import { Pool, QueryResult, QueryResultRow } from 'pg'
+import { logger } from '../logger'
 
 const databaseUrl = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/payments'
 
@@ -18,11 +19,11 @@ export async function query<T extends QueryResultRow>(
     const res = await pool.query<T>(text, params)
     const duration = Date.now() - start
     if (duration > 100) {
-      console.log('Slow query:', { text: text.substring(0, 100), duration, rows: res.rowCount })
+      logger.warn('Slow query', { text: text.substring(0, 100), duration, rows: res.rowCount })
     }
     return res
   } catch (err) {
-    console.error('Query error:', err)
+    logger.error('Query error', { error: String(err) })
     throw err
   }
 }
@@ -30,9 +31,9 @@ export async function query<T extends QueryResultRow>(
 export async function testConnection() {
   try {
     const client = await pool.connect()
-    console.log('PostgreSQL connected')
+    logger.info('PostgreSQL connected')
     client.release()
   } catch (err) {
-    console.error('PostgreSQL connection error:', err)
+    logger.error('PostgreSQL connection error', { error: String(err) })
   }
 }

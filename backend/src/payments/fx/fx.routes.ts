@@ -1,20 +1,20 @@
 import { Elysia, t } from 'elysia'
-import { authMiddleware } from '../../shared/middleware/auth.middleware'
-import { requireRole } from '../../shared/middleware/auth.middleware'
+import { authMiddleware, requireRole } from '../../shared/middleware/auth.middleware'
 import { getRate, convert, setRate, getAllRates, getSupportedCurrencies } from './fx.service'
+import { ok } from '../../shared/response'
 import { AppError } from '../../shared/errors/app-error'
 
 export const fxRoutes = new Elysia({ prefix: '/fx' })
   .derive(authMiddleware)
   .get('/rates', async () => {
-    return { currencies: await getSupportedCurrencies(), rates: await getAllRates() }
+    return ok({ currencies: await getSupportedCurrencies(), rates: await getAllRates() })
   }, {
     detail: { tags: ['FX'], summary: 'Obtener todas las tasas de cambio' },
   })
   .get('/rate/:base/:target', async ({ params }) => {
     const rate = await getRate(params.base, params.target)
     if (!rate) throw new AppError(404, 'Tasa de cambio no encontrada')
-    return { base: params.base, target: params.target, rate }
+    return ok({ base: params.base, target: params.target, rate })
   }, {
     params: t.Object({ base: t.String(), target: t.String() }),
     detail: { tags: ['FX'], summary: 'Obtener tasa de cambio específica' },
@@ -22,7 +22,7 @@ export const fxRoutes = new Elysia({ prefix: '/fx' })
   .post('/convert', async ({ body }) => {
     const result = await convert(body.amount, body.from, body.to)
     if (!result) throw new AppError(404, 'Tasa de cambio no disponible')
-    return result
+    return ok(result)
   }, {
     body: t.Object({
       amount: t.Number({ minimum: 0.01 }),
@@ -33,7 +33,7 @@ export const fxRoutes = new Elysia({ prefix: '/fx' })
   })
   .post('/rates', async ({ body }) => {
     await setRate(body.base, body.target, body.rate, body.source)
-    return { success: true }
+    return ok(null)
   }, {
     body: t.Object({
       base: t.String({ minLength: 3, maxLength: 3 }),
@@ -41,4 +41,5 @@ export const fxRoutes = new Elysia({ prefix: '/fx' })
       rate: t.Number({ minimum: 0.0001 }),
       source: t.Optional(t.String()),
     }),
+    detail: { tags: ['FX'], summary: 'Actualizar tasa de cambio' },
   })

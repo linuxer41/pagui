@@ -4,7 +4,7 @@ import { AppError } from '../shared/errors/app-error'
 import { userRepository, type UserRow, type CreateUserData, type UpdateUserData } from './user.repository'
 
 export const userService = {
-  async create(data: { email: string; password: string; fullName: string; phone?: string; address?: string; roleId: bigint }): Promise<UserRow> {
+  async create(data: { email: string; password: string; fullName: string; phone?: string; address?: string; role: number }): Promise<UserRow> {
     if (await userRepository.existsByEmail(data.email)) {
       throw new AppError(400, 'El email ya está registrado')
     }

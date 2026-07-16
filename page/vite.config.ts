@@ -3,6 +3,8 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
 	plugins: [sveltekit()],
+	server: { host: '127.0.0.1' },
+	preview: { host: '127.0.0.1' },
 	test: {
 		expect: { requireAssertions: true },
 		projects: [
@@ -14,6 +16,7 @@ export default defineConfig({
 					browser: {
 						enabled: true,
 						provider: 'playwright',
+						headless: true,
 						instances: [{ browser: 'chromium' }]
 					},
 					include: ['src/**/*.svelte.{test,spec}.{js,ts}'],

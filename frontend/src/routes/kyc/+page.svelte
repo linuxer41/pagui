@@ -1,10 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import Button from '$lib/components/Button.svelte';
-  import Input from '$lib/components/Input.svelte';
-  import Select from '$lib/components/Select.svelte';
   import api from '$lib/api';
-  import { ArrowLeft, ShieldCheck, Shield, ShieldX } from '@lucide/svelte';
+  import PageLayout from '$lib/components/layouts/PageLayout.svelte';
+  import Section from '$lib/components/Section.svelte';
+  import { ShieldCheck, Shield, ShieldX } from '@lucide/svelte';
+  import PillButton from '$lib/components/ui/PillButton.svelte';
+  import Skeleton from '$lib/components/Skeleton.svelte';
+  import TextField from '$lib/components/ui/TextField.svelte';
 
   let kycLevel = 'none';
   let loading = true;
@@ -19,17 +21,17 @@
     { value: 'nit', label: 'NIT' },
   ];
 
-  const levelInfo: Record<string, { icon: any; color: string; label: string; limit: string }> = {
-    none: { icon: ShieldX, color: 'var(--error-color)', label: 'Sin verificar', limit: 'Sin operaciones' },
-    basic: { icon: Shield, color: 'var(--warning-color)', label: 'Datos básicos', limit: 'Límites restringidos' },
-    verified: { icon: ShieldCheck, color: 'var(--success-color)', label: 'Verificado', limit: 'Hasta Bs. 10,000/día' },
-    premium: { icon: ShieldCheck, color: 'var(--primary-color)', label: 'Premium', limit: 'Hasta Bs. 50,000/día' },
+  const levelInfo: Record<string, { icon: any; label: string; limit: string }> = {
+    none: { icon: ShieldX, label: 'Sin verificar', limit: 'Sin operaciones' },
+    basic: { icon: Shield, label: 'Datos básicos', limit: 'Límites restringidos' },
+    verified: { icon: ShieldCheck, label: 'Verificado', limit: 'Hasta Bs. 10,000/día' },
+    premium: { icon: ShieldCheck, label: 'Premium', limit: 'Hasta Bs. 50,000/día' },
   };
 
   onMount(async () => {
     try {
       const res = await api.getKYCStatus();
-      if (res.success) kycLevel = res.data.level || 'none';
+      if (res && res.success !== false) kycLevel = res.data?.level || 'none';
     } catch {}
     finally { loading = false; }
   });
@@ -48,51 +50,72 @@
   }
 </script>
 
-<div class="page-header">
-  <button class="page-header-back" onclick={() => history.back()}>
-    <ArrowLeft size={20} />
-  </button>
-  <h1 class="page-header-title">Verificación KYC</h1>
-</div>
+<PageLayout title="KYC / Verificación">
 
-<div class="page-content">
   {#if loading}
-    <p style="text-align:center;padding:var(--space-8);color:var(--text-secondary);font-size:var(--text-sm)">Cargando...</p>
+    <Skeleton width="100%" height="120px" radius="lg" count={2} gap="space-3" />
   {:else}
-    <div class="section-card" style="margin-bottom:var(--space-4)">
+    <div class="levels-section">
       {#each Object.entries(levelInfo) as [level, info]}
-        <div style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) 0;border-bottom:{kycLevel === level ? 'none' : '1px solid var(--border)'};opacity:{kycLevel === level ? 1 : 0.5}">
-          <svelte:component this={info.icon} size={20} color={kycLevel === level ? info.color : 'var(--text-secondary)'} />
-          <div style="flex:1">
-            <strong style="display:block;font-size:var(--text-sm)">{info.label}</strong>
-            <p style="margin:0;font-size:var(--text-xs);color:var(--text-secondary)">{info.limit}</p>
+        <div class="kyc-level" class:active={kycLevel === level}>
+          <div class="kyc-level-icon" class:active={kycLevel === level}>
+            <svelte:component this={info.icon} size={20} />
+          </div>
+          <div class="kyc-level-info">
+            <strong>{info.label}</strong>
+            <p>{info.limit}</p>
           </div>
           {#if kycLevel === level}
-            <span style="width:24px;height:24px;background:var(--success-color);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:var(--text-xs);font-weight:700">&#10003;</span>
+            <div class="check-badge">✓</div>
           {/if}
         </div>
       {/each}
     </div>
 
     {#if kycLevel === 'none' && !showingForm}
-      <Button onclick={() => showingForm = true} fullWidth>Iniciar verificación</Button>
+      <PillButton label="Iniciar verificación" onClick={() => showingForm = true} fullWidth />
     {/if}
 
     {#if showingForm}
-      <div class="section-card">
-        <h4 style="margin:0 0 var(--space-3);font-size:var(--text-sm);color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px">Datos personales</h4>
-        <div class="form-group">
-          <Input id="fn" label="Nombre completo" bind:value={fullName} placeholder="Tu nombre" />
-          <Select id="dt" label="Tipo de documento" options={docTypes} bind:value={documentType} />
-          <Input id="dn" label="Número de documento" bind:value={documentNumber} placeholder="1234567" />
-          <Input id="bd" label="Fecha de nacimiento" type="date" bind:value={birthDate} />
-          <Input id="nat" label="Nacionalidad" bind:value={nationality} placeholder="Boliviana" />
-          <Input id="addr" label="Dirección" bind:value={address} placeholder="Tu dirección" />
-          {#if error}<div style="padding:var(--space-3);border-radius:var(--radius-lg);font-size:var(--text-sm);background:var(--error-bg);color:var(--error-color)">{error}</div>{/if}
-          {#if success}<div style="padding:var(--space-3);border-radius:var(--radius-lg);font-size:var(--text-sm);background:var(--success-bg);color:var(--success-color)">{success}</div>{/if}
-          <Button onclick={handleSubmit} loading={submitting} fullWidth>Enviar KYC</Button>
+      <Section label="Datos personales">
+        <div class="form">
+          <TextField label="Nombre completo" bind:value={fullName} placeholder="Tu nombre" />
+          <div class="select-group">
+            <span class="field-label">Tipo de documento</span>
+            <select class="native-select" bind:value={documentType}>
+              {#each docTypes as dt}<option value={dt.value}>{dt.label}</option>{/each}
+            </select>
+          </div>
+          <TextField label="Número de documento" bind:value={documentNumber} placeholder="1234567" />
+          <TextField label="Fecha de nacimiento" type="date" bind:value={birthDate} />
+          <TextField label="Nacionalidad" bind:value={nationality} placeholder="Boliviana" />
+          <TextField label="Dirección" bind:value={address} placeholder="Tu dirección" />
+          {#if error}<div class="msg error">{error}</div>{/if}
+          {#if success}<div class="msg success">{success}</div>{/if}
+          <PillButton label="Enviar KYC" onClick={handleSubmit} loading={submitting} fullWidth />
         </div>
-      </div>
+      </Section>
     {/if}
   {/if}
-</div>
+</PageLayout>
+
+<style>
+
+  .levels-section { display: flex; flex-direction: column; gap: var(--space-2); }
+  .kyc-level { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3); border-radius: var(--radius-lg); opacity: 0.4; transition: opacity var(--duration-fast); }
+  .kyc-level.active { opacity: 1; background: rgba(var(--surface-rgb), 1); }
+  .kyc-level-icon { flex-shrink: 0; color: rgba(var(--text-tertiary-rgb), 0.5); }
+  .kyc-level-icon.active { color: var(--primary); }
+  .kyc-level-info { flex: 1; }
+  .kyc-level-info strong { display: block; font-size: var(--text-sm); color: rgba(var(--text-primary-rgb), 1); }
+  .kyc-level-info p { margin: 0; font-size: var(--text-xs); color: rgba(var(--text-secondary-rgb), 1); }
+  .check-badge { width: 24px; height: 24px; background: var(--primary); color: rgba(var(--bg-rgb), 1); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: var(--text-xs); font-weight: 700; flex-shrink: 0; }
+  .form { display: flex; flex-direction: column; gap: var(--space-4); }
+  .select-group { display: flex; flex-direction: column; gap: var(--space-2); }
+  .field-label { font-size: var(--text-sm); font-weight: 500; color: rgba(var(--text-secondary-rgb), 1); }
+  .native-select { width: 100%; padding: var(--space-3); border-radius: var(--radius-lg); border: 1px solid rgba(var(--border-rgb), 0.5); background: rgba(var(--surface-rgb), 1); color: rgba(var(--text-primary-rgb), 1); font-size: var(--text-sm); height: 44px; outline: none; }
+  .native-select:focus { border-color: rgba(var(--primary-rgb), 0.6); }
+  .msg { padding: var(--space-3); border-radius: var(--radius-lg); font-size: var(--text-sm); font-weight: 500; }
+  .msg.error { background: rgba(var(--error-rgb), 0.1); color: rgba(var(--error-rgb), 1); }
+  .msg.success { background: rgba(var(--success-rgb), 0.1); color: rgba(var(--success-rgb), 1); }
+</style>

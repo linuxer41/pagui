@@ -8,22 +8,28 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'list',
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: 'http://localhost:1420',
     trace: 'on-first-retry',
   },
   projects: [
     {
+      name: 'setup',
+      testMatch: 'auth.setup.ts',
+    },
+    {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
     },
     {
       name: 'Mobile Chrome',
       use: { ...devices['Pixel 5'] },
+      dependencies: ['setup'],
     },
   ],
   webServer: {
-    command: 'npx vite dev --port 5173',
-    url: 'http://localhost:5173',
+    command: 'npx vite dev --port 1420',
+    url: 'http://localhost:1420',
     reuseExistingServer: !process.env.CI,
     timeout: 30000,
   },

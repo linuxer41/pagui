@@ -370,7 +370,7 @@
         <button 
           class="btn-refresh-icon" 
           class:refreshing={isRefreshing}
-          on:click={handleRefresh}
+          onclick={handleRefresh}
           title="Actualizar deudas"
           disabled={isLoading || isRefreshing}
         >
@@ -378,7 +378,7 @@
         </button>
         <button 
           class="btn-close-icon" 
-          on:click={goToPreviousStep}
+          onclick={goToPreviousStep}
           title="Cerrar lista y volver"
         >
           <XIcon size="16" />
@@ -394,7 +394,7 @@
             <button 
               class="tab-button" 
               class:active={index === abonadoActivo}
-              on:click={() => cambiarAbonado(index)}
+              onclick={() => cambiarAbonado(index)}
             >
               <div class="tab-content">
                 <div class="tab-title">Abonado {abonado.abonado.abonado}</div>
@@ -438,7 +438,7 @@
         <div class="no-results-icon">🔍</div>
         <h3>Sin resultados para esta búsqueda</h3>
         <p>No se encontraron deudas pendientes con los criterios de búsqueda utilizados.</p>
-        <button class="btn-retry-search" on:click={goToPreviousStep}>
+        <button class="btn-retry-search" onclick={goToPreviousStep}>
           Intentar otra búsqueda
         </button>
       </div>
@@ -451,7 +451,7 @@
       <div class="error-content">
         <h3>Error al procesar la solicitud</h3>
         <p>{error}</p>
-        <button class="retry-button" on:click={() => { error = null; generarQR(deudasSeleccionadas, totalSeleccionado, abonadoActual); }}>
+        <button class="retry-button" onclick={() => { error = null; generarQR(deudasSeleccionadas, totalSeleccionado, abonadoActual); }}>
           Intentar nuevamente
         </button>
       </div>
@@ -473,8 +473,8 @@
         class="debt-item" 
         class:selected={isDeudaSeleccionada(deuda)} 
         class:disabled={!isDebtEnabled(deuda)} 
-        on:click={() => toggleDeuda(deuda)}
-        on:keydown={(e) => e.key === 'Enter' && toggleDeuda(deuda)}
+        onclick={() => toggleDeuda(deuda)}
+        onkeydown={(e) => e.key === 'Enter' && toggleDeuda(deuda)}
         role="button"
         tabindex="0"
         aria-label="Seleccionar deuda: {deuda.titulo} - Bs. {deuda.monto.toFixed(2)}"
@@ -529,7 +529,7 @@
       </div>
       <button 
         class="btn-pay-total" 
-        on:click={pagarDeudasSeleccionadas} 
+        onclick={pagarDeudasSeleccionadas} 
         disabled={isGeneratingQR || deudasSeleccionadas.length === 0 || totalSeleccionado <= 0}
       >
         {#if isGeneratingQR}

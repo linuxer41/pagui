@@ -1,4 +1,5 @@
 import { apikeyRepository } from './apikey.repository'
+import { AppError } from '../shared/errors/app-error'
 import { query } from '../shared/database/pool'
 
 function generateApiKeyString(): string {
@@ -34,6 +35,8 @@ export const apiKeyService = {
   },
 
   async revoke(id: bigint) {
+    const key = await apikeyRepository.getById(id)
+    if (!key) throw new AppError(404, 'API key no encontrada')
     await apikeyRepository.revoke(id)
   },
 }

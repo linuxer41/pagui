@@ -13,7 +13,7 @@ export interface UserAuth {
   id: bigint
   email: string
   fullName: string
-  roleName: string
+  role: number
   status: string
   accounts: Array<{
     id: bigint
@@ -37,7 +37,7 @@ export const authService = {
     const valid = await bcrypt.compare(password, user.password)
     if (!valid) throw new AppError(401, 'Credenciales inválidas')
 
-    const accessPayload = { userId: Number(user.id), email: user.email, roleName: user.roleName }
+    const accessPayload = { userId: Number(user.id), email: user.email, role: user.role }
     const accessToken = jwt.sign(accessPayload, JWT_SECRET(), { expiresIn: JWT_EXPIRES_IN() as any })
     const refreshPayload = { userId: Number(user.id), type: 'refresh' }
     const refreshToken = jwt.sign(refreshPayload, JWT_REFRESH_SECRET(), { expiresIn: '30d' as any })
@@ -52,7 +52,7 @@ export const authService = {
     return {
       user: {
         id: user.id, email: user.email, fullName: user.fullName,
-        roleName: user.roleName, status: user.status, accounts: [],
+        role: user.role, status: user.status, accounts: [],
       },
       accessToken, refreshToken, expiresIn: JWT_EXPIRES_IN(),
     }
@@ -73,10 +73,10 @@ export const authService = {
     return decoded
   },
 
-  async getUserInfo(email: string): Promise<{ id: bigint; email: string; role: string } | null> {
+  async getUserInfo(email: string): Promise<{ id: bigint; email: string; role: number } | null> {
     const user = await userRepository.getByEmail(email)
     if (!user) return null
-    return { id: user.id, email: user.email, role: user.roleName }
+    return { id: user.id, email: user.email, role: user.role }
   },
 
   async refreshAccessToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
@@ -90,7 +90,7 @@ export const authService = {
     const user = await userRepository.getById(userId)
     if (!user || user.status !== 'active') throw new AppError(401, 'Usuario no encontrado')
 
-    const accessPayload = { userId: Number(user.id), email: user.email, roleName: user.roleName }
+    const accessPayload = { userId: Number(user.id), email: user.email, role: user.role }
     const newAccessToken = jwt.sign(accessPayload, JWT_SECRET(), { expiresIn: JWT_EXPIRES_IN() as any })
     const newRefreshPayload = { userId: Number(user.id), type: 'refresh' }
     const newRefreshToken = jwt.sign(newRefreshPayload, JWT_REFRESH_SECRET(), { expiresIn: '30d' as any })

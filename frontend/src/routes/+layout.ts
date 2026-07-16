@@ -14,9 +14,9 @@ export const load = async ({ url }) => {
         
      // Permitir acceso a /auth/* y /init sin autenticación
      // Las demás rutas requieren autenticación
-     if (!path.startsWith('/auth') && path !== '/init' && path !== '/support' && !get(auth).isAuthenticated) {
-         goto('/init');
-     }
+      if (!path.startsWith('/auth') && path !== '/init' && path !== '/support' && !get(auth).isAuthenticated) {
+          goto('/auth/login');
+      }
         
      return {
          path

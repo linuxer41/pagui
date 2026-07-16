@@ -1,40 +1,62 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
-  import Button from '$lib/components/Button.svelte';
-  import Input from '$lib/components/Input.svelte';
-  import { ArrowRightLeft, History, Send, Split, Users } from '@lucide/svelte';
+  import { goto } from '$app/navigation'
+  import { Send, Split, History, ChevronRight } from '@lucide/svelte'
+  import PageLayout from '$lib/components/layouts/PageLayout.svelte'
 </script>
 
-<div class="page-header">
-  <span class="page-header-title">Transferencias</span>
-</div>
-<div class="page-content" style="display:flex;flex-direction:column;gap:var(--space-4);padding-top:var(--space-4)">
-  <button style="display:flex;flex-direction:column;gap:var(--space-4);padding:1.25rem;border-radius:var(--radius-xl);background:var(--surface);border:1px solid var(--border);cursor:pointer;transition:all var(--duration-fast) var(--ease-out);text-align:left;width:100%" onclick={() => goto('/transfers/p2p')}>
-    <div style="width:44px;height:44px;border-radius:var(--radius-lg);display:flex;align-items:center;justify-content:center;background:var(--primary-subtle);color:var(--primary-color)"><Send size={24} /></div>
-    <div>
-      <div style="font-weight:600;font-size:0.95rem;color:var(--text-primary)">Transferir ahora</div>
-      <div style="font-size:var(--text-sm);color:var(--text-secondary);margin-top:2px">Envía dinero a otra billetera al instante</div>
-    </div>
-  </button>
-  <button style="display:flex;flex-direction:column;gap:var(--space-4);padding:1.25rem;border-radius:var(--radius-xl);background:var(--surface);border:1px solid var(--border);cursor:pointer;transition:all var(--duration-fast) var(--ease-out);text-align:left;width:100%" onclick={() => goto('/split')}>
-    <div style="width:44px;height:44px;border-radius:var(--radius-lg);display:flex;align-items:center;justify-content:center;background:var(--warning-bg);color:var(--warning-color)"><Split size={24} /></div>
-    <div>
-      <div style="font-weight:600;font-size:0.95rem;color:var(--text-primary)">Pago compartido</div>
-      <div style="font-size:var(--text-sm);color:var(--text-secondary);margin-top:2px">Divide el pago entre varias personas</div>
-    </div>
-  </button>
-  <button style="display:flex;flex-direction:column;gap:var(--space-4);padding:1.25rem;border-radius:var(--radius-xl);background:var(--surface);border:1px solid var(--border);cursor:pointer;transition:all var(--duration-fast) var(--ease-out);text-align:left;width:100%" onclick={() => goto('/subscriptions')}>
-    <div style="width:44px;height:44px;border-radius:var(--radius-lg);display:flex;align-items:center;justify-content:center;background:var(--success-bg);color:var(--success-color)"><ArrowRightLeft size={24} /></div>
-    <div>
-      <div style="font-weight:600;font-size:0.95rem;color:var(--text-primary)">Suscripciones</div>
-      <div style="font-size:var(--text-sm);color:var(--text-secondary);margin-top:2px">Pagos recurrentes automáticos</div>
-    </div>
-  </button>
-  <button style="display:flex;flex-direction:column;gap:var(--space-4);padding:1.25rem;border-radius:var(--radius-xl);background:var(--surface);border:1px solid var(--border);cursor:pointer;transition:all var(--duration-fast) var(--ease-out);text-align:left;width:100%" onclick={() => goto('/transactions')}>
-    <div style="width:44px;height:44px;border-radius:var(--radius-lg);display:flex;align-items:center;justify-content:center;background:var(--primary-subtle);color:var(--primary-color)"><History size={24} /></div>
-    <div>
-      <div style="font-weight:600;font-size:0.95rem;color:var(--text-primary)">Historial</div>
-      <div style="font-size:var(--text-sm);color:var(--text-secondary);margin-top:2px">Movimientos y transacciones</div>
-    </div>
-  </button>
-</div>
+<PageLayout title="Transferencias">
+
+  <div class="page-body">
+    <button class="menu-item" onclick={() => goto('/transfers/p2p')}>
+      <div class="menu-icon" style="background: rgba(var(--primary-rgb), 0.15); color: var(--primary);">
+        <Send size={20} />
+      </div>
+      <div class="menu-text">
+        <strong>Transferir ahora</strong>
+        <span>Envía dinero a otra billetera al instante</span>
+      </div>
+      <ChevronRight size={16} class="menu-chevron" />
+    </button>
+    <button class="menu-item" onclick={() => goto('/split')}>
+      <div class="menu-icon" style="background: rgba(var(--amber-rgb),0.15); color: rgba(var(--amber-rgb),1);">
+        <Split size={20} />
+      </div>
+      <div class="menu-text">
+        <strong>Pago compartido</strong>
+        <span>Divide el pago entre varias personas</span>
+      </div>
+      <ChevronRight size={16} class="menu-chevron" />
+    </button>
+    <button class="menu-item" onclick={() => goto('/transactions')}>
+      <div class="menu-icon" style="background: rgba(var(--text-tertiary-rgb),0.15); color: rgba(var(--text-secondary-rgb),1);">
+        <History size={20} />
+      </div>
+      <div class="menu-text">
+        <strong>Historial</strong>
+        <span>Movimientos y transacciones</span>
+      </div>
+      <ChevronRight size={16} class="menu-chevron" />
+    </button>
+  </div>
+</PageLayout>
+
+<style>
+  .page-body { display: flex; flex-direction: column; gap: var(--space-2); }
+  .menu-item {
+    display: flex; align-items: center; gap: var(--space-3);
+    padding: var(--space-3); border: none; background: none;
+    border-radius: var(--radius-lg); cursor: pointer;
+    text-align: left; width: 100%; color: inherit;
+  }
+  .menu-item:active { background: rgba(var(--surface-rgb), 1); }
+  .menu-icon {
+    width: 44px; height: 44px; border-radius: var(--radius-full);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .menu-text {
+    flex: 1; display: flex; flex-direction: column; gap: 2px;
+  }
+  .menu-text strong { font-size: var(--text-sm); color: rgba(var(--text-primary-rgb), 1); }
+  .menu-text span { font-size: var(--text-xs); color: rgba(var(--text-tertiary-rgb), 1); }
+
+</style>

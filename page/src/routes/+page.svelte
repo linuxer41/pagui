@@ -143,7 +143,7 @@
       <a href="#pricing" class="btn btn-primary">Comenzar</a>
     </div>
     
-    <button class="nav-toggle" on:click={toggleMenu} aria-label="Toggle menu">
+    <button class="nav-toggle" onclick={toggleMenu} aria-label="Toggle menu">
       <span></span>
       <span></span>
       <span></span>
@@ -179,7 +179,7 @@
             size="large" 
             icon={SendIcon}
             iconPosition="right"
-            on:click={() => scrollToSection('app')}
+            onclick={() => scrollToSection('app')}
           >
             Descargar App
           </ModernButton>
@@ -188,7 +188,7 @@
             size="large"
             icon={SmartphoneIcon}
             iconPosition="right"
-            on:click={() => scrollToSection('demo')}
+            onclick={() => scrollToSection('demo')}
           >
             Ver Demo Interactivo
           </ModernButton>
@@ -279,7 +279,7 @@
           description={feature.description}
           highlight={feature.highlight}
           delay={index * 100}
-          on:click={(e) => console.log('Feature clicked:', e.detail)}
+          onclick={(e) => console.log('Feature clicked:', e.detail)}
         />
       {/each}
     </div>

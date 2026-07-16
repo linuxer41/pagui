@@ -344,8 +344,8 @@ async function handleListQRs() {
 
     const result = await response.json();
     
-    if (result.success && result.data.qrList) {
-      const qrs = result.data.qrList;
+    if (result.success && result.data.data) {
+      const qrs = result.data.data;
       print('green', `✅ Se encontraron ${qrs.length} QRs:`);
       console.log();
       

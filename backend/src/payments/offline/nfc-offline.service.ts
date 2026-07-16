@@ -3,6 +3,7 @@ import { nextSnowflake } from '../../shared/snowflake'
 import { walletRepository } from '../wallet/wallet.repository'
 import { transferRepository } from '../transfer/transfer.repository'
 import { logger } from '../../shared/logger'
+import { AppError } from '../../shared/errors/app-error'
 import { hash } from '../../shared/crypto'
 import crypto from 'node:crypto'
 
@@ -54,22 +55,22 @@ export async function processNFCTransaction(tx: NFCTransaction) {
   const expected = `${tx.nfcId}:${tx.senderWalletId}:${tx.receiverWalletId}:${tx.amount}:${tx.timestamp}:${tx.nonce}`
   if (hash(expected) !== tx.signature) {
     logger.warn('NFC invalid signature', { nfcId: tx.nfcId })
-    throw new Error('Firma NFC inválida')
+    throw new AppError(401, 'Firma NFC inválida')
   }
 
   const age = Date.now() - tx.timestamp
   if (age > 300_000) {
-    throw new Error('Transacción NFC expirada (más de 5 min)')
+    throw new AppError(400, 'Transacción NFC expirada (más de 5 min)')
   }
 
   const existing = await query('SELECT id FROM transfers WHERE reference = $1', [`nfc-${tx.nfcId}`])
   if (existing.rows.length > 0) {
-    throw new Error('Transacción NFC ya procesada')
+    throw new AppError(409, 'Transacción NFC ya procesada')
   }
 
   const sender = await walletRepository.getById(tx.senderWalletId)
   if (!sender || sender.availableBalance < tx.amount) {
-    throw new Error('Saldo insuficiente')
+    throw new AppError(400, 'Saldo insuficiente')
   }
 
   const transfer = await transferRepository.create({

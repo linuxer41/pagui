@@ -20,4 +20,5 @@ export const hooksRoutes = new Elysia({ prefix: '/hooks' })
       senderAccount: t.Optional(t.String()),
       senderBankCode: t.Optional(t.String()),
     }),
+    detail: { tags: ['Hooks'], summary: 'Notificación de pago Baneco' },
   })

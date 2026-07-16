@@ -2,11 +2,12 @@ import { Elysia, t } from 'elysia'
 import { authMiddleware } from '../../shared/middleware/auth.middleware'
 import { createSplitPayment, calculateSplit } from './split.service'
 import { AppError } from '../../shared/errors/app-error'
+import { ok } from '../../shared/response'
 
 export const splitRoutes = new Elysia({ prefix: '/split' })
   .derive(authMiddleware)
   .post('/pay', async ({ body }) => {
-    return await createSplitPayment(body.senderWalletId, body.recipients, body.description)
+    return ok(await createSplitPayment(body.senderWalletId, body.recipients, body.description))
   }, {
     body: t.Object({
       senderWalletId: t.String(),
@@ -22,7 +23,7 @@ export const splitRoutes = new Elysia({ prefix: '/split' })
   .post('/calculate', async ({ body }) => {
     try {
       const items = calculateSplit(body.total, body.percentages)
-      return { total: body.total, items }
+      return ok({ total: body.total, items })
     } catch (err: any) {
       throw new AppError(400, err.message)
     }

@@ -9,6 +9,12 @@ describe('Fraud detection', () => {
   beforeAll(async () => {
     const { query } = await import('../../src/shared/database/pool')
     await query(
+      `INSERT INTO users (id, email, password, full_name, role, status)
+       VALUES ($1, $2, $3, 'Test User', 3, 'active')
+       ON CONFLICT (id) DO NOTHING`,
+      [testUserId, `fraud-test-${testUserId}@test.com`, 'hashed_password']
+    )
+    await query(
       `INSERT INTO wallets (id, user_id, balance, available_balance, currency, status)
        VALUES ($1, $2, 5000, 4800, 'BOB', 'active')
        ON CONFLICT (id) DO UPDATE SET balance = 5000, available_balance = 4800`,

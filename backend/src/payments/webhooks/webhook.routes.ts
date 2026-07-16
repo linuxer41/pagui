@@ -2,11 +2,13 @@ import { Elysia, t } from 'elysia'
 import { authMiddleware } from '../../shared/middleware/auth.middleware'
 import { registerWebhook, getWebhooks, deleteWebhook } from './webhook.service'
 import { AppError } from '../../shared/errors/app-error'
+import { ok, list } from '../../shared/response'
 
 export const webhookRoutes = new Elysia({ prefix: '/webhooks' })
   .derive(authMiddleware)
   .get('/', async ({ userId }) => {
-    return await getWebhooks(userId)
+    const webhooks = await getWebhooks(userId)
+    return list(webhooks, undefined, 'Webhooks listados exitosamente')
   }, {
     detail: { tags: ['Webhooks'], summary: 'Listar webhooks del usuario' },
   })
@@ -18,7 +20,7 @@ export const webhookRoutes = new Elysia({ prefix: '/webhooks' })
       events: body.events,
       companyId: body.companyId,
     })
-    return { id }
+    return ok({ id })
   }, {
     body: t.Object({
       url: t.String({ format: 'uri' }),
@@ -30,7 +32,7 @@ export const webhookRoutes = new Elysia({ prefix: '/webhooks' })
   })
   .delete('/:id', async ({ params, userId }) => {
     await deleteWebhook(params.id, userId)
-    return { success: true }
+    return ok(null)
   }, {
     params: t.Object({ id: t.String() }),
     detail: { tags: ['Webhooks'], summary: 'Eliminar webhook' },

@@ -27,7 +27,7 @@
   class:large={size === 'large'}
   class:disabled
   class:loading
-  on:click={handleClick}
+  onclick={handleClick}
   disabled={disabled || loading}
   type="button"
 >

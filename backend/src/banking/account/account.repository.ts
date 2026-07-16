@@ -5,11 +5,14 @@ export interface AccountRow {
   id: bigint
   accountNumber: string
   accountType: string
+  accountLevel: string
+  accountSubtype: string
   currency: string
   balance: number
   availableBalance: number
+  userId: bigint | null
   status: string
-  bankCredentialId: bigint
+  bankCredentialId: bigint | null
   createdAt: Date
   updatedAt: Date
 }
@@ -30,6 +33,7 @@ export interface AccountMovementRow {
   senderDocumentId: string | null
   senderAccount: string | null
   senderBankCode: string | null
+  settlementId: bigint | null
   referenceId: string | null
   referenceType: string | null
   status: string
@@ -37,12 +41,12 @@ export interface AccountMovementRow {
 }
 
 export const accountRepository = {
-  async create(data: { accountNumber: string; accountType: string; currency?: string; bankCredentialId: bigint }): Promise<AccountRow> {
+  async create(data: { accountNumber: string; accountType: string; accountLevel?: string; accountSubtype?: string; currency?: string; bankCredentialId?: bigint; userId?: bigint }): Promise<AccountRow> {
     const r = await query(`
-      INSERT INTO accounts (id, account_number, account_type, currency, balance, available_balance, bank_credential_id)
-      VALUES ($1, $2, $3, $4, 0.00, 0.00, $5)
+      INSERT INTO accounts (id, account_number, account_type, account_level, account_subtype, currency, balance, available_balance, user_id, bank_credential_id)
+      VALUES ($1, $2, $3, $4, $5, $6, 0.00, 0.00, $7, $8)
       RETURNING *
-    `, [nextSnowflake(), data.accountNumber, data.accountType, data.currency || 'BOB', data.bankCredentialId])
+    `, [nextSnowflake(), data.accountNumber, data.accountType, data.accountLevel || 'client', data.accountSubtype || 'passthrough', data.currency || 'BOB', data.userId || null, data.bankCredentialId || null])
     return r.rows[0] as AccountRow
   },
 
@@ -81,19 +85,19 @@ export const accountRepository = {
     accountId: bigint; movementType: string; amount: number; balanceBefore: number; balanceAfter: number
     description?: string; qrId?: string; transactionId?: string; paymentDate?: string
     currency?: string; senderName?: string; senderDocumentId?: string; senderAccount?: string
-    senderBankCode?: string; referenceId?: string; referenceType?: string; status?: string
+    senderBankCode?: string; settlementId?: bigint; referenceId?: string; referenceType?: string; status?: string
   }): Promise<AccountMovementRow> {
     const r = await query(`
       INSERT INTO account_movements (id, account_id, movement_type, amount, balance_before, balance_after,
         description, qr_id, transaction_id, payment_date, currency, sender_name,
-        sender_document_id, sender_account, sender_bank_code, reference_id, reference_type, status)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+        sender_document_id, sender_account, sender_bank_code, settlement_id, reference_id, reference_type, status)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
       RETURNING *
     `, [nextSnowflake(), data.accountId, data.movementType, data.amount, data.balanceBefore, data.balanceAfter,
       data.description || null, data.qrId || null, data.transactionId || null, data.paymentDate || null,
       data.currency || 'BOB', data.senderName || null, data.senderDocumentId || null,
-      data.senderAccount || null, data.senderBankCode || null, data.referenceId || null,
-      data.referenceType || null, data.status || 'completed'])
+      data.senderAccount || null, data.senderBankCode || null, data.settlementId || null,
+      data.referenceId || null, data.referenceType || null, data.status || 'completed'])
     return r.rows[0] as AccountMovementRow
   },
 
@@ -125,5 +129,24 @@ export const accountRepository = {
       INSERT INTO user_accounts (user_id, account_id, role, is_primary)
       VALUES ($1, $2, $3, $4) ON CONFLICT (user_id, account_id) DO UPDATE SET role = $3, is_primary = $4
     `, [userId, accountId, role, isPrimary])
+  },
+
+  async getBusinessAccount(): Promise<AccountRow | null> {
+    const r = await query(`
+      SELECT * FROM accounts WHERE account_level = 'business' AND deleted_at IS NULL LIMIT 1
+    `)
+    return r.rowCount ? r.rows[0] as AccountRow : null
+  },
+
+  async getByUserId(userId: bigint, accountLevel?: string): Promise<AccountRow[]> {
+    let sql = `
+      SELECT a.* FROM accounts a
+      JOIN user_accounts ua ON a.id = ua.account_id
+      WHERE ua.user_id = $1 AND a.deleted_at IS NULL AND ua.deleted_at IS NULL
+    `
+    const params: any[] = [userId]
+    if (accountLevel) { sql += ' AND a.account_level = $2'; params.push(accountLevel) }
+    const r = await query(sql, params)
+    return r.rows as AccountRow[]
   },
 }

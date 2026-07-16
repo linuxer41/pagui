@@ -3,6 +3,7 @@ import { accountRepository } from '../../banking/account/account.repository'
 import { qrRepository } from '../qr/qr.repository'
 import { bankCredentialRepository } from '../../banking/credential/bank-credential.repository'
 import { BanecoAdapter } from '../../banking/integration/baneco.adapter'
+import { logger } from '../../shared/logger'
 import { eventBus } from '../events/event-bus'
 import { nextSnowflake } from '../../shared/snowflake'
 
@@ -15,6 +16,11 @@ export const paymentSyncService = {
       ? await bankCredentialRepository.getById(qr.bankCredentialId)
       : null
     if (!cred) return { changed: false }
+
+    if (!cred.apiBaseUrl || !cred.encryptionKey) {
+      logger.warn('Sync QR missing credential config', { qrId, credentialId: cred.id })
+      return { changed: false }
+    }
 
     try {
       const adapter = new BanecoAdapter(cred.apiBaseUrl, cred.encryptionKey)
@@ -61,7 +67,7 @@ export const paymentSyncService = {
       `, [qrId])
       return { changed: false }
     } catch (e) {
-      console.error(`Sync error for QR ${qrId}:`, e)
+      logger.error('Sync error for QR', { qrId, error: String(e) })
       await query(`
         INSERT INTO payment_sync_status (qr_id, last_checked, success)
         VALUES ($1, CURRENT_TIMESTAMP, false)

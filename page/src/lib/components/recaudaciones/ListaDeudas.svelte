@@ -47,7 +47,7 @@
     <div class="bulk-actions">
       <button 
         class="btn-pay-all" 
-        on:click={() => pagarServicios(
+        onclick={() => pagarServicios(
           deudas.filter(d => d.tipo === 'servicio'), 
           totalServicios
         )} 

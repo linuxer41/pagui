@@ -16,7 +16,7 @@ function broadcast(type: string, data: any) {
 export const sseService = {
   addClient(id: string, send: (data: string) => void, close: () => void) {
     clients.set(id, { id, send, close })
-    send(`event: connected\ndata: ${JSON.stringify({ clientId: id })}\n\n`)
+    send(`event: connection\ndata: ${JSON.stringify({ connectionId: id })}\n\n`)
   },
 
   removeClient(id: string) {

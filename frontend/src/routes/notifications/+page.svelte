@@ -1,16 +1,16 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import Button from '$lib/components/Button.svelte';
   import api from '$lib/api';
-  import { Bell, BellOff, CheckCheck, ArrowLeft } from '@lucide/svelte';
+  import { Bell, BellOff, CheckCheck } from '@lucide/svelte';
+import PageLayout from '$lib/components/layouts/PageLayout.svelte';
+import Skeleton from '$lib/components/Skeleton.svelte';
+import EmptyState from '$lib/components/EmptyState.svelte';
 
   let notifications: any[] = [];
   let loading = true;
   let unreadCount = 0;
 
-  onMount(async () => {
-    await load();
-  });
+  onMount(async () => { await load(); });
 
   async function load() {
     loading = true;
@@ -19,8 +19,8 @@
         api.listNotifications(),
         api.getUnreadNotificationCount()
       ]);
-      if (notifRes.success) notifications = notifRes.data || [];
-      if (unreadRes.success) unreadCount = unreadRes.data?.count || 0;
+      if ((notifRes as any).success) notifications = (notifRes as any).data?.data || [];
+      if ((unreadRes as any) && (unreadRes as any).success !== false) unreadCount = (unreadRes as any).data?.count ?? (unreadRes as any).count ?? 0;
     } catch {}
     finally { loading = false; }
   }
@@ -42,36 +42,41 @@
   }
 </script>
 
-<div class="page-header">
-  <span class="page-header-title">Notificaciones</span>
-  <div class="page-header-actions">
-    {#if unreadCount > 0}
-      <button onclick={markAllRead} aria-label="Marcar todas como leídas" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;border:none;background:var(--surface);border-radius:var(--radius-full);color:var(--primary-color);box-shadow:var(--shadow-xs);cursor:pointer;transition:all var(--duration-fast) var(--ease-out)">
-        <CheckCheck size={18} />
-      </button>
-    {/if}
-  </div>
-</div>
+<PageLayout title="Notificaciones">
+  {#if unreadCount > 0}
+    {#snippet actions()}
+      <button class="mark-all-btn" onclick={markAllRead} aria-label="Marcar todas como leídas"><CheckCheck size={18} /></button>
+    {/snippet}
+  {/if}
 
-<div class="page-content" style="padding-top:var(--space-4)">
   {#if loading}
-    <div style="text-align:center;padding:2rem;color:var(--text-secondary)">Cargando...</div>
+    <Skeleton width="100%" height="58px" radius="lg" count={3} gap="space-2" />
   {:else if notifications.length === 0}
-    <div style="display:flex;flex-direction:column;align-items:center;gap:var(--space-4);padding:3rem 1rem;color:var(--text-secondary)">
-      <BellOff size={48} />
-      <p style="margin:0;font-size:var(--text-sm)">No hay notificaciones</p>
-    </div>
+    <EmptyState icon={BellOff} title="No hay notificaciones" />
   {:else}
-    <div class="section-card" style="display:flex;flex-direction:column;padding:var(--space-2)">
+    <div class="notif-list">
       {#each notifications as n}
-        <button onclick={() => !n.is_read && markRead(n.id)} style="display:flex;align-items:flex-start;gap:var(--space-3);padding:var(--space-3);background:transparent;border:none;border-bottom:1px solid var(--border);cursor:pointer;text-align:left;width:100%;transition:background var(--duration-fast) var(--ease-out)">
-          <div style="width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:0.4rem;background:{n.is_read ? 'transparent' : 'var(--primary-color)'}"></div>
-          <div style="flex:1;min-width:0">
-            <p style="margin:0 0 var(--space-1);font-size:var(--text-sm);color:var(--text-primary);{!n.is_read ? 'font-weight:600' : ''}">{n.message || n.title || 'Notificación'}</p>
-            <span style="font-size:var(--text-xs);color:var(--text-secondary)">{new Date(n.created_at || n.date).toLocaleDateString('es-BO')}</span>
+        <button class="notif-item" onclick={() => !n.is_read && markRead(n.id)}>
+          <div class="notif-dot" class:unread={!n.is_read}></div>
+          <div class="notif-body">
+            <p class="notif-message" class:bold={!n.is_read}>{n.message || n.title || 'Notificación'}</p>
+            <span class="notif-date">{new Date(n.created_at || n.date).toLocaleDateString('es-BO')}</span>
           </div>
         </button>
       {/each}
     </div>
   {/if}
-</div>
+</PageLayout>
+
+<style>
+  .mark-all-btn { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border: none; background: rgba(var(--surface-rgb), 1); border-radius: var(--radius-full); color: var(--primary); cursor: pointer; }
+  .mark-all-btn:active { opacity: 0.7; }
+  .notif-list { display: flex; flex-direction: column; }
+  .notif-item { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3); background: transparent; border: none; border-bottom: 1px solid rgba(var(--border-rgb), 0.3); cursor: pointer; text-align: left; width: 100%; }
+  .notif-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 0.4rem; background: transparent; }
+  .notif-dot.unread { background: var(--primary); }
+  .notif-body { flex: 1; min-width: 0; }
+  .notif-message { margin: 0 0 var(--space-1); font-size: var(--text-sm); color: rgba(var(--text-primary-rgb), 1); font-weight: 400; }
+  .notif-message.bold { font-weight: 600; }
+  .notif-date { font-size: var(--text-xs); color: rgba(var(--text-secondary-rgb), 1); }
+</style>

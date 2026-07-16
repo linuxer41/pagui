@@ -3,11 +3,14 @@ import { cors } from '@elysiajs/cors'
 import { swagger } from '@elysiajs/swagger'
 import { testConnection } from './shared/database/pool'
 import { migrateDB } from './shared/database/migrate'
+
+;(BigInt.prototype as any).toJSON = function () { return String(this) }
 import { AppError } from './shared/errors/app-error'
 import { logger, setCorrelationId } from './shared/logger'
 import { rateLimit } from './shared/middleware/rate-limit'
 import { sentry } from './shared/sentry'
 import { complianceHeaders } from './shared/compliance/pci.service'
+import { fail } from '@pagui/shared'
 
 import { authRoutes } from './identity/auth.routes'
 import { userRoutes } from './identity/user.routes'
@@ -16,9 +19,11 @@ import { qrRoutes } from './payments/qr/qr.routes'
 import { hooksRoutes } from './payments/payment/hooks.routes'
 import { paymentRoutes } from './payments/payment/payment.routes'
 import { sseRoutes } from './payments/events/sse.controller'
+import { transactionsRoutes } from './payments/transactions/transactions.routes'
 import { collectionsRoutes } from './collections/collections.routes'
 import { apiKeyRoutes } from './api-keys/apikey.routes'
 import { healthRoutes } from './monitoring/health.controller'
+import { startPublicApi } from './public-api/public-api'
 import { paymentQueueService } from './payments/sync/payment-queue.service'
 import { sseService } from './payments/events/sse.service'
 import { fraudRoutes } from './payments/fraud/fraud.routes'
@@ -36,6 +41,8 @@ import { cashRoutes } from './payments/cash/cash.routes'
 import { nfcRoutes } from './payments/offline/nfc-offline.routes'
 import { kycRoutes } from './shared/kyc/kyc.routes'
 import { complianceRoutes } from './shared/compliance/compliance.routes'
+import { settlementRoutes } from './payments/settlement/settlement.routes'
+import { settlementService } from './payments/settlement/settlement.service'
 
 sentry.init()
 
@@ -52,7 +59,7 @@ app.onAfterHandle(({ set }) => {
 
 app.use(swagger({ path: '/swagger' }))
   .use(cors({ origin: () => true }))
-  .use(rateLimit({ windowMs: 60_000, maxRequests: 120 }))
+  .use(rateLimit({ windowMs: 60_000, maxRequests: parseInt(process.env.RATE_LIMIT_MAX || '120') }))
   .use(healthRoutes)
   .use(authRoutes)
   .use(userRoutes)
@@ -60,6 +67,7 @@ app.use(swagger({ path: '/swagger' }))
   .use(qrRoutes)
   .use(hooksRoutes)
   .use(paymentRoutes)
+  .use(transactionsRoutes)
   .use(sseRoutes)
   .use(collectionsRoutes)
   .use(apiKeyRoutes)
@@ -77,19 +85,22 @@ app.use(swagger({ path: '/swagger' }))
   .use(nfcRoutes)
   .use(kycRoutes)
   .use(complianceRoutes)
+  .use(settlementRoutes)
   .onError(({ code, error, set, request }) => {
-    if (error instanceof AppError) {
-      set.status = error.statusCode
-      logger.warn('App error', { statusCode: error.statusCode, message: error.message, path: new URL(request.url).pathname })
-      return { error: error.message, details: error.details }
+    const err = error as Record<string, unknown>
+    const isAppError = err?.statusCode != null && typeof err.statusCode === 'number'
+    if (isAppError) {
+      set.status = err.statusCode as number
+      logger.warn('App error', { statusCode: err.statusCode, message: String(err.message || ''), path: new URL(request.url).pathname })
+      return fail(String(err.message || 'Error'), String(err.message || 'Error'), err.details)
     }
     if (code === 'NOT_FOUND') {
       set.status = 404
-      return { error: 'Ruta no encontrada' }
+      return fail('Ruta no encontrada', 'Ruta no encontrada')
     }
     if (code === 'VALIDATION') {
       set.status = 400
-      return { error: 'Error de validación' }
+      return fail('Error de validación', 'Error de validación')
     }
     logger.error('Unhandled error', { error: String(error), path: new URL(request.url).pathname })
     sentry.captureError(error instanceof Error ? error : new Error(String(error)), {
@@ -97,7 +108,7 @@ app.use(swagger({ path: '/swagger' }))
       path: new URL(request.url).pathname,
     })
     set.status = 500
-    return { error: 'Error interno del servidor' }
+    return fail('Error interno del servidor', 'Error interno del servidor')
   })
 
 const mode = process.argv[2]
@@ -114,13 +125,17 @@ if (mode === 'init-db') {
   migrateDB(false).then(async () => {
     testConnection()
     startWebhookProcessor()
+    const settlementInterval = setInterval(() => settlementService.processPending(), 60_000)
     logger.info('All services initialized', {
       redis: !!process.env.REDIS_URL,
       sentry: !!process.env.SENTRY_DSN,
       otel: !!process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
     })
     const port = parseInt(process.env.PORT || '3000')
-    app.listen(port, () => logger.info(`Server on :${port}`))
+    app.listen(port, () => {
+      logger.info(`Server on :${port}`)
+      startPublicApi()
+    })
   })
 }
 

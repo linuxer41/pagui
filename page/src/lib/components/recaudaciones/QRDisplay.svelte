@@ -116,12 +116,12 @@
     
     <!-- Botones de acción del QR -->
     <div class="qr-actions">
-      <button class="btn-download" on:click={() => descargarQR(qrGenerado.qrImage || '', qrGenerado.qrId || '')}>
+      <button class="btn-download" onclick={() => descargarQR(qrGenerado.qrImage || '', qrGenerado.qrId || '')}>
         <DownloadIcon size="16" />
         Descargar
       </button>
       
-      <button class="btn-share" on:click={() => compartirQR(qrGenerado.qrImage || '', qrGenerado.qrId || '')}>
+      <button class="btn-share" onclick={() => compartirQR(qrGenerado.qrImage || '', qrGenerado.qrId || '')}>
         <Share2Icon size="16" />
         Compartir
       </button>

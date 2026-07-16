@@ -1,0 +1,12 @@
+{
+  "name": "pagui",
+  "private": true,
+  "scripts": {
+    "build": "bun run --cwd shared build && bun run --cwd backend build && bun run --cwd frontend build && bun run --cwd page build",
+    "dev:backend": "bun run --cwd backend dev",
+    "dev:frontend": "bun run --cwd frontend dev",
+    "dev:page": "bun run --cwd page dev",
+    "test": "bun run --cwd backend test:all",
+    "lint": "bun run --cwd backend lint && bun run --cwd page lint"
+  }
+}

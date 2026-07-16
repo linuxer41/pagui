@@ -40,7 +40,7 @@
     </div>
     <button 
       class="btn-refresh-icon" 
-      on:click={() => cliente && obtenerInfoAbonado(cliente.numeroCuenta)} 
+      onclick={() => cliente && obtenerInfoAbonado(cliente.numeroCuenta)} 
       disabled={isLoading || !cliente}
       title="Actualizar información del cliente"
     >

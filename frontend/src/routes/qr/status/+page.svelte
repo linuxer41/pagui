@@ -1,1637 +1,270 @@
 <script lang="ts">
-  import api, { type QRStatusResponse, type QRPaymentsResponse } from '$lib/api';
+  import api from '$lib/api';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
-  import RouteLayout from '$lib/components/layouts/RouteLayout.svelte';
-  import Modal from '$lib/components/Modal.svelte';
-  import {
-      CheckCircle,
-      Clock,
-      RefreshCw,
-      Loader,
-      X,
-      QrCode
-  } from '@lucide/svelte';
+  import PageLayout from '$lib/components/layouts/PageLayout.svelte';
+import { CheckCircle, Clock, RefreshCw, Loader, Download, Share2 } from '@lucide/svelte';
   import { onMount, onDestroy } from 'svelte';
   import { onSSEEvent } from '$lib/services/sseService';
-  import NotificationToast from '$lib/components/NotificationToast.svelte';
 
-  interface QrStatus {
-    qrId: string;
-    transactionId: string;
-    createdAt: string;
-    dueDate: string;
-    currency: string;
-    amount: number;
-    status: string;
-    description: string;
-    accountName: string;
-    singleUse: boolean;
-    modifyAmount: boolean;
-    payments?: Payment[];
-  }
-
-  interface Payment {
-    qrId: string;
-    transactionId: string;
-    paymentDate: string;
-    paymentTime: string;
-    currency: string;
-    amount: number;
-    senderBankCode: string;
-    senderName: string;
-    senderDocumentId: string;
-    senderAccount: string;
-    description: string;
-  }
-  
-  let qrId = '';
-  let qrData: QRStatusResponse | null = null;
-  let qrPayments: any[] = []; // Pagos separados del QR
-  let loading = true;
-  let checkingQR = false;
-  let error = '';
-  let verifyingQR = false;
-  let countdown = 600; // 10 minutos en segundos
-  let countdownInterval: any;
-  let statusCheckInterval: any;
-  let statusCheckAttempts = 0;
-  let maxStatusChecks = 30;
-  let paymentStatus = 'pending'; // 'pending', 'success', 'expired'
-  let qrImageSrc: string | null = null;
-  let isFirstLoad = true; // Para mostrar placeholders solo en la primera carga
-  let showPaymentSuccessDialog = false; // Para mostrar diálogo de pago exitoso
-  let paymentData: any = null; // Datos del pago exitoso
-  let unsubscribeSSEEvents: (() => void)[] = []; // Para limpiar listeners SSE
+  let qrId = $state('')
+  let qrData = $state<any>(null)
+  let qrImage = $state('')
+  let loading = $state(true)
+  let verifying = $state(false)
+  let error = $state('')
+  let countdown = $state(600)
+  let countdownInterval: any
+  let pollInterval: any
+  let payments = $state<any[]>([])
+  let showSuccess = $state(false)
+  let paymentData = $state<any>(null)
 
   onMount(() => {
-    // Obtener el ID del QR desde la URL
-    const qrIdFromUrl = page.url.searchParams.get('id');
-    
-    if (!qrIdFromUrl) {
-      error = 'ID del QR no encontrado en la URL';
-      loading = false;
-      return;
-    }
-    
-    qrId = qrIdFromUrl;
-    
-    // Cargar detalles iniciales del QR (imagen, información básica)
-    loadQRDetails(qrId as string);
-    
-    // Iniciar polling automático para verificar pagos
-    startPaymentsCheck();
-    
-    // Configurar listeners de eventos SSE
-    setupSSEListeners();
-  });
+    const id = page.url.searchParams.get('id')
+    if (!id) { error = 'QR no encontrado'; loading = false; return }
+    qrId = id
+    load(id)
+  })
 
   onDestroy(() => {
-    // Limpiar intervalos al destruir el componente
-    stopPaymentsCheck();
-    if (countdownInterval) {
-      clearInterval(countdownInterval);
-    }
-    
-    // Limpiar listeners SSE
-    unsubscribeSSEEvents.forEach(unsubscribe => unsubscribe());
-  });
+    clearInterval(countdownInterval)
+    clearInterval(pollInterval)
+  })
 
-
-  // Función para cargar los detalles del QR (imagen, información básica)
-  async function loadQRDetails(qrId: string) {
+  async function load(id: string) {
     try {
-      loading = true;
-      error = '';
-      
-      const response = await api.getQRDetails(qrId);
-      
-      if (response.success && response.data) {
-        // Procesar la imagen del QR si está disponible
-        if (response.data.qrImage) {
-          qrImageSrc = `data:image/png;base64,${response.data.qrImage}`;
-        }
-        
-        // Usar la respuesta tal como llega de la API
-        qrData = response.data;
-        
-        // Configurar countdown si es la primera carga
-        if (isFirstLoad) {
-          setupCountdown();
-          isFirstLoad = false;
-        }
+      const res = await api.getQR(id)
+      if (res.success && res.data) {
+        qrData = res.data
+        if (res.data.qrImage) qrImage = `data:image/png;base64,${res.data.qrImage}`
+        setupCountdown()
+        startPolling()
       } else {
-        error = response.message || 'Error cargando detalles del QR';
+        error = res.message || 'Error al cargar QR'
       }
     } catch (err: any) {
-      error = err.message || 'Error de conexión';
+      error = err.message || 'Error de conexión'
     } finally {
-      loading = false;
+      loading = false
     }
   }
 
-
-  // Función para verificar pagos del QR periódicamente
-  async function checkQRPayments() {
-    try {
-      checkingQR = true;
-      
-      const response = await api.getQRPayments(qrId!);
-      
-      if (response.success && response.data) {
-        // Actualizar solo los pagos
-        qrPayments = response.data.payments;
-        
-        // Verificar si hay pagos exitosos
-        if (qrPayments && qrPayments.length > 0) {
-          // ¡QR pagado exitosamente! Mostrar diálogo de éxito
-          stopPaymentsCheck();
-          paymentData = qrPayments[0];
-          showPaymentSuccessDialog = true;
-          return;
-        }
-      }
-    } catch (err: any) {
-      // No mostrar error en verificaciones periódicas, solo log
-      console.error('Error verificando pagos:', err);
-    } finally {
-      checkingQR = false;
-    }
-  }
-
-  // Función para verificar pagos manualmente
-  async function checkStatus() {
-    if (!qrId) return;
-    
-    verifyingQR = true;
-    
-    try {
-      await checkQRPayments();
-    } catch (err) {
-      console.error('Error verificando pagos:', err);
-    } finally {
-      verifyingQR = false;
-    }
-  }
-
-  // Configurar countdown
   function setupCountdown() {
-    if (!qrData?.dueDate) return;
-    
-    // Limpiar intervalo existente
-    if (countdownInterval) clearInterval(countdownInterval);
-    
-    // Calcular tiempo restante
-    updateCountdown();
-    
-    // Configurar intervalo
-    countdownInterval = setInterval(updateCountdown, 1000);
+    if (!qrData?.dueDate) return
+    updateCountdown()
+    countdownInterval = setInterval(updateCountdown, 1000)
   }
 
-  // Actualizar countdown
   function updateCountdown() {
-    if (!qrData?.dueDate) return;
-    
-    const now = Date.now();
-    const dueTime = new Date(qrData.dueDate).getTime();
-    countdown = Math.max(0, Math.floor((dueTime - now) / 1000));
-    
-    if (countdown <= 0) {
-      clearInterval(countdownInterval);
-      paymentStatus = 'expired';
-      stopPaymentsCheck();
+    if (!qrData?.dueDate) return
+    const remaining = Math.max(0, Math.floor((new Date(qrData.dueDate).getTime() - Date.now()) / 1000))
+    countdown = remaining
+    if (remaining <= 0) {
+      clearInterval(countdownInterval)
+      clearInterval(pollInterval)
     }
   }
 
-  // Iniciar verificación automática de pagos
-  function startPaymentsCheck() {
-    // Limpiar intervalo existente
-    stopPaymentsCheck();
-    
-    // Reiniciar contador de intentos
-    statusCheckAttempts = 0;
-    
-    // Verificar si ya hay pagos al cargar la página
-    checkQRPayments().then(() => {
-      // Si no hay pagos, iniciar polling cada 15 segundos
-      if (!qrPayments || qrPayments.length === 0) {
-        statusCheckInterval = setInterval(async () => {
-          statusCheckAttempts++;
-          
-          // Verificar si hemos alcanzado el límite de intentos
-          if (statusCheckAttempts >= maxStatusChecks) {
-            console.log('Límite de verificaciones alcanzado');
-            stopPaymentsCheck();
-            return;
-          }
-          
-          // Verificar si el QR ha expirado
-          if (countdown <= 0) {
-            console.log('QR expirado, deteniendo verificaciones');
-            stopPaymentsCheck();
-            return;
-          }
-          
-          // Verificar solo pagos
-          await checkQRPayments();
-        }, 15000); // 15 segundos
+  function startPolling() {
+    pollInterval = setInterval(async () => {
+      if (countdown <= 0) { clearInterval(pollInterval); return }
+      try {
+        const res = await api.getQRPayments(qrId)
+        if (res.success && res.data?.payments?.length) {
+          payments = res.data.payments
+          paymentData = payments[0]
+          showSuccess = true
+          clearInterval(pollInterval)
+        }
+      } catch {}
+    }, 15000)
+  }
+
+  async function checkStatus() {
+    if (!qrId) return
+    verifying = true
+    try {
+      const res = await api.getQRPayments(qrId)
+      if (res.success && res.data?.payments?.length) {
+        payments = res.data.payments
+        paymentData = payments[0]
+        showSuccess = true
+      }
+    } finally {
+      verifying = false
+    }
+  }
+
+  function formatAmount(n: number, cur: string) {
+    const f = n.toLocaleString('es-BO', { minimumFractionDigits: 2 })
+    return cur === 'BOB' ? `Bs ${f}` : `$${f}`
+  }
+
+  function formatDate(s: string) {
+    if (!s) return ''
+    return new Date(s).toLocaleString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  }
+
+  async function downloadQR() {
+    try {
+      const { toBlob } = await import('html-to-image')
+      const el = document.querySelector('.qr-visual') as HTMLElement
+      if (!el) return
+      const blob = await toBlob(el, { backgroundColor: '#ffffff', pixelRatio: 2 })
+      if (!blob) return
+      const a = document.createElement('a')
+      a.download = `qr-${qrData?.transactionId || 'pagui'}.png`
+      a.href = URL.createObjectURL(blob)
+      a.click()
+      URL.revokeObjectURL(a.href)
+    } catch {}
+  }
+
+  async function shareQR() {
+    try {
+      const { toBlob } = await import('html-to-image')
+      const el = document.querySelector('.qr-visual') as HTMLElement
+      if (!el) return
+      const blob = await toBlob(el, { backgroundColor: '#ffffff', pixelRatio: 2 })
+      if (!blob) return
+      const file = new File([blob], `qr-${qrData?.transactionId || 'pagui'}.png`, { type: 'image/png' })
+      if (navigator.share) {
+        await navigator.share({ title: 'QR Pagui', files: [file] })
       } else {
-        console.log('Ya hay pagos, no se iniciará polling automático');
+        downloadQR()
       }
-    });
+    } catch { downloadQR() }
   }
-
-  // Detener verificación automática de pagos
-  function stopPaymentsCheck() {
-    if (statusCheckInterval) {
-      clearInterval(statusCheckInterval);
-      statusCheckInterval = null;
-    }
-  }
-
-  // Configurar listeners de eventos SSE
-  function setupSSEListeners() {
-    // Escuchar eventos de pago QR específicos para este QR
-    const unsubscribePayment = onSSEEvent('qr_payment', (data) => {
-      console.log('Pago recibido en página de estado QR:', data);
-      
-      // Verificar si el pago es para este QR específico
-      if (data.qrId === qrId) {
-        console.log('Pago confirmado para este QR:', data);
-        
-        // Detener polling ya que recibimos el pago por SSE
-        stopPaymentsCheck();
-        
-        // Actualizar datos del pago
-        qrPayments = [data];
-        paymentData = data;
-        
-        // Mostrar diálogo de éxito
-        showPaymentSuccessDialog = true;
-        
-        // Actualizar estado del QR
-        if (qrData) {
-          qrData.status = data.newStatus || 'paid';
-        }
-      }
-    });
-
-    // Escuchar eventos de cambio de estado de QR
-    const unsubscribeQRStatus = onSSEEvent('qr_status_change', (data) => {
-      console.log('Estado de QR cambiado en página de estado:', data);
-      
-      // Verificar si el cambio es para este QR específico
-      if (data.qrId === qrId) {
-        console.log('Estado actualizado para este QR:', data);
-        
-        // Actualizar estado del QR
-        if (qrData) {
-          qrData.status = data.newStatus;
-        }
-        
-        // Si el QR cambió a un estado final, detener polling
-        if (['completed', 'expired', 'cancelled'].includes(data.newStatus)) {
-          stopPaymentsCheck();
-        }
-      }
-    });
-
-    unsubscribeSSEEvents = [unsubscribePayment, unsubscribeQRStatus];
-  }
-
-  // Formatear tiempo
-  function formatTime(seconds: number) {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-  }
-
-  // Formatear monto
-  function formatAmount(amount: number, currency: string) {
-    const formattedAmount = new Intl.NumberFormat('es-BO', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(amount);
-    
-    // Usar símbolos correctos según la moneda
-    if (currency === 'BOB') {
-      return `Bs. ${formattedAmount}`;
-    } else if (currency === 'USD') {
-      return `$${formattedAmount}`;
-    } else {
-      return `${formattedAmount} ${currency}`;
-    }
-  }
-
-  // Formatear fecha
-  function formatDateTime(dateString: string) {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleString('es-BO', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  }
-
-   // Limpiar intervalos al desmontar
-   onMount(() => {
-     return () => {
-       if (countdownInterval) clearInterval(countdownInterval);
-       if (statusCheckInterval) clearInterval(statusCheckInterval);
-     };
-   });
-
-   async function getQRImage() {
-    const { toBlob } = await import('html-to-image');
-       
-        // Capturar la sección del QR
-        const qrSection = document.querySelector('.qr-display-section') as HTMLElement;
-       if (!qrSection) return;
-
-       // Crear blob con html-to-image
-       const blob = await toBlob(qrSection, {
-         backgroundColor: '#ffffff',
-         pixelRatio: 2,
-         quality: 0.9,
-         style: {
-           transform: 'scale(1)',
-           transformOrigin: 'top left'
-         }
-       });
-
-       return blob;
-   }
-
-   // Función para compartir QR
-   async function shareQR() {
-     try {
-       // Cargar html-to-image dinámicamente
-       const blob = await getQRImage();
-
-       // Verificar si Web Share API está disponible
-       if (navigator.share && blob) {
-         const file = new File([blob], `qr-${qrData?.transactionId || 'pagui'}.png`, {
-           type: 'image/png'
-         });
-
-         await navigator.share({
-           title: 'Código QR - Pagui',
-           text: `Pago de ${formatAmount(qrData?.amount || 0, qrData?.currency || 'BOB')}`,
-           files: [file]
-         });
-       } else {
-         // Fallback: descargar directamente
-         downloadQR();
-       }
-     } catch (error) {
-       console.error('Error compartiendo QR:', error);
-       // Fallback: descargar directamente
-       downloadQR();
-     }
-   }
-
-   // Función para descargar QR
-   async function downloadQR() {
-     try {
-       const blob = await getQRImage();
-       if (!blob) return;
-       // Crear enlace de descarga
-       const link = document.createElement('a');
-       link.download = `qr-${qrData?.transactionId || 'pagui'}-${new Date().toISOString().split('T')[0]}.png`;
-       link.href = URL.createObjectURL(blob);
-       
-       // Trigger descarga
-       document.body.appendChild(link);
-       link.click();
-       document.body.removeChild(link);
-     } catch (error) {
-       console.error('Error descargando QR:', error);
-     }
-   }
 </script>
 
 <svelte:head>
-  <title>Estado del QR | Pagui</title>
+  <title>QR | Pagui</title>
 </svelte:head>
 
-<RouteLayout title="Estado del QR">
-  <div class="page-container">
-    {#if error}
-      <div class="alert-message error">
-        <button class="close-button" on:click={() => error = ''}>
-          <X size={16} />
-        </button>
-        <p>{error}</p>
-        <button class="retry-button" on:click={() => goto('/qr/generate')}>
-          Generar Nuevo QR
+<PageLayout title="QR">
+  {#if loading}
+    <div class="loading"></div>
+  {:else if error}
+    <div class="error">
+      <p>{error}</p>
+      <button class="link" onclick={() => goto('/qr/generate')}>Generar nuevo QR</button>
+    </div>
+  {:else if qrData}
+    <div class="qr-visual">
+      {#if qrData.status === 'active'}
+      <div class="qr-status">
+        <div class="status-dot"></div>
+        <span>Esperando pago</span>
+        <button class="refresh-sm" onclick={checkStatus} disabled={verifying}>
+          {#if verifying}<Loader size={14} class="spin" />{:else}<RefreshCw size={14} />{/if}
         </button>
       </div>
-    {:else if loading}
-      <!-- Placeholders bonitos para la primera carga -->
-      <div class="loading-placeholder">
-        <div class="placeholder-skeleton header-skeleton"></div>
-        <div class="placeholder-skeleton qr-skeleton"></div>
-        <div class="placeholder-skeleton info-skeleton-1"></div>
-        <div class="placeholder-skeleton info-skeleton-2"></div>
-        <div class="placeholder-skeleton info-skeleton-3"></div>
-        <div class="placeholder-skeleton info-skeleton-4"></div>
-      </div>
-    {:else if qrData}
-      <div class="qr-status-container">
-        {#if qrData}
-          <!-- Sección de estado -->
-          <div class="status-section">
-            <div class="status-panel">
-              <div class="status-left">
-                <div class="dots-loader">
-                  <div class="dot"></div>
-                  <div class="dot"></div>
-                  <div class="dot"></div>
-                </div>
-                <div class="status-info">
-                  <span class="status-badge status-{qrData.status}">{qrData.status === 'active' ? 'Pendiente' : qrData.status}</span>
-                </div>
-              </div>
-              <div class="status-right">
-                <button 
-                  class="verify-button" 
-                  on:click={checkStatus}
-                  disabled={verifyingQR}
-                >
-                  {#if verifyingQR}
-                    <Loader size={16} strokeWidth={2} class="spinning-loader" />
-                    <span>Verificando...</span>
-                  {:else}
-                    <RefreshCw size={16} strokeWidth={2} />
-                    <span>Verificar</span>
-                  {/if}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div class="qr-display-section">
-            <!-- Header con logo -->
-            <div class="qr-header">
-              <div class="brand-logo">
-                <QrCode size={20} strokeWidth={2} />
-              </div>
-              <div class="brand-info">
-                <div class="brand-name">Pagui</div>
-                <div class="brand-tagline">Paga Rápido</div>
-              </div>
-            </div>
-              
-              <!-- Imagen del QR -->
-              <div class="qr-image-container">
-                {#if qrImageSrc}
-                  <img src={qrImageSrc} alt="Código QR" class="qr-image" />
-                {:else}
-                  <div class="facebook-placeholder">
-                    <div class="placeholder-skeleton qr-skeleton"></div>
-                  </div>
-                {/if}
-              </div>
-              
-              
-              <!-- Información destacada -->
-              <div class="qr-highlight-info">
-                <div class="amount-value">{formatAmount(qrData.amount, qrData.currency)}</div>
-                <div class="concept-value">{qrData.description || 'Sin descripción'}</div>
-              </div>
-              
-            <!-- Detalles técnicos -->
-            <div class="qr-details">
-              <div class="details-grid">
-                <div class="detail-chip">
-                  <span class="chip-label">ID Transacción</span>
-                  <span class="chip-value">{qrData.transactionId}</span>
-                </div>
-                <div class="detail-chip">
-                  <span class="chip-label">Vence</span>
-                  <span class="chip-value">{formatDateTime(qrData.dueDate)}</span>
-                </div>
-                <div class="toggle-item">
-                  <span class="toggle-label">Uso único</span>
-                  <div class="toggle-switch {qrData.singleUse ? 'active' : 'inactive'}">
-                    <div class="toggle-slider"></div>
-                  </div>
-                </div>
-                <div class="toggle-item">
-                  <span class="toggle-label">Modificar monto</span>
-                  <div class="toggle-switch {qrData.modifyAmount ? 'active' : 'inactive'}">
-                    <div class="toggle-slider"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <!-- Botones de acción -->
-            <div class="qr-actions">
-              <button class="action-button share-button" on:click={shareQR}>
-                Compartir
-              </button>
-              
-              <button class="action-button download-button" on:click={downloadQR}>
-                Descargar
-              </button>
-            </div>
-          </div>
-          
+      {/if}
+      {#if qrImage}
+        <img src={qrImage} alt="QR" class="qr-img" />
+      {/if}
+      <div class="qr-info">
+        <div class="amount">{formatAmount(qrData.amount, qrData.currency)}</div>
+        {#if qrData.description}
+          <div class="desc">{qrData.description}</div>
         {/if}
-        {#if paymentStatus === 'expired'}
-          <div class="status-card expired">
-            <div class="icon-container">
-              <Clock size={64} strokeWidth={2} />
-            </div>
-            <h2 class="status-title">QR Expirado</h2>
-            <p class="status-message">El código QR ha expirado, por favor genera uno nuevo</p>
-            
-            <div class="transaction-details">
-              <div class="detail-row">
-                <span class="detail-label">Monto:</span>
-                <span class="detail-value">{formatAmount(qrData.amount, qrData.currency)}</span>
-              </div>
-              {#if qrData.description}
-              <div class="detail-row">
-                <span class="detail-label">Descripción:</span>
-                <span class="detail-value">{qrData.description}</span>
-              </div>
-              {/if}
-              <div class="detail-row">
-                <span class="detail-label">ID Transacción:</span>
-                <span class="detail-value">{qrData.transactionId}</span>
-              </div>
-            </div>
-            
-            <div class="action-buttons">
-              <button class="new-qr-button" on:click={() => goto('/qr/generate')}>
-                Generar Nuevo QR
-              </button>
-            </div>
-          </div>
-         {:else}
-           <!-- Sección de pagos -->
-           <div class="payments-section">
-             <h3>Pagos</h3>
-             {#if qrPayments && qrPayments.length > 0}
-               <div class="payments-list">
-                 {#each qrPayments as payment, index}
-                   <div class="payment-item">
-                     <div class="payment-header">
-                       <span class="payment-number">Pago #{index + 1}</span>
-                       <span class="payment-amount">{payment.currency} {payment.amount.toFixed(2)}</span>
-                     </div>
-                     <div class="payment-details">
-                       <div class="payment-detail">
-                         <span class="label">Pagado por:</span>
-                         <span class="value">{payment.senderName || 'Usuario'}</span>
-                       </div>
-                       <div class="payment-detail">
-                         <span class="label">Fecha:</span>
-                         <span class="value">{new Date(payment.paymentDate).toLocaleString('es-BO')}</span>
-                       </div>
-                       <div class="payment-detail">
-                         <span class="label">Transacción:</span>
-                         <span class="value transaction-id">{payment.transactionId}</span>
-                       </div>
-                     </div>
-                   </div>
-                 {/each}
-               </div>
-             {:else}
-               <div class="no-payments-message">
-                 <p>Aquí aparecerán los pagos que se realicen</p>
-               </div>
-             {/if}
-           </div>
-         {/if}
-      </div>
-    {/if}
-  </div>
-
-  <!-- Modal de Pago Exitoso -->
-  <Modal 
-    open={showPaymentSuccessDialog && paymentData} 
-    title="¡Pago Recibido!" 
-    on:close={() => showPaymentSuccessDialog = false}
-    maxWidth="500px"
-  >
-    <div class="payment-success-content">
-      <div class="success-icon">
-        <CheckCircle size={48} />
-      </div>
-      <p class="success-message">Has recibido un pago exitosamente</p>
-      
-      <div class="payment-details">
-        <div class="detail-row">
-          <span class="label">Monto:</span>
-          <span class="value">{formatAmount(paymentData?.amount || 0, paymentData?.currency || 'BOB')}</span>
-        </div>
-        <div class="detail-row">
-          <span class="label">Pagado por:</span>
-          <span class="value">{paymentData?.senderName || 'Usuario'}</span>
-        </div>
-        <div class="detail-row">
-          <span class="label">Fecha:</span>
-          <span class="value">{paymentData?.paymentDate ? new Date(paymentData.paymentDate).toLocaleString('es-BO') : 'N/A'}</span>
-        </div>
-        <div class="detail-row">
-          <span class="label">ID de Transacción:</span>
-          <span class="value transaction-id">{paymentData?.transactionId || 'N/A'}</span>
-        </div>
       </div>
     </div>
-    
-  </Modal>
-</RouteLayout>
 
-<!-- Componente de notificaciones -->
-<NotificationToast />
+    <div class="actions">
+      <button class="action primary" onclick={shareQR}><Share2 size={14} /> Compartir</button>
+      <button class="action" onclick={downloadQR}><Download size={14} /> Descargar</button>
+    </div>
+
+    <div class="meta">
+      <div class="meta-row"><span>ID</span><span class="mono">{qrData.transactionId}</span></div>
+      <div class="meta-row"><span>Vence</span><span>{formatDate(qrData.dueDate)}</span></div>
+      <div class="meta-row"><span>Uso único</span><span>{qrData.singleUse ? 'Sí' : 'No'}</span></div>
+      <div class="meta-row"><span>Modificar monto</span><span>{qrData.modifyAmount ? 'Sí' : 'No'}</span></div>
+    </div>
+
+    {#if payments.length > 0}
+      <div class="payments">
+        <h3>Pagos</h3>
+        {#each payments as p, i}
+          <div class="payment">
+            <div class="payment-head">
+              <span>Pago #{i + 1}</span>
+              <span class="amount">{p.currency} {p.amount.toFixed(2)}</span>
+            </div>
+            <div class="payment-detail"><span>Pagado por</span><span>{p.senderName || '—'}</span></div>
+            <div class="payment-detail"><span>Fecha</span><span>{formatDate(p.paymentDate)}</span></div>
+            <div class="payment-detail"><span>Transacción</span><span class="mono">{p.transactionId}</span></div>
+          </div>
+        {/each}
+      </div>
+    {/if}
+
+    {#if countdown <= 0 && qrData.status === 'active'}
+      <div class="expired">
+        <Clock size={24} />
+        <p>QR expirado</p>
+        <button class="btn" onclick={() => goto('/qr/generate')}>Generar nuevo</button>
+      </div>
+    {/if}
+  {/if}
+</PageLayout>
+
+{#if showSuccess && paymentData}
+  <button class="overlay" onclick={() => showSuccess = false} onkeydown={(e) => e.key === 'Escape' && (showSuccess = false)}>
+    <div class="modal" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && (showSuccess = false)}>
+      <CheckCircle size={40} class="icon-success" />
+      <p class="success-msg">Pago recibido</p>
+      <div class="pay-details">
+        <div class="pay-row"><span>Monto</span><span>{formatAmount(paymentData.amount, paymentData.currency)}</span></div>
+        <div class="pay-row"><span>Pagado por</span><span>{paymentData.senderName || '—'}</span></div>
+        <div class="pay-row"><span>Fecha</span><span>{formatDate(paymentData.paymentDate)}</span></div>
+        <div class="pay-row"><span>Transacción</span><span class="mono">{paymentData.transactionId}</span></div>
+      </div>
+    </div>
+  </button>
+{/if}
 
 <style>
-  .page-container {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 0 var(--spacing-md);
-  }
-
-  .alert-message {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-lg);
-    border-radius: var(--border-radius-md);
-    margin-bottom: var(--spacing-lg);
-    text-align: center;
-  }
-
-  .alert-message.error {
-    background: rgba(239, 68, 68, 0.1);
-    color: #ef4444;
-    border: 1px solid rgba(239, 68, 68, 0.2);
-  }
-
-  .close-button {
-    background: none;
-    border: none;
-    color: inherit;
-    cursor: pointer;
-    padding: 4px;
-    border-radius: var(--border-radius-sm);
-    margin-left: auto;
-    align-self: flex-end;
-  }
-
-  .retry-button {
-    background: var(--primary-color);
-    color: white;
-    border: none;
-    padding: var(--spacing-sm) var(--spacing-md);
-    border-radius: var(--border-radius-md);
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: all 0.2s;
-  }
-
-  .retry-button:hover {
-    background: var(--primary-dark);
-  }
-
-  .loading-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: var(--spacing-xl) 0;
-    text-align: center;
-  }
-
-  .loading-spinner {
-    width: 40px;
-    height: 40px;
-    border: 4px solid var(--border-color);
-    border-top: 4px solid var(--primary-color);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin-bottom: var(--spacing-md);
-  }
-
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-
-  /* Estilos para placeholders con efecto shimmer */
-  .placeholder-shimmer {
-    background: linear-gradient(90deg, 
-      var(--card-background) 25%, 
-      rgba(255, 255, 255, 0.1) 50%, 
-      var(--card-background) 75%
-    );
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
-    border-radius: 4px;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .placeholder-text {
-    color: transparent;
-    user-select: none;
-  }
-
-  /* Loading placeholder estilo apps modernas */
-  .loading-placeholder {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-lg);
-    padding: var(--spacing-lg);
-    max-width: 400px;
-    margin: 0 auto;
-  }
-
-  .placeholder-skeleton {
-    background: var(--border-color);
-    border-radius: var(--border-radius);
-    position: relative;
-    overflow: hidden;
-  }
-
-  .placeholder-skeleton::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(255, 255, 255, 0.4),
-      transparent
-    );
-    animation: shimmer 1.5s infinite;
-  }
-
-  .header-skeleton {
-    width: 100%;
-    height: 40px;
-    margin-bottom: var(--spacing-md);
-  }
-
-  .qr-skeleton {
-    width: 200px;
-    height: 200px;
-    margin: 0 auto;
-    border-radius: var(--border-radius-lg);
-  }
-
-  .info-skeleton-1 {
-    width: 80%;
-    height: 24px;
-    margin: 0 auto;
-  }
-
-  .info-skeleton-2 {
-    width: 60%;
-    height: 20px;
-    margin: 0 auto;
-  }
-
-  .info-skeleton-3 {
-    width: 70%;
-    height: 20px;
-    margin: 0 auto;
-  }
-
-  .info-skeleton-4 {
-    width: 50%;
-    height: 20px;
-    margin: 0 auto;
-  }
-
-  @keyframes shimmer {
-    0% { left: -100%; }
-    100% { left: 100%; }
-  }
-
-  .qr-status-container {
-    text-align: center;
-  }
-
-  .status-header {
-    margin-bottom: var(--spacing-xl);
-  }
-
-
-  .status-section {
-    margin-bottom: var(--spacing-lg);
-  }
-
-  .status-panel {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--spacing-lg);
-  }
-
-   .status-left {
-     display: flex;
-     align-items: center;
-     gap: var(--spacing-md);
-   }
-
-   .status-info {
-     display: flex;
-     align-items: center;
-   }
-
-   .status-badge {
-     font-size: 0.8rem;
-     font-weight: 600;
-     padding: 2px 8px;
-     border-radius: 12px;
-     text-transform: uppercase;
-     letter-spacing: 0.5px;
-   }
-
-   .status-badge.status-active {
-     background: rgba(245, 158, 11, 0.1);
-     color: var(--warning-color);
-   }
-
-   .status-badge.status-paid {
-     background: rgba(16, 185, 129, 0.1);
-     color: var(--success-color);
-   }
-
-   .status-badge.status-expired {
-     background: rgba(239, 68, 68, 0.1);
-     color: var(--error-color);
-   }
-
-   .status-badge.status-cancelled {
-     background: rgba(107, 114, 128, 0.1);
-     color: var(--text-secondary);
-   }
-
-  .dots-loader {
-    display: flex;
-    gap: var(--spacing-xs);
-    align-items: center;
-  }
-
-  .dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--primary-color);
-    animation: pulse 1.5s ease-in-out infinite;
-  }
-
-  .dot:nth-child(2) {
-    animation-delay: 0.2s;
-  }
-
-  .dot:nth-child(3) {
-    animation-delay: 0.4s;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 0.3; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.2); }
-  }
-
-  .status-text {
-    font-size: 1rem;
-    color: var(--text-secondary);
-    margin: 0;
-  }
-
-  .status-right {
-    display: flex;
-    align-items: center;
-  }
-
-  .verify-button {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    background: transparent;
-    color: var(--primary-color);
-    border: none;
-    padding: var(--spacing-sm) var(--spacing-md);
-    border-radius: var(--border-radius-sm);
-    font-size: 0.9rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  .verify-button:hover:not(:disabled) {
-    background: var(--background-secondary);
-    color: var(--primary-hover);
-  }
-
-  .verify-button:active:not(:disabled) {
-    background: var(--background-primary);
-  }
-
-  .verify-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    color: var(--text-secondary);
-  }
-
-  .spinning-loader {
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-
-  .countdown {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--primary-color);
-    margin-bottom: var(--spacing-sm);
-    font-family: monospace;
-  }
-
-  .status-text {
-    font-size: 1.1rem;
-    color: var(--text-secondary);
-    margin: 0;
-  }
-
-
-  .spinning-loader {
-    animation: spin 1s linear infinite;
-  }
-
-
-
-
-
-
-  .status-pending {
-    color: var(--warning-color, #f59e0b);
-  }
-
-  .status-card {
-    background: var(--surface);
-    border-radius: var(--border-radius-lg);
-    padding: var(--spacing-xl);
-    margin-bottom: var(--spacing-lg);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    text-align: center;
-  }
-
-  .status-card.expired {
-    border: 2px solid var(--error-color, #ef4444);
-  }
-
-  .icon-container {
-    margin-bottom: var(--spacing-lg);
-  }
-
-  .status-title {
-    font-size: 1.5rem;
-    font-weight: 600;
-    margin: 0 0 var(--spacing-md);
-    color: var(--text-primary);
-  }
-
-  .status-message {
-    font-size: 1.1rem;
-    color: var(--text-secondary);
-    margin: 0 0 var(--spacing-lg);
-  }
-
-  .transaction-details {
-    text-align: left;
-    max-width: 400px;
-    margin: 0 auto var(--spacing-lg);
-  }
-
-  .detail-row {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: var(--spacing-sm);
-    padding: var(--spacing-sm) 0;
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  .detail-row:last-child {
-    border-bottom: none;
-  }
-
-  .detail-label {
-    font-weight: 500;
-    color: var(--text-secondary);
-  }
-
-  .detail-value {
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
-  .action-buttons {
-    display: flex;
-    justify-content: center;
-  }
-
-  .new-qr-button {
-    background: var(--primary-color);
-    color: white;
-    border: none;
-    padding: var(--spacing-md) var(--spacing-lg);
-    border-radius: var(--border-radius-md);
-    font-size: 1rem;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .new-qr-button:hover {
-    background: var(--primary-dark);
-  }
-
-   .qr-display-section {
-     margin-bottom: var(--spacing-lg);
-     padding: var(--spacing-xl);
-     background: var(--surface);
-     border-radius: var(--border-radius-lg);
-     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-     text-align: center;
-   }
-
-
-  .qr-header {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    margin-bottom: var(--spacing-md);
-  }
-
-  .brand-logo {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    background: var(--primary-color);
-    border-radius: var(--border-radius-sm);
-    color: white;
-    flex-shrink: 0;
-  }
-
-  .brand-info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-
-  .brand-name {
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--primary-color);
-    margin: 0;
-    text-align: left;
-  }
-
-  .brand-tagline {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    margin: 0;
-    text-align: left;
-  }
-
-
-  .qr-image-container {
-    margin: var(--spacing-lg) 0;
-    display: flex;
-    justify-content: center;
-  }
-
-  .qr-image {
-    width: 320px;
-    height: 320px;
-    background: white;
-    border-radius: var(--border-radius-md);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 2px solid var(--border-color);
-    overflow: hidden;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  }
-
-
-  .qr-highlight-info {
-    margin: var(--spacing-md) 0;
-    text-align: center;
-  }
-
-  .amount-value {
-    font-weight: 600;
-    color: var(--primary-color);
-    font-size: 1.4rem;
-    margin-bottom: var(--spacing-xs);
-    line-height: 1.1;
-  }
-
-  .concept-value {
-    font-weight: 500;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    word-break: break-word;
-    line-height: 1.3;
-  }
-
-
-   /* Detalles compactos y minimalistas */
-   .qr-details {
-     margin-top: var(--spacing-md);
-     padding-top: var(--spacing-md);
-   }
-
-   .details-grid {
-     display: grid;
-     grid-template-columns: 1fr 1fr;
-     gap: var(--spacing-xs);
-   }
-
-
-   .detail-chip {
-     display: flex;
-     flex-direction: column;
-     align-items: center;
-     padding: var(--spacing-xs);
-     background: var(--background-secondary);
-     border-radius: var(--border-radius-sm);
-     text-align: center;
-     gap: 2px;
-   }
-
-   .chip-label {
-     font-size: 0.65rem;
-     font-weight: 500;
-     color: var(--text-secondary);
-     text-transform: uppercase;
-     letter-spacing: 0.3px;
-   }
-
-   .chip-value {
-     font-size: 0.7rem;
-     font-weight: 600;
-     color: var(--text-primary);
-     word-break: break-all;
-     line-height: 1.1;
-   }
-
-
-   .toggle-item {
-     display: flex;
-     flex-direction: column;
-     align-items: center;
-     padding: var(--spacing-xs);
-     background: var(--background-secondary);
-     border-radius: var(--border-radius-sm);
-     text-align: center;
-     gap: 2px;
-   }
-
-   .toggle-label {
-     font-size: 0.65rem;
-     font-weight: 500;
-     color: var(--text-secondary);
-     text-transform: uppercase;
-     letter-spacing: 0.3px;
-   }
-
-
-   .toggle-switch {
-     position: relative;
-     width: 28px;
-     height: 16px;
-     background: var(--border-color);
-     border-radius: 8px;
-     transition: all 0.2s ease;
-   }
-
-   .toggle-switch.active {
-     background: var(--success-color);
-   }
-
-   .toggle-switch.inactive {
-     background: var(--border-color);
-   }
-
-   .toggle-slider {
-     position: absolute;
-     top: 2px;
-     left: 2px;
-     width: 12px;
-     height: 12px;
-     background: white;
-     border-radius: 50%;
-     transition: all 0.2s ease;
-   }
-
-   .toggle-switch.active .toggle-slider {
-     transform: translateX(12px);
-   }
-
-   /* Botones de acción */
-   .qr-actions {
-     display: flex;
-     gap: var(--spacing-sm);
-     margin-top: var(--spacing-lg);
-     padding-top: var(--spacing-md);
-     border-top: 1px solid var(--border-color);
-   }
-
-   .action-button {
-     flex: 1;
-     display: flex;
-     align-items: center;
-     justify-content: center;
-     padding: var(--spacing-sm) var(--spacing-md);
-     border: none;
-     border-radius: var(--border-radius-md);
-     font-size: 0.9rem;
-     font-weight: 600;
-     cursor: pointer;
-     transition: all 0.2s ease;
-     text-decoration: none;
-   }
-
-   .share-button {
-     background: var(--primary-color);
-     color: white;
-   }
-
-   .share-button:hover {
-     background: var(--primary-hover);
-     transform: translateY(-1px);
-   }
-
-   .download-button {
-     background: var(--background-secondary);
-     color: var(--text-primary);
-     border: 1px solid var(--border-color);
-   }
-
-   .download-button:hover {
-     background: var(--background-primary);
-     transform: translateY(-1px);
-   }
-
-
-
-
-
-
-
-  .status-active {
-    color: var(--warning-color) !important;
-  }
-
-  .status-paid {
-    color: var(--success-color) !important;
-  }
-
-  .status-expired {
-    color: var(--error-color) !important;
-  }
-
-  .status-cancelled {
-    color: var(--text-secondary) !important;
-  }
-
-  /* Estilos para la sección de pagos */
-  .payments-section {
-    margin-top: var(--spacing-xl);
-    padding: var(--spacing-lg);
-    background: var(--surface);
-    border-radius: var(--border-radius-lg);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  }
-
-  .payments-section h3 {
-    margin: 0 0 var(--spacing-lg);
-    color: var(--text-primary);
-    font-size: 1.2rem;
-    font-weight: 600;
-    text-align: center;
-  }
-
-  .payments-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-md);
-  }
-
-  .payment-item {
-    padding: var(--spacing-md);
-    background: var(--background-secondary);
-    border-radius: var(--border-radius-md);
-    border: 1px solid var(--border-color);
-  }
-
-  .payment-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--spacing-sm);
-    padding-bottom: var(--spacing-sm);
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  .payment-number {
-    font-weight: 600;
-    color: var(--text-primary);
-    font-size: 0.9rem;
-  }
-
-  .payment-amount {
-    font-weight: 700;
-    color: var(--success-color);
-    font-size: 1.1rem;
-  }
-
-  .payment-details {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-  }
-
-  .payment-detail {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .payment-detail .label {
-    font-weight: 500;
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-  }
-
-  .payment-detail .value {
-    font-weight: 500;
-    color: var(--text-primary);
-    font-size: 0.85rem;
-    text-align: right;
-    max-width: 60%;
-    word-break: break-all;
-  }
-
-   .transaction-id {
-     font-family: 'Courier New', monospace;
-     font-size: 0.8rem;
-     background: var(--background-primary);
-     padding: 2px 6px;
-     border-radius: 4px;
-     border: 1px solid var(--border-color);
-   }
-
-   .no-payments-message {
-     text-align: center;
-     padding: var(--spacing-xl);
-     color: var(--text-secondary);
-   }
-
-  .no-payments-message p {
-    margin: 0;
-    font-size: 1rem;
-    font-style: italic;
-  }
-
-  /* Estilos para el modal de pago exitoso */
-  .payment-success-content {
-    text-align: center;
-  }
-
-  .success-icon {
-    display: flex;
-    justify-content: center;
-    margin-bottom: var(--spacing-md);
-    color: var(--success-color);
-  }
-
-  .success-message {
-    font-size: 1.1rem;
-    color: var(--text-secondary);
-    margin-bottom: var(--spacing-lg);
-  }
-
-  .payment-details {
-    text-align: left;
-    background: var(--background-secondary);
-    border-radius: var(--border-radius-md);
-    padding: var(--spacing-md);
-    margin-bottom: var(--spacing-lg);
-  }
-
-  .payment-details .detail-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: var(--spacing-sm) 0;
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  .payment-details .detail-row:last-child {
-    border-bottom: none;
-  }
-
-  .payment-details .label {
-    font-weight: 500;
-    color: var(--text-secondary);
-  }
-
-  .payment-details .value {
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
-  .payment-details .transaction-id {
-    font-family: monospace;
-    font-size: 0.9rem;
-  }
-
-
-  @media (max-width: 768px) {
-    .page-container {
-      padding: 0 var(--spacing-sm);
-    }
-
-
-    .countdown {
-      font-size: 1.5rem;
-    }
-
-    .status-section {
-      margin-bottom: var(--spacing-md);
-    }
-
-    .status-panel {
-      gap: var(--spacing-sm);
-    }
-
-    .verify-button {
-      padding: var(--spacing-xs) var(--spacing-sm);
-      font-size: 0.8rem;
-    }
-
-
-    .qr-image {
-      width: 180px;
-      height: 180px;
-    }
-
-    .loading-placeholder {
-      max-width: 320px;
-      padding: var(--spacing-md);
-    }
-
-    .header-skeleton {
-      height: 32px;
-    }
-
-    .qr-skeleton {
-      width: 160px;
-      height: 160px;
-    }
-
-    .info-skeleton-1 {
-      height: 20px;
-    }
-
-    .info-skeleton-2,
-    .info-skeleton-3,
-    .info-skeleton-4 {
-      height: 18px;
-    }
-
-    .amount-value {
-      font-size: 1.5rem;
-    }
-
-     .concept-value {
-       font-size: 1rem;
-     }
-
-     .detail-chips {
-       gap: 2px;
-     }
-
-     .detail-chip {
-       padding: 4px 0;
-     }
-
-     .toggle-item {
-       padding: 4px 0;
-     }
-
-     .toggle-switch {
-       width: 32px;
-       height: 18px;
-     }
-
-     .toggle-slider {
-       width: 14px;
-       height: 14px;
-     }
-
-     .toggle-switch.active .toggle-slider {
-       transform: translateX(14px);
-     }
-
-     .status-info {
-       justify-content: flex-start;
-     }
-
-     .qr-actions {
-       gap: var(--spacing-xs);
-       margin-top: var(--spacing-md);
-       padding-top: var(--spacing-sm);
-     }
-
-     .action-button {
-       padding: var(--spacing-xs) var(--spacing-sm);
-       font-size: 0.8rem;
-     }
-
-     .details-grid {
-       grid-template-columns: 1fr 1fr;
-       gap: 4px;
-     }
-
-     .detail-chip,
-     .toggle-item {
-       padding: 6px;
-     }
-
-     .toggle-switch {
-       width: 24px;
-       height: 14px;
-     }
-
-     .toggle-slider {
-       width: 10px;
-       height: 10px;
-     }
-
-     .toggle-switch.active .toggle-slider {
-       transform: translateX(10px);
-     }
-
-     .qr-header {
-       gap: 6px;
-       margin-bottom: var(--spacing-sm);
-     }
-
-     .brand-logo {
-       width: 28px;
-       height: 28px;
-     }
-
-     .brand-name {
-       font-size: 0.9rem;
-     }
-
-     .brand-tagline {
-       font-size: 0.7rem;
-     }
-
-     .amount-value {
-       font-size: 1.2rem;
-     }
-
-     .concept-value {
-       font-size: 0.8rem;
-     }
-
-
-    .payments-section {
-      padding: var(--spacing-md);
-    }
-
-    .payment-item {
-      padding: var(--spacing-sm);
-    }
-  }
-
-
-
+  .loading { width: 200px; height: 200px; margin: var(--space-8) auto; background: var(--muted); border-radius: var(--radius-m); animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+  .error { text-align: center; padding: var(--space-8); color: var(--foreground); }
+  .link { background: none; border: none; color: var(--primary); cursor: pointer; font-size: var(--text-sm); margin-top: var(--space-2); }
+
+  .qr-visual { background: white; border-radius: var(--radius-m); padding: var(--space-6) var(--space-8); text-align: center; }
+  .qr-status { display: flex; align-items: center; justify-content: center; gap: var(--space-2); font-size: var(--text-sm); color: #111; margin-bottom: var(--space-4); }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-success-foreground); animation: pulse 1.5s infinite; }
+  .refresh-sm { background: none; border: none; color: var(--primary); cursor: pointer; padding: 0; display: flex; }
+  .qr-img { width: 240px; height: 240px; margin: 0 auto; display: block; }
+  .qr-info { margin-top: var(--space-4); }
+  .amount { font-size: var(--text-xl); font-weight: 700; color: #111; }
+  .desc { font-size: var(--text-sm); color: #666; margin-top: var(--space-1); }
+
+  .actions { display: flex; gap: var(--space-2); }
+  .action { flex: 1; display: flex; align-items: center; justify-content: center; gap: var(--space-2); height: 40px; border: 1px solid var(--border); border-radius: var(--radius-pill); background: transparent; color: var(--foreground); font-size: var(--text-sm); cursor: pointer; }
+  .action.primary { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); }
+
+  .meta { display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--text-sm); }
+  .meta-row { display: flex; justify-content: space-between; padding: var(--space-2) 0; border-bottom: 1px solid var(--border); }
+  .meta-row span:first-child { color: var(--muted-foreground); }
+  .mono { font-family: var(--font-mono); font-size: var(--text-xs); }
+
+  .payments h3 { font-size: var(--text-sm); font-weight: 600; margin: 0 0 var(--space-3); }
+  .payment { padding: var(--space-3); background: rgba(var(--surface-rgb), 1); border-radius: var(--radius-m); font-size: var(--text-sm); display: flex; flex-direction: column; gap: var(--space-1); }
+  .payment-head { display: flex; justify-content: space-between; font-weight: 600; }
+  .payment-head .amount { font-size: var(--text-sm); font-weight: 700; }
+  .payment-detail { display: flex; justify-content: space-between; color: var(--muted-foreground); }
+  .payment-detail span:last-child { color: var(--foreground); }
+
+  .expired { text-align: center; padding: var(--space-8); color: var(--color-error-foreground); display: flex; flex-direction: column; align-items: center; gap: var(--space-2); }
+  .btn { height: 40px; padding: 0 var(--space-6); border: none; border-radius: var(--radius-pill); background: var(--primary); color: var(--primary-foreground); cursor: pointer; }
+
+  .overlay { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .modal { background: var(--background); border-radius: var(--radius-m); padding: var(--space-6); max-width: 320px; width: 90%; text-align: center; }
+  :global(.icon-success) { margin: 0 auto var(--space-3); color: var(--color-success-foreground); }
+  .success-msg { font-size: var(--text-lg); font-weight: 600; margin-bottom: var(--space-4); }
+  .pay-details { display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--text-sm); }
+  .pay-row { display: flex; justify-content: space-between; }
+  .pay-row span:first-child { color: var(--muted-foreground); }
 </style>

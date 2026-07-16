@@ -1,3 +1,4 @@
+import { BaseApiClient, ApiKeyAuthProvider } from '@pagui/shared'
 import { PUBLIC_PAGUI_API_URL, PUBLIC_PAGUI_API_KEY } from '$env/static/public'
 import type { ServerResponse } from '../types/api'
 import type {
@@ -14,42 +15,15 @@ const DEFAULT_API_KEY = PUBLIC_PAGUI_API_KEY || ''
  * Servicio para EMPSAAT
  * Enruta a través del backend Pagui para mantener las API keys seguras.
  */
-export class EmpsaatService {
-  private baseUrl: string
-  private apiKey: string
-
+export class EmpsaatService extends BaseApiClient {
   constructor(baseUrl?: string, apiKey?: string) {
-    this.baseUrl = baseUrl || DEFAULT_API_URL
-    this.apiKey = apiKey || DEFAULT_API_KEY
+    const resolvedBaseUrl = baseUrl || DEFAULT_API_URL
+    const resolvedApiKey = apiKey || DEFAULT_API_KEY
+    super(resolvedBaseUrl, new ApiKeyAuthProvider(resolvedApiKey))
   }
 
   static create(baseUrl?: string, apiKey?: string): EmpsaatService {
     return new EmpsaatService(baseUrl, apiKey)
-  }
-
-  private async callApi<T>(
-    endpoint: string,
-    method: 'GET' | 'POST' = 'GET',
-    body?: unknown
-  ): Promise<ServerResponse<T>> {
-    const response = await fetch(
-      `${this.baseUrl}/collections/empsaat${endpoint}`,
-      {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': this.apiKey,
-        },
-        body: body ? JSON.stringify(body) : undefined,
-      }
-    )
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => null)
-      throw new Error(errorData?.error || `Error: ${response.status}`)
-    }
-
-    return response.json()
   }
 
   async buscarDeudasPorCriterio(
@@ -57,16 +31,15 @@ export class EmpsaatService {
     type: 'nombre' | 'documento' | 'abonado'
   ): Promise<ServerResponse<DeudasResponse>> {
     const params = new URLSearchParams({ keyword: keyword.trim(), type })
-    return this.callApi<DeudasResponse>(`/deudas?${params}`, 'GET')
+    return this.get<ServerResponse<DeudasResponse>>(`/collections/empsaat/deudas?${params}`)
   }
 
   async crearTransaccion(
     abonado: number,
     datos: CrearTransaccionRequest
   ): Promise<ServerResponse<TransaccionResponse>> {
-    return this.callApi<TransaccionResponse>(
-      `/deudas/${abonado}/transaction`,
-      'POST',
+    return this.post<ServerResponse<TransaccionResponse>>(
+      `/collections/empsaat/deudas/${abonado}/transaction`,
       datos
     )
   }
@@ -74,9 +47,8 @@ export class EmpsaatService {
   async completarTransaccion(
     datos: CompletarTransaccionRequest
   ): Promise<ServerResponse<TransaccionResponse>> {
-    return this.callApi<TransaccionResponse>(
-      '/deudas/transaction/complete',
-      'POST',
+    return this.post<ServerResponse<TransaccionResponse>>(
+      '/collections/empsaat/deudas/transaction/complete',
       datos
     )
   }
@@ -84,9 +56,8 @@ export class EmpsaatService {
   async obtenerHistorialTransacciones(
     abonado: number
   ): Promise<ServerResponse<TransaccionResponse[]>> {
-    return this.callApi<TransaccionResponse[]>(
-      `/deudas/${abonado}/transactions`,
-      'GET'
+    return this.get<ServerResponse<TransaccionResponse[]>>(
+      `/collections/empsaat/deudas/${abonado}/transactions`
     )
   }
 }

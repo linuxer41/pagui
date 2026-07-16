@@ -87,7 +87,7 @@
     <!-- Si es deuda de agua, permitir pagar la más antigua primero -->
     {:else if deuda?.tipo === 'agua' || !deuda?.tipo}
       {#if permitirPagar}
-        <button class="btn-pay" on:click={() => generarQR(deuda)} disabled={isGeneratingQR}>
+        <button class="btn-pay" onclick={() => generarQR(deuda)} disabled={isGeneratingQR}>
           {#if isGeneratingQR}
             <span class="spinner"></span>
             Generando QR...
@@ -104,7 +104,7 @@
       {/if}
     <!-- Si es servicio, permitir pagar individualmente -->
     {:else if deuda?.tipo === 'servicio'}
-      <button class="btn-pay-service" on:click={() => pagarServicios([deuda], deuda?.monto || 0)} disabled={isLoading}>
+      <button class="btn-pay-service" onclick={() => pagarServicios([deuda], deuda?.monto || 0)} disabled={isLoading}>
         {#if isLoading}
           <span class="spinner"></span>
           Procesando...
@@ -124,7 +124,7 @@
         <div class="error-message-qr">
           <h4>Error al generar QR</h4>
           <p>{error}</p>
-          <button class="btn-retry" on:click={() => generarQR(deuda)}>
+          <button class="btn-retry" onclick={() => generarQR(deuda)}>
             <RefreshCwIcon size="16" />
             Reintentar
           </button>

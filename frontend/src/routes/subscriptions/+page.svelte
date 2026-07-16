@@ -1,22 +1,25 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { goto } from '$app/navigation';
-  import Button from '$lib/components/Button.svelte';
-  import Input from '$lib/components/Input.svelte';
-  import Select from '$lib/components/Select.svelte';
   import api from '$lib/api';
-  import { Calendar, Plus, Trash2, XCircle } from '@lucide/svelte';
+  import Section from '$lib/components/Section.svelte';
+  import { Calendar, Plus, XCircle } from '@lucide/svelte';
+  import PillButton from '$lib/components/ui/PillButton.svelte';
+  import GhostButton from '$lib/components/ui/GhostButton.svelte';
+  import AmountField from '$lib/components/ui/AmountField.svelte';
+  import TextField from '$lib/components/ui/TextField.svelte';
+  import PageLayout from '$lib/components/layouts/PageLayout.svelte';
+  import Skeleton from '$lib/components/Skeleton.svelte';
+  import EmptyState from '$lib/components/EmptyState.svelte';
 
   let subscriptions: any[] = [];
   let loading = true;
   let error = '';
-
   let showForm = false;
   let receiverWalletId = '';
   let amount = 0;
-  let interval = 'monthly';
+  let interval: 'daily' | 'weekly' | 'monthly' | 'yearly' = 'monthly';
   let subDescription = '';
-  let maxPayments = 0;
+  let maxPaymentsStr = '0';
   let saving = false;
 
   const intervals = [
@@ -28,8 +31,8 @@
 
   onMount(async () => {
     try {
-      const res = await api.listSubscriptions();
-      if (res.success) subscriptions = res.data || [];
+      const res: any = await api.listSubscriptions();
+      if (res.success) subscriptions = res.data?.data || [];
     } catch (e: any) { error = e.message; }
     finally { loading = false; }
   });
@@ -38,14 +41,14 @@
     if (!receiverWalletId || amount <= 0) return;
     saving = true; error = '';
     try {
-      const res = await api.createSubscription({
+      const res: any = await api.createSubscription({
         walletId: '', receiverWalletId, amount, interval,
         description: subDescription || undefined,
-        maxPayments: maxPayments > 0 ? maxPayments : undefined,
+        maxPayments: parseInt(maxPaymentsStr) > 0 ? parseInt(maxPaymentsStr) : undefined,
       });
-      if (res.success) {
-        subscriptions = [res.data, ...subscriptions];
-        showForm = false; receiverWalletId = ''; amount = 0; subDescription = ''; maxPayments = 0;
+      if (res && res.success !== false) {
+        subscriptions = [res.data ?? res, ...subscriptions];
+        showForm = false; receiverWalletId = ''; amount = 0; subDescription = ''; maxPaymentsStr = '0';
       } else { error = res.message || 'Error'; }
     } catch (e: any) { error = e.message; }
     finally { saving = false; }
@@ -59,54 +62,49 @@
   }
 </script>
 
-<div class="page-header">
-  <span class="page-header-title">Suscripciones</span>
-  <div style="margin-left:auto">
-    <Button onclick={() => showForm = !showForm} size="sm">
-      <Plus size={16} /> Nueva
-    </Button>
-  </div>
-</div>
-<div class="page-content">
+<PageLayout title="Suscripciones">
+  {#snippet actions()}
+    <PillButton label="Nueva" onClick={() => showForm = !showForm} />
+  {/snippet}
+
   {#if showForm}
-    <div class="section-card" style="margin-top:0;margin-bottom:var(--space-4)">
-      <div style="font-weight:600;font-size:1rem;margin-bottom:1.25rem">Nueva suscripción</div>
-      <div style="display:flex;flex-direction:column;gap:1rem">
-        <Input id="rec" label="Billetera destino" bind:value={receiverWalletId} placeholder="ID billetera" />
-        <Input id="amt" label="Monto (Bs)" type="number" bind:value={amount} placeholder="0.00" />
-        <Select id="int" label="Frecuencia" options={intervals} bind:value={interval} />
-        <Input id="desc" label="Descripción" bind:value={subDescription} placeholder="Opcional" />
-        <Input id="max" label="Máx. pagos (0=ilimitado)" type="number" bind:value={maxPayments} placeholder="0" />
-        {#if error}
-          <div style="padding:0.5rem;background:var(--error-bg);color:var(--error-color);border-radius:var(--radius-lg);font-size:0.85rem">{error}</div>
-        {/if}
+    <Section label="Nueva suscripción">
+      <div class="form">
+        <TextField label="Billetera destino" bind:value={receiverWalletId} placeholder="ID billetera" />
+        <AmountField label="Monto (Bs)" bind:value={amount} />
+        <div class="select-group">
+          <span class="field-label">Frecuencia</span>
+          <select class="native-select" bind:value={interval}>
+            {#each intervals as it}<option value={it.value}>{it.label}</option>{/each}
+          </select>
+        </div>
+        <TextField label="Descripción" bind:value={subDescription} placeholder="Opcional" />
+        <TextField label="Máx. pagos (0=ilimitado)" type="number" bind:value={maxPaymentsStr} placeholder="0" />
+        {#if error}<div class="msg error">{error}</div>{/if}
         <div class="form-actions">
-          <Button variant="ghost" onclick={() => showForm = false}>Cancelar</Button>
-          <Button onclick={handleCreate} loading={saving}>Crear</Button>
+          <GhostButton onClick={() => showForm = false}>Cancelar</GhostButton>
+          <PillButton label="Crear" onClick={handleCreate} loading={saving} />
         </div>
       </div>
-    </div>
+    </Section>
   {/if}
 
   {#if loading}
-    <div style="text-align:center;color:var(--text-secondary);padding:2rem">Cargando...</div>
+    <Skeleton width="100%" height="58px" radius="lg" count={3} gap="space-2" />
   {:else if subscriptions.length === 0}
-    <div style="display:flex;flex-direction:column;align-items:center;gap:1rem;padding:3rem 1rem;color:var(--text-secondary)">
-      <Calendar size={48} />
-      <p style="margin:0;font-size:var(--text-sm)">No tienes suscripciones activas</p>
-    </div>
+    <EmptyState icon={Calendar} title="No tienes suscripciones activas" />
   {:else}
-    <div style="display:flex;flex-direction:column;gap:var(--space-4);padding-top:var(--space-4)">
+    <div class="sub-list">
       {#each subscriptions as sub}
-        <div class="section-card" style="display:flex;align-items:center;justify-content:space-between;margin-top:0;gap:0.75rem;transition:opacity var(--duration-fast) var(--ease-out)" class:inactive={!sub.is_active}>
-          <div style="flex:1;min-width:0">
-            <span style="font-size:0.7rem;background:var(--primary-color);color:white;padding:0.15rem 0.5rem;border-radius:99px;display:inline-block;margin-bottom:0.25rem;text-transform:uppercase">{sub.interval_type}</span>
-            <div style="font-weight:700;font-size:1.1rem;margin:0.25rem 0;color:var(--text-primary)">Bs. {Number(sub.amount).toFixed(2)}</div>
-            <div style="margin:0;font-size:var(--text-sm);color:var(--text-secondary)">{sub.description || 'Sin descripción'}</div>
-            <div style="font-size:var(--text-sm);color:var(--text-tertiary)">{sub.payment_count} pagos realizados</div>
+        <div class="sub-card" class:inactive={!sub.is_active}>
+          <div class="sub-body">
+            <span class="sub-badge">{sub.interval_type}</span>
+            <div class="sub-amount">Bs. {Number(sub.amount).toFixed(2)}</div>
+            <div class="sub-desc">{sub.description || 'Sin descripción'}</div>
+            <div class="sub-count">{sub.payment_count} pagos realizados</div>
           </div>
           {#if sub.is_active}
-            <button style="background:none;border:none;color:var(--error-color);cursor:pointer;padding:0.5rem;flex-shrink:0" onclick={() => handleCancel(sub.id)} aria-label="Cancelar suscripción">
+            <button class="sub-cancel" onclick={() => handleCancel(sub.id)} aria-label="Cancelar suscripción">
               <XCircle size={18} />
             </button>
           {/if}
@@ -114,4 +112,23 @@
       {/each}
     </div>
   {/if}
-</div>
+</PageLayout>
+
+<style>
+  .form { display: flex; flex-direction: column; gap: var(--space-4); }
+  .select-group { display: flex; flex-direction: column; gap: var(--space-2); }
+  .field-label { font-size: var(--text-sm); font-weight: 500; color: rgba(var(--text-secondary-rgb), 1); }
+  .native-select { width: 100%; padding: var(--space-3); border-radius: var(--radius-lg); border: 1px solid rgba(var(--border-rgb), 0.5); background: rgba(var(--surface-rgb), 1); color: rgba(var(--text-primary-rgb), 1); font-size: var(--text-sm); height: 44px; outline: none; }
+  .native-select:focus { border-color: rgba(var(--primary-rgb), 0.6); }
+  .msg { padding: var(--space-3); border-radius: var(--radius-lg); font-size: var(--text-sm); font-weight: 500; background: rgba(var(--error-rgb), 0.1); color: rgba(var(--error-rgb), 1); }
+  .form-actions { display: flex; gap: var(--space-2); justify-content: flex-end; }
+  .sub-list { display: flex; flex-direction: column; gap: var(--space-3); }
+  .sub-card { display: flex; align-items: flex-start; gap: var(--space-3); background: rgba(var(--surface-rgb), 1); border-radius: var(--radius-xl); padding: var(--space-4); border: 1px solid rgba(var(--border-rgb), 0.5); }
+  .sub-card.inactive { opacity: 0.5; }
+  .sub-body { flex: 1; min-width: 0; }
+  .sub-badge { font-size: 0.7rem; background: var(--primary); color: rgba(var(--bg-rgb), 1); padding: 0.15rem 0.5rem; border-radius: 999px; display: inline-block; margin-bottom: 0.25rem; text-transform: uppercase; }
+  .sub-amount { font-weight: 700; font-size: var(--text-lg); margin: 0.25rem 0; color: rgba(var(--text-primary-rgb), 1); }
+  .sub-desc { margin: 0; font-size: var(--text-sm); color: rgba(var(--text-secondary-rgb), 1); }
+  .sub-count { font-size: var(--text-sm); color: rgba(var(--text-tertiary-rgb), 1); }
+  .sub-cancel { background: none; border: none; color: rgba(var(--error-rgb), 1); cursor: pointer; padding: var(--space-2); flex-shrink: 0; }
+</style>

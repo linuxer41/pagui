@@ -1,49 +1,35 @@
 <script lang="ts">
     import { ArrowLeft } from '@lucide/svelte';
-    import { goto } from '$app/navigation';
-    export let title: string;
-    export let showBack: boolean = true;
+    import type { Snippet } from 'svelte'
+    let { title = '', showBack = true, children, actions }: { title?: string; showBack?: boolean; children?: Snippet; actions?: Snippet } = $props()
     
     function goBack() {
-        // Usar window.history.go(-1) que es más confiable
-        try {
-          window.history.back();
-            // if (window.history.length > 1) {
-                // window.history.go(-1);
-            // } else {
-            //     // Si no hay historial, ir a la página principal
-            //     goto('/');
-            // }
-        } catch (error) {
-            // Si falla, ir a la página principal
-            console.error('Error al navegar hacia atrás:', error);
-            // goto('/');
-        }
+      try { window.history.back() } catch { }
     }
 </script>
 
 <header class="app-header">
     <div class="header-content">
       {#if showBack}
-        <button class="back-btn" on:click={goBack} aria-label="Volver">
+        <button class="back-btn" onclick={goBack} aria-label="Volver">
           <ArrowLeft size={18} />
         </button>
       {/if}
       <h1 class="header-title">{title}</h1>
       <div class="header-actions">
-        <slot name="actions" />
+        {#if actions}{@render actions()}{/if}
       </div>
     </div>
     <div class="sub-header">
-      <slot name="sub-header" />
+      {#if children}{@render children()}{/if}
     </div>
   </header>
 
 <style>
 
 .app-header {
-  padding: var(--spacing-md);
-  background: var(--surface);
+  padding: var(--space-4);
+  background: var(--background);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -60,9 +46,9 @@
   background: none;
   border: none;
   font-size: 1.5rem;
-  margin-right: var(--spacing-md);
+  margin-right: var(--space-4);
   cursor: pointer;
-  color: var(--primary-color);
+  color: var(--primary);
 }
 .header-title {
   flex: 1;
@@ -73,6 +59,6 @@
 .header-actions {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
+  gap: var(--space-2);
 }
 </style>

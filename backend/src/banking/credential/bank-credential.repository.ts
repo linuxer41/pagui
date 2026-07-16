@@ -12,6 +12,9 @@ export interface BankCredentialRow {
   encryptionKey: string
   environment: string
   apiBaseUrl: string
+  type: string
+  userId: bigint | null
+  commissionRate: number
   status: string
   createdAt: Date
 }
@@ -20,15 +23,16 @@ export const bankCredentialRepository = {
   async create(data: {
     bankId: bigint; accountNumber: string; accountName: string; merchantId: string
     username: string; password: string; encryptionKey: string
-    environment: string; apiBaseUrl: string
+    environment: string; apiBaseUrl: string; type?: string; commissionRate?: number
   }): Promise<BankCredentialRow> {
     const r = await query(`
       INSERT INTO bank_credentials (id, bank_id, account_number, account_name, merchant_id,
-        username, password, encryption_key, environment, api_base_url)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        username, password, encryption_key, environment, api_base_url, type, commission_rate)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *
     `, [nextSnowflake(), data.bankId, data.accountNumber, data.accountName, data.merchantId,
-      data.username, data.password, data.encryptionKey, data.environment, data.apiBaseUrl])
+      data.username, data.password, data.encryptionKey, data.environment, data.apiBaseUrl,
+      data.type || 'client', data.commissionRate ?? 0])
     return r.rows[0] as BankCredentialRow
   },
 
@@ -42,12 +46,14 @@ export const bankCredentialRepository = {
     return r.rows as BankCredentialRow[]
   },
 
-  async list(filters: { environment?: string; status?: string } = {}): Promise<BankCredentialRow[]> {
-    const conditions: string[] = ['deleted_at IS NULL']; const params: unknown[] = []; let pc = 0
-    if (filters.environment) { pc++; conditions.push(`environment = $${pc}`); params.push(filters.environment) }
-    if (filters.status) { pc++; conditions.push(`status = $${pc}`); params.push(filters.status) }
+  async list(filters: { environment?: string; status?: string; type?: string; userId?: bigint } = {}): Promise<BankCredentialRow[]> {
+    const conditions: string[] = ['bc.deleted_at IS NULL']; const params: unknown[] = []; let pc = 0
+    if (filters.environment) { pc++; conditions.push(`bc.environment = $${pc}`); params.push(filters.environment) }
+    if (filters.status) { pc++; conditions.push(`bc.status = $${pc}`); params.push(filters.status) }
+    if (filters.type) { pc++; conditions.push(`bc.type = $${pc}`); params.push(filters.type) }
+    if (filters.userId) { pc++; conditions.push(`bc.user_id = $${pc}`); params.push(filters.userId) }
     const where = 'WHERE ' + conditions.join(' AND ')
-    const r = await query(`SELECT * FROM bank_credentials ${where} ORDER BY created_at DESC`, params)
+    const r = await query(`SELECT bc.* FROM bank_credentials bc ${where} ORDER BY bc.created_at DESC`, params)
     return r.rows as BankCredentialRow[]
   },
 

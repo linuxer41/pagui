@@ -1,0 +1,30 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "http://localhost:1420",
+      "localStorage": [
+        {
+          "name": "theme",
+          "value": "system"
+        },
+        {
+          "name": "token",
+          "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjIwMzM2ODgzMDczNzU4NDEzMCwiZW1haWwiOiJhZG1pbkBwYWd1aS5jb20iLCJyb2xlIjoxLCJpYXQiOjE3ODQyMDQ1NjksImV4cCI6MTc4NDI5MDk2OX0.PjRL3jr1MX5GeEx9AxEupp8YYQv1BrFJu0qebAJc3YA"
+        },
+        {
+          "name": "accounts",
+          "value": "[]"
+        },
+        {
+          "name": "refreshToken",
+          "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjIwMzM2ODgzMDczNzU4NDEzMCwidHlwZSI6InJlZnJlc2giLCJpYXQiOjE3ODQyMDQ1NjksImV4cCI6MTc4Njc5NjU2OX0.3z-NASwZqnSO1NMwizew5pzSaehR82YY1vr8G3ftmZA"
+        },
+        {
+          "name": "user",
+          "value": "{\"id\":\"203368830737584128\",\"email\":\"admin@pagui.com\",\"fullName\":\"Administrador del Sistema\",\"role\":1,\"status\":\"active\",\"accounts\":[]}"
+        }
+      ]
+    }
+  ]
+}

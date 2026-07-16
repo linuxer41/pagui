@@ -2,6 +2,7 @@ import { query } from '../../shared/database/pool'
 import { nextSnowflake } from '../../shared/snowflake'
 import { walletRepository } from '../wallet/wallet.repository'
 import { transferRepository } from '../transfer/transfer.repository'
+import { AppError } from '../../shared/errors/app-error'
 import { logger } from '../../shared/logger'
 
 interface SplitItem {
@@ -17,8 +18,8 @@ export async function createSplitPayment(
 ) {
   const totalFromRecipients = recipients.reduce((sum, r) => sum + r.amount, 0)
   const sender = await walletRepository.getById(senderWalletId)
-  if (!sender) throw new Error('Billetera no encontrada')
-  if (sender.availableBalance < totalFromRecipients) throw new Error('Saldo insuficiente')
+  if (!sender) throw new AppError(404, 'Billetera no encontrada')
+  if (sender.availableBalance < totalFromRecipients) throw new AppError(400, 'Saldo insuficiente')
 
   const splitGroupId = nextSnowflake()
   const results = []
@@ -55,7 +56,7 @@ export async function createSplitPayment(
 
 export function calculateSplit(total: number, percentages: number[]): SplitItem[] {
   const sum = percentages.reduce((a, b) => a + b, 0)
-  if (Math.abs(sum - 100) > 0.01) throw new Error('Porcentajes deben sumar 100%')
+  if (Math.abs(sum - 100) > 0.01) throw new AppError(400, 'Porcentajes deben sumar 100%')
 
   let remaining = total
   const result: { percentage: number; amount: number }[] = []

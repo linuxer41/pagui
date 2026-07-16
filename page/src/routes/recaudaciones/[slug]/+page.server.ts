@@ -1,3 +1,4 @@
+import { BaseApiClient, ApiKeyAuthProvider } from '@pagui/shared'
 import { getEmpresaConfig } from '$lib/config/empresas';
 import { EmpsaatService } from '$lib/services/EmpsaatService';
 import { QRService } from '$lib/services/QRService';
@@ -21,14 +22,15 @@ import type {
 // Helper para simplificar respuestas de error
 const errorResponse = (message: string, status = 400) => fail(status, { error: message });
 
+const apiClient = new BaseApiClient(
+  PUBLIC_PAGUI_API_URL || 'http://localhost:3000',
+  new ApiKeyAuthProvider(PUBLIC_PAGUI_API_KEY || '')
+);
+
 async function fetchFromBackend<T>(endpoint: string): Promise<T | null> {
   try {
-    const res = await fetch(`${PUBLIC_PAGUI_API_URL}${endpoint}`, {
-      headers: { 'x-api-key': PUBLIC_PAGUI_API_KEY },
-    });
-    if (!res.ok) return null;
-    const json = await res.json();
-    return json.data || json;
+    const json = await apiClient.get<any>(endpoint);
+    return json.data?.data ?? json.data ?? json;
   } catch {
     return null;
   }

@@ -1,22 +1,25 @@
 import { auth } from './stores/auth';
 import { company } from './stores/company';
 import { get } from 'svelte/store';
-import { API_URL, APP_CONFIG } from './config';
+import { goto } from '$app/navigation';
+import { API_URL } from './config';
+import { BaseApiClient, JwtAuthProvider } from '@pagui/shared';
 
-// Interfaz para respuestas del API (nueva estructura)
-interface ApiResponse<T = any> {
+// ---- Generic response wrapper ----
+export interface ApiResponse<T> {
   success: boolean;
+  data: T;
   message?: string;
-  data?: T;
 }
 
-// Opciones para las peticiones
-interface RequestOptions {
-  token?: string;
-  apiKey?: string;
+export interface PaginatedData<T> {
+  data: T[];
+  totalCount: number;
+  page?: number;
+  pageSize?: number;
 }
 
-// Interfaces para los datos de transacciones
+// ---- Domain interfaces ----
 export interface TransactionDay {
   date: Date;
   amount: number;
@@ -58,7 +61,6 @@ export interface TransactionsResponse {
   responseCode: number;
 }
 
-// Interfaz para una transacción individual
 export interface Transaction {
   id: string;
   type: 'incoming' | 'outgoing';
@@ -69,11 +71,10 @@ export interface Transaction {
   status: 'completed' | 'pending' | 'canceled';
   reference?: string;
   category?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
-// Interfaz para la respuesta de QR generado
-export interface QRGeneratedResponse {
+export interface QRGenerated {
   qrId: string;
   qrImage: string;
   transactionId: string;
@@ -85,8 +86,7 @@ export interface QRGeneratedResponse {
   status: string;
 }
 
-// Interfaz para la respuesta de detalles del QR (GET /qr/:id)
-export interface QRStatusResponse {
+export interface QRDetail {
   qrId: string;
   qrImage: string;
   transactionId: string;
@@ -97,17 +97,20 @@ export interface QRStatusResponse {
   singleUse: boolean;
   modifyAmount: boolean;
   status: 'active' | 'paid' | 'expired' | 'cancelled';
-  payments: any[]; // Siempre vacío en el endpoint de detalles
+  payments?: QRPayment[];
 }
 
-// Interfaz para la respuesta de pagos del QR (GET /qr/:id/payments)
-export interface QRPaymentsResponse {
-  qrId: string;
-  payments: any[];
+export interface QRPayment {
+  id: string;
+  amount: number;
+  currency: string;
+  paymentDate: string;
+  senderName?: string;
+  senderDocumentId?: string;
+  senderAccount?: string;
 }
 
-// Interfaz para respuesta de listado de transacciones
-export interface TransactionsListResponse {
+export interface TransactionsListData {
   transactions: Transaction[];
   pagination?: {
     page: number;
@@ -117,7 +120,6 @@ export interface TransactionsListResponse {
   };
 }
 
-// Interfaces para cuentas y movimientos
 export interface Account {
   id: string;
   accountNumber: string;
@@ -155,18 +157,9 @@ export interface AccountStats {
     availableBalance: number;
     status: string;
   };
-  today: {
-    amount: number;
-    growthPercentage: number;
-  };
-  thisWeek: {
-    amount: number;
-    growthPercentage: number;
-  };
-  thisMonth: {
-    amount: number;
-    growthPercentage: number;
-  };
+  today: { amount: number; growthPercentage: number };
+  thisWeek: { amount: number; growthPercentage: number };
+  thisMonth: { amount: number; growthPercentage: number };
   recentMovements: {
     id: number;
     accountId: number;
@@ -187,212 +180,234 @@ export interface AccountStats {
   }[];
 }
 
-// Cliente API usando fetch nativo (actualizado para nueva API)
-class ApiClient {
-  // Método genérico para realizar peticiones
-  private async request<T>(
-    endpoint: string, 
-    method: string = 'GET', 
-    data?: any, 
-    options: RequestOptions = {}
-  ): Promise<T> {
-    const url = `${API_URL}${endpoint}`;
-    
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
+export interface UserProfile {
+  id: number;
+  email: string;
+  fullName: string;
+  role: number;
+  status: string;
+}
 
-    // Obtener token del store de autenticación si no se proporciona en options
-    if (!options.token) {
-      const authStore = get(auth);
-      if (authStore.token) {
-        headers['Authorization'] = `Bearer ${authStore.token}`;
-      }
-    } else {
-      headers['Authorization'] = `Bearer ${options.token}`;
+export interface LoginData {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: string;
+  user: UserProfile;
+  accounts: import('./stores/auth').Account[];
+  company?: Record<string, unknown>;
+}
+
+export interface ApiKey {
+  id: number;
+  name: string;
+  key: string;
+  createdAt: string;
+  lastUsedAt?: string;
+  isActive: boolean;
+}
+
+export interface HealthStatus {
+  status: string;
+  version?: string;
+  timestamp: string;
+  uptime?: number;
+}
+
+export interface HealthApiStatus {
+  status: string;
+  database: string;
+  timestamp: string;
+}
+
+export interface Wallet {
+  id: string;
+  name: string;
+  type: string;
+  currency: string;
+  balance: number;
+  availableBalance: number;
+}
+
+export interface Subscription {
+  id: string;
+  amount: number;
+  intervalType: string;
+  description?: string;
+  isActive: boolean;
+  startDate: string;
+  endDate?: string;
+  lastProcessedAt?: string;
+}
+
+export interface Merchant {
+  id: string;
+  businessName: string;
+  businessCategory: string;
+  taxId: string;
+  isVerified: boolean;
+  isActive: boolean;
+}
+
+export interface NFCData {
+  nfcId: string;
+  payload: {
+    nfcId: string;
+    senderWalletId: string;
+    receiverWalletId: string;
+    amount: number;
+    timestamp: number;
+    nonce: string;
+    signature: string;
+  };
+  qrData: string;
+}
+
+export interface FraudAlert {
+  id: string;
+  type: string;
+  severity: string;
+  message: string;
+  createdAt: string;
+  resolvedAt?: string;
+}
+
+export interface FXRate {
+  base: string;
+  target: string;
+  rate: number;
+  updatedAt: string;
+}
+
+export interface Webhook {
+  id: string;
+  url: string;
+  events: string[];
+  isActive: boolean;
+  lastSentAt?: string;
+  lastError?: string;
+}
+
+export interface ReconciliationItem {
+  id: string;
+  accountId: string;
+  status: string;
+  discrepancy?: number;
+  createdAt: string;
+}
+
+export interface KYCStatus {
+  status: string;
+  level: string;
+  documentType?: string;
+  notes?: string;
+}
+
+export interface Notification {
+  id: string;
+  title: string;
+  body: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface FeeRule {
+  id: string;
+  name: string;
+  percentage: number;
+  minAmount?: number;
+  maxAmount?: number;
+}
+
+export interface SplitPayResult {
+  splitGroupId: string;
+  transactions: { transferId: string; recipientWalletId: string; amount: number }[];
+}
+
+export interface TransferResult {
+  transferId: string;
+  status: string;
+}
+
+// ---- ApiClient ----
+const publicEndpoints = ['/auth/login', '/auth/register', '/auth/forgot-password', '/auth/reset-password'];
+
+function createAuthProvider() {
+  return new JwtAuthProvider(() => {
+    const authStore = get(auth);
+    return authStore.token || null;
+  })
+}
+
+class ApiClient extends BaseApiClient {
+  constructor() {
+    super(API_URL, createAuthProvider());
+  }
+
+  async request<T>(endpoint: string, method: string = 'GET', body?: unknown, options?: Record<string, unknown>): Promise<T> {
+    const isPublic = publicEndpoints.some(e => endpoint.startsWith(e));
+    const opts: Record<string, unknown> = { ...options, retryOnUnauthorized: !isPublic }
+
+    if (options?.apiKey) {
+      opts.headers = { ...(opts.headers as Record<string, string> || {}), 'X-API-Key': options.apiKey as string }
     }
 
-    // Añadir API key si existe
-    if (options.apiKey) {
-      headers['X-API-Key'] = options.apiKey;
-    }
-    
-    const config: RequestInit = {
-      method,
-      headers,
-    };
-    
-    // Añadir body si hay datos y no es GET
-    if (data && method !== 'GET') {
-      config.body = JSON.stringify(data);
-    }
-    
     try {
-      const response = await fetch(url, config);
-      console.log('API Response:', response);
-      
-      // Verificar si la respuesta es JSON
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        const result = await response.json();
-        
-        // Verificar si hay error en la respuesta
-        if (!response.ok) {
-          // Si es error 401 (no autorizado), intentar renovar token
-          if (response.status === 401 && !options.token) {
-            const refreshed = await this.refreshToken();
-            if (refreshed) {
-              // Reintentar la petición con el nuevo token
-              const newHeaders = { ...headers };
-              const authStore = get(auth);
-              if (authStore.token) {
-                newHeaders['Authorization'] = `Bearer ${authStore.token}`;
-              }
-              const retryConfig = { ...config, headers: newHeaders };
-              const retryResponse = await fetch(url, retryConfig);
-              const retryResult = await retryResponse.json();
-              
-              if (!retryResponse.ok) {
-                throw new Error(retryResult.message || 'Error en la petición');
-              }
-              
-              return retryResult as T;
-            } else {
-              // Si no se pudo renovar, hacer logout
-              auth.logout();
-              throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.');
-            }
-          }
-          
-          throw new Error(result.message || 'Error en la petición');
-        }
-        
-        return result as T;
-      } else {
-        // Si no es JSON, devolver el texto
-        const text = await response.text();
-        
-        if (!response.ok) {
-          throw new Error(text || 'Error en la petición');
-        }
-        
-        return text as unknown as T;
+      const result = await super.request<T>(endpoint, method, body, opts);
+      return result;
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      if (!isPublic && (msg.includes('Sesión') || msg.includes('Token') || msg.includes('autenticación') || msg.includes('credenciales'))) {
+        auth.logout();
+        goto('/auth/login');
       }
-    } catch (error) {
-      console.error('Error en petición API:', error);
       throw error;
     }
   }
-  
-  // Métodos para cada tipo de petición
-  async get<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-    return this.request<T>(endpoint, 'GET', undefined, options);
-  }
-  
-  async post<T>(endpoint: string, data: any, options: RequestOptions = {}): Promise<T> {
-    return this.request<T>(endpoint, 'POST', data, options);
-  }
-  
-  async put<T>(endpoint: string, data: any, options: RequestOptions = {}): Promise<T> {
-    return this.request<T>(endpoint, 'PUT', data, options);
-  }
-  
-  async delete<T>(endpoint: string, data?: any, options: RequestOptions = {}): Promise<T> {
-    return this.request<T>(endpoint, 'DELETE', data, options);
-  }
-  
-  // ============ MÉTODOS DE AUTENTICACIÓN (ACTUALIZADOS) ============
-  
-  // Login - POST /auth/login (nuevo endpoint)
-  async login(email: string, password: string): Promise<ApiResponse> {
-    const response = await this.post<ApiResponse>('/auth/login', { email, password });
 
-    // Si la autenticación es exitosa, guardar en el store
-    if (response.success && response.data) {
-      const { user, auth: authData, accounts } = response.data;
-      
-      // Guardar información de usuario, tokens y cuentas
-      if (user && authData?.accessToken) {
-        auth.login(
-          authData.accessToken, 
-          user, 
-          authData.refreshToken, 
-          accounts || []
-        );
-      }
-      
-      // Guardar información de la empresa si existe
-      if (response.data.company) {
-        company.setCompany(response.data.company);
-      }
-    }
-
-    return response;
-  }
-  
-  // Cambiar contraseña - POST /auth/change-password (nuevo endpoint)
-  async changePassword(currentPassword: string, newPassword: string, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>('/auth/change-password', { currentPassword, newPassword }, options);
-  }
-  
-  // Solicitar restablecimiento de contraseña
-  async requestPasswordReset(email: string): Promise<ApiResponse> {
-    return this.post<ApiResponse>('/auth/forgot-password', { email });
-  }
-  
-  // Restablecer contraseña con token
-  async resetPassword(token: string, newPassword: string): Promise<ApiResponse> {
-    return this.post<ApiResponse>('/auth/reset-password', { token, newPassword });
+  async login(email: string, password: string): Promise<ApiResponse<LoginData>> {
+    const raw: ApiResponse<LoginData> = await super.request('/auth/login', 'POST', { email, password }, { retryOnUnauthorized: false })
+    const d = raw.data
+    auth.login(d.accessToken, d.user, d.refreshToken, (d as any)?.accounts || [])
+    if (d.company) company.setCompany(d.company as any)
+    return raw
   }
 
-  // Método para renovar token
   async refreshToken(): Promise<boolean> {
     try {
       const authStore = get(auth);
-      if (!authStore.refreshToken) {
-        return false;
-      }
-
-      const response = await this.post<ApiResponse>('/auth/refresh', {
-        refreshToken: authStore.refreshToken
-      });
-
-      if (response.success && response.data) {
-        const { user, auth: authData, accounts } = response.data;
-        
-        if (user && authData?.accessToken) {
-          auth.login(
-            authData.accessToken, 
-            user, 
-            authData.refreshToken, 
-            accounts || []
-          );
-          return true;
-        }
-      }
-      
-      return false;
-    } catch (error) {
-      console.error('Error renovando token:', error);
+      if (!authStore.refreshToken) return false;
+      const raw: ApiResponse<LoginData> = await super.request('/auth/refresh', 'POST', { refreshToken: authStore.refreshToken }, { retryOnUnauthorized: false });
+      const d = raw.data;
+      auth.login(d.accessToken, authStore.user!, d.refreshToken, authStore.accounts || []);
+      return true;
+    } catch {
       return false;
     }
   }
 
-  // Método para cerrar sesión (solo en el cliente)
   logout() {
     auth.logout();
   }
-  
-  // ============ MÉTODOS PARA QR (ACTUALIZADOS) ============
 
-  async getQR(qrId: string, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>(`/qr/${qrId}`, options);
+  async changePassword(currentPassword: string, newPassword: string, options?: Record<string, unknown>): Promise<ApiResponse<null>> {
+    return this.post('/auth/change-password', { currentPassword, newPassword }, options);
   }
-  
-  // Generar QR - POST /qr/generate (mantiene endpoint)
-  async generateQR(qrData: any, options: RequestOptions = {}): Promise<ApiResponse<QRGeneratedResponse>> {
-    const apiData: any = {
-      transactionId: qrData.transactionId || new Date().getTime().toString(),
+
+  async requestPasswordReset(email: string): Promise<ApiResponse<null>> {
+    return this.post('/auth/forgot-password', { email });
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<ApiResponse<null>> {
+    return this.post('/auth/reset-password', { token, newPassword });
+  }
+
+  getQR(qrId: string, options?: Record<string, unknown>): Promise<ApiResponse<QRDetail>> {
+    return this.get(`/qr/${qrId}`, options);
+  }
+
+  async generateQR(qrData: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<QRGenerated>> {
+    const apiData: Record<string, unknown> = {
+      transactionId: (qrData.transactionId as string) || new Date().getTime().toString(),
       amount: qrData.amount ?? Number(qrData.monto),
     };
     if (qrData.description || qrData.descripcion) apiData.description = qrData.description || qrData.descripcion;
@@ -400,565 +415,190 @@ class ApiClient {
     if (qrData.dueDate) apiData.dueDate = qrData.dueDate;
     if (typeof qrData.singleUse !== 'undefined') apiData.singleUse = qrData.singleUse;
     if (typeof qrData.modifyAmount !== 'undefined') apiData.modifyAmount = qrData.modifyAmount;
-
-    return this.post<ApiResponse<QRGeneratedResponse>>('/qr/generate', apiData, options);
-  }
-  
-  // Cancelar QR - DELETE /qr/cancelQR (mantiene endpoint)
-  async cancelQR(qrId: string, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.delete<ApiResponse>('/qr/cancelQR', { qrId }, options);
-  }
-  
-  // Obtener detalles del QR - GET /qr/{id} (nuevo endpoint separado)
-  async getQRDetails(qrId: string, options: RequestOptions = {}): Promise<ApiResponse<QRStatusResponse>> {
-    return this.get<ApiResponse<QRStatusResponse>>(`/qr/${qrId}`, options);
+    return this.post('/qr/generate', apiData, options);
   }
 
-  // Obtener pagos del QR - GET /qr/{id}/payments (nuevo endpoint separado)
-  async getQRPayments(qrId: string, options: RequestOptions = {}): Promise<ApiResponse<QRPaymentsResponse>> {
-    return this.get<ApiResponse<QRPaymentsResponse>>(`/qr/${qrId}/payments`, options);
+  cancelQR(qrId: string, options?: Record<string, unknown>): Promise<ApiResponse<null>> {
+    return this.delete('/qr/cancelQR', { qrId }, options);
   }
 
-  // Verificar estado QR - GET /qr/{id}/status (mantiene endpoint para compatibilidad)
-  async checkQRStatus(qrId: string, options: RequestOptions = {}): Promise<ApiResponse<QRStatusResponse>> {
-    return this.get<ApiResponse<QRStatusResponse>>(`/qr/${qrId}/status`, options);
+  getQRPayments(qrId: string, options?: Record<string, unknown>): Promise<ApiResponse<{ payments: QRPayment[] }>> {
+    return this.get(`/qr/${qrId}/payments`, options);
   }
-  
-  // Listar QRs - GET /qr/list (mantiene endpoint)
-  async listQRs(filters: any = {}, options: RequestOptions = {}): Promise<ApiResponse> {
+
+  checkQRStatus(qrId: string, options?: Record<string, unknown>): Promise<ApiResponse<{ status: string }>> {
+    return this.get(`/qr/${qrId}/status`, options);
+  }
+
+  async listQRs(filters: Record<string, unknown> = {}, options?: Record<string, unknown>): Promise<ApiResponse<QRDetail[]>> {
     const queryParams = new URLSearchParams();
-    
-    if (filters.status) queryParams.append('status', filters.status);
-    if (filters.startDate) queryParams.append('startDate', filters.startDate);
-    if (filters.endDate) queryParams.append('endDate', filters.endDate);
+    if (filters.status) queryParams.append('status', filters.status as string);
+    if (filters.startDate) queryParams.append('startDate', filters.startDate as string);
+    if (filters.endDate) queryParams.append('endDate', filters.endDate as string);
     if (filters.bankId) queryParams.append('bankId', filters.bankId.toString());
-    
-    const queryString = queryParams.toString();
-    const endpoint = `/qr/list${queryString ? `?${queryString}` : ''}`;
-    
-    return this.get<ApiResponse>(endpoint, options);
+    const qs = queryParams.toString();
+    return this.get(`/qr/list${qs ? `?${qs}` : ''}`, options);
   }
-  
-  // Obtener pagos (alias para listQRs con estado PAGADO)
-  async getPagos(filters: any = {}, options: RequestOptions = {}): Promise<ApiResponse> {
-    // Si no se especifica un estado, establecer PAGADO por defecto
-    const pagoFilters = { ...filters, status: filters.status || 'PAGADO' };
-    return this.listQRs(pagoFilters, options);
-  }
-  
-  // Obtener QRs pagados en una fecha - GET /qr/v2/paidQR/{fecha} (mantiene endpoint)
-  async getPaidQRsByDate(date: string, bankId?: number, options: RequestOptions = {}): Promise<ApiResponse> {
-    const endpoint = `/qr/v2/paidQR/${date}${bankId ? `?bankId=${bankId}` : ''}`;
-    return this.get<ApiResponse>(endpoint, options);
-  }
-  
-  // Simular pago (solo para desarrollo) - POST /qr/simulatePayment (mantiene endpoint)
-  async simulatePayment(qrId: string, amount?: number, options: RequestOptions = {}): Promise<ApiResponse> {
-    const data: any = { qrId };
-    if (amount !== undefined) data.amount = amount;
-    return this.post<ApiResponse>('/qr/simulatePayment', data, options);
-  }
-  
-  // ============ MÉTODOS PARA TRANSACCIONES Y REPORTES (ACTUALIZADOS) ============
-  
-  // Obtener transacciones por periodo (para pantalla de resumen)
-  async getTransactionsByPeriod(
-    periodType: 'weekly' | 'monthly' | 'yearly', 
-    year: number, 
-    month?: number, 
-    week?: number,
-    options: RequestOptions = {}
-  ): Promise<TransactionsResponse> {
-    // Construir la URL para el endpoint de estadísticas
-    const endpoint = `/transactions/stats/${periodType}/${year}${month !== undefined ? `/${month}` : ''}${week !== undefined ? `/${week}` : ''}`;
-    
-    try {
-      // Intentar hacer la llamada real a la API
-      return this.get<TransactionsResponse>(endpoint, options);
-    } catch (error) {
-      console.error('Error al obtener transacciones por periodo:', error);
-      throw error;
-    }
-  }
-  
-  // Listar todas las transacciones con filtros opcionales
-  async listTransactions(filters: {
-    startDate?: string;
-    endDate?: string;
-    status?: string;
-    type?: string;
-    minAmount?: number;
-    maxAmount?: number;
-    page?: number;
-    pageSize?: number;
-  } = {}, options: RequestOptions = {}): Promise<ApiResponse<TransactionsListResponse>> {
-    const queryParams = new URLSearchParams();
-    if (filters.startDate) queryParams.append('startDate', filters.startDate);
-    if (filters.endDate) queryParams.append('endDate', filters.endDate);
-    if (filters.status) queryParams.append('status', filters.status);
-    if (filters.type) queryParams.append('type', filters.type);
-    if (filters.minAmount !== undefined) queryParams.append('minAmount', filters.minAmount.toString());
-    if (filters.maxAmount !== undefined) queryParams.append('maxAmount', filters.maxAmount.toString());
-    if (filters.page !== undefined) queryParams.append('page', filters.page.toString());
-    if (filters.pageSize !== undefined) queryParams.append('pageSize', filters.pageSize.toString());
-    
-    const queryString = queryParams.toString();
-    const endpoint = `/transactions${queryString ? `?${queryString}` : ''}`;
-    
-    return this.get<ApiResponse<TransactionsListResponse>>(endpoint, options);
-  }
-  
-  // Obtener detalle de una transacción específica
-  async getTransactionDetails(id: string, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>(`/transactions/${id}`, options);
-  }
-  
-  // Obtener las transacciones más recientes
-  async getRecentTransactions(limit: number = 3, options: RequestOptions = {}): Promise<ApiResponse<TransactionsListResponse>> {
-    // Usar el endpoint de listTransactions con un límite pequeño y ordenado por fecha reciente
-    return this.listTransactions({
-      page: 1,
-      pageSize: limit
-    }, options);
-  }
-  
 
-  // ============ MÉTODOS PARA API KEYS (ACTUALIZADOS) ============
-  
-  // Listar API keys - GET /apikeys (nuevo endpoint)
-  async listApiKeys(options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>('/apikeys', options);
+  async getPagos(filters: Record<string, unknown> = {}, options?: Record<string, unknown>): Promise<ApiResponse<QRDetail[]>> {
+    return this.listQRs({ ...filters, status: filters.status || 'PAGADO' }, options);
   }
-  
-  // Generar API key - POST /apikeys (nuevo endpoint)
-  async generateApiKey(data: any, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>('/apikeys', data, options);
+
+  getPaidQRsByDate(date: string, bankId?: number, options?: Record<string, unknown>): Promise<ApiResponse<QRPayment[]>> {
+    const endpoint = `/qr/v2/paidQR/${date}${bankId ? `?bankId=${bankId}` : ''}`;
+    return this.get(endpoint, options);
   }
-  
-  // Revocar API key - DELETE /apikeys/{id} (nuevo endpoint)
-  async revokeApiKey(id: number, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.delete<ApiResponse>(`/apikeys/${id}`, undefined, options);
+
+  simulatePayment(qrId: string, amount?: number, options?: Record<string, unknown>): Promise<ApiResponse<null>> {
+    return this.post('/qr/simulatePayment', { qrId, ...(amount !== undefined ? { amount } : {}) }, options);
   }
-  
-  // ============ MÉTODOS PARA USUARIOS (ACTUALIZADOS) ============
-  
-  // Listar usuarios - GET /users/ (nuevo endpoint)
-  async listUsers(options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>('/users', options);
+
+  async getTransactionsByPeriod(periodType: 'weekly' | 'monthly' | 'yearly', year: number, month?: number, week?: number, options?: Record<string, unknown>): Promise<ApiResponse<TransactionsResponse>> {
+    const endpoint = `/transactions/stats/${periodType}/${year}${month !== undefined ? `/${month}` : ''}${week !== undefined ? `/${week}` : ''}`;
+    return this.get(endpoint, options);
   }
-  
-  // Crear usuario - POST /users/ (nuevo endpoint)
-  async createUser(userData: any, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>('/users', userData, options);
+
+  async listTransactions(filters: Record<string, unknown> = {}, options?: Record<string, unknown>): Promise<ApiResponse<TransactionsListData>> {
+    const queryParams = new URLSearchParams();
+    for (const [k, v] of Object.entries(filters)) {
+      if (v !== undefined && v !== null) queryParams.append(k, String(v));
+    }
+    const qs = queryParams.toString();
+    return this.get(`/transactions${qs ? `?${qs}` : ''}`, options);
   }
-  
-  // Actualizar perfil de usuario - PUT /users/profile (nuevo endpoint)
-  async updateProfile(profileData: {
-    fullName?: string,
-    phone?: string,
-    profileImage?: File | null
-  }, options: RequestOptions = {}): Promise<ApiResponse> {
-    // Si hay una imagen, necesitamos usar FormData
+
+  getTransactionDetails(id: string, options?: Record<string, unknown>): Promise<ApiResponse<Transaction>> {
+    return this.get(`/transactions/${id}`, options);
+  }
+
+  getRecentTransactions(limit: number = 3, options?: Record<string, unknown>): Promise<ApiResponse<TransactionsListData>> {
+    return this.listTransactions({ page: 1, pageSize: limit }, options);
+  }
+
+  listApiKeys(options?: Record<string, unknown>): Promise<ApiResponse<ApiKey[]>> { return this.get('/apikeys', options); }
+  generateApiKey(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<ApiKey>> { return this.post('/apikeys', data, options); }
+  revokeApiKey(id: number, options?: Record<string, unknown>): Promise<ApiResponse<null>> { return this.delete(`/apikeys/${id}`, undefined, options); }
+
+  listUsers(options?: Record<string, unknown>): Promise<ApiResponse<UserProfile[]>> { return this.get('/users', options); }
+  createUser(userData: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<UserProfile>> { return this.post('/users', userData, options); }
+
+  async updateProfile(profileData: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<UserProfile>> {
     if (profileData.profileImage) {
       const formData = new FormData();
-      if (profileData.fullName) formData.append('fullName', profileData.fullName);
-      if (profileData.phone) formData.append('phone', profileData.phone);
-      formData.append('profileImage', profileData.profileImage);
-      
-      const url = `${API_URL}/users/profile`;
-      
-      const headers: HeadersInit = {};
-      
-      // Obtener token del store de autenticación si no se proporciona en options
-      if (!options.token) {
-        const authStore = get(auth);
-        if (authStore.token) {
-          headers['Authorization'] = `Bearer ${authStore.token}`;
-        }
-      } else {
-        headers['Authorization'] = `Bearer ${options.token}`;
-      }
-      
-      try {
-        const response = await fetch(url, {
-          method: 'PUT',
-          headers,
-          body: formData
-        });
-        
-        const result = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(result.message || 'Error actualizando perfil');
-        }
-        
-        return result;
-      } catch (error) {
-        console.error('Error actualizando perfil:', error);
-        throw error;
-      }
-    } else {
-      // Si no hay imagen, podemos usar el método PUT normal
-      return this.put<ApiResponse>('/users/profile', profileData, options);
+      if (profileData.fullName) formData.append('fullName', profileData.fullName as string);
+      if (profileData.phone) formData.append('phone', profileData.phone as string);
+      formData.append('profileImage', profileData.profileImage as Blob);
+      const headers: Record<string, string> = {};
+      const authStore = get(auth);
+      if (authStore.token) headers['Authorization'] = `Bearer ${authStore.token}`;
+      const response = await fetch(`${API_URL}/users/profile`, { method: 'PUT', headers, body: formData });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'Error actualizando perfil');
+      return result;
     }
-  }
-  
-  // ============ MÉTODOS PARA BANCOS (ACTUALIZADOS) ============
-  
-  // Listar bancos - GET /admin/banks/ (mantiene endpoint)
-  async listBanks(options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>('/admin/banks', options);
+    return this.put('/users/profile', profileData, options);
   }
 
-  // ============ MÉTODOS PARA HEALTH CHECK ============
-  
-  // Verificar estado del servidor - GET / (nuevo endpoint)
-  async checkServerHealth(): Promise<ApiResponse> {
-    return this.get<ApiResponse>('/', {});
-  }
-  
-  // Verificar estado del sistema - GET /health (nuevo endpoint)
-  async checkSystemHealth(): Promise<ApiResponse> {
-    return this.get<ApiResponse>('/health', {});
-  }
-  
-  // Verificar estado de la API - GET /health/api (nuevo endpoint)
-  async checkApiHealth(): Promise<ApiResponse> {
-    return this.get<ApiResponse>('/health/api', {});
-  }
+  listBanks(options?: Record<string, unknown>): Promise<ApiResponse<unknown[]>> { return this.get('/admin/banks', options); }
 
-  // Métodos para cuentas
-  async getAccounts(options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>('/accounts/', options);
+  checkServerHealth(): Promise<ApiResponse<HealthStatus>> { return this.get('/', {}); }
+  checkSystemHealth(): Promise<ApiResponse<HealthStatus>> { return this.get('/health', {}); }
+  checkApiHealth(): Promise<ApiResponse<HealthApiStatus>> { return this.get('/health/api', {}); }
+
+  getAccounts(options?: Record<string, unknown>): Promise<ApiResponse<Account[]>> { return this.get('/accounts/', options); }
+  getAccount(accountId: string, options?: Record<string, unknown>): Promise<ApiResponse<Account>> { return this.get(`/accounts/${accountId}`, options); }
+  getAccountMovements(accountId: string, page: number = 1, pageSize: number = 20, options?: Record<string, unknown>): Promise<ApiResponse<AccountMovement[]>> {
+    return this.get(`/accounts/${accountId}/movements?page=${page}&pageSize=${pageSize}`, options);
+  }
+  getAccountStats(accountId: string, options?: Record<string, unknown>): Promise<ApiResponse<AccountStats>> { return this.get(`/accounts/${accountId}/stats`, options); }
+
+  getSSEStats(options?: Record<string, unknown>): Promise<ApiResponse<{ connectedClients: number }>> { return this.get('/events/stats', options); }
+
+  transferP2P(data: Record<string, unknown>, idempotencyKey?: string, options?: Record<string, unknown>): Promise<ApiResponse<TransferResult>> {
+    return this.post('/transfers/p2p', data, { ...options, ...(idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : {}) });
   }
 
-  async getAccount(accountId: string, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>(`/accounts/${accountId}`, options);
+  listWallets(options?: Record<string, unknown>): Promise<ApiResponse<Wallet[]>> { return this.get('/wallets', options); }
+  createWallet(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<Wallet>> { return this.post('/wallets', data, options); }
+
+  listSubscriptions(options?: Record<string, unknown>): Promise<ApiResponse<Subscription[]>> { return this.get('/subscriptions', options); }
+  createSubscription(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<Subscription>> { return this.post('/subscriptions', data, options); }
+  cancelSubscription(id: string, options?: Record<string, unknown>): Promise<ApiResponse<null>> { return this.post(`/subscriptions/${id}/cancel`, {}, options); }
+
+  splitPay(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<SplitPayResult>> { return this.post('/split/pay', data, options); }
+  splitCalculate(total: number, percentages: number[], options?: Record<string, unknown>): Promise<ApiResponse<{ items: { walletId: string; amount: number; percentage: number }[] }>> { return this.post('/split/calculate', { total, percentages }, options); }
+
+  registerMerchant(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<Merchant>> { return this.post('/merchants/register', data, options); }
+  getMerchantQR(merchantId: string, options?: Record<string, unknown>): Promise<ApiResponse<{ qrData: string; qrImage: string }>> { return this.get(`/merchants/${merchantId}/qr`, options); }
+  merchantPay(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<TransferResult>> { return this.post('/merchants/pay', data, options); }
+
+  registerCashAgent(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<{ agentId: string; walletId: string }>> { return this.post('/cash/agents/register', data, options); }
+  cashTransaction(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<TransferResult>> { return this.post('/cash/transaction', data, options); }
+  getNearbyAgents(lat: number, lng: number, radius?: number, options?: Record<string, unknown>): Promise<ApiResponse<{ data: unknown[] }>> {
+    return this.get(`/cash/agents/nearby?lat=${lat}&lng=${lng}&radius=${radius || 5}`, options);
   }
 
-  async getAccountMovements(accountId: string, page: number = 1, pageSize: number = 20, options: RequestOptions = {}): Promise<ApiResponse> {
-    const queryParams = new URLSearchParams();
-    queryParams.append('page', page.toString());
-    queryParams.append('pageSize', pageSize.toString());
-    return this.get<ApiResponse>(`/accounts/${accountId}/movements?${queryParams.toString()}`, options);
+  prepareNFC(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<NFCData>> { return this.post('/nfc/prepare', data, options); }
+  processNFC(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<TransferResult>> { return this.post('/nfc/process', data, options); }
+
+  createWalletBackup(walletId: string, options?: Record<string, unknown>): Promise<ApiResponse<{ seedPhrase: string }>> { return this.post(`/wallet/${walletId}/backup`, {}, options); }
+  verifyWalletBackup(walletId: string, options?: Record<string, unknown>): Promise<ApiResponse<null>> { return this.post(`/wallet/${walletId}/backup/verify`, {}, options); }
+  getWalletBackupStatus(walletId: string, options?: Record<string, unknown>): Promise<ApiResponse<{ status: string; verified: boolean }>> { return this.get(`/wallet/${walletId}/backup`, options); }
+
+  getFraudAlerts(options?: Record<string, unknown>): Promise<ApiResponse<FraudAlert[]>> { return this.get('/fraud/alerts', options); }
+  resolveFraudAlert(alertId: string, options?: Record<string, unknown>): Promise<ApiResponse<null>> { return this.post(`/fraud/alerts/${alertId}/resolve`, {}, options); }
+
+  getFXRates(options?: Record<string, unknown>): Promise<ApiResponse<{ rates: FXRate[]; currencies: string[] }>> { return this.get('/fx/rates', options); }
+  getFXRate(base: string, target: string, options?: Record<string, unknown>): Promise<ApiResponse<FXRate>> { return this.get(`/fx/rate/${base}/${target}`, options); }
+  convertCurrency(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<{ result: number }>> { return this.post('/fx/convert', data, options); }
+
+  listWebhooks(options?: Record<string, unknown>): Promise<ApiResponse<Webhook[]>> { return this.get('/webhooks', options); }
+  registerWebhook(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<Webhook>> { return this.post('/webhooks', data, options); }
+  deleteWebhook(id: string, options?: Record<string, unknown>): Promise<ApiResponse<null>> { return this.delete(`/webhooks/${id}`, undefined, options); }
+
+  getPendingReconciliations(options?: Record<string, unknown>): Promise<ApiResponse<ReconciliationItem[]>> { return this.get('/reconciliation/pending', options); }
+  reconcileAccount(accountId: string, options?: Record<string, unknown>): Promise<ApiResponse<null>> { return this.post(`/reconciliation/account/${accountId}`, {}, options); }
+  getReconciliationLogs(accountId: string, options?: Record<string, unknown>): Promise<ApiResponse<ReconciliationItem[]>> { return this.get(`/reconciliation/logs/${accountId}`, options); }
+
+  submitKYC(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<null>> { return this.post('/kyc/submit', data, options); }
+  getKYCStatus(options?: Record<string, unknown>): Promise<ApiResponse<KYCStatus>> { return this.get('/kyc/status', options); }
+
+  registerBiometric(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<{ deviceId: string }>> { return this.post('/auth/biometric/register', data, options); }
+  unregisterBiometric(deviceId: string, options?: Record<string, unknown>): Promise<ApiResponse<null>> { return this.post(`/auth/biometric/unregister/${deviceId}`, {}, options); }
+  biometricLogin(biometricKeyHash: string): Promise<ApiResponse<{ accessToken: string; refreshToken: string }>> { return this.post('/auth/biometric/login', { biometricKeyHash }); }
+
+  register(data: { fullName: string; email: string; company: string; phone: string; message?: string }): Promise<ApiResponse<{ id: string }>> {
+    return this.post('/auth/register', data);
   }
 
-  async getAccountStats(accountId: string, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>(`/accounts/${accountId}/stats`, options);
+  getPCIStatus(options?: Record<string, unknown>): Promise<ApiResponse<unknown>> { return this.get('/compliance/pci', options); }
+  runDataRetention(dryRun: boolean = false, options?: Record<string, unknown>): Promise<ApiResponse<unknown>> {
+    if (dryRun) return this.get('/compliance/retention/dry-run', options);
+    return this.post('/compliance/retention/run', {}, options);
   }
+  getRetentionStatus(options?: Record<string, unknown>): Promise<ApiResponse<unknown>> { return this.get('/compliance/retention/status', options); }
 
-  async getQrList(page: number = 1, limit: number = 20, status?: string, startDate?: string, endDate?: string, options: RequestOptions = {}): Promise<ApiResponse> {
-    const queryParams = new URLSearchParams();
-    queryParams.append('page', page.toString());
-    queryParams.append('limit', limit.toString());
-    if (status) queryParams.append('status', status);
-    if (startDate) queryParams.append('startDate', startDate);
-    if (endDate) queryParams.append('endDate', endDate);
-    return this.get<ApiResponse>(`/qr/list?${queryParams.toString()}`, options);
-  }
+  listNotifications(options?: Record<string, unknown>): Promise<ApiResponse<Notification[]>> { return this.get('/notifications', options); }
+  markNotificationRead(id: string, options?: Record<string, unknown>): Promise<ApiResponse<null>> { return this.post(`/notifications/${id}/read`, {}, options); }
+  markAllNotificationsRead(options?: Record<string, unknown>): Promise<ApiResponse<null>> { return this.post('/notifications/read-all', {}, options); }
+  getUnreadNotificationCount(options?: Record<string, unknown>): Promise<ApiResponse<{ count: number }>> { return this.get('/notifications/unread-count', options); }
 
-  // Método para obtener estadísticas de eventos SSE
-  async getSSEStats(options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>('/events/stats', options);
-  }
+  registerPushToken(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<null>> { return this.post('/push/register', data, options); }
 
-  // ============ TRANSFERENCIAS P2P ============
+  listFees(options?: Record<string, unknown>): Promise<ApiResponse<FeeRule[]>> { return this.get('/fees', options); }
 
-  async transferP2P(data: {
-    receiverWalletId: string;
-    amount: number;
-    description?: string;
-  }, idempotencyKey?: string, options: RequestOptions = {}): Promise<ApiResponse> {
-    const headers: Record<string, string> = {};
-    if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
-    return this.post<ApiResponse>('/transfers/p2p', data, { ...options, ...headers });
-  }
+  getHealthStats(options?: Record<string, unknown>): Promise<ApiResponse<HealthStatus>> { return this.get('/health/stats', options); }
+  getHealthMetrics(options?: Record<string, unknown>): Promise<ApiResponse<unknown>> { return this.get('/health/metrics', options); }
+  getHealthMigrations(options?: Record<string, unknown>): Promise<ApiResponse<unknown>> { return this.get('/health/migrations', options); }
 
-  async listWallets(options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>('/wallets', options);
-  }
+  listBankCredentials(options?: Record<string, unknown>): Promise<ApiResponse<any[]>> { return this.get('/bank-credentials', options); }
+  createBankCredential(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<any>> { return this.post('/bank-credentials', data, options); }
+  deleteBankCredential(id: string, options?: Record<string, unknown>): Promise<ApiResponse<null>> { return this.delete(`/bank-credentials/${id}`, options); }
+  testBankCredential(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<{ success: boolean }>> { return this.post('/bank-credentials/test', data, options); }
 
-  async createWallet(data: { name?: string; type?: string; currency?: string }, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>('/wallets', data, options);
-  }
-
-  // ============ SUBSCRIPTIONS ============
-
-  async listSubscriptions(options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>('/subscriptions', options);
-  }
-
-  async createSubscription(data: {
-    walletId: string;
-    receiverWalletId: string;
-    amount: number;
-    interval: 'daily' | 'weekly' | 'monthly' | 'yearly';
-    description?: string;
-    endDate?: string;
-    maxPayments?: number;
-  }, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>('/subscriptions', data, options);
-  }
-
-  async cancelSubscription(id: string, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>(`/subscriptions/${id}/cancel`, {}, options);
-  }
-
-  // ============ SPLIT PAYMENTS ============
-
-  async splitPay(data: {
-    senderWalletId: string;
-    recipients: { walletId: string; amount: number; percentage: number }[];
-    description?: string;
-  }, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>('/split/pay', data, options);
-  }
-
-  async splitCalculate(total: number, percentages: number[], options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>('/split/calculate', { total, percentages }, options);
-  }
-
-  // ============ MERCHANTS ============
-
-  async registerMerchant(data: {
-    businessName: string;
-    businessCategory: string;
-    taxId: string;
-    phone: string;
-    address?: string;
-    commissionRate?: number;
-  }, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>('/merchants/register', data, options);
-  }
-
-  async getMerchantQR(merchantId: string, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>(`/merchants/${merchantId}/qr`, options);
-  }
-
-  async merchantPay(data: {
-    merchantId: string;
-    customerWalletId: string;
-    amount: number;
-    description?: string;
-  }, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>('/merchants/pay', data, options);
-  }
-
-  // ============ CASH IN / CASH OUT ============
-
-  async registerCashAgent(data: {
-    name: string;
-    phone: string;
-    address: string;
-    lat: number;
-    lng: number;
-    operatingHours?: string;
-  }, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>('/cash/agents/register', data, options);
-  }
-
-  async cashTransaction(data: {
-    agentId: string;
-    userWalletId: string;
-    amount: number;
-    direction: 'cash_in' | 'cash_out';
-    reference: string;
-  }, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>('/cash/transaction', data, options);
-  }
-
-  async getNearbyAgents(lat: number, lng: number, radius?: number, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>(`/cash/agents/nearby?lat=${lat}&lng=${lng}&radius=${radius || 5}`, options);
-  }
-
-  // ============ NFC OFFLINE ============
-
-  async prepareNFC(data: {
-    senderWalletId: string;
-    receiverWalletId: string;
-    amount: number;
-  }, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>('/nfc/prepare', data, options);
-  }
-
-  async processNFC(data: {
-    nfcId: string;
-    senderWalletId: string;
-    receiverWalletId: string;
-    amount: number;
-    timestamp: number;
-    signature: string;
-    nonce: string;
-  }, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>('/nfc/process', data, options);
-  }
-
-  // ============ WALLET BACKUP ============
-
-  async createWalletBackup(walletId: string, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>(`/wallet/${walletId}/backup`, {}, options);
-  }
-
-  async verifyWalletBackup(walletId: string, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>(`/wallet/${walletId}/backup/verify`, {}, options);
-  }
-
-  async getWalletBackupStatus(walletId: string, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>(`/wallet/${walletId}/backup`, options);
-  }
-
-  // ============ FRAUD ALERTS ============
-
-  async getFraudAlerts(options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>('/fraud/alerts', options);
-  }
-
-  async resolveFraudAlert(alertId: string, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>(`/fraud/alerts/${alertId}/resolve`, {}, options);
-  }
-
-  // ============ FX RATES ============
-
-  async getFXRates(options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>('/fx/rates', options);
-  }
-
-  async getFXRate(base: string, target: string, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>(`/fx/rate/${base}/${target}`, options);
-  }
-
-  async convertCurrency(data: { amount: number; from: string; to: string }, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>('/fx/convert', data, options);
-  }
-
-  // ============ WEBHOOKS ============
-
-  async listWebhooks(options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>('/webhooks', options);
-  }
-
-  async registerWebhook(data: {
-    url: string;
-    events: string[];
-    secret?: string;
-    companyId?: string;
-  }, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>('/webhooks', data, options);
-  }
-
-  async deleteWebhook(id: string, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.delete<ApiResponse>(`/webhooks/${id}`, undefined, options);
-  }
-
-  // ============ RECONCILIATION ============
-
-  async getPendingReconciliations(options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>('/reconciliation/pending', options);
-  }
-
-  async reconcileAccount(accountId: string, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>(`/reconciliation/account/${accountId}`, {}, options);
-  }
-
-  async getReconciliationLogs(accountId: string, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>(`/reconciliation/logs/${accountId}`, options);
-  }
-
-  // ============ KYC ============
-
-  async submitKYC(data: {
-    fullName: string;
-    documentType: 'ci' | 'passport' | 'nit';
-    documentNumber: string;
-    birthDate: string;
-    nationality: string;
-    address: string;
-  }, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>('/kyc/submit', data, options);
-  }
-
-  async getKYCStatus(options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>('/kyc/status', options);
-  }
-
-  // ============ BIOMETRIC AUTH ============
-
-  async registerBiometric(data: {
-    biometricKey: string;
-    deviceName?: string;
-    platform?: string;
-  }, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>('/auth/biometric/register', data, options);
-  }
-
-  async unregisterBiometric(deviceId: string, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>(`/auth/biometric/unregister/${deviceId}`, {}, options);
-  }
-
-  async biometricLogin(biometricKeyHash: string): Promise<ApiResponse> {
-    return this.post<ApiResponse>('/auth/biometric/login', { biometricKeyHash });
-  }
-
-  // ============ COMPLIANCE ============
-
-  async getPCIStatus(options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>('/compliance/pci', options);
-  }
-
-  async runDataRetention(dryRun: boolean = false, options: RequestOptions = {}): Promise<ApiResponse> {
-    if (dryRun) return this.get<ApiResponse>('/compliance/retention/dry-run', options);
-    return this.post<ApiResponse>('/compliance/retention/run', {}, options);
-  }
-
-  async getRetentionStatus(options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>('/compliance/retention/status', options);
-  }
-
-  // ============ NOTIFICATIONS ============
-
-  async listNotifications(options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>('/notifications', options);
-  }
-
-  async markNotificationRead(id: string, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>(`/notifications/${id}/read`, {}, options);
-  }
-
-  async markAllNotificationsRead(options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>('/notifications/read-all', {}, options);
-  }
-
-  async getUnreadNotificationCount(options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>('/notifications/unread-count', options);
-  }
-
-  // ============ PUSH NOTIFICATIONS ============
-
-  async registerPushToken(data: { token: string; platform: 'ios' | 'android' }, options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.post<ApiResponse>('/push/register', data, options);
-  }
-
-  // ============ FEES ============
-
-  async listFees(options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>('/fees', options);
-  }
-
-  // ============ HEALTH / METRICS ============
-
-  async getHealthStats(options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>('/health/stats', options);
-  }
-
-  async getHealthMetrics(options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>('/health/metrics', options);
-  }
-
-  async getHealthMigrations(options: RequestOptions = {}): Promise<ApiResponse> {
-    return this.get<ApiResponse>('/health/migrations', options);
-  }
+  listSettlements(options?: Record<string, unknown>): Promise<ApiResponse<{ settlements: any[]; totalCount: number }>> { return this.get('/settlements', options); }
+  getPendingSettlements(options?: Record<string, unknown>): Promise<ApiResponse<{ pendingTotal: number; settlements: any[] }>> { return this.get('/settlements/pending', options); }
 }
 
-// Exportar una instancia del cliente
 const api = new ApiClient();
-export default api; 
+export default api;

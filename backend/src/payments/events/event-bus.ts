@@ -1,3 +1,5 @@
+import { logger } from '../../shared/logger'
+
 type Listener = (...args: any[]) => void
 
 class EventBus {
@@ -11,7 +13,7 @@ class EventBus {
 
   emit(event: string, ...args: any[]) {
     this.listeners.get(event)?.forEach(fn => {
-      try { fn(...args) } catch (e) { console.error(`EventBus error [${event}]:`, e) }
+      try { fn(...args) } catch (e) { logger.error('EventBus error', { event, error: String(e) }) }
     })
   }
 

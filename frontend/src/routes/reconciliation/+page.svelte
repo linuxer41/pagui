@@ -1,9 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import Button from '$lib/components/Button.svelte';
-  import Input from '$lib/components/Input.svelte';
   import api from '$lib/api';
   import { RefreshCw, List } from '@lucide/svelte';
+  import PageLayout from '$lib/components/layouts/PageLayout.svelte';
+  import Section from '$lib/components/Section.svelte';
+  import PillButton from '$lib/components/ui/PillButton.svelte';
+  import GhostButton from '$lib/components/ui/GhostButton.svelte';
+  import TextField from '$lib/components/ui/TextField.svelte';
 
   let pending: any[] = [];
   let logs: any[] = [];
@@ -13,8 +16,8 @@
 
   onMount(async () => {
     try {
-      const res = await api.getPendingReconciliations();
-      if (res.success) pending = res.data || [];
+      const res: any = await api.getPendingReconciliations();
+      if (res.success) pending = res.data?.data || [];
     } catch {}
     finally { loading = false; }
   });
@@ -23,8 +26,8 @@
     if (!accountId) return;
     reconciling = true; result = '';
     try {
-      const res = await api.reconcileAccount(accountId);
-      if (res.success) { result = `Reconciliación completada: ${res.data?.results?.length || 0} transacciones`; }
+      const res: any = await api.reconcileAccount(accountId);
+      if (res && res.success !== false) { result = `Reconciliación completada: ${(res.data?.results || res.results || []).length} transacciones`; }
       else result = res.message || 'Error';
     } catch (e: any) { result = e.message; }
     finally { reconciling = false; }
@@ -33,51 +36,58 @@
   async function handleLoadLogs() {
     if (!accountId) return;
     try {
-      const res = await api.getReconciliationLogs(accountId);
-      if (res.success) logs = res.data || [];
+      const res: any = await api.getReconciliationLogs(accountId);
+      if (res.success) logs = res.data?.data || [];
     } catch {}
   }
 </script>
 
-<div class="page-header">
-  <span class="page-header-title">Reconciliación</span>
-</div>
+<PageLayout title="Reconciliación">
 
-<div class="page-content" style="display:flex;flex-direction:column;gap:var(--space-4);padding-top:var(--space-4)">
-  <div class="section-card" style="display:flex;flex-direction:column;gap:var(--space-4)">
-    <Input id="acc" label="ID de cuenta" bind:value={accountId} placeholder="Account ID" />
-    <div style="display:flex;gap:var(--space-3)">
-      <Button onclick={handleReconcile} loading={reconciling}><RefreshCw size={16} /> Reconciliar</Button>
-      <Button variant="ghost" onclick={handleLoadLogs}><List size={16} /> Ver logs</Button>
+  <Section label="">
+    <TextField label="ID de cuenta" bind:value={accountId} placeholder="Account ID" />
+    <div class="recon-actions">
+      <PillButton label="Reconciliar" onClick={handleReconcile} loading={reconciling} />
+      <GhostButton onClick={handleLoadLogs}><List size={16} /> Ver logs</GhostButton>
     </div>
-    {#if result}
-      <div style="padding:0.75rem;border-radius:var(--radius-lg);font-size:var(--text-sm);background:var(--success-bg);color:var(--success-color)">{result}</div>
-    {/if}
-  </div>
+    {#if result}<div class="msg success">{result}</div>{/if}
+  </Section>
 
   {#if pending.length > 0}
-    <div class="section-card" style="display:flex;flex-direction:column;gap:var(--space-2)">
-      <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary);margin-bottom:var(--space-1)">Pendientes ({pending.length})</div>
+    <Section label="Pendientes ({pending.length})">
       {#each pending as p}
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:var(--space-3) 0;border-bottom:1px solid var(--border);font-size:var(--text-sm)">
-          <span style="color:var(--text-secondary);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{p.external_reference || p.id}</span>
-          <span class={p.status === 'matched' ? 'badge badge-success' : p.status === 'pending' ? 'badge badge-warning' : 'badge badge-error'}>{p.status}</span>
-          <span style="font-family:monospace;font-weight:600;color:var(--text-primary)">Bs. {Number(p.difference).toFixed(2)}</span>
+        <div class="recon-row">
+          <span class="recon-ref">{p.external_reference || p.id}</span>
+          <span class="badge badge-{p.status === 'matched' ? 'success' : p.status === 'pending' ? 'warning' : 'error'}">{p.status}</span>
+          <span class="recon-amount">Bs. {Number(p.difference).toFixed(2)}</span>
         </div>
       {/each}
-    </div>
+    </Section>
   {/if}
 
   {#if logs.length > 0}
-    <div class="section-card" style="display:flex;flex-direction:column;gap:var(--space-2)">
-      <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary);margin-bottom:var(--space-1)">Logs</div>
+    <Section label="Logs">
       {#each logs as l}
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:var(--space-3) 0;border-bottom:1px solid var(--border);font-size:var(--text-sm)">
-          <span style="color:var(--text-secondary)">{new Date(l.created_at).toLocaleDateString()}</span>
-          <span class={l.status === 'matched' ? 'badge badge-success' : l.status === 'pending' ? 'badge badge-warning' : 'badge badge-error'}>{l.status}</span>
-          <span style="font-family:monospace;font-weight:600;color:var(--text-primary)">Bs. {Number(l.difference).toFixed(2)}</span>
+        <div class="recon-row">
+          <span class="recon-ref">{new Date(l.created_at).toLocaleDateString()}</span>
+          <span class="badge badge-{l.status === 'matched' ? 'success' : l.status === 'pending' ? 'warning' : 'error'}">{l.status}</span>
+          <span class="recon-amount">Bs. {Number(l.difference).toFixed(2)}</span>
         </div>
       {/each}
-    </div>
+    </Section>
   {/if}
-</div>
+</PageLayout>
+
+<style>
+
+  .recon-actions { display: flex; gap: var(--space-3); align-items: center; }
+  .msg { padding: var(--space-3); border-radius: var(--radius-lg); font-size: var(--text-sm); font-weight: 500; background: rgba(var(--success-rgb), 0.1); color: rgba(var(--success-rgb), 1); }
+  .recon-row { display: flex; justify-content: space-between; align-items: center; padding: var(--space-3) 0; border-bottom: 1px solid rgba(var(--border-rgb), 0.3); font-size: var(--text-sm); }
+  .recon-row:last-child { border-bottom: none; }
+  .recon-ref { color: rgba(var(--text-secondary-rgb), 1); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .recon-amount { font-family: monospace; font-weight: 600; color: rgba(var(--text-primary-rgb), 1); }
+  .badge { font-size: 0.65rem; padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 500; }
+  .badge-success { background: rgba(var(--success-rgb), 0.15); color: rgba(var(--success-rgb), 1); }
+  .badge-warning { background: rgba(var(--warning-rgb), 0.15); color: rgba(var(--warning-rgb), 1); }
+  .badge-error { background: rgba(var(--error-rgb), 0.15); color: rgba(var(--error-rgb), 1); }
+</style>

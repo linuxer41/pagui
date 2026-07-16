@@ -1,6 +1,8 @@
+import { createHmac } from 'node:crypto'
 import { query } from '../../shared/database/pool'
 import { nextSnowflake } from '../../shared/snowflake'
 import { logger } from '../../shared/logger'
+import { AppError } from '../../shared/errors/app-error'
 
 export type WebhookEvent =
   | 'transfer.created'
@@ -80,7 +82,7 @@ export async function processPendingJobs() {
           [job.webhook_id]
         )
       } else {
-        throw new Error(`HTTP ${response.status}`)
+        throw new AppError(502, `HTTP ${response.status}`)
       }
     } catch (err: any) {
       const retryCount = job.retry_count + 1
@@ -118,8 +120,7 @@ export async function deleteWebhook(id: bigint | string, userId: bigint | string
 }
 
 function createSignature(secret: string, payload: string): string {
-  const crypto = require('node:crypto')
-  return crypto.createHmac('sha256', secret).update(payload).digest('hex')
+  return createHmac('sha256', secret).update(payload).digest('hex')
 }
 
 export async function startWebhookProcessor(intervalMs = 15_000) {

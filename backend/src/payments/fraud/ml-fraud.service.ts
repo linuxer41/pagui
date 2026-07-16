@@ -25,12 +25,12 @@ export async function extractFeatures(
 
   const tx1m = await query(
     `SELECT COUNT(*) as cnt FROM transfers
-     WHERE source_wallet_id = $1 AND created_at > CURRENT_TIMESTAMP - INTERVAL '1 minute'`,
+     WHERE sender_wallet_id = $1 AND created_at > CURRENT_TIMESTAMP - INTERVAL '1 minute'`,
     [walletId]
   )
   const tx1h = await query(
     `SELECT COUNT(*) as cnt FROM transfers
-     WHERE source_wallet_id = $1 AND created_at > CURRENT_TIMESTAMP - INTERVAL '1 hour'`,
+     WHERE sender_wallet_id = $1 AND created_at > CURRENT_TIMESTAMP - INTERVAL '1 hour'`,
     [walletId]
   )
 
@@ -39,14 +39,14 @@ export async function extractFeatures(
             COALESCE(STDDEV(amount), 0) as std_amt,
             COUNT(*) as cnt
      FROM transfers
-     WHERE source_wallet_id = $1 AND created_at > CURRENT_TIMESTAMP - INTERVAL '7 days'`,
+     WHERE sender_wallet_id = $1 AND created_at > CURRENT_TIMESTAMP - INTERVAL '7 days'`,
     [walletId]
   )
 
   const deviceCount = deviceId
     ? await query(
         `SELECT COUNT(*) as cnt FROM transfers t
-         JOIN wallets w ON w.id = t.source_wallet_id
+         JOIN wallets w ON w.id = t.sender_wallet_id
          WHERE w.user_id = $1 AND t.created_at > CURRENT_TIMESTAMP - INTERVAL '7 days'`,
         [userId]
       )

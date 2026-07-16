@@ -30,24 +30,25 @@ export async function applyRetentionPolicies(dryRun = false): Promise<{
 
   for (const policy of POLICIES) {
     const column = policy.deleteBeforeColumn || 'created_at'
-    const cutoff = `CURRENT_TIMESTAMP - INTERVAL '${policy.retentionDays} days'`
 
     try {
       // Archive first if needed
       let archived = 0
+      const cutoffParam = `${policy.retentionDays} days`
+
       if (policy.archiveBeforeDelete && !dryRun) {
         const archiveResult = await query(
-          `CREATE TABLE IF AS SELECT * FROM ${policy.table} WHERE ${column} < ${cutoff}`,
-          []
+          `CREATE TABLE IF NOT EXISTS ${policy.table}_archive AS SELECT * FROM ${policy.table} WHERE ${column} < CURRENT_TIMESTAMP - $1::interval`,
+          [cutoffParam]
         )
         archived = archiveResult.rowCount || 0
         totalArchived += archived
       }
 
-      // Delete
       if (!dryRun) {
         const result = await query(
-          `DELETE FROM ${policy.table} WHERE ${column} < ${cutoff}`
+          `DELETE FROM ${policy.table} WHERE ${column} < CURRENT_TIMESTAMP - $1::interval`,
+          [cutoffParam]
         )
         const deleted = result.rowCount || 0
         totalDeleted += deleted
@@ -57,7 +58,8 @@ export async function applyRetentionPolicies(dryRun = false): Promise<{
         }
       } else {
         const result = await query(
-          `SELECT COUNT(*) as count FROM ${policy.table} WHERE ${column} < ${cutoff}`
+          `SELECT COUNT(*) as count FROM ${policy.table} WHERE ${column} < CURRENT_TIMESTAMP - $1::interval`,
+          [cutoffParam]
         )
         const toDelete = parseInt(result.rows[0]?.count || '0')
         details.push({ table: policy.table, deleted: toDelete, archived: 0 })

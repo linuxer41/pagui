@@ -1,4 +1,5 @@
 export class AppError extends Error {
+  public status: number
   constructor(
     public statusCode: number,
     message: string,
@@ -6,5 +7,6 @@ export class AppError extends Error {
   ) {
     super(message)
     this.name = 'AppError'
+    this.status = statusCode
   }
 }

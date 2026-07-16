@@ -798,8 +798,8 @@
           <div class="process-steps">
               <div 
                 class="step {currentStep === 1 ? 'active' : ''} {currentStep > 1 ? 'completed' : ''} {currentStep > 1 ? 'clickable' : ''}"
-                on:click={() => currentStep > 1 ? goToStep(1) : null}
-                on:keydown={(e) => e.key === 'Enter' && currentStep > 1 ? goToStep(1) : null}
+                onclick={() => currentStep > 1 ? goToStep(1) : null}
+                onkeydown={(e) => e.key === 'Enter' && currentStep > 1 ? goToStep(1) : null}
                 role="button"
                 tabindex={currentStep > 1 ? 0 : -1}
                 title={currentStep > 1 ? 'Volver al paso 1' : ''}
@@ -817,8 +817,8 @@
               
               <div 
                 class="step {currentStep === 2 ? 'active' : ''} {currentStep > 2 ? 'completed' : ''} {currentStep > 2 ? 'clickable' : ''}"
-                on:click={() => currentStep > 2 ? goToStep(2) : null}
-                on:keydown={(e) => e.key === 'Enter' && currentStep > 2 ? goToStep(2) : null}
+                onclick={() => currentStep > 2 ? goToStep(2) : null}
+                onkeydown={(e) => e.key === 'Enter' && currentStep > 2 ? goToStep(2) : null}
                 role="button"
                 tabindex={currentStep > 2 ? 0 : -1}
                 title={currentStep > 2 ? 'Volver al paso 2' : ''}
@@ -847,8 +847,8 @@
               
               <div 
                 class="step {currentStep === 3 ? 'active' : ''} {currentStep > 3 ? 'completed' : ''} {currentStep > 3 ? 'clickable' : ''}"
-                on:click={() => currentStep > 3 ? goToStep(3) : null}
-                on:keydown={(e) => e.key === 'Enter' && currentStep > 3 ? goToStep(3) : null}
+                onclick={() => currentStep > 3 ? goToStep(3) : null}
+                onkeydown={(e) => e.key === 'Enter' && currentStep > 3 ? goToStep(3) : null}
                 role="button"
                 tabindex={currentStep > 3 ? 0 : -1}
                 title={currentStep > 3 ? 'Volver al paso 3' : ''}

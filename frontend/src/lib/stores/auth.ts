@@ -7,7 +7,7 @@ export interface User {
   id: number;
   email: string;
   fullName: string;
-  roleName: string;
+  role: number;
   status: string;
 }
 

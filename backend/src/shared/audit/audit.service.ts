@@ -77,9 +77,10 @@ export async function getAuditStats(days = 30) {
   const result = await query(
     `SELECT action, COUNT(*) as count, DATE(created_at) as date
      FROM audit_logs
-     WHERE created_at > CURRENT_TIMESTAMP - INTERVAL '${days} days'
+     WHERE created_at > CURRENT_TIMESTAMP - $1::interval
      GROUP BY action, DATE(created_at)
-     ORDER BY date DESC`
+     ORDER BY date DESC`,
+    [`${days} days`]
   )
   return result.rows
 }

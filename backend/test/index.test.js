@@ -7,8 +7,10 @@
 // Importar todas las suites de pruebas disponibles
 import "./health.test.js";
 import "./auth.test.js";
+import "./accounts.test.js";
+import "./collections.test.js";
 import "./qr/generation.test.js";
 import "./payment/notification.test.js";
 
 console.log("🧪 Todas las suites de pruebas importadas correctamente");
-console.log("📋 Rutas cubiertas: health, auth, qr, payment");
+console.log("📋 Rutas cubiertas: health, auth, accounts, collections, qr, payment");

@@ -4,6 +4,7 @@
 -- IDs: BIGINT (Snowflake), generados en aplicación
 -- ========================================
 
+DROP TABLE IF EXISTS settlements CASCADE;
 DROP TABLE IF EXISTS nfc_pending CASCADE;
 DROP TABLE IF EXISTS audit_logs CASCADE;
 DROP TABLE IF EXISTS cash_agents CASCADE;
@@ -32,20 +33,11 @@ DROP TABLE IF EXISTS devices CASCADE;
 DROP TABLE IF EXISTS auth_tokens CASCADE;
 DROP TABLE IF EXISTS user_profiles CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
-DROP TABLE IF EXISTS roles CASCADE;
 DROP TABLE IF EXISTS companies CASCADE;
 
 -- ========================================
 -- DOMINIO: Identity (Identidad)
 -- ========================================
-
-CREATE TABLE roles (
-  id BIGINT PRIMARY KEY,
-  name VARCHAR(50) NOT NULL UNIQUE,
-  description TEXT,
-  permissions JSONB NOT NULL DEFAULT '{}',
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
 
 CREATE TABLE users (
   id BIGINT PRIMARY KEY,
@@ -54,7 +46,7 @@ CREATE TABLE users (
   full_name VARCHAR(100) NOT NULL,
   phone VARCHAR(20),
   address TEXT,
-  role_id BIGINT NOT NULL REFERENCES roles(id),
+  role SMALLINT NOT NULL DEFAULT 3,
   status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
@@ -129,6 +121,9 @@ CREATE TABLE bank_credentials (
   encryption_key VARCHAR(255) NOT NULL,
   environment VARCHAR(10) NOT NULL DEFAULT 'test' CHECK (environment IN ('test', 'prod')),
   api_base_url VARCHAR(255) NOT NULL,
+  type VARCHAR(10) NOT NULL DEFAULT 'client' CHECK (type IN ('business', 'client')),
+  user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  commission_rate DECIMAL(10,6) DEFAULT 0,
   status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   deleted_at TIMESTAMPTZ
@@ -138,11 +133,14 @@ CREATE TABLE accounts (
   id BIGINT PRIMARY KEY,
   account_number VARCHAR(50) UNIQUE NOT NULL,
   account_type VARCHAR(20) NOT NULL DEFAULT 'current' CHECK (account_type IN ('current', 'savings', 'business')),
+  account_level VARCHAR(10) NOT NULL DEFAULT 'client' CHECK (account_level IN ('business', 'client')),
+  account_subtype VARCHAR(20) DEFAULT 'passthrough' CHECK (account_subtype IN ('administered', 'passthrough')),
   currency VARCHAR(3) NOT NULL DEFAULT 'BOB',
   balance DECIMAL(15,2) NOT NULL DEFAULT 0.00,
   available_balance DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+  user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
   status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'closed')),
-  bank_credential_id BIGINT NOT NULL REFERENCES bank_credentials(id),
+  bank_credential_id BIGINT REFERENCES bank_credentials(id),
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   deleted_at TIMESTAMPTZ
@@ -202,6 +200,7 @@ CREATE TABLE qr_codes (
   transaction_id VARCHAR(100) NOT NULL,
   account_id BIGINT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   bank_credential_id BIGINT REFERENCES bank_credentials(id) ON DELETE SET NULL,
+  user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
   amount DECIMAL(10,2) NOT NULL,
   currency VARCHAR(3) NOT NULL DEFAULT 'BOB' CHECK (currency IN ('BOB', 'USD')),
   description TEXT,
@@ -221,7 +220,7 @@ CREATE TABLE account_movements (
   account_id BIGINT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   movement_type VARCHAR(20) NOT NULL CHECK (movement_type IN (
     'deposit', 'withdrawal', 'transfer_in', 'transfer_out',
-    'qr_payment', 'fee', 'interest', 'refund', 'adjustment'
+    'qr_payment', 'settlement', 'fee', 'interest', 'refund', 'adjustment'
   )),
   amount DECIMAL(15,2) NOT NULL,
   balance_before DECIMAL(15,2) NOT NULL,
@@ -235,11 +234,32 @@ CREATE TABLE account_movements (
   sender_document_id VARCHAR(50),
   sender_account VARCHAR(50),
   sender_bank_code VARCHAR(20),
+  settlement_id BIGINT,
   reference_id VARCHAR(100),
   reference_type VARCHAR(50),
   status VARCHAR(20) NOT NULL DEFAULT 'completed' CHECK (status IN ('pending', 'completed', 'failed', 'cancelled')),
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   deleted_at TIMESTAMPTZ
+);
+
+CREATE TABLE settlements (
+  id BIGINT PRIMARY KEY,
+  account_movement_id BIGINT REFERENCES account_movements(id) ON DELETE SET NULL,
+  from_account_id BIGINT NOT NULL REFERENCES accounts(id),
+  to_bank_credential_id BIGINT REFERENCES bank_credentials(id),
+  user_id BIGINT NOT NULL REFERENCES users(id),
+  qr_code_id BIGINT REFERENCES qr_codes(id) ON DELETE SET NULL,
+  gross_amount DECIMAL(15,2) NOT NULL,
+  commission DECIMAL(15,2) NOT NULL DEFAULT 0,
+  commission_rate DECIMAL(10,6) NOT NULL DEFAULT 0,
+  net_amount DECIMAL(15,2) NOT NULL,
+  currency VARCHAR(3) NOT NULL DEFAULT 'BOB',
+  status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed')),
+  reference VARCHAR(100),
+  error_message TEXT,
+  settled_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE payment_sync_status (
@@ -317,23 +337,32 @@ CREATE TABLE api_keys (
 -- ========================================
 
 CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_role ON users(role_id);
+CREATE INDEX idx_users_role ON users(role);
 
 CREATE INDEX idx_accounts_number ON accounts(account_number);
 CREATE INDEX idx_accounts_status ON accounts(status);
 CREATE INDEX idx_accounts_bank_cred ON accounts(bank_credential_id);
+CREATE INDEX idx_accounts_level ON accounts(account_level);
+CREATE INDEX idx_accounts_user ON accounts(user_id);
+
 CREATE INDEX idx_user_accounts_user ON user_accounts(user_id);
 CREATE INDEX idx_user_accounts_account ON user_accounts(account_id);
 
 CREATE INDEX idx_account_movements_account ON account_movements(account_id);
 CREATE INDEX idx_account_movements_type ON account_movements(movement_type);
 CREATE INDEX idx_account_movements_qr ON account_movements(qr_id);
+CREATE INDEX idx_account_movements_settlement ON account_movements(settlement_id);
 CREATE INDEX idx_account_movements_reference ON account_movements(reference_id, reference_type);
 CREATE INDEX idx_account_movements_status ON account_movements(status);
 
 CREATE INDEX idx_qr_codes_account ON qr_codes(account_id);
 CREATE INDEX idx_qr_codes_bank_cred ON qr_codes(bank_credential_id);
+CREATE INDEX idx_qr_codes_user ON qr_codes(user_id);
 CREATE INDEX idx_qr_codes_wallet ON qr_codes(wallet_id);
+
+CREATE INDEX idx_settlements_user ON settlements(user_id);
+CREATE INDEX idx_settlements_status ON settlements(status);
+CREATE INDEX idx_settlements_qr ON settlements(qr_code_id);
 
 CREATE INDEX idx_payment_sync_next_check ON payment_sync_status(next_check);
 CREATE INDEX idx_payment_sync_last_checked ON payment_sync_status(last_checked);
@@ -365,7 +394,7 @@ BEGIN
   SELECT COALESCE(SUM(
     CASE
       WHEN movement_type IN ('deposit', 'transfer_in', 'qr_payment') THEN amount
-      WHEN movement_type IN ('withdrawal', 'transfer_out') THEN -amount
+      WHEN movement_type IN ('withdrawal', 'transfer_out', 'settlement') THEN -amount
       ELSE 0
     END
   ), 0.00) INTO total_balance
@@ -655,3 +684,117 @@ CREATE TABLE IF NOT EXISTS dead_letter_queue (
   retry_count INTEGER DEFAULT 0,
   failed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- ========================================
+-- MIGRATION TRACKING
+-- ========================================
+
+CREATE TABLE IF NOT EXISTS _migrations (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL UNIQUE,
+  checksum VARCHAR(64) NOT NULL,
+  applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  duration_ms INTEGER NOT NULL DEFAULT 0
+);
+
+-- ========================================
+-- KYC RECORDS
+-- ========================================
+
+CREATE TABLE IF NOT EXISTS kyc_records (
+  id BIGINT PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id),
+  kyc_level VARCHAR(20) NOT NULL DEFAULT 'none',
+  document_type VARCHAR(20),
+  document_number VARCHAR(50),
+  document_front_url TEXT,
+  document_back_url TEXT,
+  selfie_url TEXT,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending',
+  reviewed_by BIGINT REFERENCES users(id),
+  reviewed_at TIMESTAMP,
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_kyc_user ON kyc_records(user_id);
+CREATE INDEX IF NOT EXISTS idx_kyc_status ON kyc_records(status);
+
+-- ========================================
+-- PUSH TOKENS
+-- ========================================
+
+CREATE TABLE IF NOT EXISTS push_tokens (
+  id BIGINT PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  device_id BIGINT REFERENCES devices(id) ON DELETE CASCADE,
+  platform VARCHAR(10) NOT NULL CHECK (platform IN ('ios', 'android')),
+  token TEXT NOT NULL,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_push_user ON push_tokens(user_id);
+
+-- ========================================
+-- BIOMETRIC CREDENTIALS
+-- ========================================
+
+CREATE TABLE IF NOT EXISTS biometric_credentials (
+  id BIGINT PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  credential_type VARCHAR(20) NOT NULL CHECK (credential_type IN ('fingerprint', 'face_id')),
+  credential_key_hash VARCHAR(256) NOT NULL,
+  encrypted_credential TEXT,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  last_used_at TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_biometric_user ON biometric_credentials(user_id);
+
+-- ========================================
+-- DATA RETENTION POLICIES
+-- ========================================
+
+CREATE TABLE IF NOT EXISTS data_retention_policies (
+  id BIGINT PRIMARY KEY,
+  table_name VARCHAR(64) NOT NULL,
+  retention_days INTEGER NOT NULL,
+  archive_to VARCHAR(128),
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS data_retention_logs (
+  id BIGINT PRIMARY KEY,
+  policy_id BIGINT REFERENCES data_retention_policies(id),
+  table_name VARCHAR(64) NOT NULL,
+  rows_deleted INTEGER NOT NULL DEFAULT 0,
+  rows_archived INTEGER NOT NULL DEFAULT 0,
+  dry_run BOOLEAN DEFAULT FALSE,
+  executed_by BIGINT REFERENCES users(id),
+  executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ========================================
+-- REGISTRATION REQUESTS
+-- ========================================
+
+CREATE TABLE IF NOT EXISTS registration_requests (
+  id BIGINT PRIMARY KEY,
+  full_name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  company VARCHAR(255) NOT NULL,
+  phone VARCHAR(50) NOT NULL,
+  message TEXT NOT NULL DEFAULT '',
+  status VARCHAR(20) NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(email)
+);
+
+CREATE INDEX IF NOT EXISTS idx_registration_requests_status ON registration_requests(status);

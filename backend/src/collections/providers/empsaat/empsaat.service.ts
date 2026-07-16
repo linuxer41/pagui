@@ -1,5 +1,6 @@
 import fetch from 'node-fetch'
 import type { CollectionProvider, DebtRequest, DebtResponse, TransactionResult } from '../../collection.strategy'
+import { AppError } from '../../../shared/errors/app-error'
 
 const EMPSAAT_API = process.env.EMPSAAT_API_URL || 'https://api.empsaat.org.bo'
 const EMPSAAT_API_KEY = process.env.EMPSAAT_API_KEY || ''
@@ -12,7 +13,7 @@ export class EmpsaatProvider implements CollectionProvider {
       headers: { 'Content-Type': 'application/json', 'X-API-Key': EMPSAAT_API_KEY },
       ...options,
     })
-    if (!res.ok) throw new Error(`EMPSAAT error: ${await res.text()}`)
+    if (!res.ok) throw new AppError(502, `EMPSAAT error: ${await res.text()}`)
     return res.json()
   }
 

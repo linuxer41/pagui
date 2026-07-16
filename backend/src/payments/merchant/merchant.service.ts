@@ -2,6 +2,7 @@ import { query } from '../../shared/database/pool'
 import { nextSnowflake } from '../../shared/snowflake'
 import { walletRepository } from '../wallet/wallet.repository'
 import { transferRepository } from '../transfer/transfer.repository'
+import { AppError } from '../../shared/errors/app-error'
 import { logger } from '../../shared/logger'
 
 export interface MerchantProfile {
@@ -56,14 +57,14 @@ export async function processMerchantPayment(params: {
     'SELECT * FROM merchants WHERE id = $1 AND is_active = TRUE AND is_verified = TRUE',
     [params.merchantId]
   )
-  if (merchant.rows.length === 0) throw new Error('Comercio no encontrado o inactivo')
+  if (merchant.rows.length === 0) throw new AppError(404, 'Comercio no encontrado o inactivo')
 
   const m = merchant.rows[0]
   const commission = Math.round(params.amount * parseFloat(m.commission_rate) * 100) / 10000
   const netAmount = params.amount - commission
 
   const customer = await walletRepository.getById(BigInt(params.customerWalletId))
-  if (!customer || customer.availableBalance < params.amount) throw new Error('Saldo insuficiente')
+  if (!customer || customer.availableBalance < params.amount) throw new AppError(400, 'Saldo insuficiente')
 
   const transfer = await transferRepository.create({
     senderWalletId: BigInt(params.customerWalletId),
@@ -95,7 +96,7 @@ export async function processMerchantPayment(params: {
 
 export async function generateMerchantQR(merchantId: bigint | string) {
   const merchant = await query('SELECT * FROM merchants WHERE id = $1', [merchantId])
-  if (merchant.rows.length === 0) throw new Error('Comercio no encontrado')
+  if (merchant.rows.length === 0) throw new AppError(404, 'Comercio no encontrado')
 
   const m = merchant.rows[0]
   const qrData = JSON.stringify({
@@ -109,4 +110,20 @@ export async function generateMerchantQR(merchantId: bigint | string) {
   const qrImage = await QRCode.toDataURL(qrData)
 
   return { qrData, qrImage, businessName: m.business_name }
+}
+
+export async function listMerchants(userId: bigint | string) {
+  const result = await query(
+    'SELECT id, user_id, wallet_id, business_name, business_category, tax_id, phone, address, commission_rate, is_verified, is_active, created_at FROM merchants WHERE user_id = $1 ORDER BY created_at DESC',
+    [userId]
+  )
+  return result.rows
+}
+
+export async function getMerchantById(merchantId: bigint | string) {
+  const result = await query(
+    'SELECT id, user_id, wallet_id, business_name, business_category, tax_id, phone, address, commission_rate, is_verified, is_active, created_at FROM merchants WHERE id = $1',
+    [merchantId]
+  )
+  return result.rows[0] || null
 }

@@ -18,13 +18,13 @@
     <p class="search-subtitle">Consulta tus facturas pendientes de pago</p>
   </div>
   
-  <form class="search-form" on:submit|preventDefault={onBuscar}>
+  <form class="search-form" onsubmit={(e) => { e.preventDefault(); onBuscar() }}>
     <!-- Selector de tipo de búsqueda - Tabs compactos -->
     <div id="search-tabs" class="search-tabs" role="tablist" aria-label="Tipo de búsqueda">
       <button
         type="button"
         class="search-tab {tipoBusqueda === 'abonado' ? 'active' : ''}"
-        on:click={() => tipoBusqueda = 'abonado'}
+        onclick={() => tipoBusqueda = 'abonado'}
         disabled={isLoading}
         role="tab"
         aria-selected={tipoBusqueda === 'abonado'}
@@ -35,7 +35,7 @@
       <button
         type="button"
         class="search-tab {tipoBusqueda === 'nombre' ? 'active' : ''}"
-        on:click={() => tipoBusqueda = 'nombre'}
+        onclick={() => tipoBusqueda = 'nombre'}
         disabled={isLoading}
         role="tab"
         aria-selected={tipoBusqueda === 'nombre'}
@@ -46,7 +46,7 @@
         <button
           type="button"
           class="search-tab {tipoBusqueda === 'documento' ? 'active' : ''}"
-          on:click={() => tipoBusqueda = 'documento'}
+          onclick={() => tipoBusqueda = 'documento'}
           disabled={isLoading}
           role="tab"
           aria-selected={tipoBusqueda === 'documento'}

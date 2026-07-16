@@ -1,11 +1,12 @@
 import { Elysia, t } from 'elysia'
 import { authMiddleware } from '../../shared/middleware/auth.middleware'
 import { registerAgent, processCashTransaction, getNearbyAgents } from './cash.service'
+import { ok, list } from '../../shared/response'
 
 export const cashRoutes = new Elysia({ prefix: '/cash' })
   .derive(authMiddleware)
   .post('/agents/register', async ({ userId, body }) => {
-    return await registerAgent({ userId, ...body })
+    return ok(await registerAgent({ userId, ...body }))
   }, {
     body: t.Object({
       name: t.String({ minLength: 3 }),
@@ -18,7 +19,7 @@ export const cashRoutes = new Elysia({ prefix: '/cash' })
     detail: { tags: ['Cash'], summary: 'Registrar agente de cash' },
   })
   .post('/transaction', async ({ userId, body }) => {
-    return await processCashTransaction({ userId, ...body })
+    return ok(await processCashTransaction({ userId, ...body }))
   }, {
     body: t.Object({
       agentId: t.String(),
@@ -30,11 +31,12 @@ export const cashRoutes = new Elysia({ prefix: '/cash' })
     detail: { tags: ['Cash'], summary: 'Cash-in o Cash-out' },
   })
   .get('/agents/nearby', async ({ query }) => {
-    return await getNearbyAgents({
+    const agents = await getNearbyAgents({
       lat: parseFloat(query.lat),
       lng: parseFloat(query.lng),
       radiusKm: parseFloat(query.radius || '5'),
     })
+    return list(agents, undefined, 'Agentes listados exitosamente')
   }, {
     query: t.Object({
       lat: t.String(),

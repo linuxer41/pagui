@@ -1,30 +1,18 @@
+import { logger } from './logger'
+
 const dsn = process.env.SENTRY_DSN
 let initialized = false
-
-interface SentryEvent {
-  message?: string
-  level?: 'error' | 'warning' | 'info'
-  tags?: Record<string, string>
-  extra?: Record<string, unknown>
-  error?: Error
-}
 
 export const sentry = {
   init() {
     if (!dsn || initialized) return
     initialized = true
-    console.log('[sentry] initialized, DSN:', dsn.slice(0, 20) + '...')
+    logger.info('Sentry initialized', { dsn: dsn.slice(0, 20) + '...' })
   },
 
   captureError(error: Error, extra?: Record<string, unknown>) {
     if (!initialized) return
-    console.error('[sentry] error:', error.message, extra || '')
-  },
-
-  captureEvent(event: SentryEvent) {
-    if (!initialized) return
-    const label = event.level === 'error' ? '[sentry]' : '[sentry]'
-    console.log(label, event.message, event.tags || '', event.extra || '')
+    logger.error('Sentry captured error', { error: error.message, ...extra })
   },
 
   setUser(userId: string | number) {
@@ -36,5 +24,4 @@ export const sentry = {
   },
 }
 
-// Auto-init
 sentry.init()

@@ -2,10 +2,13 @@
   import { auth } from '$lib/stores/auth';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import Button from '$lib/components/Button.svelte';
-  import RouteLayout from '$lib/components/layouts/RouteLayout.svelte';
+
+  import Section from '$lib/components/Section.svelte';
+  import PageLayout from '$lib/components/layouts/PageLayout.svelte';
+  import EmptyState from '$lib/components/EmptyState.svelte';
+  import IconButton from '$lib/components/ui/IconButton.svelte';
+
   import { 
-    ArrowLeft,
     CreditCard,
     DollarSign,
     Building2,
@@ -15,10 +18,10 @@
     Eye,
     EyeOff
   } from '@lucide/svelte';
+  import { getRoleLabel } from '$lib/helpers';
 
   let showBalances = true;
 
-  // Función para formatear moneda
   function formatCurrency(amount: string, currency: string): string {
     const numAmount = parseFloat(amount);
     return new Intl.NumberFormat('es-BO', {
@@ -28,7 +31,6 @@
     }).format(numAmount);
   }
 
-  // Función para obtener el tipo de cuenta en español
   function getAccountTypeLabel(type: string): string {
     switch (type) {
       case 'business':
@@ -40,7 +42,6 @@
     }
   }
 
-  // Función para obtener el estado en español
   function getStatusLabel(status: string): string {
     switch (status) {
       case 'active':
@@ -54,7 +55,6 @@
     }
   }
 
-  // Función para obtener el rol del usuario en español
   function getUserRoleLabel(role: string): string {
     switch (role) {
       case 'owner':
@@ -73,27 +73,16 @@
   }
 </script>
 
-<RouteLayout title="Mis Cuentas">
+<PageLayout title="Cuentas">
+
   <div class="accounts-container">
     <!-- Header con información del usuario -->
     <div class="user-header">
       <div class="user-info">
         <h2>{$auth.user?.fullName || 'Usuario'}</h2>
-        <p class="user-role">{$auth.user?.roleName || 'Usuario'}</p>
+        <p class="user-role">{getRoleLabel($auth.user?.role)}</p>
       </div>
-      <div class="balance-toggle">
-        <button 
-          class="toggle-button" 
-          on:click={toggleBalanceVisibility}
-          aria-label={showBalances ? 'Ocultar saldos' : 'Mostrar saldos'}
-        >
-          {#if showBalances}
-            <EyeOff size={20} />
-          {:else}
-            <Eye size={20} />
-          {/if}
-        </button>
-      </div>
+      <IconButton icon={showBalances ? EyeOff : Eye} onClick={toggleBalanceVisibility} ariaLabel={showBalances ? "Ocultar saldos" : "Mostrar saldos"} size={36} />
     </div>
 
     <!-- Lista de cuentas -->
@@ -169,11 +158,7 @@
           </div>
         {/each}
       {:else}
-        <div class="no-accounts">
-          <CreditCard size={48} />
-          <h3>No tienes cuentas</h3>
-          <p>No se encontraron cuentas asociadas a tu usuario.</p>
-        </div>
+        <EmptyState icon={CreditCard} title="No tienes cuentas" message="No se encontraron cuentas asociadas a tu usuario." />
       {/if}
     </div>
 
@@ -189,11 +174,11 @@
       </div>
     </div>
   </div>
-</RouteLayout>
+</PageLayout>
 
 <style>
   .accounts-container {
-    padding: 1rem;
+    padding: var(--space-4);
     max-width: 600px;
     margin: 0 auto;
   }
@@ -202,65 +187,45 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 2rem;
-    padding: 1rem;
-    background: var(--card-background);
-    border-radius: 12px;
-    border: 1px solid var(--border-color);
+    margin-bottom: var(--space-8);
+    padding: var(--space-4);
+    background: rgba(var(--surface-rgb), 1);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(var(--border-rgb), 1);
   }
 
   .user-info h2 {
     margin: 0;
-    color: var(--text-primary);
+    color: rgba(var(--text-primary-rgb), 1);
     font-size: 1.25rem;
     font-weight: 600;
   }
 
   .user-role {
-    margin: 0.25rem 0 0 0;
-    color: var(--text-secondary);
+    margin: var(--space-1) 0 0 0;
+    color: rgba(var(--text-secondary-rgb), 1);
     font-size: 0.875rem;
     text-transform: capitalize;
-  }
-
-  .balance-toggle {
-    display: flex;
-    align-items: center;
-  }
-
-  .toggle-button {
-    background: var(--button-secondary-background);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 0.5rem;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  .toggle-button:hover {
-    background: var(--button-secondary-hover);
-    color: var(--text-primary);
   }
 
   .accounts-list {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
-    margin-bottom: 2rem;
+    gap: var(--space-4);
+    margin-bottom: var(--space-8);
   }
 
   .account-card {
-    background: var(--card-background);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 1.5rem;
+    background: rgba(var(--surface-rgb), 1);
+    border: 1px solid rgba(var(--border-rgb), 1);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
     transition: all 0.2s ease;
   }
 
   .account-card.primary {
-    border-color: var(--primary-color);
-    background: linear-gradient(135deg, var(--card-background) 0%, rgba(var(--primary-color-rgb), 0.05) 100%);
+    border-color: var(--primary);
+    background: linear-gradient(135deg, rgba(var(--surface-rgb), 1) 0%, rgba(var(--primary-rgb), 0.05) 100%);
   }
 
   .account-card:hover {
@@ -272,7 +237,7 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 1rem;
+    margin-bottom: var(--space-4);
   }
 
   .account-info {
@@ -282,14 +247,14 @@
   .account-type {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.5rem;
-    color: var(--text-primary);
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+    color: rgba(var(--text-primary-rgb), 1);
     font-weight: 600;
   }
 
   .account-number {
-    color: var(--text-secondary);
+    color: rgba(var(--text-secondary-rgb), 1);
     font-size: 0.875rem;
     font-family: monospace;
   }
@@ -297,22 +262,14 @@
   .account-status {
     display: flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: var(--space-1);
     font-size: 0.875rem;
-  }
-
-  .status-active {
-    color: var(--success-color);
-  }
-
-  .status-inactive {
-    color: var(--warning-color);
   }
 
   .account-details {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: var(--space-4);
   }
 
   .balance-section {
@@ -328,42 +285,42 @@
   }
 
   .balance-label {
-    color: var(--text-secondary);
+    color: rgba(var(--text-secondary-rgb), 1);
     font-size: 0.875rem;
   }
 
   .balance-value {
-    color: var(--text-primary);
+    color: rgba(var(--text-primary-rgb), 1);
     font-weight: 600;
     font-size: 1.125rem;
   }
 
   .balance-value.available {
-    color: var(--success-color);
+    color: rgba(var(--success-rgb), 1);
   }
 
   .account-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 1rem;
+    gap: var(--space-4);
     align-items: center;
   }
 
   .meta-item {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: var(--space-1);
   }
 
   .meta-label {
-    color: var(--text-secondary);
+    color: rgba(var(--text-secondary-rgb), 1);
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
 
   .meta-value {
-    color: var(--text-primary);
+    color: rgba(var(--text-primary-rgb), 1);
     font-size: 0.875rem;
     font-weight: 500;
     text-transform: capitalize;
@@ -372,41 +329,30 @@
   .primary-badge {
     display: flex;
     align-items: center;
-    gap: 0.25rem;
-    background: var(--primary-color);
+    gap: var(--space-1);
+    background: var(--primary);
     color: white;
-    padding: 0.25rem 0.5rem;
+    padding: var(--space-1) var(--space-2);
     border-radius: 6px;
     font-size: 0.75rem;
     font-weight: 500;
     margin-left: auto;
   }
 
-  .no-accounts {
-    text-align: center;
-    padding: 3rem 1rem;
-    color: var(--text-secondary);
-  }
-
-  .no-accounts h3 {
-    margin: 1rem 0 0.5rem 0;
-    color: var(--text-primary);
-  }
-
   .accounts-info {
-    margin-top: 2rem;
+    margin-top: var(--space-8);
   }
 
   .info-card {
-    background: var(--card-background);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 1.5rem;
+    background: rgba(var(--surface-rgb), 1);
+    border: 1px solid rgba(var(--border-rgb), 1);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
   }
 
   .info-card h4 {
-    margin: 0 0 1rem 0;
-    color: var(--text-primary);
+    margin: 0 0 var(--space-4) 0;
+    color: rgba(var(--text-primary-rgb), 1);
     font-size: 1rem;
     font-weight: 600;
   }
@@ -414,22 +360,18 @@
   .info-card ul {
     margin: 0;
     padding-left: 1.25rem;
-    color: var(--text-secondary);
+    color: rgba(var(--text-secondary-rgb), 1);
     font-size: 0.875rem;
     line-height: 1.6;
   }
 
   .info-card li {
-    margin-bottom: 0.5rem;
+    margin-bottom: var(--space-2);
   }
 
   @media (max-width: 640px) {
-    .accounts-container {
-      padding: 0.75rem;
-    }
-
     .account-card {
-      padding: 1rem;
+      padding: var(--space-4);
     }
 
     .account-header {

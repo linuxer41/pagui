@@ -2,6 +2,7 @@ import { query } from '../../shared/database/pool'
 import { nextSnowflake } from '../../shared/snowflake'
 import { walletRepository } from '../wallet/wallet.repository'
 import { transferRepository } from '../transfer/transfer.repository'
+import { AppError } from '../../shared/errors/app-error'
 import { logger } from '../../shared/logger'
 
 export type CashDirection = 'cash_in' | 'cash_out'
@@ -52,14 +53,14 @@ export async function processCashTransaction(params: {
   reference: string
 }) {
   const agent = await query('SELECT wallet_id, name FROM cash_agents WHERE id = $1 AND is_active = TRUE', [params.agentId])
-  if (agent.rows.length === 0) throw new Error('Agente no encontrado o inactivo')
+  if (agent.rows.length === 0) throw new AppError(404, 'Agente no encontrado o inactivo')
 
   const fee = params.direction === 'cash_in' ? 0 : Math.round(params.amount * 0.01 * 100) / 100
   const total = params.direction === 'cash_out' ? params.amount + fee : params.amount
 
   if (params.direction === 'cash_in') {
     const senderWallet = await walletRepository.getById(BigInt(params.userWalletId))
-    if (!senderWallet) throw new Error('Billetera no encontrada')
+    if (!senderWallet) throw new AppError(404, 'Billetera no encontrada')
 
     const transfer = await transferRepository.create({
       senderWalletId: BigInt(agent.rows[0].wallet_id),
@@ -82,7 +83,7 @@ export async function processCashTransaction(params: {
     return { transferId: transfer.id, direction: 'cash_in' }
   } else {
     const senderWallet = await walletRepository.getById(BigInt(params.userWalletId))
-    if (!senderWallet || senderWallet.availableBalance < total) throw new Error('Saldo insuficiente')
+    if (!senderWallet || senderWallet.availableBalance < total) throw new AppError(400, 'Saldo insuficiente')
 
     const transfer = await transferRepository.create({
       senderWalletId: BigInt(params.userWalletId),
@@ -115,7 +116,9 @@ export async function getNearbyAgents(params: { lat: number; lng: number; radius
             * sin(radians(lat)))) AS distance_km
      FROM cash_agents
      WHERE is_active = TRUE
-     HAVING distance_km < $3
+     AND (6371 * acos(cos(radians($1)) * cos(radians(lat))
+             * cos(radians(lng) - radians($2)) + sin(radians($1))
+             * sin(radians(lat)))) < $3
      ORDER BY distance_km ASC
      LIMIT 20`,
     [params.lat, params.lng, radius]

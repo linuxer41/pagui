@@ -10,7 +10,7 @@
   let parsed: Record<string, string>
   try { parsed = JSON.parse(decodeURIComponent(qrParam)) } catch { parsed = {} }
 
-  let receiverWalletId = parsed.wallet || parsed.receiver || ''
+  let receiverWalletNumber = parsed.wallet || parsed.receiver || ''
   let amount = Number(parsed.amount) || 0
   let currency = parsed.currency || 'BOB'
   let description = parsed.concept || parsed.description || ''
@@ -20,14 +20,14 @@
   let success = $state(false)
 
   async function handlePay() {
-    if (!receiverWalletId || !amount || amount <= 0) {
+    if (!receiverWalletNumber || !amount || amount <= 0) {
       error = 'Datos de pago inválidos'
       return
     }
     loading = true; error = ''
     try {
       const res = await api.transferP2P({
-        receiverWalletId,
+        receiverWalletNumber,
         amount,
         description: description || undefined
       }, crypto.randomUUID().slice(0, 32))
@@ -87,7 +87,7 @@
         <Wallet size={18} class="info-icon" />
         <div class="info-content">
           <span class="info-label">Destino</span>
-          <span class="info-value mono">{receiverWalletId}</span>
+          <span class="info-value mono">{receiverWalletNumber}</span>
         </div>
       </div>
       {#if description}

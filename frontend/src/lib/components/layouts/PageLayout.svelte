@@ -29,7 +29,7 @@
 <style>
   .page-layout {
     display: flex; flex-direction: column;
-    min-height: 100dvh;
+    flex: 1;
   }
   .pl-header {
     display: flex; align-items: center; gap: var(--space-3);
@@ -54,6 +54,10 @@
   }
   .pl-body {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
     padding: var(--space-4);
+    padding-bottom: calc(var(--space-4) + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
   }
 </style>

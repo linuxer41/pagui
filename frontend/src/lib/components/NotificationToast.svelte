@@ -1,12 +1,11 @@
 <script lang="ts">
-  import { notifications, sseService, sseConnection, reconnectSSE } from '$lib/services/sseService';
-  import { CheckCircle, X, Bell, Wifi } from '@lucide/svelte';
+  import { notifications, sseService } from '$lib/services/sseService';
+  import { CheckCircle, X, Bell } from '@lucide/svelte';
   import { fly, fade } from 'svelte/transition';
   import { onMount } from 'svelte';
 
   let showNotifications = $state(false);
   let unreadCount = $derived($notifications.filter(n => !n.read).length);
-  let showConnectionStatus = $derived(!$sseConnection.isConnected);
 
   $effect(() => {
     if ($notifications.length > 0 && !$notifications[0].read) {
@@ -23,9 +22,6 @@
   }
   function clearAllRead() {
     sseService.clearReadNotifications();
-  }
-  function handleReconnect() {
-    reconnectSSE();
   }
   function formatTime(timestamp: string): string {
     const date = new Date(timestamp);
@@ -102,12 +98,3 @@
   </div>
 {/if}
 
-{#if showConnectionStatus}
-  <div class="connection-indicator" class:connecting={$sseConnection.isConnecting} class:error={$sseConnection.error}>
-    <div class="indicator-dot"></div>
-    {#if $sseConnection.isConnecting}<span class="indicator-text">Conectando...</span>
-    {:else if $sseConnection.error}<span class="indicator-text">Sin conexión</span>
-    {:else}<span class="indicator-text">Desconectado</span>{/if}
-    <button class="reconnect-btn" onclick={handleReconnect} title="Reconectar"><Wifi size={14} /></button>
-  </div>
-{/if}

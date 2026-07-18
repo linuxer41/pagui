@@ -7,21 +7,21 @@ import { AppError } from '../shared/errors/app-error'
 import { ok, list, fail } from '../shared/response'
 
 export const publicQrRoutes = new Elysia({ prefix: '/qr' })
-  .use(authMiddleware({ type: 'apikey', level: 'user' }))
+  .derive(authMiddleware({ type: 'apikey', level: 'user' }))
 
   .post('/generate', async ({ body, auth }: any) => {
-    const accountId = auth.apiKeyInfo.accountId
+    const walletId = auth.apiKeyInfo.walletId
     const permissions = auth.apiKeyInfo.permissions
     if (!permissions.qr_generate) throw new AppError(403, 'API key no tiene permiso qr_generate')
-    const qr = await qrService.generate({ ...body, accountId })
+    const qr = await qrService.generate({ ...body, walletId })
     return ok(qr, 'QR generado exitosamente')
   }, { body: QRRequestSchema, detail: { tags: ['Public QR'], summary: 'Generar QR (API key)' } })
 
   .get('/list', async ({ query, auth }: any) => {
     const permissions = auth.apiKeyInfo.permissions
     if (!permissions.qr_status) throw new AppError(403, 'API key no tiene permiso qr_status')
-    const accountId = auth.apiKeyInfo.accountId
-    const result = await qrService.list(accountId, {
+    const walletId = auth.apiKeyInfo.walletId
+    const result = await qrService.list(walletId, {
       page: query.page ? parseInt(query.page) : undefined,
       limit: query.limit ? parseInt(query.limit) : undefined,
       status: query.status, from: query.from || query.startDate, to: query.to || query.endDate,
@@ -29,7 +29,7 @@ export const publicQrRoutes = new Elysia({ prefix: '/qr' })
     return list(result.qrs, result.totalCount, 'QR listados exitosamente')
   }, {
     query: t.Optional(t.Object({
-      accountId: t.Optional(t.String()), page: t.Optional(t.String()),
+      walletId: t.Optional(t.String()), page: t.Optional(t.String()),
       limit: t.Optional(t.String()), status: t.Optional(t.String()),
       from: t.Optional(t.String()), to: t.Optional(t.String()),
       startDate: t.Optional(t.String()), endDate: t.Optional(t.String()),

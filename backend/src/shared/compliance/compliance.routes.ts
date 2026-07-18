@@ -1,12 +1,10 @@
 import { Elysia } from 'elysia'
-import { authMiddleware } from '../middleware/auth.middleware'
 import { checkPCICompliance, logComplianceCheck } from './pci.service'
 import { applyRetentionPolicies, getRetentionStatus } from './retention.service'
 import { logAudit } from '../audit/audit.service'
 import { ok } from '../response'
 
 export const complianceRoutes = new Elysia({ prefix: '/compliance' })
-  .derive(authMiddleware)
   .get('/pci', async () => {
     return ok(await logComplianceCheck())
   }, {

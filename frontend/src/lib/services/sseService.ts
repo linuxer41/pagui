@@ -29,8 +29,8 @@ export interface QRPaymentEvent {
   newStatus: string;
 }
 
-export interface AccountBalanceUpdateEvent {
-  accountId: number;
+export interface WalletBalanceUpdateEvent {
+  walletId: number;
   movementType: string;
   amount: number;
   previousBalance: number;
@@ -72,7 +72,7 @@ export const sseConnection = writable<{
 
 // Store para eventos específicos
 export const qrPaymentEvents = writable<QRPaymentEvent[]>([]);
-export const balanceUpdateEvents = writable<AccountBalanceUpdateEvent[]>([]);
+export const balanceUpdateEvents = writable<WalletBalanceUpdateEvent[]>([]);
 export const qrStatusChangeEvents = writable<QRStatusChangeEvent[]>([]);
 
 // Store para notificaciones
@@ -102,12 +102,12 @@ class SSEService {
   private eventSource: EventSource | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
-  private reconnectDelay = 5000; // 5 segundos
+  private reconnectDelay = 5000;
   private heartbeatInterval: number | null = null;
   private lastHeartbeat: number = 0;
+  private connecting = false;
 
   constructor() {
-    // Inicializar cuando el usuario esté autenticado
     auth.subscribe((user) => {
       if (user && user.token) {
         this.connect();
@@ -117,289 +117,155 @@ class SSEService {
     });
   }
 
+  private cleanup(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+    this.lastHeartbeat = 0;
+    if (this.eventSource) {
+      const es = this.eventSource;
+      es.onopen = null;
+      es.onerror = null;
+      es.close();
+      this.eventSource = null;
+    }
+  }
+
   async connect(): Promise<void> {
-    if (!browser) return;
-    
+    if (!browser || this.connecting) return;
+
     const authStore = get(auth);
     if (!authStore?.token) {
-      console.warn('No API key available for SSE connection');
-      sseConnection.update(state => ({
-        ...state,
-        isConnecting: false,
-        error: 'No hay token de autenticación'
-      }));
+      sseConnection.update(state => ({ ...state, isConnecting: false, error: 'No hay token de autenticación' }));
       return;
     }
 
-    // Evitar múltiples conexiones
-    if (this.eventSource && this.eventSource.readyState !== EventSource.CLOSED) {
-      console.log('SSE already connected, skipping');
-      return;
-    }
+    this.cleanup();
+    this.connecting = true;
 
-    console.log('Connecting to SSE...');
-    sseConnection.update(state => ({
-      ...state,
-      isConnecting: true,
-      error: null
-    }));
+    sseConnection.update(state => ({ ...state, isConnecting: true, error: null }));
 
     try {
       const url = `${API_URL}/events/stream?token=${authStore.token}`;
-      console.log('SSE URL:', url);
       this.eventSource = new EventSource(url);
-
       this.setupEventListeners();
       this.startHeartbeatMonitor();
-
     } catch (error) {
-      console.error('Error connecting to SSE:', error);
-      sseConnection.update(state => ({
-        ...state,
-        isConnecting: false,
-        error: 'Error de conexión'
-      }));
+      this.connecting = false;
+      sseConnection.update(state => ({ ...state, isConnecting: false, error: 'Error de conexión' }));
     }
   }
 
   private setupEventListeners(): void {
-    if (!this.eventSource) return;
+    const es = this.eventSource;
+    if (!es) return;
 
-    // Evento de conexión exitosa
-    this.eventSource.addEventListener('connection', (event) => {
+    es.addEventListener('connection', (event) => {
       const data = JSON.parse(event.data);
-      console.log('SSE Connected:', data);
-      
-      sseConnection.update(state => ({
-        ...state,
-        isConnected: true,
-        isConnecting: false,
-        error: null,
-        connectionId: data.connectionId
-      }));
-
+      this.connecting = false;
       this.reconnectAttempts = 0;
+      sseConnection.update(state => ({
+        ...state, isConnected: true, isConnecting: false, error: null, connectionId: data.connectionId
+      }));
     });
 
-    // Evento de heartbeat
-    this.eventSource.addEventListener('heartbeat', (event) => {
-      const data = JSON.parse(event.data);
+    es.addEventListener('heartbeat', () => {
       this.lastHeartbeat = Date.now();
-      console.log('SSE Heartbeat:', data.timestamp);
     });
 
-    // Evento de pago QR
-    this.eventSource.addEventListener('qr_payment', (event) => {
+    es.addEventListener('qr_payment', (event) => {
       const data = JSON.parse(event.data) as QRPaymentEvent;
-      console.log('QR Payment received:', data);
-      
-      // Actualizar store de eventos de pago
-      qrPaymentEvents.update(events => [data, ...events.slice(0, 9)]); // Mantener últimos 10
-      
-      // Solo agregar notificación si no estamos en la página de estado del QR
-      // La página de estado del QR maneja el pago con su propio modal
+      qrPaymentEvents.update(events => [data, ...events.slice(0, 9)]);
       if (!this.isOnQRStatusPage()) {
         this.addNotification({
           id: `payment_${data.transactionId}_${Date.now()}`,
-          type: 'payment',
-          title: 'Pago Recibido',
+          type: 'payment', title: 'Pago Recibido',
           message: `Has recibido ${data.currency} ${data.amount.toFixed(2)} de ${data.senderName}`,
-          data,
-          timestamp: new Date().toISOString(),
-          read: false
+          data, timestamp: new Date().toISOString(), read: false
         });
       }
-
-      // Emitir evento personalizado para que las páginas puedan reaccionar
       this.emitCustomEvent('qr_payment', data);
     });
 
-    // Evento de actualización de balance
-    this.eventSource.addEventListener('account_balance_update', (event) => {
-      const data = JSON.parse(event.data) as AccountBalanceUpdateEvent;
-      console.log('Balance updated:', data);
-      
-      // Actualizar store de eventos de balance
-      balanceUpdateEvents.update(events => [data, ...events.slice(0, 9)]); // Mantener últimos 10
-      
-      // Emitir evento personalizado
-      this.emitCustomEvent('account_balance_update', data);
+    es.addEventListener('wallet_balance_update', (event) => {
+      const data = JSON.parse(event.data) as WalletBalanceUpdateEvent;
+      balanceUpdateEvents.update(events => [data, ...events.slice(0, 9)]);
+      this.emitCustomEvent('wallet_balance_update', data);
     });
 
-    // Evento de cambio de estado de QR
-    this.eventSource.addEventListener('qr_status_change', (event) => {
+    es.addEventListener('qr_status_change', (event) => {
       const data = JSON.parse(event.data) as QRStatusChangeEvent;
-      console.log('QR Status changed:', data);
-      
-      // Actualizar store de eventos de cambio de estado
-      qrStatusChangeEvents.update(events => [data, ...events.slice(0, 9)]); // Mantener últimos 10
-      
-      // Emitir evento personalizado
+      qrStatusChangeEvents.update(events => [data, ...events.slice(0, 9)]);
       this.emitCustomEvent('qr_status_change', data);
     });
 
-    // Evento de QR creado
-    this.eventSource.addEventListener('qr_created', (event) => {
+    es.addEventListener('qr_created', (event) => {
       const data = JSON.parse(event.data);
-      console.log('QR Created:', data);
-      
-      // Emitir evento personalizado
       this.emitCustomEvent('qr_created', data);
     });
 
-    // Manejo de errores
-    this.eventSource.onerror = (error) => {
-      console.error('SSE Error:', error);
-      
-      // Verificar el estado de la conexión para determinar el tipo de error
-      if (this.eventSource) {
-        const readyState = this.eventSource.readyState;
-        
-        if (readyState === EventSource.CLOSED) {
-          // Conexión cerrada - podría ser error del servidor o 401
-          console.log('SSE Connection closed, checking for server errors...');
-          
-          // No reintentar automáticamente para errores del servidor
-          sseConnection.update(state => ({
-            ...state,
-            isConnected: false,
-            isConnecting: false,
-            error: 'Conexión cerrada por el servidor'
-          }));
-          
-          // No llamar handleReconnection() para errores del servidor
-          return;
-        }
+    es.addEventListener('notification', (event) => {
+      const data = JSON.parse(event.data);
+      this.addNotification({
+        id: data.id,
+        type: data.type === 'balance' ? 'balance' : 'payment',
+        title: data.title,
+        message: data.message,
+        data: data.data,
+        timestamp: data.timestamp,
+        read: data.read,
+      });
+      this.emitCustomEvent('notification', data);
+    });
+
+    // Error handler: EventSource ya reintenta automáticamente en CONNECTING.
+    // Solo intervenimos cuando CLOSED (EventSource ya se rindió).
+    es.onerror = () => {
+      this.connecting = false;
+      if (es.readyState === EventSource.CLOSED) {
+        sseConnection.update(state => ({
+          ...state, isConnected: false, isConnecting: false, error: 'Conexión perdida'
+        }));
+        this.scheduleReconnect();
       }
-      
-      // Solo reintentar para errores de red/conexión
-      sseConnection.update(state => ({
-        ...state,
-        isConnected: false,
-        isConnecting: false,
-        error: 'Error de conexión'
-      }));
-
-      this.handleReconnection();
-    };
-
-    // Manejo de cierre de conexión
-    this.eventSource.close = () => {
-      console.log('SSE Connection closed');
-      
-      sseConnection.update(state => ({
-        ...state,
-        isConnected: false,
-        isConnecting: false
-      }));
-
-      this.handleReconnection();
     };
   }
 
   private startHeartbeatMonitor(): void {
     this.heartbeatInterval = window.setInterval(() => {
-      const now = Date.now();
-      const timeSinceLastHeartbeat = now - this.lastHeartbeat;
-      
-      // Si no hay heartbeat en 60 segundos, reconectar
-      if (timeSinceLastHeartbeat > 60000 && this.lastHeartbeat > 0) {
-        console.warn('No heartbeat received, reconnecting...');
-        this.handleReconnection();
+      if (this.lastHeartbeat > 0 && Date.now() - this.lastHeartbeat > 60000) {
+        this.scheduleReconnect();
       }
-    }, 30000); // Verificar cada 30 segundos
+    }, 30000);
   }
 
-  private handleReconnection(): void {
-    // Verificar si el error es del servidor (401, 500, etc.) - no reintentar
-    if (this.isServerError()) {
-      console.log('Server error detected, not attempting reconnection');
-      sseConnection.update(state => ({
-        ...state,
-        error: 'Error del servidor. Verifica tu autenticación.'
-      }));
-      return;
-    }
-
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error('Max reconnection attempts reached');
-      sseConnection.update(state => ({
-        ...state,
-        error: 'No se pudo reconectar. Intenta recargar la página.'
-      }));
-      return;
-    }
-
+  private scheduleReconnect(): void {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) return;
     this.reconnectAttempts++;
-    console.log(`Reconnecting... attempt ${this.reconnectAttempts}`);
-    
-    setTimeout(() => {
-      this.disconnect();
-      this.connect();
-    }, this.reconnectDelay);
-  }
-
-  // Verificar si el error es del servidor (no de red)
-  private isServerError(): boolean {
-    if (!this.eventSource) return false;
-    
-    const readyState = this.eventSource.readyState;
-    
-    // EventSource.CLOSED indica que el servidor cerró la conexión
-    // Esto puede ser por 401 (no autorizado) u otros errores del servidor
-    if (readyState === EventSource.CLOSED) {
-      return true;
-    }
-    
-    // También verificar si hay un error HTTP específico
-    // (aunque EventSource no expone directamente el código de estado)
-    return false;
+    setTimeout(() => { this.cleanup(); this.connect(); }, this.reconnectDelay);
   }
 
   private addNotification(notification: any): void {
-    notifications.update(notifications => {
-      // Agregar al inicio y mantener máximo 20 notificaciones
-      return [notification, ...notifications.slice(0, 19)];
-    });
+    notifications.update(n => [notification, ...n.slice(0, 19)]);
   }
 
   private isOnQRStatusPage(): boolean {
-    if (!browser) return false;
-    return window.location.pathname.startsWith('/qr/status');
+    return browser && window.location.pathname.startsWith('/qr/status');
   }
 
   private emitCustomEvent(type: string, data: any): void {
     if (!browser) return;
-    
-    const event = new CustomEvent(`sse:${type}`, {
-      detail: data
-    });
-    window.dispatchEvent(event);
+    window.dispatchEvent(new CustomEvent(`sse:${type}`, { detail: data }));
   }
 
   disconnect(): void {
-    console.log('Disconnecting SSE...');
-    
-    if (this.eventSource) {
-      this.eventSource.close();
-      this.eventSource = null;
-    }
-
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-      this.heartbeatInterval = null;
-    }
-
-    sseConnection.update(state => ({
-      ...state,
-      isConnected: false,
-      isConnecting: false,
-      connectionId: null,
-      error: null
-    }));
-
+    this.cleanup();
+    this.connecting = false;
     this.reconnectAttempts = 0;
-    this.lastHeartbeat = 0;
+    sseConnection.update(state => ({
+      ...state, isConnected: false, isConnecting: false, connectionId: null, error: null
+    }));
   }
 
   // Método para marcar notificación como leída

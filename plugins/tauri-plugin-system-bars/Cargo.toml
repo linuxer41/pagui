@@ -1,0 +1,29 @@
+[package]
+name = "tauri-plugin-system-bars"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Control Android system bars (status bar, navigation bar) from Tauri v2"
+repository = "https://github.com/linuxer/tauri-plugin-system-bars"
+authors = ["linuxer"]
+links = "tauri-plugin-system-bars"
+
+[lib]
+name = "tauri_plugin_system_bars"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[features]
+default = []
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }
+tauri-plugin = "2"
+log = "0.4"
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }
+
+[package.metadata.docs.rs]
+features = ["custom-protocol"]

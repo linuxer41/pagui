@@ -14,7 +14,7 @@ export interface TransactionRow {
   reference?: string
   category?: string
   metadata: {
-    accountId: string
+    walletId: string
     qrId?: string
     transactionId?: string
     balanceAfter: number
@@ -50,7 +50,7 @@ function mapMovement(r: any): TransactionRow {
     reference: r.reference_id || undefined,
     category: r.movement_type,
     metadata: {
-      accountId: String(r.account_id),
+      walletId: String(r.wallet_id),
       qrId: r.qr_id,
       transactionId: r.transaction_id,
       balanceAfter: Number(r.balance_after),
@@ -60,26 +60,40 @@ function mapMovement(r: any): TransactionRow {
 }
 
 export const transactionRepository = {
-  async listByUser(userId: bigint, page: number, pageSize: number): Promise<{ transactions: TransactionRow[]; totalCount: number }> {
+  async listByUser(userId: bigint, page: number, pageSize: number, filters?: { walletId?: bigint; types?: string[] }): Promise<{ transactions: TransactionRow[]; totalCount: number }> {
     const offset = (page - 1) * pageSize
+    const extraParams: any[] = []
+    const clauses: string[] = []
+
+    if (filters?.walletId) {
+      clauses.push(`m.wallet_id = $${extraParams.length + 2}`)
+      extraParams.push(filters.walletId)
+    }
+    if (filters?.types && filters.types.length > 0) {
+      const placeholders = filters.types.map(() => `$${extraParams.length + 2}`)
+      clauses.push(`m.movement_type IN (${placeholders.join(',')})`)
+      extraParams.push(...filters.types)
+    }
+
+    const extraSql = clauses.length > 0 ? ' AND ' + clauses.join(' AND ') : ''
 
     const countResult = await query(
       `SELECT COUNT(*) as total
-       FROM account_movements m
-       JOIN user_accounts ua ON m.account_id = ua.account_id
-       WHERE ua.user_id = $1 AND m.deleted_at IS NULL AND ua.deleted_at IS NULL`,
-      [userId]
+       FROM wallet_movements m
+       JOIN wallet_permissions wp ON m.wallet_id = wp.wallet_id
+       WHERE wp.user_id = $1 AND m.deleted_at IS NULL AND wp.deleted_at IS NULL${extraSql}`,
+      [userId, ...extraParams]
     )
     const totalCount = parseInt(countResult.rows[0].total)
 
     const result = await query(
       `SELECT m.*
-       FROM account_movements m
-       JOIN user_accounts ua ON m.account_id = ua.account_id
-       WHERE ua.user_id = $1 AND m.deleted_at IS NULL AND ua.deleted_at IS NULL
+       FROM wallet_movements m
+       JOIN wallet_permissions wp ON m.wallet_id = wp.wallet_id
+       WHERE wp.user_id = $1 AND m.deleted_at IS NULL AND wp.deleted_at IS NULL${extraSql}
        ORDER BY m.created_at DESC
-       LIMIT $2 OFFSET $3`,
-      [userId, pageSize, offset]
+       LIMIT $${extraParams.length + 2} OFFSET $${extraParams.length + 3}`,
+      [userId, ...extraParams, pageSize, offset]
     )
 
     return {
@@ -91,29 +105,30 @@ export const transactionRepository = {
   async getById(id: bigint, userId: bigint): Promise<TransactionRow | null> {
     const result = await query(
       `SELECT m.*
-       FROM account_movements m
-       JOIN user_accounts ua ON m.account_id = ua.account_id
-       WHERE m.id = $1 AND ua.user_id = $2 AND m.deleted_at IS NULL AND ua.deleted_at IS NULL`,
+       FROM wallet_movements m
+       JOIN wallet_permissions wp ON m.wallet_id = wp.wallet_id
+       WHERE m.id = $1 AND wp.user_id = $2 AND m.deleted_at IS NULL AND wp.deleted_at IS NULL`,
       [id, userId]
     )
     if (result.rowCount === 0) return null
     return mapMovement(result.rows[0])
   },
 
-  async getYearlyStats(userId: bigint, year: number): Promise<TransactionStatsResult> {
+  async getYearlyStats(userId: bigint, year: number, walletId?: bigint): Promise<TransactionStatsResult> {
     const result = await query(
       `SELECT
          DATE_TRUNC('month', m.created_at) as month_date,
          SUM(m.amount) as amount,
          COUNT(*) as count
-       FROM account_movements m
-       JOIN user_accounts ua ON m.account_id = ua.account_id
-       WHERE ua.user_id = $1 AND m.deleted_at IS NULL AND ua.deleted_at IS NULL
+       FROM wallet_movements m
+       JOIN wallet_permissions wp ON m.wallet_id = wp.wallet_id
+       WHERE wp.user_id = $1 AND m.deleted_at IS NULL AND wp.deleted_at IS NULL
          AND EXTRACT(YEAR FROM m.created_at) = $2
          AND m.movement_type IN ('deposit','qr_payment','transfer_in')
+         ${walletId ? 'AND m.wallet_id = $3' : ''}
        GROUP BY DATE_TRUNC('month', m.created_at)
        ORDER BY month_date`,
-      [userId, year]
+      walletId ? [userId, year, walletId] : [userId, year]
     )
 
     const data = result.rows.map((r: any) => ({
@@ -139,7 +154,7 @@ export const transactionRepository = {
     }
   },
 
-  async getMonthlyStats(userId: bigint, year: number, month: number): Promise<TransactionStatsResult> {
+  async getMonthlyStats(userId: bigint, year: number, month: number, walletId?: bigint): Promise<TransactionStatsResult> {
     const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`
     const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0]
 
@@ -148,14 +163,15 @@ export const transactionRepository = {
          DATE(m.created_at) as day_date,
          SUM(m.amount) as amount,
          COUNT(*) as count
-       FROM account_movements m
-       JOIN user_accounts ua ON m.account_id = ua.account_id
-       WHERE ua.user_id = $1 AND m.deleted_at IS NULL AND ua.deleted_at IS NULL
+       FROM wallet_movements m
+       JOIN wallet_permissions wp ON m.wallet_id = wp.wallet_id
+       WHERE wp.user_id = $1 AND m.deleted_at IS NULL AND wp.deleted_at IS NULL
          AND m.created_at >= $2 AND m.created_at < ($3::date + INTERVAL '1 day')
          AND m.movement_type IN ('deposit','qr_payment','transfer_in')
+         ${walletId ? 'AND m.wallet_id = $4' : ''}
        GROUP BY DATE(m.created_at)
        ORDER BY day_date`,
-      [userId, startDate, endDate]
+      walletId ? [userId, startDate, endDate, walletId] : [userId, startDate, endDate]
     )
 
     const data = result.rows.map((r: any) => ({
@@ -183,7 +199,7 @@ export const transactionRepository = {
     }
   },
 
-  async getWeeklyStats(userId: bigint, year: number, week: number): Promise<TransactionStatsResult> {
+  async getWeeklyStats(userId: bigint, year: number, week: number, walletId?: bigint): Promise<TransactionStatsResult> {
     const firstDay = new Date(year, 0, 1)
     const daysOffset = (week - 1) * 7
     const startDate = new Date(firstDay.getTime() + daysOffset * 86400000).toISOString().split('T')[0]
@@ -194,14 +210,15 @@ export const transactionRepository = {
          DATE(m.created_at) as day_date,
          SUM(m.amount) as amount,
          COUNT(*) as count
-       FROM account_movements m
-       JOIN user_accounts ua ON m.account_id = ua.account_id
-       WHERE ua.user_id = $1 AND m.deleted_at IS NULL AND ua.deleted_at IS NULL
+       FROM wallet_movements m
+       JOIN wallet_permissions wp ON m.wallet_id = wp.wallet_id
+       WHERE wp.user_id = $1 AND m.deleted_at IS NULL AND wp.deleted_at IS NULL
          AND m.created_at >= $2 AND m.created_at < ($3::date + INTERVAL '1 day')
          AND m.movement_type IN ('deposit','qr_payment','transfer_in')
+         ${walletId ? 'AND m.wallet_id = $4' : ''}
        GROUP BY DATE(m.created_at)
        ORDER BY day_date`,
-      [userId, startDate, endDate]
+      walletId ? [userId, startDate, endDate, walletId] : [userId, startDate, endDate]
     )
 
     const data = result.rows.map((r: any) => ({

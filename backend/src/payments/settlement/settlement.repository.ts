@@ -3,9 +3,9 @@ import { nextSnowflake } from '../../shared/snowflake'
 
 export interface SettlementRow {
   id: bigint
-  accountMovementId: bigint | null
-  fromAccountId: bigint
-  toBankCredentialId: bigint | null
+  walletMovementId: bigint | null
+  fromWalletId: bigint
+  configId: bigint | null
   userId: bigint
   qrCodeId: bigint | null
   grossAmount: number
@@ -23,16 +23,16 @@ export interface SettlementRow {
 
 export const settlementRepository = {
   async create(data: {
-    fromAccountId: bigint; toBankCredentialId: bigint | null; userId: bigint
+    fromWalletId: bigint; configId: bigint | null; userId: bigint
     grossAmount: number; commission: number; commissionRate: number; netAmount: number
     currency?: string; qrCodeId?: bigint
   }): Promise<SettlementRow> {
     const r = await query(`
-      INSERT INTO settlements (id, from_account_id, to_bank_credential_id, user_id, qr_code_id,
+      INSERT INTO settlements (id, from_wallet_id, config_id, user_id, qr_code_id,
         gross_amount, commission, commission_rate, net_amount, currency, status)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending')
       RETURNING *
-    `, [nextSnowflake(), data.fromAccountId, data.toBankCredentialId || null, data.userId,
+    `, [nextSnowflake(), data.fromWalletId, data.configId || null, data.userId,
       data.qrCodeId || null, data.grossAmount, data.commission, data.commissionRate,
       data.netAmount, data.currency || 'BOB'])
     return r.rows[0] as SettlementRow
@@ -58,13 +58,13 @@ export const settlementRepository = {
     return r.rows as SettlementRow[]
   },
 
-  async updateStatus(id: bigint, status: string, data: { reference?: string; errorMessage?: string; accountMovementId?: bigint } = {}): Promise<void> {
+  async updateStatus(id: bigint, status: string, data: { reference?: string; errorMessage?: string; walletMovementId?: bigint } = {}): Promise<void> {
     const sets: string[] = ['status = $1', 'updated_at = CURRENT_TIMESTAMP']
     const params: unknown[] = [status]
     let pc = 1
     if (data.reference) { pc++; sets.push(`reference = $${pc}`); params.push(data.reference) }
     if (data.errorMessage) { pc++; sets.push(`error_message = $${pc}`); params.push(data.errorMessage) }
-    if (data.accountMovementId) { pc++; sets.push(`account_movement_id = $${pc}`); params.push(data.accountMovementId) }
+    if (data.walletMovementId) { pc++; sets.push(`wallet_movement_id = $${pc}`); params.push(data.walletMovementId) }
     if (status === 'completed') { sets.push('settled_at = CURRENT_TIMESTAMP') }
     await query(`UPDATE settlements SET ${sets.join(', ')} WHERE id = $${pc + 1}`, [...params, id])
   },

@@ -43,7 +43,7 @@
     s === 'completed' ? 'Liquidado' : s === 'failed' ? 'Fallido' : 'Pendiente'
 </script>
 
-<PageLayout title="Liquidaciones">
+<PageLayout title="Auto-Transferencia">
   {#if pendingTotal > 0}
     <div class="pending-card">
       <span class="pending-label">Saldo pendiente por liquidar</span>
@@ -59,8 +59,8 @@
     <div class="loading">Cargando...</div>
   {:else if settlements.length === 0}
     <div class="empty">
-      <p>No hay liquidaciones aún.</p>
-      <p class="hint">Cuando recibas pagos QR, aquí aparecerán las liquidaciones a tu cuenta bancaria.</p>
+      <p>Sin movimientos aún.</p>
+      <p class="hint">Cuando recibas cobros, el saldo se transferirá automáticamente a tu cuenta Baneco.</p>
     </div>
   {:else}
     <div class="list">

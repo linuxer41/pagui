@@ -4,7 +4,9 @@ import { nextSnowflake } from '../../shared/snowflake'
 export interface TransferRow {
   id: bigint
   senderWalletId: bigint
+  senderWalletNumber: string | null
   receiverWalletId: bigint
+  receiverWalletNumber: string | null
   amount: number
   fee: number
   total: number
@@ -33,20 +35,34 @@ export const transferRepository = {
   },
 
   async getById(id: bigint): Promise<TransferRow | null> {
-    const r = await query('SELECT * FROM transfers WHERE id = $1', [id])
+    const r = await query(`
+      SELECT t.*,
+        sw.wallet_number as "senderWalletNumber",
+        rw.wallet_number as "receiverWalletNumber"
+      FROM transfers t
+      LEFT JOIN wallets sw ON sw.id = t.sender_wallet_id
+      LEFT JOIN wallets rw ON rw.id = t.receiver_wallet_id
+      WHERE t.id = $1
+    `, [id])
     return r.rowCount ? r.rows[0] as TransferRow : null
   },
 
   async listByWallet(walletId: bigint, limit = 20, offset = 0): Promise<TransferRow[]> {
     const r = await query(`
-      SELECT * FROM transfers WHERE sender_wallet_id = $1 OR receiver_wallet_id = $1
-      ORDER BY created_at DESC LIMIT $2 OFFSET $3
+      SELECT t.*,
+        sw.wallet_number as "senderWalletNumber",
+        rw.wallet_number as "receiverWalletNumber"
+      FROM transfers t
+      LEFT JOIN wallets sw ON sw.id = t.sender_wallet_id
+      LEFT JOIN wallets rw ON rw.id = t.receiver_wallet_id
+      WHERE t.sender_wallet_id = $1 OR t.receiver_wallet_id = $1
+      ORDER BY t.created_at DESC LIMIT $2 OFFSET $3
     `, [walletId, limit, offset])
     return r.rows as TransferRow[]
   },
 
   async updateStatus(id: bigint, status: string): Promise<void> {
-    await query(`UPDATE transfers SET status = $1, completed_at = CASE WHEN $1 = 'completed' THEN CURRENT_TIMESTAMP ELSE completed_at END WHERE id = $2`,
-      [status, id])
+    await query(`UPDATE transfers SET status = $1, completed_at = CASE WHEN $2 THEN CURRENT_TIMESTAMP ELSE completed_at END WHERE id = $3`,
+      [status, status === 'completed', id])
   },
 }

@@ -75,7 +75,7 @@ if (data.transactionId) {
   "data": {
     "account": {
       "id": 1,
-      "accountNumber": "100013101",
+      "walletNumber": "100013101",
       "accountType": "business",
       "currency": "BOB",
       "balance": 10000.10,

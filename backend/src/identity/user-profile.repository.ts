@@ -3,16 +3,6 @@ import { query } from '../shared/database/pool'
 export interface UserProfileRow {
   userId: bigint
   pinHash: string | null
-  kycLevel: string
-  documentType: string | null
-  documentNumber: string | null
-  dateOfBirth: string | null
-  nationality: string | null
-  isPhoneVerified: boolean
-  isEmailVerified: boolean
-  twoFactorEnabled: boolean
-  twoFactorMethod: string | null
-  backupCodes: string[] | null
   dailyLimit: number
   monthlyLimit: number
 }
@@ -32,9 +22,9 @@ export const userProfileRepository = {
       }
     } else {
       await query(`
-        INSERT INTO user_profiles (user_id, pin_hash, kyc_level, document_type, document_number, date_of_birth, nationality, daily_limit, monthly_limit)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      `, [userId, data.pinHash || null, data.kycLevel || 'none', data.documentType || null, data.documentNumber || null, data.dateOfBirth || null, data.nationality || null, data.dailyLimit || 5000.00, data.monthlyLimit || 50000.00])
+        INSERT INTO user_profiles (user_id, pin_hash, daily_limit, monthly_limit)
+        VALUES ($1, $2, $3, $4)
+      `, [userId, data.pinHash || null, data.dailyLimit || 5000.00, data.monthlyLimit || 50000.00])
     }
   },
 

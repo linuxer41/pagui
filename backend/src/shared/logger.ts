@@ -1,11 +1,29 @@
+import pino from 'pino'
 import { sentry } from './sentry'
-import * as os from 'node:os'
 import crypto from 'node:crypto'
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
-const LEVELS: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 }
-const CURRENT_LEVEL: LogLevel = (process.env.LOG_LEVEL as LogLevel) || 'info'
+const level = process.env.LOG_LEVEL || 'info'
+const isDev = process.env.NODE_ENV !== 'production'
+
+const pinoLogger = pino({
+  level,
+  ...(isDev && {
+    transport: {
+      target: 'pino-pretty',
+      options: {
+        colorize: true,
+        translateTime: 'HH:MM:ss.l',
+        ignore: 'pid,hostname,correlationId',
+        messageFormat: '{msg} {if correlationId}[{correlationId}]{end}',
+      },
+    },
+  }),
+  serializers: {
+    error: pino.stdSerializers.err,
+  },
+})
 
 let correlationId = ''
 
@@ -13,50 +31,44 @@ export function setCorrelationId(id: string) {
   correlationId = id
 }
 
-const hostname = os.hostname()
+function log(level: string, message: string, meta?: Record<string, unknown>) {
+  const data: Record<string, unknown> = { ...meta, correlationId: correlationId || undefined }
 
-function log(level: LogLevel, message: string, meta?: Record<string, unknown>) {
-  if (LEVELS[level] < LEVELS[CURRENT_LEVEL]) return
-
-  const entry = {
-    timestamp: new Date().toISOString(),
-    level,
-    message,
-    hostname,
-    pid: process.pid,
-    correlationId: correlationId || undefined,
-    ...meta,
-  }
-
-  const output = JSON.stringify(entry)
-
-  if (level === 'error') {
-    console.error(output)
-    if (meta?.error) {
-      sentry.captureError(
-        meta.error instanceof Error ? meta.error : new Error(String(meta.error)),
-        { correlationId, ...meta }
-      )
+  if (data.error instanceof Error) {
+    const err = data.error as Error
+    delete data.error
+    pinoLogger[level]({ err, ...data }, message)
+    if (level === 'error' || level === 'fatal') {
+      sentry.captureError(err, data)
     }
-  } else if (level === 'warn') {
-    console.warn(output)
+  } else if (data.error) {
+    const errStr = String(data.error)
+    delete data.error
+    pinoLogger[level]({ ...data }, `${message} — ${errStr}`)
+    if (level === 'error' || level === 'fatal') {
+      sentry.captureError(new Error(errStr), data)
+    }
   } else {
-    console.log(output)
+    pinoLogger[level](data, message)
+  }
+}
+
+function wrapLogger(defaultMeta?: Record<string, unknown>) {
+  const withMeta = (msg: string, meta?: Record<string, unknown>) =>
+    defaultMeta ? { ...defaultMeta, ...meta } : meta
+
+  return {
+    debug: (msg: string, meta?: Record<string, unknown>) => log('debug', msg, withMeta(msg, meta)),
+    info: (msg: string, meta?: Record<string, unknown>) => log('info', msg, withMeta(msg, meta)),
+    warn: (msg: string, meta?: Record<string, unknown>) => log('warn', msg, withMeta(msg, meta)),
+    error: (msg: string, meta?: Record<string, unknown>) => log('error', msg, withMeta(msg, meta)),
   }
 }
 
 export const logger = {
-  debug: (msg: string, meta?: Record<string, unknown>) => log('debug', msg, meta),
-  info: (msg: string, meta?: Record<string, unknown>) => log('info', msg, meta),
-  warn: (msg: string, meta?: Record<string, unknown>) => log('warn', msg, meta),
-  error: (msg: string, meta?: Record<string, unknown>) => log('error', msg, meta),
+  ...wrapLogger(),
 
-  child: (defaultMeta: Record<string, unknown>) => ({
-    debug: (msg: string, meta?: Record<string, unknown>) => log('debug', msg, { ...defaultMeta, ...meta }),
-    info: (msg: string, meta?: Record<string, unknown>) => log('info', msg, { ...defaultMeta, ...meta }),
-    warn: (msg: string, meta?: Record<string, unknown>) => log('warn', msg, { ...defaultMeta, ...meta }),
-    error: (msg: string, meta?: Record<string, unknown>) => log('error', msg, { ...defaultMeta, ...meta }),
-  }),
+  child: (defaultMeta: Record<string, unknown>) => wrapLogger(defaultMeta),
 
   flush: async () => {
     await sentry.flush()

@@ -2,12 +2,11 @@ import { Elysia, t } from 'elysia'
 import { userService } from './user.service'
 import { userProfileRepository } from './user-profile.repository'
 import { deviceRepository } from './device.repository'
-import { authMiddleware } from '../shared/middleware/auth.middleware'
+
 import { AppError } from '../shared/errors/app-error'
 import { ok, list } from '../shared/response'
 
 export const userRoutes = new Elysia({ prefix: '/users' })
-  .use(authMiddleware({ type: 'jwt', level: 'user' }))
 
   .get('/', async ({ query }) => {
     const result = await userService.list({
@@ -65,10 +64,6 @@ export const userRoutes = new Elysia({ prefix: '/users' })
   }, {
     body: t.Object({
       pinHash: t.Optional(t.String()),
-      documentType: t.Optional(t.String()),
-      documentNumber: t.Optional(t.String()),
-      dateOfBirth: t.Optional(t.String()),
-      nationality: t.Optional(t.String()),
       dailyLimit: t.Optional(t.Number()),
       monthlyLimit: t.Optional(t.Number()),
     }),

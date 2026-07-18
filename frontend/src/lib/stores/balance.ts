@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store'
 import { browser } from '$app/environment'
-import { onSSEEvent, type AccountBalanceUpdateEvent } from '$lib/services/sseService'
+import { onSSEEvent, type WalletBalanceUpdateEvent } from '$lib/services/sseService'
 
 export interface BalanceState {
   balance: number
@@ -22,7 +22,7 @@ function createBalanceStore() {
   let unsubscribe: (() => void) | null = null
 
   if (browser) {
-    unsubscribe = onSSEEvent('account_balance_update', (data: AccountBalanceUpdateEvent) => {
+    unsubscribe = onSSEEvent('wallet_balance_update', (data: WalletBalanceUpdateEvent) => {
       update(state => ({
         ...state,
         balance: data.newBalance,

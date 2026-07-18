@@ -113,11 +113,17 @@ import { CheckCircle, Clock, RefreshCw, Loader, Download, Share2 } from '@lucide
       if (!el) return
       const blob = await toBlob(el, { backgroundColor: '#ffffff', pixelRatio: 2 })
       if (!blob) return
-      const a = document.createElement('a')
-      a.download = `qr-${qrData?.transactionId || 'pagui'}.png`
-      a.href = URL.createObjectURL(blob)
-      a.click()
-      URL.revokeObjectURL(a.href)
+      const buffer = await blob.arrayBuffer()
+      const uint8 = new Uint8Array(buffer)
+      const { save } = await import('@tauri-apps/plugin-dialog')
+      const { writeFile } = await import('@tauri-apps/plugin-fs')
+      const path = await save({
+        defaultPath: `qr-${qrData?.transactionId || 'pagui'}.png`,
+        filters: [{ name: 'PNG Image', extensions: ['png'] }]
+      })
+      if (path) {
+        await writeFile(path, uint8)
+      }
     } catch {}
   }
 
@@ -128,12 +134,29 @@ import { CheckCircle, Clock, RefreshCw, Loader, Download, Share2 } from '@lucide
       if (!el) return
       const blob = await toBlob(el, { backgroundColor: '#ffffff', pixelRatio: 2 })
       if (!blob) return
-      const file = new File([blob], `qr-${qrData?.transactionId || 'pagui'}.png`, { type: 'image/png' })
-      if (navigator.share) {
-        await navigator.share({ title: 'QR Pagui', files: [file] })
-      } else {
-        downloadQR()
-      }
+
+      try {
+        const { shareFile } = await import('tauri-plugin-share')
+        const buffer = await blob.arrayBuffer()
+        const uint8 = new Uint8Array(buffer)
+        const { writeFile } = await import('@tauri-apps/plugin-fs')
+        const { appDataDir } = await import('@tauri-apps/api/path')
+        const dir = await appDataDir()
+        const tmpPath = `${dir}qr-${qrData?.transactionId || 'pagui'}.png`
+        await writeFile(tmpPath, uint8)
+        await shareFile(tmpPath, 'image/png')
+        return
+      } catch {}
+
+      try {
+        const file = new File([blob], `qr-${qrData?.transactionId || 'pagui'}.png`, { type: 'image/png' })
+        if (navigator.share) {
+          await navigator.share({ title: 'QR Pagui', files: [file] })
+          return
+        }
+      } catch {}
+
+      downloadQR()
     } catch { downloadQR() }
   }
 </script>
@@ -148,7 +171,7 @@ import { CheckCircle, Clock, RefreshCw, Loader, Download, Share2 } from '@lucide
   {:else if error}
     <div class="error">
       <p>{error}</p>
-      <button class="link" onclick={() => goto('/qr/generate')}>Generar nuevo QR</button>
+      <button class="link" onclick={() => goto('/qr')}>Generar nuevo QR</button>
     </div>
   {:else if qrData}
     <div class="qr-visual">
@@ -205,7 +228,7 @@ import { CheckCircle, Clock, RefreshCw, Loader, Download, Share2 } from '@lucide
       <div class="expired">
         <Clock size={24} />
         <p>QR expirado</p>
-        <button class="btn" onclick={() => goto('/qr/generate')}>Generar nuevo</button>
+        <button class="btn" onclick={() => goto('/qr')}>Generar nuevo</button>
       </div>
     {/if}
   {/if}

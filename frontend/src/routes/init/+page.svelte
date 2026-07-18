@@ -24,7 +24,7 @@
 </div>
 
 <style>
-  .init-page { display: flex; flex-direction: column; min-height: 100dvh; background: var(--primary); padding: var(--space-8) var(--space-6); color: rgba(var(--bg-rgb), 1); max-width: 480px; margin: 0 auto; width: 100%; }
+  .init-page { display: flex; flex-direction: column; flex: 1; background: var(--primary); padding: var(--space-8) var(--space-6); color: rgba(var(--bg-rgb), 1); max-width: 480px; margin: 0 auto; width: 100%; }
   .brand { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: var(--space-4); }
   .brand-icon { width: 88px; height: 88px; border-radius: var(--radius-2xl); background: rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; font-size: 36px; font-weight: 800; }
   .brand-name { font-size: 2.5rem; font-weight: 800; letter-spacing: var(--tracking-tight); margin: 0; }

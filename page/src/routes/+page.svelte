@@ -139,7 +139,7 @@
       <a href="#features">Características</a>
       <a href="#pricing">Precios</a>
       <a href="#app">App</a>
-      <a href="/recaudaciones" class="btn btn-outline">Iniciar Sesión</a>
+      <a href="/collections" class="btn btn-outline">Iniciar Sesión</a>
       <a href="#pricing" class="btn btn-primary">Comenzar</a>
     </div>
     
@@ -410,7 +410,7 @@
         <div class="footer-column">
           <h4>Empresa</h4>
           <a href="#pricing">Precios</a>
-          <a href="/recaudaciones">Recaudaciones</a>
+          <a href="/collections">Cobros</a>
           <a href="https://wa.me/59175434250" target="_blank">Contacto</a>
         </div>
         <div class="footer-column">

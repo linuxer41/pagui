@@ -1,35 +1,27 @@
 import { query } from '../../shared/database/pool'
-import { accountRepository } from '../../banking/account/account.repository'
+import { walletRepository } from '../../banking/wallet/wallet.repository'
 import { qrRepository } from '../qr/qr.repository'
-import { bankCredentialRepository } from '../../banking/credential/bank-credential.repository'
 import { BanecoAdapter } from '../../banking/integration/baneco.adapter'
+import { resolveCredentials } from '../../banking/credential/credential-resolver'
 import { logger } from '../../shared/logger'
 import { eventBus } from '../events/event-bus'
-import { nextSnowflake } from '../../shared/snowflake'
+import { notifService } from '../notification/notif.service'
 
 export const paymentSyncService = {
   async syncQRStatus(qrId: string): Promise<{ changed: boolean; status?: string }> {
     const qr = await qrRepository.getByQrId(qrId)
     if (!qr || qr.status === 'used' || qr.status === 'cancelled') return { changed: false }
 
-    const cred = qr.bankCredentialId
-      ? await bankCredentialRepository.getById(qr.bankCredentialId)
-      : null
-    if (!cred) return { changed: false }
-
-    if (!cred.apiBaseUrl || !cred.encryptionKey) {
-      logger.warn('Sync QR missing credential config', { qrId, credentialId: cred.id })
-      return { changed: false }
-    }
+    const cred = await resolveCredentials(qr.banecoCredentialId)
 
     try {
-      const adapter = new BanecoAdapter(cred.apiBaseUrl, cred.encryptionKey)
+      const adapter = new BanecoAdapter(cred.api_base_url, cred.encryption_key)
       const token = await adapter.getToken(cred.username, cred.password)
       const status = await adapter.getQrStatus(token, qrId)
 
       if (status.status === 'PAID' || status.status === 'COMPLETED') {
-        const movement = await accountRepository.createMovement({
-          accountId: qr.accountId, movementType: 'qr_payment',
+        const movement = await walletRepository.createMovement({
+          walletId: qr.walletId, movementType: 'qr_payment',
           amount: status.amount, balanceBefore: 0, balanceAfter: 0,
           description: `Pago QR ${qrId}`, qrId, transactionId: qr.transactionId,
           paymentDate: new Date().toISOString(), currency: status.currency,
@@ -43,7 +35,14 @@ export const paymentSyncService = {
             last_checked = CURRENT_TIMESTAMP, check_count = payment_sync_status.check_count + 1,
             success = true, final_status = 'completed'
         `, [qrId])
-        eventBus.emit('qr.paid', { qrId, accountId: qr.accountId, amount: status.amount, movementId: movement.id })
+        eventBus.emit('qr.paid', { qrId, walletId: qr.walletId, amount: status.amount, movementId: movement.id })
+
+        notifService.getWalletUserIds(qr.walletId).then(userIds =>
+          Promise.all(userIds.map(uid =>
+            notifService.qrPaymentReceived(uid, status.amount, qr.description || 'Pago QR', qrId)
+          ))
+        ).catch(e => logger.error('Failed to notify QR payment to wallet users', { error: e.message, qrId }))
+
         return { changed: true, status: 'completed' }
       }
 

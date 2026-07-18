@@ -1,6 +1,5 @@
 import { writable, get } from 'svelte/store';
 import { browser } from '$app/environment';
-import { M3 } from 'tauri-plugin-m3';
 
 export type Theme = 'light' | 'dark' | 'system';
 
@@ -18,7 +17,6 @@ function createThemeStore() {
   async function applyTheme(theme: Theme) {
     if (!browser) return;
     document.documentElement.setAttribute('data-theme', theme);
-    await M3.setBarColor(theme === 'light' ? 'dark' : 'light');
   }
 
   subscribe((theme) => {

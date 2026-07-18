@@ -133,4 +133,14 @@ export const userRepository = {
     const r = await query('SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL', [email])
     return r.rowCount !== null && r.rowCount > 0
   },
+
+  async getByPhone(phone: string): Promise<(UserRow & { password: string }) | null> {
+    const r = await query(`
+      SELECT u.id, u.email, u.password, u.full_name as "fullName", u.phone, u.address,
+             u.role as "role", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt"
+      FROM users u
+      WHERE u.phone = $1 AND u.deleted_at IS NULL
+    `, [phone])
+    return r.rowCount ? r.rows[0] as UserRow & { password: string } : null
+  },
 }

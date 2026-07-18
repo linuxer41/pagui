@@ -7,5 +7,5 @@ export const QRRequestSchema = t.Object({
   dueDate: t.Optional(t.String()),
   singleUse: t.Optional(t.Boolean({ default: true })),
   modifyAmount: t.Optional(t.Boolean({ default: false })),
-  accountId: t.Optional(t.Number()),
+  walletId: t.Optional(t.String()),
 })

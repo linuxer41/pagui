@@ -1,0 +1,20 @@
+{
+  "identifier": "mobile-capability",
+  "platforms": [
+    "android",
+    "iOS"
+  ],
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "barcode-scanner:default",
+    "camera:default",
+    "biometric:default",
+    "nfc:default",
+    "share:default",
+    "fs:default",
+    "dialog:default",
+    "notification:default"
+  ]
+}

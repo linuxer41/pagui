@@ -1,27 +1,66 @@
 <script lang="ts">
   import { ArrowUpRight, ArrowDownLeft } from '@lucide/svelte'
-  interface Tx {
-    id: string; type: 'send' | 'receive'; amount: number;
-    counterparty: string; date: string; status: string; currency: string;
+
+  interface Transaction {
+    id: string
+    type: 'incoming' | 'outgoing'
+    amount: number
+    from?: string
+    to?: string
+    date: string
+    status: string
+    reference?: string
+    category?: string
+    metadata?: Record<string, unknown>
   }
-  let { tx = {} as Tx } = $props()
-  let isSend = $derived(tx.type === 'send')
-  let symbol = $derived(tx.currency === 'BOB' ? 'Bs' : '$')
+
+  let { tx = {} as Transaction } = $props()
+
+  let isSend = $derived(tx.type === 'outgoing')
+  let isReceive = $derived(tx.type === 'incoming')
+
+  let symbol = $derived(
+    (tx.metadata?.currency as string) === 'BOB' ? 'Bs' : '$'
+  )
+
+  let counterparty = $derived(
+    isReceive
+      ? (tx.from || tx.to || 'Recibido')
+      : tx.category === 'fee'
+        ? 'Comisión'
+        : (tx.to || tx.from || 'Enviado')
+  )
+
+  let statusLabel = $derived(
+    tx.status === 'completed' ? 'Completado'
+    : tx.status === 'pending' ? 'Pendiente'
+    : 'Cancelado'
+  )
+
+  let formattedDate = $derived(
+    new Date(tx.date).toLocaleDateString('es-BO', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  )
 </script>
 
 <button class="tx-row">
-  <div class="tx-icon" class:send={isSend} class:receive={!isSend}>
+  <div class="tx-icon" class:send={isSend} class:receive={isReceive}>
     {#if isSend}<ArrowUpRight size={16} />{:else}<ArrowDownLeft size={16} />{/if}
   </div>
   <div class="tx-info">
-    <span class="tx-counterparty">{tx.counterparty}</span>
-    <span class="tx-date">{tx.date}</span>
+    <span class="tx-counterparty">{counterparty}</span>
+    <span class="tx-date">{formattedDate}</span>
   </div>
   <div class="tx-amount-col">
-    <span class="tx-amount" class:send={isSend} class:receive={!isSend}>
-      {isSend ? '-' : '+'}{symbol}{tx.amount.toFixed(2)}
+    <span class="tx-amount" class:send={isSend} class:receive={isReceive}>
+      {isSend ? '-' : '+'}{symbol}{Number(tx.amount).toFixed(2)}
     </span>
-    <span class="tx-status">{tx.status}</span>
+    <span class="tx-status">{statusLabel}</span>
   </div>
 </button>
 

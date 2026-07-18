@@ -1,21 +1,34 @@
 import { Elysia, t } from 'elysia'
 import { apiKeyService } from './apikey.service'
-import { authMiddleware } from '../shared/middleware/auth.middleware'
-import { accountRepository } from '../banking/account/account.repository'
-import { AppError } from '../shared/errors/app-error'
-import { ok, list } from '../shared/response'
+import { walletRepository } from '../banking/wallet/wallet.repository'
 
-export const apiKeyRoutes = new Elysia({ prefix: '/apikeys' })
-  .use(authMiddleware({ type: 'jwt', level: 'user' }))
+import { ok, list } from '../shared/response'
+import { AppError } from '../shared/errors/app-error'
+
+export const apiKeyRoutes = new Elysia({ prefix: '/api-keys' })
+
+  .get('/', async ({ query, auth }: any) => {
+    const walletId = query.walletId ? BigInt(query.walletId) : null
+    if (!walletId) throw new AppError(400, 'walletId es requerido')
+    const wallet = await walletRepository.getCollectionById(auth.user.id, walletId)
+    if (!wallet) throw new AppError(400, 'La billetera no existe o no es de recaudación')
+    const keys = await apiKeyService.list(walletId)
+    return list(keys, keys.length, 'API keys listadas exitosamente')
+  }, {
+    query: t.Object({ walletId: t.String() }),
+    detail: { tags: ['API Keys'], summary: 'Listar API keys de una billetera de recaudación' },
+  })
 
   .post('/', async ({ body, auth }: any) => {
-    const accounts = await accountRepository.listByUser(auth.user.id)
-    if (accounts.length === 0) throw new AppError(400, 'El usuario no tiene cuentas')
-    const accountId = accounts[0].id
-    const key = await apiKeyService.generate(accountId, body.description, body.permissions, body.expiresAt)
-    return ok(key, 'API key creada exitosamente')
+    const wallet = await walletRepository.getCollectionById(auth.user.id, BigInt(body.walletId))
+    if (!wallet) throw new AppError(400, 'La billetera no existe o no es de recaudación')
+    const key = await apiKeyService.generate(
+      BigInt(body.walletId), body.description, body.permissions, body.expiresAt || null
+    )
+    return ok(key, 'API key generada exitosamente')
   }, {
     body: t.Object({
+      walletId: t.String(),
       description: t.String(),
       permissions: t.Object({
         qr_generate: t.Optional(t.Boolean()),
@@ -24,22 +37,12 @@ export const apiKeyRoutes = new Elysia({ prefix: '/apikeys' })
       }),
       expiresAt: t.Optional(t.String()),
     }),
-    detail: { tags: ['API Keys'], summary: 'Crear API key' },
+    detail: { tags: ['API Keys'], summary: 'Generar nueva API key para billetera de recaudación' },
   })
 
-  .get('/', async ({ auth }: any) => {
-    const accounts = await accountRepository.listByUser(auth.user.id)
-    if (accounts.length === 0) throw new AppError(400, 'El usuario no tiene cuentas')
-    const accountId = accounts[0].id
-    const keys = await apiKeyService.list(accountId)
-    return list(keys, undefined, 'API keys listadas exitosamente')
-  }, {
-    detail: { tags: ['API Keys'], summary: 'Listar API keys' },
-  })
-
-  .delete('/:id', async ({ params }) => {
+  .delete('/:id', async ({ params }: any) => {
     await apiKeyService.revoke(BigInt(params.id))
-    return ok({ id: params.id }, 'API key revocada exitosamente')
+    return ok(null, 'API key revocada')
   }, {
     detail: { tags: ['API Keys'], summary: 'Revocar API key' },
   })

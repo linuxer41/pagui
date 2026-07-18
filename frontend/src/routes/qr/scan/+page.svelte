@@ -1,39 +1,39 @@
 <script lang="ts">
-  import { onMount, onDestroy, tick } from 'svelte'
+  import { onMount, onDestroy } from 'svelte'
   import { goto } from '$app/navigation'
   import { ArrowLeft, Camera, Loader } from '@lucide/svelte'
+  import { scan, cancel, requestPermissions, checkPermissions, Format } from '@tauri-apps/plugin-barcode-scanner'
+  import { open } from '@tauri-apps/plugin-dialog'
 
-  let stream: MediaStream | null = null
-  let videoEl = $state<HTMLVideoElement | undefined>(undefined)
   let cameraReady = $state(false)
   let cameraError = $state(false)
   let scanning = $state(false)
 
-  function goToPay(data: Record<string, string>) {
-    const qs = encodeURIComponent(JSON.stringify(data))
-    goto(`/qr/pay?data=${qs}`)
-  }
-
-  function simulateScan() {
-    goToPay({
-      wallet: 'billetera-ejemplo-123',
-      amount: '45.00',
-      currency: 'BOB',
-      concept: 'Pago en comercio'
-    })
+  function goToPay(data: string) {
+    try {
+      const parsed = JSON.parse(data)
+      const qs = encodeURIComponent(data)
+      goto(`/qr/pay?data=${qs}`)
+    } catch {
+      cameraError = true
+    }
   }
 
   onMount(async () => {
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-      })
-      await tick()
-      if (videoEl) {
-        videoEl.srcObject = stream
-        await videoEl.play()
-        cameraReady = true
-        scanning = true
+      const perm = await checkPermissions()
+      if (perm !== 'granted') {
+        const granted = await requestPermissions()
+        if (granted !== 'granted') {
+          cameraError = true
+          return
+        }
+      }
+      cameraReady = true
+      scanning = true
+      const result = await scan({ formats: [Format.QRCode] })
+      if (result?.content) {
+        goToPay(result.content)
       }
     } catch {
       cameraError = true
@@ -42,30 +42,37 @@
 
   onDestroy(() => {
     scanning = false
-    if (stream) stream.getTracks().forEach(t => t.stop())
+    cancel()
   })
 
-  let fileInput: HTMLInputElement | undefined
-
-  function openGallery() {
-    fileInput?.click()
-  }
-
-  function onFileSelected(e: Event) {
-    const file = (e.target as HTMLInputElement).files?.[0]
-    if (!file) return
-    simulateScan()
+  async function openGallery() {
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }]
+      })
+      if (selected) {
+        const file = selected as string
+        // For gallery picks we redirect to pay with sample data
+        goToPay(JSON.stringify({
+          wallet: 'billetera-ejemplo-123',
+          amount: '45.00',
+          currency: 'BOB',
+          concept: 'Pago en comercio'
+        }))
+      }
+    } catch {
+      cameraError = true
+    }
   }
 </script>
 
 <div class="scan-page">
   <div class="camera-area">
-    <video bind:this={videoEl} autoplay playsinline muted class="camera-video" class:visible={cameraReady}></video>
-
     {#if !cameraReady && !cameraError}
       <div class="camera-loading">
         <Loader size={32} style="animation: spin 1s linear infinite;" />
-        <p>Iniciando cámara…</p>
+        <p>Iniciando escáner…</p>
       </div>
     {/if}
 
@@ -84,13 +91,12 @@
       </div>
     {/if}
 
-    <button class="back-btn" onclick={() => goto('/qr')}>
+    <button class="back-btn" onclick={() => { cancel(); goto('/qr') }}>
       <ArrowLeft size={20} />
     </button>
   </div>
 
   <div class="bottom-bar">
-    <input type="file" accept="image/*" bind:this={fileInput} onchange={onFileSelected} class="hidden-input" />
     <button class="gallery-btn" onclick={openGallery}>
       <Camera size={18} /> Seleccionar de galería
     </button>
@@ -107,13 +113,6 @@
     display: flex; align-items: center; justify-content: center;
     overflow: hidden;
   }
-  .camera-video {
-    position: absolute; inset: 0;
-    width: 100%; height: 100%;
-    object-fit: cover; opacity: 0;
-    transition: opacity 0.3s;
-  }
-  .camera-video.visible { opacity: 1; }
   .camera-placeholder, .camera-loading {
     display: flex; flex-direction: column; align-items: center; gap: var(--space-3);
     color: rgba(255,255,255,0.7); text-align: center;
@@ -149,10 +148,9 @@
   .bottom-bar {
     position: absolute; bottom: 0; left: 0; right: 0;
     display: flex; align-items: center; justify-content: center;
-    padding: var(--space-4) var(--space-6) calc(var(--space-8) + env(safe-area-inset-bottom));
+    padding: var(--space-4) var(--space-6) calc(var(--space-8) + var(--safe-bottom, 0px));
     background: transparent;
   }
-  .hidden-input { display: none; }
   .gallery-btn {
     display: flex; align-items: center; gap: var(--space-2);
     height: 44px; padding: 0 var(--space-5);

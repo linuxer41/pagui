@@ -1,23 +1,28 @@
 import { Elysia, t } from 'elysia'
-import { authMiddleware } from '../../shared/middleware/auth.middleware'
+
 import { idempotency } from '../../shared/middleware/idempotency'
 import { transferService } from '../transfer/transfer.service'
-import { walletRepository } from '../wallet/wallet.repository'
+import { query } from '../../shared/database/pool'
 import { notifRepository } from '../notification/notif.repository'
-import { feeService } from '../fee/fee.service'
+import { walletRepository } from '../../banking/wallet/wallet.repository'
 import { ok, list } from '../../shared/response'
 import { AppError } from '../../shared/errors/app-error'
+import { nextSnowflake } from '../../shared/snowflake'
 
 export const paymentRoutes = new Elysia()
-  .use(authMiddleware({ type: 'jwt', level: 'user' }))
   .use(idempotency())
 
   .post('/transfers/p2p', async ({ body, auth, request, idempotencyKey }: any) => {
-    const senderWallet = await walletRepository.getDefault(auth.user.id)
-    if (!senderWallet) throw new AppError(404, 'Billetera no encontrada')
+    const wallets = await walletRepository.listByUser(auth.user.id)
+    const senderWallet = body.senderWalletId
+      ? wallets.find(w => String(w.id) === body.senderWalletId)
+      : wallets.find(w => w.type === 'standard')
+    if (!senderWallet) throw new AppError(404, 'Billetera origen no encontrada')
+    const receiverWallet = await walletRepository.getByWalletNumber(body.receiverWalletNumber)
+    if (!receiverWallet) throw new AppError(404, 'Billetera destino no encontrada')
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('cf-connecting-ip') || ''
     const deviceId = request.headers.get('x-device-id') || undefined
-    return ok(await transferService.p2p(senderWallet.id, BigInt(body.receiverWalletId), body.amount, {
+    return ok(await transferService.p2p(senderWallet.id, receiverWallet.id, body.amount, {
       description: body.description,
       idempotencyKey,
       ip,
@@ -26,15 +31,20 @@ export const paymentRoutes = new Elysia()
     }))
   }, {
     body: t.Object({
-      receiverWalletId: t.String(),
+      receiverWalletNumber: t.String(),
       amount: t.Number({ minimum: 0.01 }),
       description: t.Optional(t.String()),
+      senderWalletId: t.Optional(t.String()),
     }),
     detail: { tags: ['Payments'], summary: 'Transferencia P2P' },
   })
 
-  .get('/transfers', async ({ query, auth }: any) => {
-    const walletId = query.walletId ? BigInt(query.walletId) : (await walletRepository.getDefault(auth.user.id))?.id
+  .get('/transfers', async ({ query: q, auth }: any) => {
+    let walletId = q.walletId ? BigInt(q.walletId) : null
+    if (!walletId) {
+      const wallets = await walletRepository.listByUser(auth.user.id)
+      walletId = wallets.length > 0 ? wallets[0].id : null
+    }
     if (!walletId) throw new AppError(404, 'Billetera no encontrada')
     const transfers = await transferService.listByWallet(walletId)
     return list(transfers, undefined, 'Transferencias listadas exitosamente')
@@ -60,7 +70,12 @@ export const paymentRoutes = new Elysia()
   })
 
   .post('/wallets', async ({ body, auth }: any) => {
-    return ok(await walletRepository.create({ userId: auth.user.id, ...body }))
+    const r = await query(`
+      INSERT INTO wallets (id, name, type, currency, balance, available_balance, held_balance)
+      VALUES ($1, $2, $3, $4, 0, 0, 0)
+      RETURNING *
+    `, [nextSnowflake(), body.name || 'Principal', body.type || 'standard', body.currency || 'BOB'])
+    return ok(r.rows[0], 'Billetera creada exitosamente')
   }, {
     body: t.Object({
       name: t.Optional(t.String()),
@@ -98,9 +113,3 @@ export const paymentRoutes = new Elysia()
     detail: { tags: ['Payments'], summary: 'Contar no leídas' },
   })
 
-  .get('/fees', async () => {
-    const fees = await feeService.listAll()
-    return list(fees, undefined, 'Comisiones listadas exitosamente')
-  }, {
-    detail: { tags: ['Payments'], summary: 'Listar reglas de comisiones' },
-  })

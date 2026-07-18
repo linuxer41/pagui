@@ -1,26 +1,18 @@
 <script lang="ts">
-  let { icon: Icon = undefined as any, onClick = undefined as any, ariaLabel = '', size = 36 as number } = $props()
+  import type { Snippet } from 'svelte';
+
+  let {
+    onclick,
+    label,
+    children,
+  }: { onclick: () => void; label: string; children: Snippet } = $props();
 </script>
 
-<button class="icon-btn" style="width: {size}px; height: {size}px;" onclick={onClick} aria-label={ariaLabel}>
-  {#if Icon}
-    <Icon size={size > 40 ? 22 : 18} />
-  {/if}
+<button class="icon-btn" {onclick} aria-label={label}>
+  {@render children()}
 </button>
 
 <style>
-  .icon-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    border-radius: var(--radius-m);
-    background: rgba(var(--surface-rgb), 1);
-    color: var(--muted-foreground);
-    cursor: pointer;
-    transition: all var(--duration-fast);
-    flex-shrink: 0;
-  }
-  .icon-btn:active { background: rgba(var(--surface-alt-rgb), 1); color: var(--foreground); }
-  .icon-btn:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+  .icon-btn { width: 44px; height: 44px; border-radius: var(--radius-full); border: none; background: rgba(var(--surface-rgb), 1); display: flex; align-items: center; justify-content: center; cursor: pointer; color: rgba(var(--text-secondary-rgb), 1); flex-shrink: 0; position: relative; }
+  .icon-btn:active { opacity: 0.7; }
 </style>

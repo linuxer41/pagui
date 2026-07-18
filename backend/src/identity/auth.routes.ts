@@ -85,7 +85,45 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     }),
     detail: { tags: ['Auth'], summary: 'Solicitar registro de cuenta' },
   })
-  .use(authMiddleware({ type: 'jwt', level: 'user' }))
+  .post('/otp/login', async ({ body }) => {
+    return ok(await authService.loginWithOTP(body.phone, body.code))
+  }, {
+    body: t.Object({
+      phone: t.String({ minLength: 1 }),
+      code: t.String({ minLength: 6 }),
+    }),
+    detail: { tags: ['Auth'], summary: 'Iniciar sesión con OTP' },
+  })
+
+  .post('/otp/complete', async ({ body }) => {
+    return ok(await authService.completeRegistration(body.phone, body.name, body.documentId, body.tempToken))
+  }, {
+    body: t.Object({
+      phone: t.String({ minLength: 1 }),
+      name: t.String({ minLength: 1 }),
+      documentId: t.String({ minLength: 1 }),
+      tempToken: t.String({ minLength: 1 }),
+    }),
+    detail: { tags: ['Auth'], summary: 'Completar registro con nombre y carnet' },
+  })
+
+  .post('/send-otp', async ({ body }) => {
+    await otpService.sendOTP(body.phone)
+    return ok(null, 'OTP enviado por WhatsApp')
+  }, {
+    body: t.Object({ phone: t.String() }),
+    detail: { tags: ['Auth'], summary: 'Enviar OTP' },
+  })
+
+  .post('/verify-otp', async ({ body }) => {
+    await otpService.verifyOTP(body.phone, body.code)
+    return ok(null, 'OTP verificado')
+  }, {
+    body: t.Object({ phone: t.String(), code: t.String() }),
+    detail: { tags: ['Auth'], summary: 'Verificar OTP' },
+  })
+
+  .derive(authMiddleware({ type: 'jwt', level: 'user' }))
 
   .get('/tokens', async ({ auth }: any) => {
     const tokens = await authService.listTokens(auth.user.id)
@@ -114,22 +152,6 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   }, {
     body: t.Object({ newPassword: t.String({ minLength: 6 }) }),
     detail: { tags: ['Auth'], summary: 'Cambiar contraseña' },
-  })
-
-  .post('/send-otp', async ({ body }) => {
-    await otpService.sendOTP(body.phone)
-    return ok(null, 'OTP enviado')
-  }, {
-    body: t.Object({ phone: t.String() }),
-    detail: { tags: ['Auth'], summary: 'Enviar OTP' },
-  })
-
-  .post('/verify-otp', async ({ body }) => {
-    await otpService.verifyOTP(body.phone, body.code)
-    return ok(null, 'OTP verificado')
-  }, {
-    body: t.Object({ phone: t.String(), code: t.String() }),
-    detail: { tags: ['Auth'], summary: 'Verificar OTP' },
   })
 
   .post('/biometric/register', async ({ body, auth }: any) => {

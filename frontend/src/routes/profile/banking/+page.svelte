@@ -15,19 +15,26 @@
   let formError = $state('')
   let formSuccess = $state('')
 
+  let accountHolder = $state('')
   let accountNumber = $state('')
-  let accountName = $state('')
+  let merchantId = $state('')
   let username = $state('')
   let password = $state('')
   let encryptionKey = $state('')
   let environment = $state('test')
+  let apiBaseUrl = $state('https://apimktdesa.baneco.com.bo/ApiGateway')
+
+  function maskAccount(n: string) {
+    if (!n || n.length < 4) return '****'
+    return '**** **** **** ' + n.slice(-4)
+  }
 
   onMount(loadCredentials)
 
   async function loadCredentials() {
     loading = true; error = ''
     try {
-      const res = await api.listBankCredentials()
+      const res = await api.listBanecoCredentials()
       if (res.success) credentials = res.data
       else error = res.message || 'Error al cargar credenciales'
     } catch (e: any) { error = e.message }
@@ -35,18 +42,19 @@
   }
 
   function resetForm() {
-    accountNumber = ''; accountName = ''; username = ''; password = ''; encryptionKey = ''; environment = 'test'
+    accountHolder = ''; accountNumber = ''; merchantId = ''; username = ''; password = ''; encryptionKey = ''; environment = 'test'; apiBaseUrl = 'https://apimktdesa.baneco.com.bo/ApiGateway'
     formError = ''; formSuccess = ''
   }
 
   async function handleSave() {
-    if (!accountNumber || !accountName || !username || !password || !encryptionKey) {
+    if (!accountHolder || !accountNumber || !username || !password || !encryptionKey) {
       formError = 'Completa todos los campos'; return
     }
     formLoading = true; formError = ''; formSuccess = ''
     try {
-      const res = await api.createBankCredential({
-        accountNumber, accountName, username, password, encryptionKey, environment,
+      const res = await api.createBanecoCredential({
+        accountHolder, accountNumber, merchantId: merchantId || `MERCH-${Date.now()}`,
+        username, password, encryptionKey, environment, apiBaseUrl,
       })
       if (res.success) {
         formSuccess = 'Credencial registrada exitosamente'
@@ -63,7 +71,7 @@
   async function handleDelete(id: string) {
     if (!confirm('¿Eliminar esta credencial?')) return
     try {
-      await api.deleteBankCredential(id)
+      await api.deleteBanecoCredential(id)
       await loadCredentials()
     } catch (e: any) { error = e.message }
   }
@@ -72,7 +80,7 @@
     if (!username || !password || !encryptionKey) { formError = 'Completa username, password y encryption key'; return }
     formLoading = true; formError = ''; formSuccess = ''
     try {
-      const res = await api.testBankCredential({ username, password, encryptionKey })
+      const res = await api.testBanecoCredential({ username, password, encryptionKey })
       if (res.success) formSuccess = 'Conexión exitosa con Baneco'
       else formError = res.message || 'Error de conexión'
     } catch (e: any) { formError = e.message }
@@ -100,8 +108,8 @@
       {#if formError}
         <div class="error-msg"><AlertCircle size={16} /><span>{formError}</span></div>
       {/if}
+      <TextField label="Titular de la cuenta" bind:value={accountHolder} placeholder="Ej: Juan Pérez" />
       <TextField label="Número de cuenta" bind:value={accountNumber} placeholder="Ej: 1041070599" />
-      <TextField label="Nombre de la cuenta" bind:value={accountName} placeholder="Ej: Mi Cuenta Personal" />
       <TextField label="Usuario Baneco" bind:value={username} placeholder="Ej: 1649710" />
       <TextField label="Contraseña Baneco" bind:value={password} type="password" placeholder="••••" />
       <TextField label="Encryption Key" bind:value={encryptionKey} type="password" placeholder="AES Key" />
@@ -132,12 +140,12 @@
       {#each credentials as cred}
         <div class="cred-card">
           <div class="cred-head">
-            <strong>{cred.account_name}</strong>
+            <strong>{cred.accountHolder || cred.accountName || cred.account_name}</strong>
             <span class="cred-env" class:prod={cred.environment === 'prod'}>{cred.environment === 'prod' ? 'Producción' : 'Test'}</span>
           </div>
           <div class="cred-info">
             <span class="cred-label">Cuenta</span>
-            <span class="cred-value">{cred.account_number}</span>
+            <span class="cred-value">{maskAccount(cred.account_number || cred.accountNumber || '')}</span>
           </div>
           <div class="cred-info">
             <span class="cred-label">Usuario</span>

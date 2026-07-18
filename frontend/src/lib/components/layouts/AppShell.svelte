@@ -1,21 +1,45 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
-  import { QrCode, Home, User, Grid3X3 } from '@lucide/svelte';
+  import { QrCode, Wallet, User, HandCoins } from '@lucide/svelte';
   import OfflineBar from '$lib/components/OfflineBar.svelte';
   import type { Snippet } from 'svelte'
+  import { onMount } from 'svelte'
+  import { envStore } from '$lib/stores/env'
+  import api from '$lib/api'
   let { children }: { children?: Snippet } = $props()
 
   let currentPath = $derived($page.url.pathname)
-  let isMainPage = $derived(['/', '/qr', '/more', '/profile'].includes(currentPath))
+  let isMainPage = $derived(['/', '/qr', '/collections', '/profile'].includes(currentPath))
+  let isSandbox = $state(true)
+  let envLoaded = $state(false)
 
   const navItems = [
-    { href: '/', icon: Home, label: 'Inicio' },
+    { href: '/', icon: Wallet, label: 'Billetera' },
     { href: '/qr', icon: QrCode, label: 'QR' },
-    { href: '/more', icon: Grid3X3, label: 'Más' },
+    { href: '/collections', icon: HandCoins, label: 'Recaudación' },
     { href: '/profile', icon: User, label: 'Yo' },
   ]
+
+  onMount(async () => {
+    try {
+      const res = await api.listTenants()
+      if (res.success && res.data && res.data.length > 0) {
+        const env = res.data[0].environment || 'sandbox'
+        envStore.set(env)
+        isSandbox = env === 'sandbox'
+        envLoaded = true
+      }
+    } catch {
+      isSandbox = true
+      envLoaded = true
+    }
+  })
 </script>
+
+{#if envLoaded && isSandbox}
+  <div class="env-badge">Sandbox</div>
+{/if}
 
 <div class="app-shell">
   <OfflineBar />
@@ -44,34 +68,37 @@
     display: flex;
     flex-direction: column;
     min-height: 100dvh;
+    max-height: 100dvh;
     max-width: 480px;
     margin: 0 auto;
     position: relative;
     background: rgba(var(--bg-rgb), 1);
+    padding-top: var(--safe-top, 0px);
+    
   }
+
   .app-main {
     flex: 1;
     display: flex;
     flex-direction: column;
   }
   .app-main.has-nav {
-    padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
+    padding-bottom: var(--safe-bottom, 0px)
   }
   .bottom-nav {
-    position: fixed;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
+    position: sticky;
+    bottom: 0px;
+    
     width: 100%;
     max-width: 480px;
-    height: var(--nav-height);
+    padding:  var(--space-2) 0;
+    padding-bottom: calc(var(--safe-bottom, 0px) + var(--space-2));
     display: flex;
     align-items: stretch;
     background: rgba(var(--bg-rgb), 0.92);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-top: 1px solid rgba(var(--border-rgb), 0.5);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
     z-index: 100;
   }
   .nav-item {
@@ -92,5 +119,22 @@
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.3px;
+  }
+
+  .env-badge {
+    position: fixed;
+    top: calc(var(--safe-top, 0px) + 8px);
+    right: 8px;
+    z-index: 200;
+    padding: 2px 10px;
+    border-radius: 20px;
+    background: #f97316;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    line-height: 1.5;
+    box-shadow: 0 2px 8px rgba(249, 115, 22, 0.4);
   }
 </style>

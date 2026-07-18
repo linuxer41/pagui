@@ -10,7 +10,7 @@
         },
         {
           "name": "token",
-          "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjIwMzM2ODgzMDczNzU4NDEzMCwiZW1haWwiOiJhZG1pbkBwYWd1aS5jb20iLCJyb2xlIjoxLCJpYXQiOjE3ODQyMDQ1NjksImV4cCI6MTc4NDI5MDk2OX0.PjRL3jr1MX5GeEx9AxEupp8YYQv1BrFJu0qebAJc3YA"
+          "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjIwMzM2ODgzMDczNzU4NDEzMCwiZW1haWwiOiJhZG1pbkBwYWd1aS5jb20iLCJyb2xlIjoxLCJpYXQiOjE3ODQyMTQ4MTcsImV4cCI6MTc4NDMwMTIxN30.O--Qd8PGGdIFn_5EksbNkQiqtTOTd7FwpvtzZROQ3Zw"
         },
         {
           "name": "accounts",
@@ -18,7 +18,7 @@
         },
         {
           "name": "refreshToken",
-          "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjIwMzM2ODgzMDczNzU4NDEzMCwidHlwZSI6InJlZnJlc2giLCJpYXQiOjE3ODQyMDQ1NjksImV4cCI6MTc4Njc5NjU2OX0.3z-NASwZqnSO1NMwizew5pzSaehR82YY1vr8G3ftmZA"
+          "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjIwMzM2ODgzMDczNzU4NDEzMCwidHlwZSI6InJlZnJlc2giLCJpYXQiOjE3ODQyMTQ4MTcsImV4cCI6MTc4NjgwNjgxN30.OKtL9MA1DTX_O08XYXuHX_CwTM1qxYPQtYSwDlcT9to"
         },
         {
           "name": "user",

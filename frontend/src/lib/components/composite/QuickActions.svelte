@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { Send, QrCode, Camera, Banknote } from '@lucide/svelte'
+  import { Send, Camera, Smartphone, PiggyBank } from '@lucide/svelte'
   type ClickHandler = (e: MouseEvent) => void
-  let { onSend = (() => {}) as ClickHandler, onReceive = (() => {}) as ClickHandler, onScan = (() => {}) as ClickHandler, onCash = (() => {}) as ClickHandler } = $props()
+  let { onSend = (() => {}) as ClickHandler, onScan = (() => {}) as ClickHandler, onRecaudar = (() => {}) as ClickHandler, onNfc = (() => {}) as ClickHandler } = $props()
   const actions: { label: string; icon: any; onclick: ClickHandler }[] = [
-    { label: 'Enviar', icon: Send, onclick: onSend },
-    { label: 'Cobrar', icon: QrCode, onclick: onReceive },
+    { label: 'Transferir', icon: Send, onclick: onSend },
     { label: 'Escanear', icon: Camera, onclick: onScan },
-    { label: 'Efectivo', icon: Banknote, onclick: onCash },
+    { label: 'NFC', icon: Smartphone, onclick: onNfc },
+    { label: 'Recaudación', icon: PiggyBank, onclick: onRecaudar },
   ]
 </script>
 

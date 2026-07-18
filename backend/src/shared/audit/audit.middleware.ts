@@ -5,7 +5,7 @@ export function auditMiddleware(action: AuditAction) {
   return new Elysia({ name: 'audit' })
     .onAfterHandle({ as: 'global' }, async (ctx) => {
       const auth = (ctx as any).auth
-      const userId = auth?.user?.id || auth?.apiKeyInfo?.accountId
+      const userId = auth?.user?.id || auth?.apiKeyInfo?.walletId
       await logAudit({
         userId,
         action,

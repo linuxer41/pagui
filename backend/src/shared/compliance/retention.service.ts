@@ -14,9 +14,7 @@ const POLICIES: RetentionPolicy[] = [
   { table: 'idempotency_keys', retentionDays: 30, deleteBeforeColumn: 'created_at' },
   { table: 'outgoing_webhook_jobs', retentionDays: 30, deleteBeforeColumn: 'created_at' },
   { table: 'payment_sync_status', retentionDays: 90, deleteBeforeColumn: 'created_at' },
-  { table: 'reconciliation_logs', retentionDays: 365, deleteBeforeColumn: 'created_at' },
   { table: 'notifications', retentionDays: 180, deleteBeforeColumn: 'created_at' },
-  { table: 'fraud_alerts', retentionDays: 730, deleteBeforeColumn: 'created_at', archiveBeforeDelete: true },
 ]
 
 export async function applyRetentionPolicies(dryRun = false): Promise<{

@@ -30,7 +30,7 @@ import EmptyState from '$lib/components/EmptyState.svelte';
   {:else}
     <div class="wallet-list">
       {#each wallets as w}
-        <button class="wallet-item" onclick={() => goto(`/wallet/${w.id}`)}>
+        <button class="wallet-item" onclick={() => goto(`/wallet/detail?id=${w.id}`)}>
           <div class="wallet-icon"><Wallet size={20} /></div>
           <div class="wallet-info">
             <span class="wallet-name">{w.name || `Wallet #${w.id}`}</span>

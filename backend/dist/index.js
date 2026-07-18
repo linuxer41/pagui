@@ -7605,20 +7605,20 @@ var require_serializer = __commonJS((exports) => {
   var sendSCRAMClientFinalMessage = function(additionalData) {
     return writer.addString(additionalData).flush(112);
   };
-  var query = (text) => {
+  var query2 = (text) => {
     return writer.addCString(text).flush(81);
   };
   var emptyArray = [];
-  var parse3 = (query2) => {
-    const name = query2.name || "";
+  var parse3 = (query3) => {
+    const name = query3.name || "";
     if (name.length > 63) {
       console.error("Warning! Postgres only supports 63 characters for query names.");
       console.error("You supplied %s (%s)", name, name.length);
       console.error("This can cause conflicts and silent errors executing queries");
     }
-    const types2 = query2.types || emptyArray;
+    const types2 = query3.types || emptyArray;
     const len = types2.length;
-    const buffer = writer.addCString(name).addCString(query2.text).addInt16(len);
+    const buffer = writer.addCString(name).addCString(query3.text).addInt16(len);
     for (let i = 0;i < len; i++) {
       buffer.addInt32(types2[i]);
     }
@@ -7724,7 +7724,7 @@ var require_serializer = __commonJS((exports) => {
     requestSsl,
     sendSASLInitialResponseMessage,
     sendSCRAMClientFinalMessage,
-    query,
+    query: query2,
     parse: parse3,
     bind,
     execute,
@@ -8323,8 +8323,8 @@ var require_connection = __commonJS((exports, module) => {
     query(text) {
       this._send(serialize2.query(text));
     }
-    parse(query) {
-      this._send(serialize2.parse(query));
+    parse(query2) {
+      this._send(serialize2.parse(query2));
     }
     bind(config) {
       this._send(serialize2.bind(config));
@@ -8749,9 +8749,9 @@ var require_client = __commonJS((exports, module) => {
       return this._activeQuery;
     }
     _errorAllQueries(err) {
-      const enqueueError = (query) => {
+      const enqueueError = (query2) => {
         process.nextTick(() => {
-          query.handleError(err, this.connection);
+          query2.handleError(err, this.connection);
         });
       };
       const activeQuery = this._getActiveQuery();
@@ -9095,8 +9095,8 @@ var require_client = __commonJS((exports, module) => {
       }
       return data;
     }
-    cancel(client, query) {
-      if (client.activeQuery === query) {
+    cancel(client, query2) {
+      if (client.activeQuery === query2) {
         const con = this.connection;
         if (this.host && this.host.indexOf("/") === 0) {
           con.connect(this.host + "/.s.PGSQL." + this.port);
@@ -9106,8 +9106,8 @@ var require_client = __commonJS((exports, module) => {
         con.on("connect", function() {
           con.cancel(client.processID, client.secretKey);
         });
-      } else if (client._queryQueue.indexOf(query) !== -1) {
-        client._queryQueue.splice(client._queryQueue.indexOf(query), 1);
+      } else if (client._queryQueue.indexOf(query2) !== -1) {
+        client._queryQueue.splice(client._queryQueue.indexOf(query2), 1);
       }
     }
     setTypeParser(oid, format, parseFn) {
@@ -9144,76 +9144,76 @@ var require_client = __commonJS((exports, module) => {
       }
     }
     query(config, values, callback) {
-      let query;
+      let query2;
       let result;
       if (config == null) {
         throw new TypeError("Client was passed a null or undefined query");
       }
       if (typeof config.submit === "function") {
-        result = query = config;
-        if (!query.callback) {
+        result = query2 = config;
+        if (!query2.callback) {
           if (typeof values === "function") {
-            query.callback = values;
+            query2.callback = values;
           } else if (callback) {
-            query.callback = callback;
+            query2.callback = callback;
           }
         }
       } else {
-        query = new Query(config, values, callback);
-        if (!query.callback) {
+        query2 = new Query(config, values, callback);
+        if (!query2.callback) {
           result = new this._Promise((resolve, reject) => {
-            query.callback = (err, res) => err ? reject(err) : resolve(res);
+            query2.callback = (err, res) => err ? reject(err) : resolve(res);
           }).catch((err) => {
             Error.captureStackTrace(err);
             throw err;
           });
-        } else if (typeof query.callback !== "function") {
+        } else if (typeof query2.callback !== "function") {
           throw new TypeError("callback is not a function");
         }
       }
       const readTimeout = config.query_timeout || this.connectionParameters.query_timeout;
       if (readTimeout) {
-        const queryCallback = query.callback || (() => {});
+        const queryCallback = query2.callback || (() => {});
         const readTimeoutTimer = setTimeout(() => {
           const error = new Error("Query read timeout");
           process.nextTick(() => {
-            query.handleError(error, this.connection);
+            query2.handleError(error, this.connection);
           });
           queryCallback(error);
-          query.callback = () => {};
-          const index = this._queryQueue.indexOf(query);
+          query2.callback = () => {};
+          const index = this._queryQueue.indexOf(query2);
           if (index > -1) {
             this._queryQueue.splice(index, 1);
           }
           this._pulseQueryQueue();
         }, readTimeout);
-        query.callback = (err, res) => {
+        query2.callback = (err, res) => {
           clearTimeout(readTimeoutTimer);
           queryCallback(err, res);
         };
       }
-      if (this.binary && !query.binary) {
-        query.binary = true;
+      if (this.binary && !query2.binary) {
+        query2.binary = true;
       }
-      if (query._result && !query._result._types) {
-        query._result._types = this._types;
+      if (query2._result && !query2._result._types) {
+        query2._result._types = this._types;
       }
       if (!this._queryable) {
         process.nextTick(() => {
-          query.handleError(new Error("Client has encountered a connection error and is not queryable"), this.connection);
+          query2.handleError(new Error("Client has encountered a connection error and is not queryable"), this.connection);
         });
         return result;
       }
       if (this._ending) {
         process.nextTick(() => {
-          query.handleError(new Error("Client was closed and is not queryable"), this.connection);
+          query2.handleError(new Error("Client was closed and is not queryable"), this.connection);
         });
         return result;
       }
       if (this._queryQueue.length > 0) {
         queryQueueLengthDeprecationNotice();
       }
-      this._queryQueue.push(query);
+      this._queryQueue.push(query2);
       this._pulseQueryQueue();
       return result;
     }
@@ -9852,10 +9852,10 @@ var require_client2 = __commonJS((exports, module) => {
   Client.Query = NativeQuery;
   util3.inherits(Client, EventEmitter);
   Client.prototype._errorAllQueries = function(err) {
-    const enqueueError = (query) => {
+    const enqueueError = (query2) => {
       process.nextTick(() => {
-        query.native = this.native;
-        query.handleError(err);
+        query2.native = this.native;
+        query2.handleError(err);
       });
     };
     if (this._hasActiveQuery()) {
@@ -9916,7 +9916,7 @@ var require_client2 = __commonJS((exports, module) => {
     });
   };
   Client.prototype.query = function(config, values, callback) {
-    let query;
+    let query2;
     let result;
     let readTimeout;
     let readTimeoutTimer;
@@ -9925,14 +9925,14 @@ var require_client2 = __commonJS((exports, module) => {
       throw new TypeError("Client was passed a null or undefined query");
     } else if (typeof config.submit === "function") {
       readTimeout = config.query_timeout || this.connectionParameters.query_timeout;
-      result = query = config;
+      result = query2 = config;
       if (typeof values === "function") {
         config.callback = values;
       }
     } else {
       readTimeout = config.query_timeout || this.connectionParameters.query_timeout;
-      query = new NativeQuery(config, values, callback);
-      if (!query.callback) {
+      query2 = new NativeQuery(config, values, callback);
+      if (!query2.callback) {
         let resolveOut, rejectOut;
         result = new this._Promise((resolve, reject) => {
           resolveOut = resolve;
@@ -9941,47 +9941,47 @@ var require_client2 = __commonJS((exports, module) => {
           Error.captureStackTrace(err);
           throw err;
         });
-        query.callback = (err, res) => err ? rejectOut(err) : resolveOut(res);
+        query2.callback = (err, res) => err ? rejectOut(err) : resolveOut(res);
       }
     }
     if (readTimeout) {
-      queryCallback = query.callback || (() => {});
+      queryCallback = query2.callback || (() => {});
       readTimeoutTimer = setTimeout(() => {
         const error = new Error("Query read timeout");
         process.nextTick(() => {
-          query.handleError(error, this.connection);
+          query2.handleError(error, this.connection);
         });
         queryCallback(error);
-        query.callback = () => {};
-        const index = this._queryQueue.indexOf(query);
+        query2.callback = () => {};
+        const index = this._queryQueue.indexOf(query2);
         if (index > -1) {
           this._queryQueue.splice(index, 1);
         }
         this._pulseQueryQueue();
       }, readTimeout);
-      query.callback = (err, res) => {
+      query2.callback = (err, res) => {
         clearTimeout(readTimeoutTimer);
         queryCallback(err, res);
       };
     }
     if (!this._queryable) {
-      query.native = this.native;
+      query2.native = this.native;
       process.nextTick(() => {
-        query.handleError(new Error("Client has encountered a connection error and is not queryable"));
+        query2.handleError(new Error("Client has encountered a connection error and is not queryable"));
       });
       return result;
     }
     if (this._ending) {
-      query.native = this.native;
+      query2.native = this.native;
       process.nextTick(() => {
-        query.handleError(new Error("Client was closed and is not queryable"));
+        query2.handleError(new Error("Client was closed and is not queryable"));
       });
       return result;
     }
     if (this._queryQueue.length > 0) {
       queryQueueLengthDeprecationNotice();
     }
-    this._queryQueue.push(query);
+    this._queryQueue.push(query2);
     this._pulseQueryQueue();
     return result;
   };
@@ -10020,25 +10020,25 @@ var require_client2 = __commonJS((exports, module) => {
     if (this._hasActiveQuery()) {
       return;
     }
-    const query = this._queryQueue.shift();
-    if (!query) {
+    const query2 = this._queryQueue.shift();
+    if (!query2) {
       if (!initialConnection) {
         this.emit("drain");
       }
       return;
     }
-    this._activeQuery = query;
-    query.submit(this);
+    this._activeQuery = query2;
+    query2.submit(this);
     const self = this;
-    query.once("_done", function() {
+    query2.once("_done", function() {
       self._pulseQueryQueue();
     });
   };
-  Client.prototype.cancel = function(query) {
-    if (this._activeQuery === query) {
+  Client.prototype.cancel = function(query2) {
+    if (this._activeQuery === query2) {
       this.native.cancel(function() {});
-    } else if (this._queryQueue.indexOf(query) !== -1) {
-      this._queryQueue.splice(this._queryQueue.indexOf(query), 1);
+    } else if (this._queryQueue.indexOf(query2) !== -1) {
+      this._queryQueue.splice(this._queryQueue.indexOf(query2), 1);
     }
   };
   Client.prototype.ref = function() {};
@@ -10136,6 +10136,4379 @@ var init_esm = __esm(() => {
   defaults = import_lib.default.defaults;
 });
 
+// node_modules/pino-std-serializers/lib/err-helpers.js
+var require_err_helpers = __commonJS((exports, module) => {
+  var isErrorLike = (err) => {
+    return err && typeof err.message === "string";
+  };
+  var getErrorCause = (err) => {
+    if (!err)
+      return;
+    const cause = err.cause;
+    if (typeof cause === "function") {
+      const causeResult = err.cause();
+      return isErrorLike(causeResult) ? causeResult : undefined;
+    } else {
+      return isErrorLike(cause) ? cause : undefined;
+    }
+  };
+  var _stackWithCauses = (err, seen) => {
+    if (!isErrorLike(err))
+      return "";
+    const stack = err.stack || "";
+    if (seen.has(err)) {
+      return stack + `
+causes have become circular...`;
+    }
+    const cause = getErrorCause(err);
+    if (cause) {
+      seen.add(err);
+      return stack + `
+caused by: ` + _stackWithCauses(cause, seen);
+    } else {
+      return stack;
+    }
+  };
+  var stackWithCauses = (err) => _stackWithCauses(err, new Set);
+  var _messageWithCauses = (err, seen, skip) => {
+    if (!isErrorLike(err))
+      return "";
+    const message = skip ? "" : err.message || "";
+    if (seen.has(err)) {
+      return message + ": ...";
+    }
+    const cause = getErrorCause(err);
+    if (cause) {
+      seen.add(err);
+      const skipIfVErrorStyleCause = typeof err.cause === "function";
+      return message + (skipIfVErrorStyleCause ? "" : ": ") + _messageWithCauses(cause, seen, skipIfVErrorStyleCause);
+    } else {
+      return message;
+    }
+  };
+  var messageWithCauses = (err) => _messageWithCauses(err, new Set);
+  module.exports = {
+    isErrorLike,
+    getErrorCause,
+    stackWithCauses,
+    messageWithCauses
+  };
+});
+
+// node_modules/pino-std-serializers/lib/err-proto.js
+var require_err_proto = __commonJS((exports, module) => {
+  var seen = Symbol("circular-ref-tag");
+  var rawSymbol = Symbol("pino-raw-err-ref");
+  var pinoErrProto = Object.create({}, {
+    type: {
+      enumerable: true,
+      writable: true,
+      value: undefined
+    },
+    message: {
+      enumerable: true,
+      writable: true,
+      value: undefined
+    },
+    stack: {
+      enumerable: true,
+      writable: true,
+      value: undefined
+    },
+    aggregateErrors: {
+      enumerable: true,
+      writable: true,
+      value: undefined
+    },
+    raw: {
+      enumerable: false,
+      get: function() {
+        return this[rawSymbol];
+      },
+      set: function(val) {
+        this[rawSymbol] = val;
+      }
+    }
+  });
+  Object.defineProperty(pinoErrProto, rawSymbol, {
+    writable: true,
+    value: {}
+  });
+  module.exports = {
+    pinoErrProto,
+    pinoErrorSymbols: {
+      seen,
+      rawSymbol
+    }
+  };
+});
+
+// node_modules/pino-std-serializers/lib/err.js
+var require_err = __commonJS((exports, module) => {
+  module.exports = errSerializer;
+  var { messageWithCauses, stackWithCauses, isErrorLike } = require_err_helpers();
+  var { pinoErrProto, pinoErrorSymbols } = require_err_proto();
+  var { seen } = pinoErrorSymbols;
+  var { toString } = Object.prototype;
+  function errSerializer(err) {
+    if (!isErrorLike(err)) {
+      return err;
+    }
+    err[seen] = undefined;
+    const _err = Object.create(pinoErrProto);
+    _err.type = toString.call(err.constructor) === "[object Function]" ? err.constructor.name : err.name;
+    _err.message = messageWithCauses(err);
+    _err.stack = stackWithCauses(err);
+    if (Array.isArray(err.errors)) {
+      _err.aggregateErrors = err.errors.map((err2) => errSerializer(err2));
+    }
+    for (const key in err) {
+      if (_err[key] === undefined) {
+        const val = err[key];
+        if (isErrorLike(val)) {
+          if (key !== "cause" && !Object.prototype.hasOwnProperty.call(val, seen)) {
+            _err[key] = errSerializer(val);
+          }
+        } else {
+          _err[key] = val;
+        }
+      }
+    }
+    delete err[seen];
+    _err.raw = err;
+    return _err;
+  }
+});
+
+// node_modules/pino-std-serializers/lib/err-with-cause.js
+var require_err_with_cause = __commonJS((exports, module) => {
+  module.exports = errWithCauseSerializer;
+  var { isErrorLike } = require_err_helpers();
+  var { pinoErrProto, pinoErrorSymbols } = require_err_proto();
+  var { seen } = pinoErrorSymbols;
+  var { toString } = Object.prototype;
+  function errWithCauseSerializer(err) {
+    if (!isErrorLike(err)) {
+      return err;
+    }
+    err[seen] = undefined;
+    const _err = Object.create(pinoErrProto);
+    _err.type = toString.call(err.constructor) === "[object Function]" ? err.constructor.name : err.name;
+    _err.message = err.message;
+    _err.stack = err.stack;
+    if (Array.isArray(err.errors)) {
+      _err.aggregateErrors = err.errors.map((err2) => errWithCauseSerializer(err2));
+    }
+    if (isErrorLike(err.cause) && !Object.prototype.hasOwnProperty.call(err.cause, seen)) {
+      _err.cause = errWithCauseSerializer(err.cause);
+    }
+    for (const key in err) {
+      if (_err[key] === undefined) {
+        const val = err[key];
+        if (isErrorLike(val)) {
+          if (!Object.prototype.hasOwnProperty.call(val, seen)) {
+            _err[key] = errWithCauseSerializer(val);
+          }
+        } else {
+          _err[key] = val;
+        }
+      }
+    }
+    delete err[seen];
+    _err.raw = err;
+    return _err;
+  }
+});
+
+// node_modules/pino-std-serializers/lib/req.js
+var require_req = __commonJS((exports, module) => {
+  module.exports = {
+    mapHttpRequest,
+    reqSerializer
+  };
+  var rawSymbol = Symbol("pino-raw-req-ref");
+  var pinoReqProto = Object.create({}, {
+    id: {
+      enumerable: true,
+      writable: true,
+      value: ""
+    },
+    method: {
+      enumerable: true,
+      writable: true,
+      value: ""
+    },
+    url: {
+      enumerable: true,
+      writable: true,
+      value: ""
+    },
+    query: {
+      enumerable: true,
+      writable: true,
+      value: ""
+    },
+    params: {
+      enumerable: true,
+      writable: true,
+      value: ""
+    },
+    headers: {
+      enumerable: true,
+      writable: true,
+      value: {}
+    },
+    remoteAddress: {
+      enumerable: true,
+      writable: true,
+      value: ""
+    },
+    remotePort: {
+      enumerable: true,
+      writable: true,
+      value: ""
+    },
+    raw: {
+      enumerable: false,
+      get: function() {
+        return this[rawSymbol];
+      },
+      set: function(val) {
+        this[rawSymbol] = val;
+      }
+    }
+  });
+  Object.defineProperty(pinoReqProto, rawSymbol, {
+    writable: true,
+    value: {}
+  });
+  function reqSerializer(req) {
+    const connection = req.info || req.socket;
+    const _req = Object.create(pinoReqProto);
+    _req.id = typeof req.id === "function" ? req.id() : req.id || (req.info ? req.info.id : undefined);
+    _req.method = req.method;
+    if (req.originalUrl) {
+      _req.url = req.originalUrl;
+    } else {
+      const path = req.path;
+      _req.url = typeof path === "string" ? path : req.url ? req.url.path || req.url : undefined;
+    }
+    if (req.query) {
+      _req.query = req.query;
+    }
+    if (req.params) {
+      _req.params = req.params;
+    }
+    _req.headers = req.headers;
+    _req.remoteAddress = connection && connection.remoteAddress;
+    _req.remotePort = connection && connection.remotePort;
+    _req.raw = req.raw || req;
+    return _req;
+  }
+  function mapHttpRequest(req) {
+    return {
+      req: reqSerializer(req)
+    };
+  }
+});
+
+// node_modules/pino-std-serializers/lib/res.js
+var require_res = __commonJS((exports, module) => {
+  module.exports = {
+    mapHttpResponse,
+    resSerializer
+  };
+  var rawSymbol = Symbol("pino-raw-res-ref");
+  var pinoResProto = Object.create({}, {
+    statusCode: {
+      enumerable: true,
+      writable: true,
+      value: 0
+    },
+    headers: {
+      enumerable: true,
+      writable: true,
+      value: ""
+    },
+    raw: {
+      enumerable: false,
+      get: function() {
+        return this[rawSymbol];
+      },
+      set: function(val) {
+        this[rawSymbol] = val;
+      }
+    }
+  });
+  Object.defineProperty(pinoResProto, rawSymbol, {
+    writable: true,
+    value: {}
+  });
+  function resSerializer(res) {
+    const _res = Object.create(pinoResProto);
+    _res.statusCode = res.headersSent ? res.statusCode : null;
+    _res.headers = res.getHeaders ? res.getHeaders() : res._headers;
+    _res.raw = res;
+    return _res;
+  }
+  function mapHttpResponse(res) {
+    return {
+      res: resSerializer(res)
+    };
+  }
+});
+
+// node_modules/pino-std-serializers/index.js
+var require_pino_std_serializers = __commonJS((exports, module) => {
+  var errSerializer = require_err();
+  var errWithCauseSerializer = require_err_with_cause();
+  var reqSerializers = require_req();
+  var resSerializers = require_res();
+  module.exports = {
+    err: errSerializer,
+    errWithCause: errWithCauseSerializer,
+    mapHttpRequest: reqSerializers.mapHttpRequest,
+    mapHttpResponse: resSerializers.mapHttpResponse,
+    req: reqSerializers.reqSerializer,
+    res: resSerializers.resSerializer,
+    wrapErrorSerializer: function wrapErrorSerializer(customSerializer) {
+      if (customSerializer === errSerializer)
+        return customSerializer;
+      return function wrapErrSerializer(err) {
+        return customSerializer(errSerializer(err));
+      };
+    },
+    wrapRequestSerializer: function wrapRequestSerializer(customSerializer) {
+      if (customSerializer === reqSerializers.reqSerializer)
+        return customSerializer;
+      return function wrappedReqSerializer(req) {
+        return customSerializer(reqSerializers.reqSerializer(req));
+      };
+    },
+    wrapResponseSerializer: function wrapResponseSerializer(customSerializer) {
+      if (customSerializer === resSerializers.resSerializer)
+        return customSerializer;
+      return function wrappedResSerializer(res) {
+        return customSerializer(resSerializers.resSerializer(res));
+      };
+    }
+  };
+});
+
+// node_modules/pino/lib/caller.js
+var require_caller = __commonJS((exports, module) => {
+  function noOpPrepareStackTrace(_, stack) {
+    return stack;
+  }
+  module.exports = function getCallers() {
+    const originalPrepare = Error.prepareStackTrace;
+    Error.prepareStackTrace = noOpPrepareStackTrace;
+    const stack = new Error().stack;
+    Error.prepareStackTrace = originalPrepare;
+    if (!Array.isArray(stack)) {
+      return;
+    }
+    const entries = stack.slice(2);
+    const fileNames = [];
+    for (const entry of entries) {
+      if (!entry) {
+        continue;
+      }
+      fileNames.push(entry.getFileName());
+    }
+    return fileNames;
+  };
+});
+
+// node_modules/@pinojs/redact/index.js
+var require_redact = __commonJS((exports, module) => {
+  function deepClone2(obj) {
+    if (obj === null || typeof obj !== "object") {
+      return obj;
+    }
+    if (obj instanceof Date) {
+      return new Date(obj.getTime());
+    }
+    if (obj instanceof Array) {
+      const cloned = [];
+      for (let i = 0;i < obj.length; i++) {
+        cloned[i] = deepClone2(obj[i]);
+      }
+      return cloned;
+    }
+    if (typeof obj === "object") {
+      const cloned = Object.create(Object.getPrototypeOf(obj));
+      for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+          cloned[key] = deepClone2(obj[key]);
+        }
+      }
+      return cloned;
+    }
+    return obj;
+  }
+  function parsePath(path) {
+    const parts = [];
+    let current = "";
+    let inBrackets = false;
+    let inQuotes = false;
+    let quoteChar = "";
+    for (let i = 0;i < path.length; i++) {
+      const char = path[i];
+      if (!inBrackets && char === ".") {
+        if (current) {
+          parts.push(current);
+          current = "";
+        }
+      } else if (char === "[") {
+        if (current) {
+          parts.push(current);
+          current = "";
+        }
+        inBrackets = true;
+      } else if (char === "]" && inBrackets) {
+        parts.push(current);
+        current = "";
+        inBrackets = false;
+        inQuotes = false;
+      } else if ((char === '"' || char === "'") && inBrackets) {
+        if (!inQuotes) {
+          inQuotes = true;
+          quoteChar = char;
+        } else if (char === quoteChar) {
+          inQuotes = false;
+          quoteChar = "";
+        } else {
+          current += char;
+        }
+      } else {
+        current += char;
+      }
+    }
+    if (current) {
+      parts.push(current);
+    }
+    return parts;
+  }
+  function setValue(obj, parts, value) {
+    let current = obj;
+    for (let i = 0;i < parts.length - 1; i++) {
+      const key = parts[i];
+      if (typeof current !== "object" || current === null || !(key in current)) {
+        return false;
+      }
+      if (typeof current[key] !== "object" || current[key] === null) {
+        return false;
+      }
+      current = current[key];
+    }
+    const lastKey = parts[parts.length - 1];
+    if (lastKey === "*") {
+      if (Array.isArray(current)) {
+        for (let i = 0;i < current.length; i++) {
+          current[i] = value;
+        }
+      } else if (typeof current === "object" && current !== null) {
+        for (const key in current) {
+          if (Object.prototype.hasOwnProperty.call(current, key)) {
+            current[key] = value;
+          }
+        }
+      }
+    } else {
+      if (typeof current === "object" && current !== null && lastKey in current && Object.prototype.hasOwnProperty.call(current, lastKey)) {
+        current[lastKey] = value;
+      }
+    }
+    return true;
+  }
+  function removeKey(obj, parts) {
+    let current = obj;
+    for (let i = 0;i < parts.length - 1; i++) {
+      const key = parts[i];
+      if (typeof current !== "object" || current === null || !(key in current)) {
+        return false;
+      }
+      if (typeof current[key] !== "object" || current[key] === null) {
+        return false;
+      }
+      current = current[key];
+    }
+    const lastKey = parts[parts.length - 1];
+    if (lastKey === "*") {
+      if (Array.isArray(current)) {
+        for (let i = 0;i < current.length; i++) {
+          current[i] = undefined;
+        }
+      } else if (typeof current === "object" && current !== null) {
+        for (const key in current) {
+          if (Object.prototype.hasOwnProperty.call(current, key)) {
+            delete current[key];
+          }
+        }
+      }
+    } else {
+      if (typeof current === "object" && current !== null && lastKey in current && Object.prototype.hasOwnProperty.call(current, lastKey)) {
+        delete current[lastKey];
+      }
+    }
+    return true;
+  }
+  var PATH_NOT_FOUND = Symbol("PATH_NOT_FOUND");
+  function getValueIfExists(obj, parts) {
+    let current = obj;
+    for (const part of parts) {
+      if (current === null || current === undefined) {
+        return PATH_NOT_FOUND;
+      }
+      if (typeof current !== "object" || current === null) {
+        return PATH_NOT_FOUND;
+      }
+      if (!(part in current)) {
+        return PATH_NOT_FOUND;
+      }
+      current = current[part];
+    }
+    return current;
+  }
+  function getValue(obj, parts) {
+    let current = obj;
+    for (const part of parts) {
+      if (current === null || current === undefined) {
+        return;
+      }
+      if (typeof current !== "object" || current === null) {
+        return;
+      }
+      current = current[part];
+    }
+    return current;
+  }
+  function redactPaths(obj, paths, censor, remove = false) {
+    for (const path of paths) {
+      const parts = parsePath(path);
+      if (parts.includes("*")) {
+        redactWildcardPath(obj, parts, censor, path, remove);
+      } else {
+        if (remove) {
+          removeKey(obj, parts);
+        } else {
+          const value = getValueIfExists(obj, parts);
+          if (value === PATH_NOT_FOUND) {
+            continue;
+          }
+          const actualCensor = typeof censor === "function" ? censor(value, parts) : censor;
+          setValue(obj, parts, actualCensor);
+        }
+      }
+    }
+  }
+  function redactWildcardPath(obj, parts, censor, originalPath, remove = false) {
+    const wildcardIndex = parts.indexOf("*");
+    if (wildcardIndex === parts.length - 1) {
+      const parentParts = parts.slice(0, -1);
+      let current = obj;
+      for (const part of parentParts) {
+        if (current === null || current === undefined)
+          return;
+        if (typeof current !== "object" || current === null)
+          return;
+        current = current[part];
+      }
+      if (Array.isArray(current)) {
+        if (remove) {
+          for (let i = 0;i < current.length; i++) {
+            current[i] = undefined;
+          }
+        } else {
+          for (let i = 0;i < current.length; i++) {
+            const indexPath = [...parentParts, i.toString()];
+            const actualCensor = typeof censor === "function" ? censor(current[i], indexPath) : censor;
+            current[i] = actualCensor;
+          }
+        }
+      } else if (typeof current === "object" && current !== null) {
+        if (remove) {
+          const keysToDelete = [];
+          for (const key in current) {
+            if (Object.prototype.hasOwnProperty.call(current, key)) {
+              keysToDelete.push(key);
+            }
+          }
+          for (const key of keysToDelete) {
+            delete current[key];
+          }
+        } else {
+          for (const key in current) {
+            const keyPath = [...parentParts, key];
+            const actualCensor = typeof censor === "function" ? censor(current[key], keyPath) : censor;
+            current[key] = actualCensor;
+          }
+        }
+      }
+    } else {
+      redactIntermediateWildcard(obj, parts, censor, wildcardIndex, originalPath, remove);
+    }
+  }
+  function redactIntermediateWildcard(obj, parts, censor, wildcardIndex, originalPath, remove = false) {
+    const beforeWildcard = parts.slice(0, wildcardIndex);
+    const afterWildcard = parts.slice(wildcardIndex + 1);
+    const pathArray = [];
+    function traverse(current, pathLength) {
+      if (pathLength === beforeWildcard.length) {
+        if (Array.isArray(current)) {
+          for (let i = 0;i < current.length; i++) {
+            pathArray[pathLength] = i.toString();
+            traverse(current[i], pathLength + 1);
+          }
+        } else if (typeof current === "object" && current !== null) {
+          for (const key in current) {
+            pathArray[pathLength] = key;
+            traverse(current[key], pathLength + 1);
+          }
+        }
+      } else if (pathLength < beforeWildcard.length) {
+        const nextKey = beforeWildcard[pathLength];
+        if (current && typeof current === "object" && current !== null && nextKey in current) {
+          pathArray[pathLength] = nextKey;
+          traverse(current[nextKey], pathLength + 1);
+        }
+      } else {
+        if (afterWildcard.includes("*")) {
+          const wrappedCensor = typeof censor === "function" ? (value, path) => {
+            const fullPath = [...pathArray.slice(0, pathLength), ...path];
+            return censor(value, fullPath);
+          } : censor;
+          redactWildcardPath(current, afterWildcard, wrappedCensor, originalPath, remove);
+        } else {
+          if (remove) {
+            removeKey(current, afterWildcard);
+          } else {
+            const actualCensor = typeof censor === "function" ? censor(getValue(current, afterWildcard), [...pathArray.slice(0, pathLength), ...afterWildcard]) : censor;
+            setValue(current, afterWildcard, actualCensor);
+          }
+        }
+      }
+    }
+    if (beforeWildcard.length === 0) {
+      traverse(obj, 0);
+    } else {
+      let current = obj;
+      for (let i = 0;i < beforeWildcard.length; i++) {
+        const part = beforeWildcard[i];
+        if (current === null || current === undefined)
+          return;
+        if (typeof current !== "object" || current === null)
+          return;
+        current = current[part];
+        pathArray[i] = part;
+      }
+      if (current !== null && current !== undefined) {
+        traverse(current, beforeWildcard.length);
+      }
+    }
+  }
+  function buildPathStructure(pathsToClone) {
+    if (pathsToClone.length === 0) {
+      return null;
+    }
+    const pathStructure = new Map;
+    for (const path of pathsToClone) {
+      const parts = parsePath(path);
+      let current = pathStructure;
+      for (let i = 0;i < parts.length; i++) {
+        const part = parts[i];
+        if (!current.has(part)) {
+          current.set(part, new Map);
+        }
+        current = current.get(part);
+      }
+    }
+    return pathStructure;
+  }
+  function selectiveClone(obj, pathStructure) {
+    if (!pathStructure) {
+      return obj;
+    }
+    function cloneSelectively(source, pathMap, depth = 0) {
+      if (!pathMap || pathMap.size === 0) {
+        return source;
+      }
+      if (source === null || typeof source !== "object") {
+        return source;
+      }
+      if (source instanceof Date) {
+        return new Date(source.getTime());
+      }
+      if (Array.isArray(source)) {
+        const cloned2 = [];
+        for (let i = 0;i < source.length; i++) {
+          const indexStr = i.toString();
+          if (pathMap.has(indexStr) || pathMap.has("*")) {
+            cloned2[i] = cloneSelectively(source[i], pathMap.get(indexStr) || pathMap.get("*"));
+          } else {
+            cloned2[i] = source[i];
+          }
+        }
+        return cloned2;
+      }
+      const cloned = Object.create(Object.getPrototypeOf(source));
+      for (const key in source) {
+        if (Object.prototype.hasOwnProperty.call(source, key)) {
+          if (pathMap.has(key) || pathMap.has("*")) {
+            cloned[key] = cloneSelectively(source[key], pathMap.get(key) || pathMap.get("*"));
+          } else {
+            cloned[key] = source[key];
+          }
+        }
+      }
+      return cloned;
+    }
+    return cloneSelectively(obj, pathStructure);
+  }
+  function validatePath(path) {
+    if (typeof path !== "string") {
+      throw new Error("Paths must be (non-empty) strings");
+    }
+    if (path === "") {
+      throw new Error("Invalid redaction path ()");
+    }
+    if (path.includes("..")) {
+      throw new Error(`Invalid redaction path (${path})`);
+    }
+    if (path.includes(",")) {
+      throw new Error(`Invalid redaction path (${path})`);
+    }
+    let bracketCount = 0;
+    let inQuotes = false;
+    let quoteChar = "";
+    for (let i = 0;i < path.length; i++) {
+      const char = path[i];
+      if ((char === '"' || char === "'") && bracketCount > 0) {
+        if (!inQuotes) {
+          inQuotes = true;
+          quoteChar = char;
+        } else if (char === quoteChar) {
+          inQuotes = false;
+          quoteChar = "";
+        }
+      } else if (char === "[" && !inQuotes) {
+        bracketCount++;
+      } else if (char === "]" && !inQuotes) {
+        bracketCount--;
+        if (bracketCount < 0) {
+          throw new Error(`Invalid redaction path (${path})`);
+        }
+      }
+    }
+    if (bracketCount !== 0) {
+      throw new Error(`Invalid redaction path (${path})`);
+    }
+  }
+  function validatePaths(paths) {
+    if (!Array.isArray(paths)) {
+      throw new TypeError("paths must be an array");
+    }
+    for (const path of paths) {
+      validatePath(path);
+    }
+  }
+  function slowRedact(options = {}) {
+    const {
+      paths = [],
+      censor = "[REDACTED]",
+      serialize: serialize2 = JSON.stringify,
+      strict = true,
+      remove = false
+    } = options;
+    validatePaths(paths);
+    const pathStructure = buildPathStructure(paths);
+    return function redact(obj) {
+      if (strict && (obj === null || typeof obj !== "object")) {
+        if (obj === null || obj === undefined) {
+          return serialize2 ? serialize2(obj) : obj;
+        }
+        if (typeof obj !== "object") {
+          return serialize2 ? serialize2(obj) : obj;
+        }
+      }
+      const cloned = selectiveClone(obj, pathStructure);
+      const original = obj;
+      let actualCensor = censor;
+      if (typeof censor === "function") {
+        actualCensor = censor;
+      }
+      redactPaths(cloned, paths, actualCensor, remove);
+      if (serialize2 === false) {
+        cloned.restore = function() {
+          return deepClone2(original);
+        };
+        return cloned;
+      }
+      if (typeof serialize2 === "function") {
+        return serialize2(cloned);
+      }
+      return JSON.stringify(cloned);
+    };
+  }
+  module.exports = slowRedact;
+});
+
+// node_modules/pino/lib/symbols.js
+var require_symbols = __commonJS((exports, module) => {
+  var setLevelSym = Symbol("pino.setLevel");
+  var getLevelSym = Symbol("pino.getLevel");
+  var levelValSym = Symbol("pino.levelVal");
+  var levelCompSym = Symbol("pino.levelComp");
+  var useLevelLabelsSym = Symbol("pino.useLevelLabels");
+  var useOnlyCustomLevelsSym = Symbol("pino.useOnlyCustomLevels");
+  var mixinSym = Symbol("pino.mixin");
+  var lsCacheSym = Symbol("pino.lsCache");
+  var chindingsSym = Symbol("pino.chindings");
+  var asJsonSym = Symbol("pino.asJson");
+  var writeSym = Symbol("pino.write");
+  var redactFmtSym = Symbol("pino.redactFmt");
+  var timeSym = Symbol("pino.time");
+  var timeSliceIndexSym = Symbol("pino.timeSliceIndex");
+  var streamSym = Symbol("pino.stream");
+  var stringifySym = Symbol("pino.stringify");
+  var stringifySafeSym = Symbol("pino.stringifySafe");
+  var stringifiersSym = Symbol("pino.stringifiers");
+  var endSym = Symbol("pino.end");
+  var formatOptsSym = Symbol("pino.formatOpts");
+  var messageKeySym = Symbol("pino.messageKey");
+  var errorKeySym = Symbol("pino.errorKey");
+  var nestedKeySym = Symbol("pino.nestedKey");
+  var nestedKeyStrSym = Symbol("pino.nestedKeyStr");
+  var mixinMergeStrategySym = Symbol("pino.mixinMergeStrategy");
+  var msgPrefixSym = Symbol("pino.msgPrefix");
+  var wildcardFirstSym = Symbol("pino.wildcardFirst");
+  var serializersSym = Symbol.for("pino.serializers");
+  var formattersSym = Symbol.for("pino.formatters");
+  var hooksSym = Symbol.for("pino.hooks");
+  var needsMetadataGsym = Symbol.for("pino.metadata");
+  module.exports = {
+    setLevelSym,
+    getLevelSym,
+    levelValSym,
+    levelCompSym,
+    useLevelLabelsSym,
+    mixinSym,
+    lsCacheSym,
+    chindingsSym,
+    asJsonSym,
+    writeSym,
+    serializersSym,
+    redactFmtSym,
+    timeSym,
+    timeSliceIndexSym,
+    streamSym,
+    stringifySym,
+    stringifySafeSym,
+    stringifiersSym,
+    endSym,
+    formatOptsSym,
+    messageKeySym,
+    errorKeySym,
+    nestedKeySym,
+    wildcardFirstSym,
+    needsMetadataGsym,
+    useOnlyCustomLevelsSym,
+    formattersSym,
+    hooksSym,
+    nestedKeyStrSym,
+    mixinMergeStrategySym,
+    msgPrefixSym
+  };
+});
+
+// node_modules/pino/lib/redaction.js
+var require_redaction = __commonJS((exports, module) => {
+  var Redact = require_redact();
+  var { redactFmtSym, wildcardFirstSym } = require_symbols();
+  var rx = /[^.[\]]+|\[([^[\]]*?)\]/g;
+  var CENSOR = "[Redacted]";
+  var strict = false;
+  function redaction(opts, serialize2) {
+    const { paths, censor, remove } = handle(opts);
+    const shape = paths.reduce((o, str) => {
+      rx.lastIndex = 0;
+      const first = rx.exec(str);
+      const next = rx.exec(str);
+      let ns = first[1] !== undefined ? first[1].replace(/^(?:"|'|`)(.*)(?:"|'|`)$/, "$1") : first[0];
+      if (ns === "*") {
+        ns = wildcardFirstSym;
+      }
+      if (next === null) {
+        o[ns] = null;
+        return o;
+      }
+      if (o[ns] === null) {
+        return o;
+      }
+      const { index } = next;
+      const nextPath = `${str.substr(index, str.length - 1)}`;
+      o[ns] = o[ns] || [];
+      if (ns !== wildcardFirstSym && o[ns].length === 0) {
+        o[ns].push(...o[wildcardFirstSym] || []);
+      }
+      if (ns === wildcardFirstSym) {
+        Object.keys(o).forEach(function(k) {
+          if (o[k]) {
+            o[k].push(nextPath);
+          }
+        });
+      }
+      o[ns].push(nextPath);
+      return o;
+    }, {});
+    const result = {
+      [redactFmtSym]: Redact({ paths, censor, serialize: serialize2, strict, remove })
+    };
+    const topCensor = (...args) => {
+      return typeof censor === "function" ? serialize2(censor(...args)) : serialize2(censor);
+    };
+    return [...Object.keys(shape), ...Object.getOwnPropertySymbols(shape)].reduce((o, k) => {
+      if (shape[k] === null) {
+        o[k] = (value) => topCensor(value, [k]);
+      } else {
+        const wrappedCensor = typeof censor === "function" ? (value, path) => {
+          return censor(value, [k, ...path]);
+        } : censor;
+        o[k] = Redact({
+          paths: shape[k],
+          censor: wrappedCensor,
+          serialize: serialize2,
+          strict,
+          remove
+        });
+      }
+      return o;
+    }, result);
+  }
+  function handle(opts) {
+    if (Array.isArray(opts)) {
+      opts = { paths: opts, censor: CENSOR };
+      return opts;
+    }
+    let { paths, censor = CENSOR, remove } = opts;
+    if (Array.isArray(paths) === false) {
+      throw Error("pino – redact must contain an array of strings");
+    }
+    if (remove === true)
+      censor = undefined;
+    return { paths, censor, remove };
+  }
+  module.exports = redaction;
+});
+
+// node_modules/pino/lib/time.js
+var require_time = __commonJS((exports, module) => {
+  var nullTime = () => "";
+  var epochTime = () => `,"time":${Date.now()}`;
+  var unixTime = () => `,"time":${Math.round(Date.now() / 1000)}`;
+  var isoTime = () => `,"time":"${new Date(Date.now()).toISOString()}"`;
+  var NS_PER_MS = 1000000n;
+  var NS_PER_SEC = 1000000000n;
+  var startWallTimeNs = BigInt(Date.now()) * NS_PER_MS;
+  var startHrTime = process.hrtime.bigint();
+  var isoTimeNano = () => {
+    const elapsedNs = process.hrtime.bigint() - startHrTime;
+    const currentTimeNs = startWallTimeNs + elapsedNs;
+    const secondsSinceEpoch = currentTimeNs / NS_PER_SEC;
+    const nanosWithinSecond = currentTimeNs % NS_PER_SEC;
+    const msSinceEpoch = Number(secondsSinceEpoch * 1000n + nanosWithinSecond / 1000000n);
+    const date2 = new Date(msSinceEpoch);
+    const year = date2.getUTCFullYear();
+    const month = (date2.getUTCMonth() + 1).toString().padStart(2, "0");
+    const day = date2.getUTCDate().toString().padStart(2, "0");
+    const hours = date2.getUTCHours().toString().padStart(2, "0");
+    const minutes = date2.getUTCMinutes().toString().padStart(2, "0");
+    const seconds = date2.getUTCSeconds().toString().padStart(2, "0");
+    return `,"time":"${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${nanosWithinSecond.toString().padStart(9, "0")}Z"`;
+  };
+  module.exports = { nullTime, epochTime, unixTime, isoTime, isoTimeNano };
+});
+
+// node_modules/quick-format-unescaped/index.js
+var require_quick_format_unescaped = __commonJS((exports, module) => {
+  function tryStringify(o) {
+    try {
+      return JSON.stringify(o);
+    } catch (e) {
+      return '"[Circular]"';
+    }
+  }
+  module.exports = format;
+  function format(f, args, opts) {
+    var ss = opts && opts.stringify || tryStringify;
+    var offset = 1;
+    if (typeof f === "object" && f !== null) {
+      var len = args.length + offset;
+      if (len === 1)
+        return f;
+      var objects = new Array(len);
+      objects[0] = ss(f);
+      for (var index = 1;index < len; index++) {
+        objects[index] = ss(args[index]);
+      }
+      return objects.join(" ");
+    }
+    if (typeof f !== "string") {
+      return f;
+    }
+    var argLen = args.length;
+    if (argLen === 0)
+      return f;
+    var str = "";
+    var a12 = 1 - offset;
+    var lastPos = -1;
+    var flen = f && f.length || 0;
+    for (var i = 0;i < flen; ) {
+      if (f.charCodeAt(i) === 37 && i + 1 < flen) {
+        lastPos = lastPos > -1 ? lastPos : 0;
+        switch (f.charCodeAt(i + 1)) {
+          case 100:
+          case 102:
+            if (a12 >= argLen)
+              break;
+            if (args[a12] == null)
+              break;
+            if (lastPos < i)
+              str += f.slice(lastPos, i);
+            str += Number(args[a12]);
+            lastPos = i + 2;
+            i++;
+            break;
+          case 105:
+            if (a12 >= argLen)
+              break;
+            if (args[a12] == null)
+              break;
+            if (lastPos < i)
+              str += f.slice(lastPos, i);
+            str += Math.floor(Number(args[a12]));
+            lastPos = i + 2;
+            i++;
+            break;
+          case 79:
+          case 111:
+          case 106:
+            if (a12 >= argLen)
+              break;
+            if (args[a12] === undefined)
+              break;
+            if (lastPos < i)
+              str += f.slice(lastPos, i);
+            var type = typeof args[a12];
+            if (type === "string") {
+              str += "'" + args[a12] + "'";
+              lastPos = i + 2;
+              i++;
+              break;
+            }
+            if (type === "function") {
+              str += args[a12].name || "<anonymous>";
+              lastPos = i + 2;
+              i++;
+              break;
+            }
+            str += ss(args[a12]);
+            lastPos = i + 2;
+            i++;
+            break;
+          case 115:
+            if (a12 >= argLen)
+              break;
+            if (lastPos < i)
+              str += f.slice(lastPos, i);
+            str += String(args[a12]);
+            lastPos = i + 2;
+            i++;
+            break;
+          case 37:
+            if (lastPos < i)
+              str += f.slice(lastPos, i);
+            str += "%";
+            lastPos = i + 2;
+            i++;
+            a12--;
+            break;
+        }
+        ++a12;
+      }
+      ++i;
+    }
+    if (lastPos === -1)
+      return f;
+    else if (lastPos < flen) {
+      str += f.slice(lastPos);
+    }
+    return str;
+  }
+});
+
+// node_modules/atomic-sleep/index.js
+var require_atomic_sleep = __commonJS((exports, module) => {
+  if (typeof SharedArrayBuffer !== "undefined" && typeof Atomics !== "undefined") {
+    let sleep = function(ms) {
+      const valid = ms > 0 && ms < Infinity;
+      if (valid === false) {
+        if (typeof ms !== "number" && typeof ms !== "bigint") {
+          throw TypeError("sleep: ms must be a number");
+        }
+        throw RangeError("sleep: ms must be a number that is greater than 0 but less than Infinity");
+      }
+      Atomics.wait(nil, 0, 0, Number(ms));
+    };
+    const nil = new Int32Array(new SharedArrayBuffer(4));
+    module.exports = sleep;
+  } else {
+    let sleep = function(ms) {
+      const valid = ms > 0 && ms < Infinity;
+      if (valid === false) {
+        if (typeof ms !== "number" && typeof ms !== "bigint") {
+          throw TypeError("sleep: ms must be a number");
+        }
+        throw RangeError("sleep: ms must be a number that is greater than 0 but less than Infinity");
+      }
+      const target = Date.now() + Number(ms);
+      while (target > Date.now()) {}
+    };
+    module.exports = sleep;
+  }
+});
+
+// node_modules/sonic-boom/index.js
+var require_sonic_boom = __commonJS((exports, module) => {
+  var fs = __require("fs");
+  var EventEmitter = __require("events");
+  var inherits = __require("util").inherits;
+  var path = __require("path");
+  var sleep = require_atomic_sleep();
+  var assert2 = __require("assert");
+  var BUSY_WRITE_TIMEOUT = 100;
+  var kEmptyBuffer = Buffer.allocUnsafe(0);
+  var MAX_WRITE = 16 * 1024;
+  var kContentModeBuffer = "buffer";
+  var kContentModeUtf8 = "utf8";
+  var [major, minor] = (process.versions.node || "0.0").split(".").map(Number);
+  var kCopyBuffer = major >= 22 && minor >= 7;
+  function openFile(file2, sonic) {
+    sonic._opening = true;
+    sonic._writing = true;
+    sonic._asyncDrainScheduled = false;
+    function fileOpened(err, fd) {
+      if (err) {
+        sonic._reopening = false;
+        sonic._writing = false;
+        sonic._opening = false;
+        if (sonic.sync) {
+          process.nextTick(() => {
+            if (sonic.listenerCount("error") > 0) {
+              sonic.emit("error", err);
+            }
+          });
+        } else {
+          sonic.emit("error", err);
+        }
+        return;
+      }
+      const reopening = sonic._reopening;
+      sonic.fd = fd;
+      sonic.file = file2;
+      sonic._reopening = false;
+      sonic._opening = false;
+      sonic._writing = false;
+      if (sonic.sync) {
+        process.nextTick(() => sonic.emit("ready"));
+      } else {
+        sonic.emit("ready");
+      }
+      if (sonic.destroyed) {
+        return;
+      }
+      if (!sonic._writing && sonic._len > sonic.minLength || sonic._flushPending) {
+        sonic._actualWrite();
+      } else if (reopening) {
+        process.nextTick(() => sonic.emit("drain"));
+      }
+    }
+    const flags = sonic.append ? "a" : "w";
+    const mode = sonic.mode;
+    if (sonic.sync) {
+      try {
+        if (sonic.mkdir)
+          fs.mkdirSync(path.dirname(file2), { recursive: true });
+        const fd = fs.openSync(file2, flags, mode);
+        fileOpened(null, fd);
+      } catch (err) {
+        fileOpened(err);
+        throw err;
+      }
+    } else if (sonic.mkdir) {
+      fs.mkdir(path.dirname(file2), { recursive: true }, (err) => {
+        if (err)
+          return fileOpened(err);
+        fs.open(file2, flags, mode, fileOpened);
+      });
+    } else {
+      fs.open(file2, flags, mode, fileOpened);
+    }
+  }
+  function SonicBoom(opts) {
+    if (!(this instanceof SonicBoom)) {
+      return new SonicBoom(opts);
+    }
+    let { fd, dest, minLength, maxLength, maxWrite, periodicFlush, sync, append = true, mkdir, retryEAGAIN, fsync, contentMode, mode } = opts || {};
+    fd = fd || dest;
+    this._len = 0;
+    this.fd = -1;
+    this._bufs = [];
+    this._lens = [];
+    this._writing = false;
+    this._ending = false;
+    this._reopening = false;
+    this._asyncDrainScheduled = false;
+    this._flushPending = false;
+    this._hwm = Math.max(minLength || 0, 16387);
+    this.file = null;
+    this.destroyed = false;
+    this.minLength = minLength || 0;
+    this.maxLength = maxLength || 0;
+    this.maxWrite = maxWrite || MAX_WRITE;
+    this._periodicFlush = periodicFlush || 0;
+    this._periodicFlushTimer = undefined;
+    this.sync = sync || false;
+    this.writable = true;
+    this._fsync = fsync || false;
+    this.append = append || false;
+    this.mode = mode;
+    this.retryEAGAIN = retryEAGAIN || (() => true);
+    this.mkdir = mkdir || false;
+    let fsWriteSync;
+    let fsWrite;
+    if (contentMode === kContentModeBuffer) {
+      this._writingBuf = kEmptyBuffer;
+      this.write = writeBuffer;
+      this.flush = flushBuffer;
+      this.flushSync = flushBufferSync;
+      this._actualWrite = actualWriteBuffer;
+      fsWriteSync = () => fs.writeSync(this.fd, this._writingBuf);
+      fsWrite = () => fs.write(this.fd, this._writingBuf, this.release);
+    } else if (contentMode === undefined || contentMode === kContentModeUtf8) {
+      this._writingBuf = "";
+      this.write = write;
+      this.flush = flush;
+      this.flushSync = flushSync;
+      this._actualWrite = actualWrite;
+      fsWriteSync = () => {
+        if (Buffer.isBuffer(this._writingBuf)) {
+          return fs.writeSync(this.fd, this._writingBuf);
+        }
+        return fs.writeSync(this.fd, this._writingBuf, "utf8");
+      };
+      fsWrite = () => {
+        if (Buffer.isBuffer(this._writingBuf)) {
+          return fs.write(this.fd, this._writingBuf, this.release);
+        }
+        return fs.write(this.fd, this._writingBuf, "utf8", this.release);
+      };
+    } else {
+      throw new Error(`SonicBoom supports "${kContentModeUtf8}" and "${kContentModeBuffer}", but passed ${contentMode}`);
+    }
+    if (typeof fd === "number") {
+      this.fd = fd;
+      process.nextTick(() => this.emit("ready"));
+    } else if (typeof fd === "string") {
+      openFile(fd, this);
+    } else {
+      throw new Error("SonicBoom supports only file descriptors and files");
+    }
+    if (this.minLength >= this.maxWrite) {
+      throw new Error(`minLength should be smaller than maxWrite (${this.maxWrite})`);
+    }
+    this.release = (err, n2) => {
+      if (err) {
+        if ((err.code === "EAGAIN" || err.code === "EBUSY") && this.retryEAGAIN(err, this._writingBuf.length, this._len - this._writingBuf.length)) {
+          if (this.sync) {
+            try {
+              sleep(BUSY_WRITE_TIMEOUT);
+              this.release(undefined, 0);
+            } catch (err2) {
+              this.release(err2);
+            }
+          } else {
+            setTimeout(fsWrite, BUSY_WRITE_TIMEOUT);
+          }
+        } else {
+          this._writing = false;
+          this.emit("error", err);
+        }
+        return;
+      }
+      this.emit("write", n2);
+      const releasedBufObj = releaseWritingBuf(this._writingBuf, this._len, n2);
+      this._len = releasedBufObj.len;
+      this._writingBuf = releasedBufObj.writingBuf;
+      if (this._writingBuf.length) {
+        if (!this.sync) {
+          fsWrite();
+          return;
+        }
+        try {
+          do {
+            const n3 = fsWriteSync();
+            const releasedBufObj2 = releaseWritingBuf(this._writingBuf, this._len, n3);
+            this._len = releasedBufObj2.len;
+            this._writingBuf = releasedBufObj2.writingBuf;
+          } while (this._writingBuf.length);
+        } catch (err2) {
+          this.release(err2);
+          return;
+        }
+      }
+      if (this._fsync) {
+        fs.fsyncSync(this.fd);
+      }
+      const len = this._len;
+      if (this._reopening) {
+        this._writing = false;
+        this._reopening = false;
+        this.reopen();
+      } else if (len > this.minLength) {
+        this._actualWrite();
+      } else if (this._ending) {
+        if (len > 0) {
+          this._actualWrite();
+        } else {
+          this._writing = false;
+          actualClose(this);
+        }
+      } else {
+        this._writing = false;
+        if (this.sync) {
+          if (!this._asyncDrainScheduled) {
+            this._asyncDrainScheduled = true;
+            process.nextTick(emitDrain, this);
+          }
+        } else {
+          this.emit("drain");
+        }
+      }
+    };
+    this.on("newListener", function(name) {
+      if (name === "drain") {
+        this._asyncDrainScheduled = false;
+      }
+    });
+    if (this._periodicFlush !== 0) {
+      this._periodicFlushTimer = setInterval(() => this.flush(null), this._periodicFlush);
+      this._periodicFlushTimer.unref();
+    }
+  }
+  function releaseWritingBuf(writingBuf, len, n2) {
+    if (typeof writingBuf === "string") {
+      writingBuf = Buffer.from(writingBuf);
+    }
+    len = Math.max(len - n2, 0);
+    writingBuf = writingBuf.subarray(n2);
+    return { writingBuf, len };
+  }
+  function emitDrain(sonic) {
+    const hasListeners = sonic.listenerCount("drain") > 0;
+    if (!hasListeners)
+      return;
+    sonic._asyncDrainScheduled = false;
+    sonic.emit("drain");
+  }
+  inherits(SonicBoom, EventEmitter);
+  function mergeBuf(bufs, len) {
+    if (bufs.length === 0) {
+      return kEmptyBuffer;
+    }
+    if (bufs.length === 1) {
+      return bufs[0];
+    }
+    return Buffer.concat(bufs, len);
+  }
+  function write(data) {
+    if (this.destroyed) {
+      throw new Error("SonicBoom destroyed");
+    }
+    data = "" + data;
+    const dataLen = Buffer.byteLength(data);
+    const len = this._len + dataLen;
+    const bufs = this._bufs;
+    if (this.maxLength && len > this.maxLength) {
+      this.emit("drop", data);
+      return this._len < this._hwm;
+    }
+    if (bufs.length === 0 || Buffer.byteLength(bufs[bufs.length - 1]) + dataLen > this.maxWrite) {
+      bufs.push(data);
+    } else {
+      bufs[bufs.length - 1] += data;
+    }
+    this._len = len;
+    if (!this._writing && this._len >= this.minLength) {
+      this._actualWrite();
+    }
+    return this._len < this._hwm;
+  }
+  function writeBuffer(data) {
+    if (this.destroyed) {
+      throw new Error("SonicBoom destroyed");
+    }
+    const len = this._len + data.length;
+    const bufs = this._bufs;
+    const lens = this._lens;
+    if (this.maxLength && len > this.maxLength) {
+      this.emit("drop", data);
+      return this._len < this._hwm;
+    }
+    if (bufs.length === 0 || lens[lens.length - 1] + data.length > this.maxWrite) {
+      bufs.push([data]);
+      lens.push(data.length);
+    } else {
+      bufs[bufs.length - 1].push(data);
+      lens[lens.length - 1] += data.length;
+    }
+    this._len = len;
+    if (!this._writing && this._len >= this.minLength) {
+      this._actualWrite();
+    }
+    return this._len < this._hwm;
+  }
+  function callFlushCallbackOnDrain(cb) {
+    this._flushPending = true;
+    const onDrain = () => {
+      if (!this._fsync) {
+        try {
+          fs.fsync(this.fd, (err) => {
+            this._flushPending = false;
+            cb(err);
+          });
+        } catch (err) {
+          cb(err);
+        }
+      } else {
+        this._flushPending = false;
+        cb();
+      }
+      this.off("error", onError);
+    };
+    const onError = (err) => {
+      this._flushPending = false;
+      cb(err);
+      this.off("drain", onDrain);
+    };
+    this.once("drain", onDrain);
+    this.once("error", onError);
+  }
+  function flush(cb) {
+    if (cb != null && typeof cb !== "function") {
+      throw new Error("flush cb must be a function");
+    }
+    if (this.destroyed) {
+      const error = new Error("SonicBoom destroyed");
+      if (cb) {
+        cb(error);
+        return;
+      }
+      throw error;
+    }
+    if (this.minLength <= 0) {
+      cb?.();
+      return;
+    }
+    if (cb) {
+      callFlushCallbackOnDrain.call(this, cb);
+    }
+    if (this._writing) {
+      return;
+    }
+    if (this._bufs.length === 0) {
+      this._bufs.push("");
+    }
+    this._actualWrite();
+  }
+  function flushBuffer(cb) {
+    if (cb != null && typeof cb !== "function") {
+      throw new Error("flush cb must be a function");
+    }
+    if (this.destroyed) {
+      const error = new Error("SonicBoom destroyed");
+      if (cb) {
+        cb(error);
+        return;
+      }
+      throw error;
+    }
+    if (this.minLength <= 0) {
+      cb?.();
+      return;
+    }
+    if (cb) {
+      callFlushCallbackOnDrain.call(this, cb);
+    }
+    if (this._writing) {
+      return;
+    }
+    if (this._bufs.length === 0) {
+      this._bufs.push([]);
+      this._lens.push(0);
+    }
+    this._actualWrite();
+  }
+  SonicBoom.prototype.reopen = function(file2) {
+    if (this.destroyed) {
+      throw new Error("SonicBoom destroyed");
+    }
+    if (this._opening) {
+      this.once("ready", () => {
+        this.reopen(file2);
+      });
+      return;
+    }
+    if (this._ending) {
+      return;
+    }
+    if (!this.file) {
+      throw new Error("Unable to reopen a file descriptor, you must pass a file to SonicBoom");
+    }
+    if (file2) {
+      this.file = file2;
+    }
+    this._reopening = true;
+    if (this._writing) {
+      return;
+    }
+    const fd = this.fd;
+    this.once("ready", () => {
+      if (fd !== this.fd) {
+        fs.close(fd, (err) => {
+          if (err) {
+            return this.emit("error", err);
+          }
+        });
+      }
+    });
+    openFile(this.file, this);
+  };
+  SonicBoom.prototype.end = function() {
+    if (this.destroyed) {
+      throw new Error("SonicBoom destroyed");
+    }
+    if (this._opening) {
+      this.once("ready", () => {
+        this.end();
+      });
+      return;
+    }
+    if (this._ending) {
+      return;
+    }
+    this._ending = true;
+    if (this._writing) {
+      return;
+    }
+    if (this._len > 0 && this.fd >= 0) {
+      this._actualWrite();
+    } else {
+      actualClose(this);
+    }
+  };
+  function flushSync() {
+    if (this.destroyed) {
+      throw new Error("SonicBoom destroyed");
+    }
+    if (this.fd < 0) {
+      throw new Error("sonic boom is not ready yet");
+    }
+    if (!this._writing && this._writingBuf.length > 0) {
+      this._bufs.unshift(this._writingBuf);
+      this._writingBuf = "";
+    }
+    let buf = "";
+    while (this._bufs.length || buf.length) {
+      if (buf.length <= 0) {
+        buf = this._bufs[0];
+      }
+      try {
+        const n2 = Buffer.isBuffer(buf) ? fs.writeSync(this.fd, buf) : fs.writeSync(this.fd, buf, "utf8");
+        const releasedBufObj = releaseWritingBuf(buf, this._len, n2);
+        buf = releasedBufObj.writingBuf;
+        this._len = releasedBufObj.len;
+        if (buf.length <= 0) {
+          this._bufs.shift();
+        }
+      } catch (err) {
+        const shouldRetry = err.code === "EAGAIN" || err.code === "EBUSY";
+        if (shouldRetry && !this.retryEAGAIN(err, buf.length, this._len - buf.length)) {
+          throw err;
+        }
+        sleep(BUSY_WRITE_TIMEOUT);
+      }
+    }
+    try {
+      fs.fsyncSync(this.fd);
+    } catch {}
+  }
+  function flushBufferSync() {
+    if (this.destroyed) {
+      throw new Error("SonicBoom destroyed");
+    }
+    if (this.fd < 0) {
+      throw new Error("sonic boom is not ready yet");
+    }
+    if (!this._writing && this._writingBuf.length > 0) {
+      this._bufs.unshift([this._writingBuf]);
+      this._writingBuf = kEmptyBuffer;
+    }
+    let buf = kEmptyBuffer;
+    while (this._bufs.length || buf.length) {
+      if (buf.length <= 0) {
+        buf = mergeBuf(this._bufs[0], this._lens[0]);
+      }
+      try {
+        const n2 = fs.writeSync(this.fd, buf);
+        buf = buf.subarray(n2);
+        this._len = Math.max(this._len - n2, 0);
+        if (buf.length <= 0) {
+          this._bufs.shift();
+          this._lens.shift();
+        }
+      } catch (err) {
+        const shouldRetry = err.code === "EAGAIN" || err.code === "EBUSY";
+        if (shouldRetry && !this.retryEAGAIN(err, buf.length, this._len - buf.length)) {
+          throw err;
+        }
+        sleep(BUSY_WRITE_TIMEOUT);
+      }
+    }
+  }
+  SonicBoom.prototype.destroy = function() {
+    if (this.destroyed) {
+      return;
+    }
+    actualClose(this);
+  };
+  function actualWrite() {
+    const release = this.release;
+    this._writing = true;
+    this._writingBuf = this._writingBuf.length ? this._writingBuf : this._bufs.shift() || "";
+    if (this.sync) {
+      try {
+        const written = Buffer.isBuffer(this._writingBuf) ? fs.writeSync(this.fd, this._writingBuf) : fs.writeSync(this.fd, this._writingBuf, "utf8");
+        release(null, written);
+      } catch (err) {
+        release(err);
+      }
+    } else {
+      fs.write(this.fd, this._writingBuf, release);
+    }
+  }
+  function actualWriteBuffer() {
+    const release = this.release;
+    this._writing = true;
+    this._writingBuf = this._writingBuf.length ? this._writingBuf : mergeBuf(this._bufs.shift(), this._lens.shift());
+    if (this.sync) {
+      try {
+        const written = fs.writeSync(this.fd, this._writingBuf);
+        release(null, written);
+      } catch (err) {
+        release(err);
+      }
+    } else {
+      if (kCopyBuffer) {
+        this._writingBuf = Buffer.from(this._writingBuf);
+      }
+      fs.write(this.fd, this._writingBuf, release);
+    }
+  }
+  function actualClose(sonic) {
+    if (sonic.fd === -1) {
+      sonic.once("ready", actualClose.bind(null, sonic));
+      return;
+    }
+    if (sonic._periodicFlushTimer !== undefined) {
+      clearInterval(sonic._periodicFlushTimer);
+    }
+    sonic.destroyed = true;
+    sonic._bufs = [];
+    sonic._lens = [];
+    assert2(typeof sonic.fd === "number", `sonic.fd must be a number, got ${typeof sonic.fd}`);
+    try {
+      fs.fsync(sonic.fd, closeWrapped);
+    } catch {}
+    function closeWrapped() {
+      if (sonic.fd !== 1 && sonic.fd !== 2) {
+        fs.close(sonic.fd, done);
+      } else {
+        done();
+      }
+    }
+    function done(err) {
+      if (err) {
+        sonic.emit("error", err);
+        return;
+      }
+      if (sonic._ending && !sonic._writing) {
+        sonic.emit("finish");
+      }
+      sonic.emit("close");
+    }
+  }
+  SonicBoom.SonicBoom = SonicBoom;
+  SonicBoom.default = SonicBoom;
+  module.exports = SonicBoom;
+});
+
+// node_modules/on-exit-leak-free/index.js
+var require_on_exit_leak_free = __commonJS((exports, module) => {
+  var refs = {
+    exit: [],
+    beforeExit: []
+  };
+  var functions = {
+    exit: onExit,
+    beforeExit: onBeforeExit
+  };
+  var registry;
+  function ensureRegistry() {
+    if (registry === undefined) {
+      registry = new FinalizationRegistry(clear);
+    }
+  }
+  function install(event) {
+    if (refs[event].length > 0) {
+      return;
+    }
+    process.on(event, functions[event]);
+  }
+  function uninstall(event) {
+    if (refs[event].length > 0) {
+      return;
+    }
+    process.removeListener(event, functions[event]);
+    if (refs.exit.length === 0 && refs.beforeExit.length === 0) {
+      registry = undefined;
+    }
+  }
+  function onExit() {
+    callRefs("exit");
+  }
+  function onBeforeExit() {
+    callRefs("beforeExit");
+  }
+  function callRefs(event) {
+    for (const ref of refs[event]) {
+      const obj = ref.deref();
+      const fn = ref.fn;
+      if (obj !== undefined) {
+        fn(obj, event);
+      }
+    }
+    refs[event] = [];
+  }
+  function clear(ref) {
+    for (const event of ["exit", "beforeExit"]) {
+      const index = refs[event].indexOf(ref);
+      refs[event].splice(index, index + 1);
+      uninstall(event);
+    }
+  }
+  function _register(event, obj, fn) {
+    if (obj === undefined) {
+      throw new Error("the object can't be undefined");
+    }
+    install(event);
+    const ref = new WeakRef(obj);
+    ref.fn = fn;
+    ensureRegistry();
+    registry.register(obj, ref);
+    refs[event].push(ref);
+  }
+  function register(obj, fn) {
+    _register("exit", obj, fn);
+  }
+  function registerBeforeExit(obj, fn) {
+    _register("beforeExit", obj, fn);
+  }
+  function unregister(obj) {
+    if (registry === undefined) {
+      return;
+    }
+    registry.unregister(obj);
+    for (const event of ["exit", "beforeExit"]) {
+      refs[event] = refs[event].filter((ref) => {
+        const _obj = ref.deref();
+        return _obj && _obj !== obj;
+      });
+      uninstall(event);
+    }
+  }
+  module.exports = {
+    register,
+    registerBeforeExit,
+    unregister
+  };
+});
+
+// node_modules/thread-stream/package.json
+var require_package = __commonJS((exports, module) => {
+  module.exports = {
+    name: "thread-stream",
+    version: "4.2.0",
+    description: "A streaming way to send data to a Node.js Worker Thread",
+    main: "index.js",
+    types: "index.d.ts",
+    engines: {
+      node: ">=20"
+    },
+    dependencies: {
+      "real-require": "^1.0.0"
+    },
+    devDependencies: {
+      "@types/node": "^25.0.2",
+      "@yao-pkg/pkg": "^6.0.0",
+      borp: "^1.0.0",
+      desm: "^1.3.0",
+      eslint: "^9.39.1",
+      fastbench: "^1.0.1",
+      neostandard: "^0.13.0",
+      "pino-elasticsearch": "^9.0.0",
+      "sonic-boom": "^5.0.0",
+      "ts-node": "^10.8.0",
+      typescript: "~5.7.3"
+    },
+    scripts: {
+      build: "tsc --noEmit",
+      lint: "eslint",
+      test: 'npm run lint && npm run build && npm run transpile && borp --pattern "test/*.test.{js,mjs}"',
+      "test:ci": 'npm run lint && npm run transpile && borp --pattern "test/*.test.{js,mjs}"',
+      "test:yarn": 'npm run transpile && borp --pattern "test/*.test.js"',
+      transpile: "sh ./test/ts/transpile.sh"
+    },
+    repository: {
+      type: "git",
+      url: "git+https://github.com/mcollina/thread-stream.git"
+    },
+    keywords: [
+      "worker",
+      "thread",
+      "threads",
+      "stream"
+    ],
+    author: "Matteo Collina <hello@matteocollina.com>",
+    license: "MIT",
+    bugs: {
+      url: "https://github.com/mcollina/thread-stream/issues"
+    },
+    homepage: "https://github.com/mcollina/thread-stream#readme"
+  };
+});
+
+// node_modules/thread-stream/lib/wait.js
+var require_wait = __commonJS((exports, module) => {
+  var WAIT_MS = 1e4;
+  function wait(state, index, expected, timeout, done) {
+    const max = timeout === Infinity ? Infinity : Date.now() + timeout;
+    const check2 = () => {
+      const current = Atomics.load(state, index);
+      if (current === expected) {
+        done(null, "ok");
+        return;
+      }
+      if (max !== Infinity && Date.now() > max) {
+        done(null, "timed-out");
+        return;
+      }
+      const remaining = max === Infinity ? WAIT_MS : Math.min(WAIT_MS, Math.max(1, max - Date.now()));
+      const result = Atomics.waitAsync(state, index, current, remaining);
+      if (result.async) {
+        result.value.then(check2);
+      } else {
+        setImmediate(check2);
+      }
+    };
+    check2();
+  }
+  function waitDiff(state, index, expected, timeout, done) {
+    const max = timeout === Infinity ? Infinity : Date.now() + timeout;
+    const check2 = () => {
+      const current = Atomics.load(state, index);
+      if (current !== expected) {
+        done(null, "ok");
+        return;
+      }
+      if (max !== Infinity && Date.now() > max) {
+        done(null, "timed-out");
+        return;
+      }
+      const remaining = max === Infinity ? WAIT_MS : Math.min(WAIT_MS, Math.max(1, max - Date.now()));
+      const result = Atomics.waitAsync(state, index, expected, remaining);
+      if (result.async) {
+        result.value.then((res) => {
+          if (res === "ok") {
+            done(null, "ok");
+            return;
+          }
+          check2();
+        });
+      } else {
+        setImmediate(check2);
+      }
+    };
+    check2();
+  }
+  module.exports = { wait, waitDiff };
+});
+
+// node_modules/thread-stream/lib/indexes.js
+var require_indexes = __commonJS((exports, module) => {
+  var SEQ_INDEX = 2;
+  var WRITE_INDEX = 4;
+  var READ_INDEX = 8;
+  module.exports = {
+    WRITE_INDEX,
+    READ_INDEX,
+    SEQ_INDEX
+  };
+});
+
+// node_modules/thread-stream/index.js
+var require_thread_stream = __commonJS((exports, module) => {
+  var __dirname = "D:\\work\\pagui\\backend\\node_modules\\thread-stream";
+  var { version } = require_package();
+  var { EventEmitter } = __require("events");
+  var { Worker } = __require("worker_threads");
+  var { join } = __require("path");
+  var { pathToFileURL } = __require("url");
+  var { wait } = require_wait();
+  var {
+    WRITE_INDEX,
+    READ_INDEX,
+    SEQ_INDEX
+  } = require_indexes();
+  var buffer = __require("buffer");
+  var assert2 = __require("assert");
+  var kImpl = Symbol("kImpl");
+  var MAX_STRING = buffer.constants.MAX_STRING_LENGTH;
+  function noop() {}
+  function updateState(stream, fn) {
+    Atomics.add(stream[kImpl].state, SEQ_INDEX, 1);
+    fn();
+    Atomics.add(stream[kImpl].state, SEQ_INDEX, 1);
+    Atomics.notify(stream[kImpl].state, SEQ_INDEX);
+  }
+  function resetIndexes(stream) {
+    updateState(stream, () => {
+      Atomics.store(stream[kImpl].state, READ_INDEX, 0);
+      Atomics.store(stream[kImpl].state, WRITE_INDEX, 0);
+    });
+  }
+
+  class FakeWeakRef {
+    constructor(value) {
+      this._value = value;
+    }
+    deref() {
+      return this._value;
+    }
+  }
+
+  class FakeFinalizationRegistry {
+    register() {}
+    unregister() {}
+  }
+  var FinalizationRegistry2 = process.env.NODE_V8_COVERAGE ? FakeFinalizationRegistry : global.FinalizationRegistry || FakeFinalizationRegistry;
+  var WeakRef2 = process.env.NODE_V8_COVERAGE ? FakeWeakRef : global.WeakRef || FakeWeakRef;
+  var registry = new FinalizationRegistry2((worker) => {
+    if (worker.exited) {
+      return;
+    }
+    worker.terminate();
+  });
+  function createWorker(stream, opts) {
+    const { filename, workerData } = opts;
+    const bundlerOverrides = "__bundlerPathsOverrides" in globalThis ? globalThis.__bundlerPathsOverrides : {};
+    const toExecute = bundlerOverrides["thread-stream-worker"] || join(__dirname, "lib", "worker.js");
+    const worker = new Worker(toExecute, {
+      ...opts.workerOpts,
+      name: opts.workerOpts?.name || "thread-stream",
+      trackUnmanagedFds: false,
+      workerData: {
+        filename: filename.indexOf("file://") === 0 ? filename : pathToFileURL(filename).href,
+        dataBuf: stream[kImpl].dataBuf,
+        stateBuf: stream[kImpl].stateBuf,
+        workerData: {
+          $context: {
+            threadStreamVersion: version
+          },
+          ...workerData
+        }
+      }
+    });
+    worker.stream = new FakeWeakRef(stream);
+    worker.on("message", onWorkerMessage);
+    worker.on("exit", onWorkerExit);
+    registry.register(stream, worker);
+    return worker;
+  }
+  function drain(stream) {
+    assert2(!stream[kImpl].sync);
+    if (stream[kImpl].needDrain) {
+      stream[kImpl].needDrain = false;
+      stream.emit("drain");
+    }
+  }
+  function nextFlush(stream) {
+    while (true) {
+      const writeIndex = Atomics.load(stream[kImpl].state, WRITE_INDEX);
+      const leftover = stream[kImpl].data.length - writeIndex;
+      if (leftover > 0) {
+        if (stream[kImpl].bufLen === 0) {
+          stream[kImpl].flushing = false;
+          if (stream[kImpl].ending) {
+            end(stream);
+          } else if (stream[kImpl].needDrain) {
+            process.nextTick(drain, stream);
+          }
+          return;
+        }
+        write(stream, leftover, noop);
+        continue;
+      }
+      if (leftover === 0) {
+        if (writeIndex === 0 && stream[kImpl].bufLen === 0) {
+          return;
+        }
+        waitForRead(stream, () => {
+          if (stream.destroyed) {
+            return;
+          }
+          resetIndexes(stream);
+          nextFlush(stream);
+        });
+        return;
+      }
+      destroy(stream, new Error("overwritten"));
+      return;
+    }
+  }
+  function onWorkerMessage(msg) {
+    const stream = this.stream.deref();
+    if (stream === undefined) {
+      this.exited = true;
+      this.terminate();
+      return;
+    }
+    if (msg?.code == null) {
+      return;
+    }
+    switch (msg.code) {
+      case "READY":
+        this.stream = new WeakRef2(stream);
+        waitForRead(stream, () => {
+          stream[kImpl].ready = true;
+          stream.emit("ready");
+        });
+        break;
+      case "ERROR":
+        destroy(stream, msg.err);
+        break;
+      case "EVENT":
+        if (Array.isArray(msg.args)) {
+          stream.emit(msg.name, ...msg.args);
+        } else {
+          stream.emit(msg.name, msg.args);
+        }
+        break;
+      case "FLUSHED": {
+        if (msg.context !== "thread-stream") {
+          destroy(stream, new Error("this should not happen: " + msg.code));
+          break;
+        }
+        const cb = stream[kImpl].flushCallbacks.get(msg.id);
+        if (cb) {
+          stream[kImpl].flushCallbacks.delete(msg.id);
+          process.nextTick(cb);
+        }
+        break;
+      }
+      case "WARNING":
+        process.emitWarning(msg.err);
+        break;
+      default:
+        destroy(stream, new Error("this should not happen: " + msg.code));
+    }
+  }
+  function onWorkerExit(code) {
+    const stream = this.stream.deref();
+    if (stream === undefined) {
+      return;
+    }
+    registry.unregister(stream);
+    stream.worker.exited = true;
+    stream.worker.off("exit", onWorkerExit);
+    destroy(stream, code !== 0 ? new Error("the worker thread exited") : null);
+  }
+
+  class ThreadStream extends EventEmitter {
+    constructor(opts = {}) {
+      super();
+      if (opts.bufferSize < 4) {
+        throw new Error("bufferSize must at least fit a 4-byte utf-8 char");
+      }
+      this[kImpl] = {};
+      this[kImpl].stateBuf = new SharedArrayBuffer(128);
+      this[kImpl].state = new Int32Array(this[kImpl].stateBuf);
+      this[kImpl].dataBuf = new SharedArrayBuffer(opts.bufferSize || 4 * 1024 * 1024);
+      this[kImpl].data = Buffer.from(this[kImpl].dataBuf);
+      this[kImpl].sync = opts.sync || false;
+      this[kImpl].ending = false;
+      this[kImpl].ended = false;
+      this[kImpl].needDrain = false;
+      this[kImpl].destroyed = false;
+      this[kImpl].flushing = false;
+      this[kImpl].ready = false;
+      this[kImpl].finished = false;
+      this[kImpl].errored = null;
+      this[kImpl].closed = false;
+      this[kImpl].buf = [];
+      this[kImpl].bufHead = 0;
+      this[kImpl].bufLen = 0;
+      this[kImpl].flushCallbacks = new Map;
+      this[kImpl].nextFlushId = 0;
+      this.worker = createWorker(this, opts);
+      this.on("message", (message, transferList) => {
+        this.worker.postMessage(message, transferList);
+      });
+    }
+    write(data) {
+      const dataBuf = Buffer.isBuffer(data) ? data : Buffer.from(data);
+      if (this[kImpl].destroyed) {
+        error(this, new Error("the worker has exited"));
+        return false;
+      }
+      if (this[kImpl].ending) {
+        error(this, new Error("the worker is ending"));
+        return false;
+      }
+      if (this[kImpl].flushing && this[kImpl].bufLen + dataBuf.length >= MAX_STRING) {
+        try {
+          writeSync(this);
+          this[kImpl].flushing = true;
+        } catch (err) {
+          destroy(this, err);
+          return false;
+        }
+      }
+      this[kImpl].buf.push(dataBuf);
+      this[kImpl].bufLen += dataBuf.length;
+      if (this[kImpl].sync) {
+        try {
+          writeSync(this);
+          return true;
+        } catch (err) {
+          destroy(this, err);
+          return false;
+        }
+      }
+      if (!this[kImpl].flushing) {
+        this[kImpl].flushing = true;
+        setImmediate(nextFlush, this);
+      }
+      this[kImpl].needDrain = this[kImpl].data.length - this[kImpl].bufLen - Atomics.load(this[kImpl].state, WRITE_INDEX) <= 0;
+      return !this[kImpl].needDrain;
+    }
+    end() {
+      if (this[kImpl].destroyed) {
+        return;
+      }
+      this[kImpl].ending = true;
+      end(this);
+    }
+    flush(cb) {
+      cb = typeof cb === "function" ? cb : noop;
+      flushBuffer(this, (err) => {
+        if (err) {
+          process.nextTick(cb, err);
+          return;
+        }
+        requestWorkerFlush(this, cb);
+      });
+    }
+    flushSync() {
+      if (this[kImpl].destroyed) {
+        return;
+      }
+      writeSync(this);
+      flushSync(this);
+    }
+    unref() {
+      this.worker.unref();
+    }
+    ref() {
+      this.worker.ref();
+    }
+    get ready() {
+      return this[kImpl].ready;
+    }
+    get destroyed() {
+      return this[kImpl].destroyed;
+    }
+    get closed() {
+      return this[kImpl].closed;
+    }
+    get writable() {
+      return !this[kImpl].destroyed && !this[kImpl].ending;
+    }
+    get writableEnded() {
+      return this[kImpl].ending;
+    }
+    get writableFinished() {
+      return this[kImpl].finished;
+    }
+    get writableNeedDrain() {
+      return this[kImpl].needDrain;
+    }
+    get writableObjectMode() {
+      return false;
+    }
+    get writableErrored() {
+      return this[kImpl].errored;
+    }
+  }
+  function flushBuffer(stream, cb) {
+    if (stream[kImpl].destroyed) {
+      process.nextTick(cb, new Error("the worker has exited"));
+      return;
+    }
+    if (!stream[kImpl].sync && (stream[kImpl].flushing || stream[kImpl].bufLen > 0)) {
+      setImmediate(flushBuffer, stream, cb);
+      return;
+    }
+    waitForRead(stream, cb);
+  }
+  function waitForRead(stream, cb) {
+    const writeIndex = Atomics.load(stream[kImpl].state, WRITE_INDEX);
+    wait(stream[kImpl].state, READ_INDEX, writeIndex, Infinity, (err, res) => {
+      if (err) {
+        destroy(stream, err);
+        cb(err);
+        return;
+      }
+      if (res !== "ok") {
+        waitForRead(stream, cb);
+        return;
+      }
+      cb();
+    });
+  }
+  function requestWorkerFlush(stream, cb) {
+    if (stream[kImpl].destroyed) {
+      process.nextTick(cb, new Error("the worker has exited"));
+      return;
+    }
+    if (!stream[kImpl].ready) {
+      const onReady = () => {
+        cleanup();
+        requestWorkerFlush(stream, cb);
+      };
+      const onClose = () => {
+        cleanup();
+        process.nextTick(cb, new Error("the worker has exited"));
+      };
+      const cleanup = () => {
+        stream.off("ready", onReady);
+        stream.off("close", onClose);
+      };
+      stream.once("ready", onReady);
+      stream.once("close", onClose);
+      return;
+    }
+    const id = ++stream[kImpl].nextFlushId;
+    stream[kImpl].flushCallbacks.set(id, cb);
+    try {
+      stream.worker.postMessage({
+        code: "FLUSH",
+        context: "thread-stream",
+        id
+      });
+    } catch (err) {
+      stream[kImpl].flushCallbacks.delete(id);
+      destroy(stream, err);
+      process.nextTick(cb, err);
+    }
+  }
+  function failPendingFlushCallbacks(stream, err) {
+    const callbacks = stream[kImpl].flushCallbacks;
+    if (callbacks.size === 0) {
+      return;
+    }
+    const flushErr = err || new Error("the worker has exited");
+    for (const cb of callbacks.values()) {
+      process.nextTick(cb, flushErr);
+    }
+    callbacks.clear();
+  }
+  function error(stream, err) {
+    setImmediate(() => {
+      stream.emit("error", err);
+    });
+  }
+  function destroy(stream, err) {
+    if (stream[kImpl].destroyed) {
+      return;
+    }
+    stream[kImpl].destroyed = true;
+    failPendingFlushCallbacks(stream, err);
+    if (err) {
+      stream[kImpl].errored = err;
+      error(stream, err);
+    }
+    if (!stream.worker.exited) {
+      stream.worker.terminate().catch(() => {}).then(() => {
+        stream[kImpl].closed = true;
+        stream.emit("close");
+      });
+    } else {
+      setImmediate(() => {
+        stream[kImpl].closed = true;
+        stream.emit("close");
+      });
+    }
+  }
+  function write(stream, maxBytes, cb) {
+    const current = Atomics.load(stream[kImpl].state, WRITE_INDEX);
+    let offset = current;
+    let remaining = maxBytes;
+    while (remaining > 0 && stream[kImpl].bufLen !== 0) {
+      const head = stream[kImpl].bufHead;
+      const buf = stream[kImpl].buf[head];
+      if (buf.length <= remaining) {
+        buf.copy(stream[kImpl].data, offset);
+        offset += buf.length;
+        remaining -= buf.length;
+        stream[kImpl].bufLen -= buf.length;
+        stream[kImpl].bufHead = head + 1;
+        if (stream[kImpl].bufHead === stream[kImpl].buf.length) {
+          stream[kImpl].buf.length = 0;
+          stream[kImpl].bufHead = 0;
+        } else if (stream[kImpl].bufHead >= 1024 && stream[kImpl].bufHead * 2 >= stream[kImpl].buf.length) {
+          stream[kImpl].buf.splice(0, stream[kImpl].bufHead);
+          stream[kImpl].bufHead = 0;
+        }
+        continue;
+      }
+      buf.copy(stream[kImpl].data, offset, 0, remaining);
+      stream[kImpl].buf[head] = buf.subarray(remaining);
+      stream[kImpl].bufLen -= remaining;
+      offset += remaining;
+      remaining = 0;
+    }
+    updateState(stream, () => {
+      Atomics.store(stream[kImpl].state, WRITE_INDEX, offset);
+    });
+    cb();
+    return true;
+  }
+  function end(stream) {
+    if (stream[kImpl].ended || !stream[kImpl].ending || stream[kImpl].flushing) {
+      return;
+    }
+    stream[kImpl].ended = true;
+    try {
+      stream.flushSync();
+      let readIndex = Atomics.load(stream[kImpl].state, READ_INDEX);
+      updateState(stream, () => {
+        Atomics.store(stream[kImpl].state, WRITE_INDEX, -1);
+      });
+      let spins = 0;
+      while (readIndex !== -1) {
+        Atomics.wait(stream[kImpl].state, READ_INDEX, readIndex, 1000);
+        readIndex = Atomics.load(stream[kImpl].state, READ_INDEX);
+        if (readIndex === -2) {
+          destroy(stream, new Error("end() failed"));
+          return;
+        }
+        if (++spins === 10) {
+          destroy(stream, new Error("end() took too long (10s)"));
+          return;
+        }
+      }
+      process.nextTick(() => {
+        stream[kImpl].finished = true;
+        stream.emit("finish");
+      });
+    } catch (err) {
+      destroy(stream, err);
+    }
+  }
+  function writeSync(stream) {
+    const cb = () => {
+      if (stream[kImpl].ending) {
+        end(stream);
+      } else if (stream[kImpl].needDrain) {
+        process.nextTick(drain, stream);
+      }
+    };
+    stream[kImpl].flushing = false;
+    while (stream[kImpl].bufLen !== 0) {
+      const writeIndex = Atomics.load(stream[kImpl].state, WRITE_INDEX);
+      const leftover = stream[kImpl].data.length - writeIndex;
+      if (leftover === 0) {
+        flushSync(stream);
+        resetIndexes(stream);
+        continue;
+      } else if (leftover < 0) {
+        throw new Error("overwritten");
+      }
+      write(stream, leftover, cb);
+    }
+  }
+  function flushSync(stream) {
+    if (stream[kImpl].flushing) {
+      throw new Error("unable to flush while flushing");
+    }
+    const writeIndex = Atomics.load(stream[kImpl].state, WRITE_INDEX);
+    let spins = 0;
+    while (true) {
+      const readIndex = Atomics.load(stream[kImpl].state, READ_INDEX);
+      if (readIndex === -2) {
+        throw Error("_flushSync failed");
+      }
+      if (readIndex !== writeIndex) {
+        Atomics.wait(stream[kImpl].state, READ_INDEX, readIndex, 1000);
+      } else {
+        break;
+      }
+      if (++spins === 10) {
+        throw new Error("_flushSync took too long (10s)");
+      }
+    }
+  }
+  module.exports = ThreadStream;
+});
+
+// node_modules/pino/lib/transport.js
+var require_transport = __commonJS((exports, module) => {
+  var __dirname = "D:\\work\\pagui\\backend\\node_modules\\pino\\lib";
+  var { createRequire: createRequire2 } = __require("module");
+  var { existsSync } = __require("node:fs");
+  var getCallers = require_caller();
+  var { join, isAbsolute, sep } = __require("node:path");
+  var { fileURLToPath } = __require("node:url");
+  var sleep = require_atomic_sleep();
+  var onExit = require_on_exit_leak_free();
+  var ThreadStream = require_thread_stream();
+  function setupOnExit(stream) {
+    onExit.register(stream, autoEnd);
+    onExit.registerBeforeExit(stream, flush);
+    stream.on("close", function() {
+      onExit.unregister(stream);
+    });
+  }
+  function hasPreloadFlags() {
+    const execArgv = process.execArgv;
+    for (let i = 0;i < execArgv.length; i++) {
+      const arg = execArgv[i];
+      if (arg === "--import" || arg === "--require" || arg === "-r") {
+        return true;
+      }
+      if (arg.startsWith("--import=") || arg.startsWith("--require=") || arg.startsWith("-r=")) {
+        return true;
+      }
+    }
+    return false;
+  }
+  function sanitizeNodeOptions(nodeOptions) {
+    const tokens = nodeOptions.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g);
+    if (!tokens) {
+      return nodeOptions;
+    }
+    const sanitized = [];
+    let changed = false;
+    for (let i = 0;i < tokens.length; i++) {
+      const token = tokens[i];
+      if (token === "--require" || token === "-r" || token === "--import") {
+        const next = tokens[i + 1];
+        if (next && shouldDropPreload(next)) {
+          changed = true;
+          i++;
+          continue;
+        }
+        sanitized.push(token);
+        if (next) {
+          sanitized.push(next);
+          i++;
+        }
+        continue;
+      }
+      if (token.startsWith("--require=") || token.startsWith("-r=") || token.startsWith("--import=")) {
+        const value = token.slice(token.indexOf("=") + 1);
+        if (shouldDropPreload(value)) {
+          changed = true;
+          continue;
+        }
+      }
+      sanitized.push(token);
+    }
+    return changed ? sanitized.join(" ") : nodeOptions;
+  }
+  function shouldDropPreload(value) {
+    const unquoted = stripQuotes(value);
+    if (!unquoted) {
+      return false;
+    }
+    let path = unquoted;
+    if (path.startsWith("file://")) {
+      try {
+        path = fileURLToPath(path);
+      } catch {
+        return false;
+      }
+    }
+    return isAbsolute(path) && !existsSync(path);
+  }
+  function stripQuotes(value) {
+    const first = value[0];
+    const last = value[value.length - 1];
+    if (first === '"' && last === '"' || first === "'" && last === "'") {
+      return value.slice(1, -1);
+    }
+    return value;
+  }
+  function buildStream(filename, workerData, workerOpts, sync, name) {
+    if (!workerOpts.execArgv && hasPreloadFlags() && __require.main === undefined) {
+      workerOpts = {
+        ...workerOpts,
+        execArgv: []
+      };
+    }
+    if (!workerOpts.env && process.env.NODE_OPTIONS) {
+      const nodeOptions = sanitizeNodeOptions(process.env.NODE_OPTIONS);
+      if (nodeOptions !== process.env.NODE_OPTIONS) {
+        workerOpts = {
+          ...workerOpts,
+          env: {
+            ...process.env,
+            NODE_OPTIONS: nodeOptions
+          }
+        };
+      }
+    }
+    workerOpts = { ...workerOpts, name };
+    const stream = new ThreadStream({
+      filename,
+      workerData,
+      workerOpts,
+      sync
+    });
+    stream.on("ready", onReady);
+    stream.on("close", function() {
+      process.removeListener("exit", onExit2);
+    });
+    process.on("exit", onExit2);
+    function onReady() {
+      process.removeListener("exit", onExit2);
+      stream.unref();
+      if (workerOpts.autoEnd !== false) {
+        setupOnExit(stream);
+      }
+    }
+    function onExit2() {
+      if (stream.closed) {
+        return;
+      }
+      stream.flushSync();
+      sleep(100);
+      stream.end();
+    }
+    return stream;
+  }
+  function autoEnd(stream) {
+    stream.ref();
+    stream.flushSync();
+    stream.end();
+    stream.once("close", function() {
+      stream.unref();
+    });
+  }
+  function flush(stream) {
+    stream.flushSync();
+  }
+  function transport(fullOptions) {
+    const { pipeline, targets, levels, dedupe, worker = {}, caller = getCallers(), sync = false } = fullOptions;
+    const options = {
+      ...fullOptions.options
+    };
+    const callers = typeof caller === "string" ? [caller] : caller;
+    const bundlerOverrides = typeof globalThis === "object" && Object.prototype.hasOwnProperty.call(globalThis, "__bundlerPathsOverrides") && globalThis.__bundlerPathsOverrides && typeof globalThis.__bundlerPathsOverrides === "object" ? globalThis.__bundlerPathsOverrides : Object.create(null);
+    let target = fullOptions.target;
+    if (target && targets) {
+      throw new Error("only one of target or targets can be specified");
+    }
+    if (targets) {
+      target = bundlerOverrides["pino-worker"] || join(__dirname, "worker.js");
+      options.targets = targets.filter((dest) => dest.target).map((dest) => {
+        return {
+          ...dest,
+          target: fixTarget(dest.target)
+        };
+      });
+      options.pipelines = targets.filter((dest) => dest.pipeline).map((dest) => {
+        return dest.pipeline.map((t2) => {
+          return {
+            ...t2,
+            level: dest.level,
+            target: fixTarget(t2.target)
+          };
+        });
+      });
+    } else if (pipeline) {
+      target = bundlerOverrides["pino-worker"] || join(__dirname, "worker.js");
+      options.pipelines = [pipeline.map((dest) => {
+        return {
+          ...dest,
+          target: fixTarget(dest.target)
+        };
+      })];
+    }
+    if (levels) {
+      options.levels = levels;
+    }
+    if (dedupe) {
+      options.dedupe = dedupe;
+    }
+    options.pinoWillSendConfig = true;
+    const name = targets || pipeline ? "pino.transport" : target;
+    return buildStream(fixTarget(target), options, worker, sync, name);
+    function fixTarget(origin) {
+      origin = bundlerOverrides[origin] || origin;
+      if (isAbsolute(origin) || origin.indexOf("file://") === 0) {
+        return origin;
+      }
+      if (origin === "pino/file") {
+        return join(__dirname, "..", "file.js");
+      }
+      let fixTarget2;
+      for (const filePath of callers) {
+        try {
+          const context = filePath === "node:repl" ? process.cwd() + sep : filePath;
+          fixTarget2 = createRequire2(context).resolve(origin);
+          break;
+        } catch (err) {
+          continue;
+        }
+      }
+      if (!fixTarget2) {
+        throw new Error(`unable to determine transport target for "${origin}"`);
+      }
+      return fixTarget2;
+    }
+  }
+  module.exports = transport;
+});
+
+// node_modules/pino/lib/tools.js
+var require_tools = __commonJS((exports, module) => {
+  var diagChan = __require("node:diagnostics_channel");
+  var format = require_quick_format_unescaped();
+  var { mapHttpRequest, mapHttpResponse } = require_pino_std_serializers();
+  var SonicBoom = require_sonic_boom();
+  var onExit = require_on_exit_leak_free();
+  var {
+    lsCacheSym,
+    chindingsSym,
+    writeSym,
+    serializersSym,
+    formatOptsSym,
+    endSym,
+    stringifiersSym,
+    stringifySym,
+    stringifySafeSym,
+    wildcardFirstSym,
+    nestedKeySym,
+    formattersSym,
+    messageKeySym,
+    errorKeySym,
+    nestedKeyStrSym,
+    msgPrefixSym
+  } = require_symbols();
+  var { isMainThread } = __require("worker_threads");
+  var transport = require_transport();
+  var [nodeMajor] = process.versions.node.split(".").map((v) => Number(v));
+  var asJsonChan = diagChan.tracingChannel("pino_asJson");
+  var asString = nodeMajor >= 25 ? (str) => JSON.stringify(str) : _asString;
+  function noop() {}
+  function genLog(level, hook) {
+    if (!hook)
+      return LOG;
+    return function hookWrappedLog(...args) {
+      hook.call(this, args, LOG, level);
+    };
+    function LOG(o, ...n2) {
+      if (typeof o === "object") {
+        let msg = o;
+        if (o !== null) {
+          if (o.method && o.headers && o.socket) {
+            o = mapHttpRequest(o);
+          } else if (typeof o.setHeader === "function") {
+            o = mapHttpResponse(o);
+          }
+        }
+        let formatParams;
+        if (msg === null && n2.length === 0) {
+          formatParams = [null];
+        } else {
+          msg = n2.shift();
+          formatParams = n2;
+        }
+        if (typeof this[msgPrefixSym] === "string" && msg !== undefined && msg !== null) {
+          msg = this[msgPrefixSym] + msg;
+        }
+        this[writeSym](o, format(msg, formatParams, this[formatOptsSym]), level);
+      } else {
+        let msg = o === undefined ? n2.shift() : o;
+        if (typeof this[msgPrefixSym] === "string" && msg !== undefined && msg !== null) {
+          msg = this[msgPrefixSym] + msg;
+        }
+        this[writeSym](null, format(msg, n2, this[formatOptsSym]), level);
+      }
+    }
+  }
+  function _asString(str) {
+    let result = "";
+    let last = 0;
+    let found = false;
+    let point = 255;
+    const l2 = str.length;
+    if (l2 > 100) {
+      return JSON.stringify(str);
+    }
+    for (var i = 0;i < l2 && point >= 32; i++) {
+      point = str.charCodeAt(i);
+      if (point === 34 || point === 92) {
+        result += str.slice(last, i) + "\\";
+        last = i;
+        found = true;
+      }
+    }
+    if (!found) {
+      result = str;
+    } else {
+      result += str.slice(last);
+    }
+    return point < 32 ? JSON.stringify(str) : '"' + result + '"';
+  }
+  function asJson(obj, msg, num, time) {
+    if (asJsonChan.hasSubscribers === false) {
+      return _asJson.call(this, obj, msg, num, time);
+    }
+    const store = { instance: this, arguments };
+    return asJsonChan.traceSync(_asJson, store, this, obj, msg, num, time);
+  }
+  function _asJson(obj, msg, num, time) {
+    const stringify2 = this[stringifySym];
+    const stringifySafe = this[stringifySafeSym];
+    const stringifiers = this[stringifiersSym];
+    const end = this[endSym];
+    const chindings = this[chindingsSym];
+    const serializers = this[serializersSym];
+    const formatters = this[formattersSym];
+    const messageKey = this[messageKeySym];
+    const errorKey = this[errorKeySym];
+    let data = this[lsCacheSym][num] + time;
+    data = data + chindings;
+    let value;
+    if (formatters.log) {
+      obj = formatters.log(obj);
+    }
+    const wildcardStringifier = stringifiers[wildcardFirstSym];
+    let propStr = "";
+    for (const key in obj) {
+      value = obj[key];
+      if (Object.prototype.hasOwnProperty.call(obj, key) && value !== undefined) {
+        if (serializers[key]) {
+          value = serializers[key](value);
+        } else if (key === errorKey && serializers.err) {
+          value = serializers.err(value);
+        }
+        const stringifier = stringifiers[key] || wildcardStringifier;
+        switch (typeof value) {
+          case "undefined":
+          case "function":
+            continue;
+          case "number":
+            if (Number.isFinite(value) === false) {
+              value = null;
+            }
+          case "boolean":
+            if (stringifier)
+              value = stringifier(value);
+            break;
+          case "string":
+            value = (stringifier || asString)(value);
+            break;
+          default:
+            value = (stringifier || stringify2)(value, stringifySafe);
+        }
+        if (value === undefined)
+          continue;
+        const strKey = asString(key);
+        propStr += "," + strKey + ":" + value;
+      }
+    }
+    let msgStr = "";
+    if (msg !== undefined) {
+      value = serializers[messageKey] ? serializers[messageKey](msg) : msg;
+      const stringifier = stringifiers[messageKey] || wildcardStringifier;
+      switch (typeof value) {
+        case "function":
+          break;
+        case "number":
+          if (Number.isFinite(value) === false) {
+            value = null;
+          }
+        case "boolean":
+          if (stringifier)
+            value = stringifier(value);
+          msgStr = ',"' + messageKey + '":' + value;
+          break;
+        case "string":
+          value = (stringifier || asString)(value);
+          msgStr = ',"' + messageKey + '":' + value;
+          break;
+        default:
+          value = (stringifier || stringify2)(value, stringifySafe);
+          msgStr = ',"' + messageKey + '":' + value;
+      }
+    }
+    if (this[nestedKeySym] && propStr) {
+      return data + this[nestedKeyStrSym] + propStr.slice(1) + "}" + msgStr + end;
+    } else {
+      return data + propStr + msgStr + end;
+    }
+  }
+  function asChindings(instance, bindings) {
+    let value;
+    let data = instance[chindingsSym];
+    const stringify2 = instance[stringifySym];
+    const stringifySafe = instance[stringifySafeSym];
+    const stringifiers = instance[stringifiersSym];
+    const wildcardStringifier = stringifiers[wildcardFirstSym];
+    const serializers = instance[serializersSym];
+    const formatter = instance[formattersSym].bindings;
+    bindings = formatter(bindings);
+    for (const key in bindings) {
+      value = bindings[key];
+      const valid = (key.length < 5 || key !== "level" && key !== "serializers" && key !== "formatters" && key !== "customLevels") && bindings.hasOwnProperty(key) && value !== undefined;
+      if (valid === true) {
+        value = serializers[key] ? serializers[key](value) : value;
+        value = (stringifiers[key] || wildcardStringifier || stringify2)(value, stringifySafe);
+        if (value === undefined)
+          continue;
+        data += ',"' + key + '":' + value;
+      }
+    }
+    return data;
+  }
+  function hasBeenTampered(stream) {
+    return stream.write !== stream.constructor.prototype.write;
+  }
+  function buildSafeSonicBoom(opts) {
+    const stream = new SonicBoom(opts);
+    stream.on("error", filterBrokenPipe);
+    if (!opts.sync && isMainThread) {
+      onExit.register(stream, autoEnd);
+      stream.on("close", function() {
+        onExit.unregister(stream);
+      });
+    }
+    return stream;
+    function filterBrokenPipe(err) {
+      if (err.code === "EPIPE") {
+        stream.write = noop;
+        stream.end = noop;
+        stream.flushSync = noop;
+        stream.destroy = noop;
+        return;
+      }
+      stream.removeListener("error", filterBrokenPipe);
+      stream.emit("error", err);
+    }
+  }
+  function autoEnd(stream, eventName) {
+    if (stream.destroyed) {
+      return;
+    }
+    if (eventName === "beforeExit") {
+      stream.flush();
+      stream.on("drain", function() {
+        stream.end();
+      });
+    } else {
+      stream.flushSync();
+    }
+  }
+  function createArgsNormalizer(defaultOptions) {
+    return function normalizeArgs(instance, caller, opts = {}, stream) {
+      if (typeof opts === "string") {
+        stream = buildSafeSonicBoom({ dest: opts });
+        opts = {};
+      } else if (typeof stream === "string") {
+        if (opts && opts.transport) {
+          throw Error("only one of option.transport or stream can be specified");
+        }
+        stream = buildSafeSonicBoom({ dest: stream });
+      } else if (opts instanceof SonicBoom || opts.writable || opts._writableState) {
+        stream = opts;
+        opts = {};
+      } else if (opts.transport) {
+        if (opts.transport instanceof SonicBoom || opts.transport.writable || opts.transport._writableState) {
+          throw Error("option.transport do not allow stream, please pass to option directly. e.g. pino(transport)");
+        }
+        if (opts.transport.targets && opts.transport.targets.length && opts.formatters && typeof opts.formatters.level === "function") {
+          throw Error("option.transport.targets do not allow custom level formatters");
+        }
+        let customLevels;
+        if (opts.customLevels) {
+          customLevels = opts.useOnlyCustomLevels ? opts.customLevels : Object.assign({}, opts.levels, opts.customLevels);
+        }
+        stream = transport({ caller, ...opts.transport, levels: customLevels });
+      }
+      opts = Object.assign({}, defaultOptions, opts);
+      opts.serializers = Object.assign({}, defaultOptions.serializers, opts.serializers);
+      opts.formatters = Object.assign({}, defaultOptions.formatters, opts.formatters);
+      if (opts.prettyPrint) {
+        throw new Error("prettyPrint option is no longer supported, see the pino-pretty package (https://github.com/pinojs/pino-pretty)");
+      }
+      const { enabled, onChild } = opts;
+      if (enabled === false)
+        opts.level = "silent";
+      if (!onChild)
+        opts.onChild = noop;
+      if (!stream) {
+        if (!hasBeenTampered(process.stdout)) {
+          stream = buildSafeSonicBoom({ fd: process.stdout.fd || 1 });
+        } else {
+          stream = process.stdout;
+        }
+      }
+      return { opts, stream };
+    };
+  }
+  function stringify(obj, stringifySafeFn) {
+    try {
+      return JSON.stringify(obj);
+    } catch (_) {
+      try {
+        const stringify2 = stringifySafeFn || this[stringifySafeSym];
+        return stringify2(obj);
+      } catch (_2) {
+        return '"[unable to serialize, circular reference is too complex to analyze]"';
+      }
+    }
+  }
+  function buildFormatters(level, bindings, log) {
+    return {
+      level,
+      bindings,
+      log
+    };
+  }
+  function normalizeDestFileDescriptor(destination) {
+    const fd = Number(destination);
+    if (typeof destination === "string" && Number.isFinite(fd)) {
+      return fd;
+    }
+    if (destination === undefined) {
+      return 1;
+    }
+    return destination;
+  }
+  module.exports = {
+    noop,
+    buildSafeSonicBoom,
+    asChindings,
+    asJson,
+    genLog,
+    createArgsNormalizer,
+    stringify,
+    buildFormatters,
+    normalizeDestFileDescriptor
+  };
+});
+
+// node_modules/pino/lib/constants.js
+var require_constants = __commonJS((exports, module) => {
+  var DEFAULT_LEVELS = {
+    trace: 10,
+    debug: 20,
+    info: 30,
+    warn: 40,
+    error: 50,
+    fatal: 60
+  };
+  var SORTING_ORDER = {
+    ASC: "ASC",
+    DESC: "DESC"
+  };
+  module.exports = {
+    DEFAULT_LEVELS,
+    SORTING_ORDER
+  };
+});
+
+// node_modules/pino/lib/levels.js
+var require_levels = __commonJS((exports, module) => {
+  var {
+    lsCacheSym,
+    levelValSym,
+    useOnlyCustomLevelsSym,
+    streamSym,
+    formattersSym,
+    hooksSym,
+    levelCompSym
+  } = require_symbols();
+  var { noop, genLog } = require_tools();
+  var { DEFAULT_LEVELS, SORTING_ORDER } = require_constants();
+  var levelMethods = {
+    fatal: (hook) => {
+      const logFatal = genLog(DEFAULT_LEVELS.fatal, hook);
+      return function(...args) {
+        const stream = this[streamSym];
+        logFatal.call(this, ...args);
+        if (typeof stream.flushSync === "function") {
+          try {
+            stream.flushSync();
+          } catch (e) {}
+        }
+      };
+    },
+    error: (hook) => genLog(DEFAULT_LEVELS.error, hook),
+    warn: (hook) => genLog(DEFAULT_LEVELS.warn, hook),
+    info: (hook) => genLog(DEFAULT_LEVELS.info, hook),
+    debug: (hook) => genLog(DEFAULT_LEVELS.debug, hook),
+    trace: (hook) => genLog(DEFAULT_LEVELS.trace, hook)
+  };
+  var nums = Object.keys(DEFAULT_LEVELS).reduce((o, k) => {
+    o[DEFAULT_LEVELS[k]] = k;
+    return o;
+  }, {});
+  var initialLsCache = Object.keys(nums).reduce((o, k) => {
+    o[k] = '{"level":' + Number(k);
+    return o;
+  }, {});
+  function genLsCache(instance) {
+    const formatter = instance[formattersSym].level;
+    const { labels } = instance.levels;
+    const cache = {};
+    for (const label in labels) {
+      const level = formatter(labels[label], Number(label));
+      cache[label] = JSON.stringify(level).slice(0, -1);
+    }
+    instance[lsCacheSym] = cache;
+    return instance;
+  }
+  function isStandardLevel(level, useOnlyCustomLevels) {
+    if (useOnlyCustomLevels) {
+      return false;
+    }
+    switch (level) {
+      case "fatal":
+      case "error":
+      case "warn":
+      case "info":
+      case "debug":
+      case "trace":
+        return true;
+      default:
+        return false;
+    }
+  }
+  function setLevel(level) {
+    const { labels, values } = this.levels;
+    if (typeof level === "number") {
+      if (labels[level] === undefined)
+        throw Error("unknown level value" + level);
+      level = labels[level];
+    }
+    if (values[level] === undefined)
+      throw Error("unknown level " + level);
+    const preLevelVal = this[levelValSym];
+    const levelVal = this[levelValSym] = values[level];
+    const useOnlyCustomLevelsVal = this[useOnlyCustomLevelsSym];
+    const levelComparison = this[levelCompSym];
+    const hook = this[hooksSym].logMethod;
+    for (const key in values) {
+      if (levelComparison(values[key], levelVal) === false) {
+        this[key] = noop;
+        continue;
+      }
+      this[key] = isStandardLevel(key, useOnlyCustomLevelsVal) ? levelMethods[key](hook) : genLog(values[key], hook);
+    }
+    this.emit("level-change", level, levelVal, labels[preLevelVal], preLevelVal, this);
+  }
+  function getLevel(level) {
+    const { levels, levelVal } = this;
+    return levels && levels.labels ? levels.labels[levelVal] : "";
+  }
+  function isLevelEnabled(logLevel) {
+    const { values } = this.levels;
+    const logLevelVal = values[logLevel];
+    return logLevelVal !== undefined && this[levelCompSym](logLevelVal, this[levelValSym]);
+  }
+  function compareLevel(direction, current, expected) {
+    if (direction === SORTING_ORDER.DESC) {
+      return current <= expected;
+    }
+    return current >= expected;
+  }
+  function genLevelComparison(levelComparison) {
+    if (typeof levelComparison === "string") {
+      return compareLevel.bind(null, levelComparison);
+    }
+    return levelComparison;
+  }
+  function mappings(customLevels = null, useOnlyCustomLevels = false) {
+    const customNums = customLevels ? Object.keys(customLevels).reduce((o, k) => {
+      o[customLevels[k]] = k;
+      return o;
+    }, {}) : null;
+    const labels = Object.assign(Object.create(Object.prototype, { Infinity: { value: "silent" } }), useOnlyCustomLevels ? null : nums, customNums);
+    const values = Object.assign(Object.create(Object.prototype, { silent: { value: Infinity } }), useOnlyCustomLevels ? null : DEFAULT_LEVELS, customLevels);
+    return { labels, values };
+  }
+  function assertDefaultLevelFound(defaultLevel, customLevels, useOnlyCustomLevels) {
+    if (typeof defaultLevel === "number") {
+      const values = [].concat(Object.keys(customLevels || {}).map((key) => customLevels[key]), useOnlyCustomLevels ? [] : Object.keys(nums).map((level) => +level), Infinity);
+      if (!values.includes(defaultLevel)) {
+        throw Error(`default level:${defaultLevel} must be included in custom levels`);
+      }
+      return;
+    }
+    const labels = Object.assign(Object.create(Object.prototype, { silent: { value: Infinity } }), useOnlyCustomLevels ? null : DEFAULT_LEVELS, customLevels);
+    if (!(defaultLevel in labels)) {
+      throw Error(`default level:${defaultLevel} must be included in custom levels`);
+    }
+  }
+  function assertNoLevelCollisions(levels, customLevels) {
+    const { labels, values } = levels;
+    for (const k in customLevels) {
+      if (k in values) {
+        throw Error("levels cannot be overridden");
+      }
+      if (customLevels[k] in labels) {
+        throw Error("pre-existing level values cannot be used for new levels");
+      }
+    }
+  }
+  function assertLevelComparison(levelComparison) {
+    if (typeof levelComparison === "function") {
+      return;
+    }
+    if (typeof levelComparison === "string" && Object.values(SORTING_ORDER).includes(levelComparison)) {
+      return;
+    }
+    throw new Error('Levels comparison should be one of "ASC", "DESC" or "function" type');
+  }
+  module.exports = {
+    initialLsCache,
+    genLsCache,
+    levelMethods,
+    getLevel,
+    setLevel,
+    isLevelEnabled,
+    mappings,
+    assertNoLevelCollisions,
+    assertDefaultLevelFound,
+    genLevelComparison,
+    assertLevelComparison
+  };
+});
+
+// node_modules/pino/lib/meta.js
+var require_meta = __commonJS((exports, module) => {
+  module.exports = { version: "10.3.1" };
+});
+
+// node_modules/pino/lib/proto.js
+var require_proto = __commonJS((exports, module) => {
+  var { EventEmitter } = __require("node:events");
+  var {
+    lsCacheSym,
+    levelValSym,
+    setLevelSym,
+    getLevelSym,
+    chindingsSym,
+    mixinSym,
+    asJsonSym,
+    writeSym,
+    mixinMergeStrategySym,
+    timeSym,
+    timeSliceIndexSym,
+    streamSym,
+    serializersSym,
+    formattersSym,
+    errorKeySym,
+    messageKeySym,
+    useOnlyCustomLevelsSym,
+    needsMetadataGsym,
+    redactFmtSym,
+    stringifySym,
+    formatOptsSym,
+    stringifiersSym,
+    msgPrefixSym,
+    hooksSym
+  } = require_symbols();
+  var {
+    getLevel,
+    setLevel,
+    isLevelEnabled,
+    mappings,
+    initialLsCache,
+    genLsCache,
+    assertNoLevelCollisions
+  } = require_levels();
+  var {
+    asChindings,
+    asJson,
+    buildFormatters,
+    stringify,
+    noop
+  } = require_tools();
+  var {
+    version
+  } = require_meta();
+  var redaction = require_redaction();
+  var constructor = class Pino {
+  };
+  var prototype = {
+    constructor,
+    child,
+    bindings,
+    setBindings,
+    flush,
+    isLevelEnabled,
+    version,
+    get level() {
+      return this[getLevelSym]();
+    },
+    set level(lvl) {
+      this[setLevelSym](lvl);
+    },
+    get levelVal() {
+      return this[levelValSym];
+    },
+    set levelVal(n2) {
+      throw Error("levelVal is read-only");
+    },
+    get msgPrefix() {
+      return this[msgPrefixSym];
+    },
+    get [Symbol.toStringTag]() {
+      return "Pino";
+    },
+    [lsCacheSym]: initialLsCache,
+    [writeSym]: write,
+    [asJsonSym]: asJson,
+    [getLevelSym]: getLevel,
+    [setLevelSym]: setLevel
+  };
+  Object.setPrototypeOf(prototype, EventEmitter.prototype);
+  module.exports = function() {
+    return Object.create(prototype);
+  };
+  var resetChildingsFormatter = (bindings2) => bindings2;
+  function child(bindings2, options) {
+    if (!bindings2) {
+      throw Error("missing bindings for child Pino");
+    }
+    const serializers = this[serializersSym];
+    const formatters = this[formattersSym];
+    const instance = Object.create(this);
+    if (options == null) {
+      if (instance[formattersSym].bindings !== resetChildingsFormatter) {
+        instance[formattersSym] = buildFormatters(formatters.level, resetChildingsFormatter, formatters.log);
+      }
+      instance[chindingsSym] = asChindings(instance, bindings2);
+      if (this.onChild !== noop) {
+        this.onChild(instance);
+      }
+      return instance;
+    }
+    if (options.hasOwnProperty("serializers") === true) {
+      instance[serializersSym] = Object.create(null);
+      for (const k in serializers) {
+        instance[serializersSym][k] = serializers[k];
+      }
+      const parentSymbols = Object.getOwnPropertySymbols(serializers);
+      for (var i = 0;i < parentSymbols.length; i++) {
+        const ks = parentSymbols[i];
+        instance[serializersSym][ks] = serializers[ks];
+      }
+      for (const bk in options.serializers) {
+        instance[serializersSym][bk] = options.serializers[bk];
+      }
+      const bindingsSymbols = Object.getOwnPropertySymbols(options.serializers);
+      for (var bi = 0;bi < bindingsSymbols.length; bi++) {
+        const bks = bindingsSymbols[bi];
+        instance[serializersSym][bks] = options.serializers[bks];
+      }
+    } else
+      instance[serializersSym] = serializers;
+    if (options.hasOwnProperty("formatters")) {
+      const { level, bindings: chindings, log } = options.formatters;
+      instance[formattersSym] = buildFormatters(level || formatters.level, chindings || resetChildingsFormatter, log || formatters.log);
+    } else {
+      instance[formattersSym] = buildFormatters(formatters.level, resetChildingsFormatter, formatters.log);
+    }
+    if (options.hasOwnProperty("customLevels") === true) {
+      assertNoLevelCollisions(this.levels, options.customLevels);
+      instance.levels = mappings(options.customLevels, instance[useOnlyCustomLevelsSym]);
+      genLsCache(instance);
+    }
+    if (typeof options.redact === "object" && options.redact !== null || Array.isArray(options.redact)) {
+      instance.redact = options.redact;
+      const stringifiers = redaction(instance.redact, stringify);
+      const formatOpts = { stringify: stringifiers[redactFmtSym] };
+      instance[stringifySym] = stringify;
+      instance[stringifiersSym] = stringifiers;
+      instance[formatOptsSym] = formatOpts;
+    }
+    if (typeof options.msgPrefix === "string") {
+      instance[msgPrefixSym] = (this[msgPrefixSym] || "") + options.msgPrefix;
+    }
+    instance[chindingsSym] = asChindings(instance, bindings2);
+    if (options.level !== undefined && options.level !== this.level || options.hasOwnProperty("customLevels")) {
+      const childLevel = options.level || this.level;
+      instance[setLevelSym](childLevel);
+    }
+    this.onChild(instance);
+    return instance;
+  }
+  function bindings() {
+    const chindings = this[chindingsSym];
+    const chindingsJson = `{${chindings.substr(1)}}`;
+    const bindingsFromJson = JSON.parse(chindingsJson);
+    delete bindingsFromJson.pid;
+    delete bindingsFromJson.hostname;
+    return bindingsFromJson;
+  }
+  function setBindings(newBindings) {
+    const chindings = asChindings(this, newBindings);
+    this[chindingsSym] = chindings;
+  }
+  function defaultMixinMergeStrategy(mergeObject, mixinObject) {
+    return Object.assign(mixinObject, mergeObject);
+  }
+  function write(_obj, msg, num) {
+    const t2 = this[timeSym]();
+    const mixin = this[mixinSym];
+    const errorKey = this[errorKeySym];
+    const messageKey = this[messageKeySym];
+    const mixinMergeStrategy = this[mixinMergeStrategySym] || defaultMixinMergeStrategy;
+    let obj;
+    const streamWriteHook = this[hooksSym].streamWrite;
+    if (_obj === undefined || _obj === null) {
+      obj = {};
+    } else if (_obj instanceof Error) {
+      obj = { [errorKey]: _obj };
+      if (msg === undefined) {
+        msg = _obj.message;
+      }
+    } else {
+      obj = _obj;
+      if (msg === undefined && _obj[messageKey] === undefined && _obj[errorKey]) {
+        msg = _obj[errorKey].message;
+      }
+    }
+    if (mixin) {
+      obj = mixinMergeStrategy(obj, mixin(obj, num, this));
+    }
+    const s = this[asJsonSym](obj, msg, num, t2);
+    const stream = this[streamSym];
+    if (stream[needsMetadataGsym] === true) {
+      stream.lastLevel = num;
+      stream.lastObj = obj;
+      stream.lastMsg = msg;
+      stream.lastTime = t2.slice(this[timeSliceIndexSym]);
+      stream.lastLogger = this;
+    }
+    stream.write(streamWriteHook ? streamWriteHook(s) : s);
+  }
+  function flush(cb) {
+    if (cb != null && typeof cb !== "function") {
+      throw Error("callback must be a function");
+    }
+    const stream = this[streamSym];
+    if (typeof stream.flush === "function") {
+      stream.flush(cb || noop);
+    } else if (cb)
+      cb();
+  }
+});
+
+// node_modules/safe-stable-stringify/index.js
+var require_safe_stable_stringify = __commonJS((exports, module) => {
+  var { hasOwnProperty } = Object.prototype;
+  var stringify = configure();
+  stringify.configure = configure;
+  stringify.stringify = stringify;
+  stringify.default = stringify;
+  exports.stringify = stringify;
+  exports.configure = configure;
+  module.exports = stringify;
+  var strEscapeSequencesRegExp = /[\u0000-\u001f\u0022\u005c\ud800-\udfff]/;
+  function strEscape(str) {
+    if (str.length < 5000 && !strEscapeSequencesRegExp.test(str)) {
+      return `"${str}"`;
+    }
+    return JSON.stringify(str);
+  }
+  function sort(array, comparator) {
+    if (array.length > 200 || comparator) {
+      return array.sort(comparator);
+    }
+    for (let i = 1;i < array.length; i++) {
+      const currentValue = array[i];
+      let position = i;
+      while (position !== 0 && array[position - 1] > currentValue) {
+        array[position] = array[position - 1];
+        position--;
+      }
+      array[position] = currentValue;
+    }
+    return array;
+  }
+  var typedArrayPrototypeGetSymbolToStringTag = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(Object.getPrototypeOf(new Int8Array)), Symbol.toStringTag).get;
+  function isTypedArrayWithEntries(value) {
+    return typedArrayPrototypeGetSymbolToStringTag.call(value) !== undefined && value.length !== 0;
+  }
+  function stringifyTypedArray(array, separator, maximumBreadth) {
+    if (array.length < maximumBreadth) {
+      maximumBreadth = array.length;
+    }
+    const whitespace = separator === "," ? "" : " ";
+    let res = `"0":${whitespace}${array[0]}`;
+    for (let i = 1;i < maximumBreadth; i++) {
+      res += `${separator}"${i}":${whitespace}${array[i]}`;
+    }
+    return res;
+  }
+  function getCircularValueOption(options) {
+    if (hasOwnProperty.call(options, "circularValue")) {
+      const circularValue = options.circularValue;
+      if (typeof circularValue === "string") {
+        return `"${circularValue}"`;
+      }
+      if (circularValue == null) {
+        return circularValue;
+      }
+      if (circularValue === Error || circularValue === TypeError) {
+        return {
+          toString() {
+            throw new TypeError("Converting circular structure to JSON");
+          }
+        };
+      }
+      throw new TypeError('The "circularValue" argument must be of type string or the value null or undefined');
+    }
+    return '"[Circular]"';
+  }
+  function getDeterministicOption(options) {
+    let value;
+    if (hasOwnProperty.call(options, "deterministic")) {
+      value = options.deterministic;
+      if (typeof value !== "boolean" && typeof value !== "function") {
+        throw new TypeError('The "deterministic" argument must be of type boolean or comparator function');
+      }
+    }
+    return value === undefined ? true : value;
+  }
+  function getBooleanOption(options, key) {
+    let value;
+    if (hasOwnProperty.call(options, key)) {
+      value = options[key];
+      if (typeof value !== "boolean") {
+        throw new TypeError(`The "${key}" argument must be of type boolean`);
+      }
+    }
+    return value === undefined ? true : value;
+  }
+  function getPositiveIntegerOption(options, key) {
+    let value;
+    if (hasOwnProperty.call(options, key)) {
+      value = options[key];
+      if (typeof value !== "number") {
+        throw new TypeError(`The "${key}" argument must be of type number`);
+      }
+      if (!Number.isInteger(value)) {
+        throw new TypeError(`The "${key}" argument must be an integer`);
+      }
+      if (value < 1) {
+        throw new RangeError(`The "${key}" argument must be >= 1`);
+      }
+    }
+    return value === undefined ? Infinity : value;
+  }
+  function getItemCount(number) {
+    if (number === 1) {
+      return "1 item";
+    }
+    return `${number} items`;
+  }
+  function getUniqueReplacerSet(replacerArray) {
+    const replacerSet = new Set;
+    for (const value of replacerArray) {
+      if (typeof value === "string" || typeof value === "number") {
+        replacerSet.add(String(value));
+      }
+    }
+    return replacerSet;
+  }
+  function getStrictOption(options) {
+    if (hasOwnProperty.call(options, "strict")) {
+      const value = options.strict;
+      if (typeof value !== "boolean") {
+        throw new TypeError('The "strict" argument must be of type boolean');
+      }
+      if (value) {
+        return (value2) => {
+          let message = `Object can not safely be stringified. Received type ${typeof value2}`;
+          if (typeof value2 !== "function")
+            message += ` (${value2.toString()})`;
+          throw new Error(message);
+        };
+      }
+    }
+  }
+  function configure(options) {
+    options = { ...options };
+    const fail = getStrictOption(options);
+    if (fail) {
+      if (options.bigint === undefined) {
+        options.bigint = false;
+      }
+      if (!("circularValue" in options)) {
+        options.circularValue = Error;
+      }
+    }
+    const circularValue = getCircularValueOption(options);
+    const bigint = getBooleanOption(options, "bigint");
+    const deterministic = getDeterministicOption(options);
+    const comparator = typeof deterministic === "function" ? deterministic : undefined;
+    const maximumDepth = getPositiveIntegerOption(options, "maximumDepth");
+    const maximumBreadth = getPositiveIntegerOption(options, "maximumBreadth");
+    function stringifyFnReplacer(key, parent, stack, replacer, spacer, indentation) {
+      let value = parent[key];
+      if (typeof value === "object" && value !== null && typeof value.toJSON === "function") {
+        value = value.toJSON(key);
+      }
+      value = replacer.call(parent, key, value);
+      switch (typeof value) {
+        case "string":
+          return strEscape(value);
+        case "object": {
+          if (value === null) {
+            return "null";
+          }
+          if (stack.indexOf(value) !== -1) {
+            return circularValue;
+          }
+          let res = "";
+          let join = ",";
+          const originalIndentation = indentation;
+          if (Array.isArray(value)) {
+            if (value.length === 0) {
+              return "[]";
+            }
+            if (maximumDepth < stack.length + 1) {
+              return '"[Array]"';
+            }
+            stack.push(value);
+            if (spacer !== "") {
+              indentation += spacer;
+              res += `
+${indentation}`;
+              join = `,
+${indentation}`;
+            }
+            const maximumValuesToStringify = Math.min(value.length, maximumBreadth);
+            let i = 0;
+            for (;i < maximumValuesToStringify - 1; i++) {
+              const tmp2 = stringifyFnReplacer(String(i), value, stack, replacer, spacer, indentation);
+              res += tmp2 !== undefined ? tmp2 : "null";
+              res += join;
+            }
+            const tmp = stringifyFnReplacer(String(i), value, stack, replacer, spacer, indentation);
+            res += tmp !== undefined ? tmp : "null";
+            if (value.length - 1 > maximumBreadth) {
+              const removedKeys = value.length - maximumBreadth - 1;
+              res += `${join}"... ${getItemCount(removedKeys)} not stringified"`;
+            }
+            if (spacer !== "") {
+              res += `
+${originalIndentation}`;
+            }
+            stack.pop();
+            return `[${res}]`;
+          }
+          let keys = Object.keys(value);
+          const keyLength = keys.length;
+          if (keyLength === 0) {
+            return "{}";
+          }
+          if (maximumDepth < stack.length + 1) {
+            return '"[Object]"';
+          }
+          let whitespace = "";
+          let separator = "";
+          if (spacer !== "") {
+            indentation += spacer;
+            join = `,
+${indentation}`;
+            whitespace = " ";
+          }
+          const maximumPropertiesToStringify = Math.min(keyLength, maximumBreadth);
+          if (deterministic && !isTypedArrayWithEntries(value)) {
+            keys = sort(keys, comparator);
+          }
+          stack.push(value);
+          for (let i = 0;i < maximumPropertiesToStringify; i++) {
+            const key2 = keys[i];
+            const tmp = stringifyFnReplacer(key2, value, stack, replacer, spacer, indentation);
+            if (tmp !== undefined) {
+              res += `${separator}${strEscape(key2)}:${whitespace}${tmp}`;
+              separator = join;
+            }
+          }
+          if (keyLength > maximumBreadth) {
+            const removedKeys = keyLength - maximumBreadth;
+            res += `${separator}"...":${whitespace}"${getItemCount(removedKeys)} not stringified"`;
+            separator = join;
+          }
+          if (spacer !== "" && separator.length > 1) {
+            res = `
+${indentation}${res}
+${originalIndentation}`;
+          }
+          stack.pop();
+          return `{${res}}`;
+        }
+        case "number":
+          return isFinite(value) ? String(value) : fail ? fail(value) : "null";
+        case "boolean":
+          return value === true ? "true" : "false";
+        case "undefined":
+          return;
+        case "bigint":
+          if (bigint) {
+            return String(value);
+          }
+        default:
+          return fail ? fail(value) : undefined;
+      }
+    }
+    function stringifyArrayReplacer(key, value, stack, replacer, spacer, indentation) {
+      if (typeof value === "object" && value !== null && typeof value.toJSON === "function") {
+        value = value.toJSON(key);
+      }
+      switch (typeof value) {
+        case "string":
+          return strEscape(value);
+        case "object": {
+          if (value === null) {
+            return "null";
+          }
+          if (stack.indexOf(value) !== -1) {
+            return circularValue;
+          }
+          const originalIndentation = indentation;
+          let res = "";
+          let join = ",";
+          if (Array.isArray(value)) {
+            if (value.length === 0) {
+              return "[]";
+            }
+            if (maximumDepth < stack.length + 1) {
+              return '"[Array]"';
+            }
+            stack.push(value);
+            if (spacer !== "") {
+              indentation += spacer;
+              res += `
+${indentation}`;
+              join = `,
+${indentation}`;
+            }
+            const maximumValuesToStringify = Math.min(value.length, maximumBreadth);
+            let i = 0;
+            for (;i < maximumValuesToStringify - 1; i++) {
+              const tmp2 = stringifyArrayReplacer(String(i), value[i], stack, replacer, spacer, indentation);
+              res += tmp2 !== undefined ? tmp2 : "null";
+              res += join;
+            }
+            const tmp = stringifyArrayReplacer(String(i), value[i], stack, replacer, spacer, indentation);
+            res += tmp !== undefined ? tmp : "null";
+            if (value.length - 1 > maximumBreadth) {
+              const removedKeys = value.length - maximumBreadth - 1;
+              res += `${join}"... ${getItemCount(removedKeys)} not stringified"`;
+            }
+            if (spacer !== "") {
+              res += `
+${originalIndentation}`;
+            }
+            stack.pop();
+            return `[${res}]`;
+          }
+          stack.push(value);
+          let whitespace = "";
+          if (spacer !== "") {
+            indentation += spacer;
+            join = `,
+${indentation}`;
+            whitespace = " ";
+          }
+          let separator = "";
+          for (const key2 of replacer) {
+            const tmp = stringifyArrayReplacer(key2, value[key2], stack, replacer, spacer, indentation);
+            if (tmp !== undefined) {
+              res += `${separator}${strEscape(key2)}:${whitespace}${tmp}`;
+              separator = join;
+            }
+          }
+          if (spacer !== "" && separator.length > 1) {
+            res = `
+${indentation}${res}
+${originalIndentation}`;
+          }
+          stack.pop();
+          return `{${res}}`;
+        }
+        case "number":
+          return isFinite(value) ? String(value) : fail ? fail(value) : "null";
+        case "boolean":
+          return value === true ? "true" : "false";
+        case "undefined":
+          return;
+        case "bigint":
+          if (bigint) {
+            return String(value);
+          }
+        default:
+          return fail ? fail(value) : undefined;
+      }
+    }
+    function stringifyIndent(key, value, stack, spacer, indentation) {
+      switch (typeof value) {
+        case "string":
+          return strEscape(value);
+        case "object": {
+          if (value === null) {
+            return "null";
+          }
+          if (typeof value.toJSON === "function") {
+            value = value.toJSON(key);
+            if (typeof value !== "object") {
+              return stringifyIndent(key, value, stack, spacer, indentation);
+            }
+            if (value === null) {
+              return "null";
+            }
+          }
+          if (stack.indexOf(value) !== -1) {
+            return circularValue;
+          }
+          const originalIndentation = indentation;
+          if (Array.isArray(value)) {
+            if (value.length === 0) {
+              return "[]";
+            }
+            if (maximumDepth < stack.length + 1) {
+              return '"[Array]"';
+            }
+            stack.push(value);
+            indentation += spacer;
+            let res2 = `
+${indentation}`;
+            const join2 = `,
+${indentation}`;
+            const maximumValuesToStringify = Math.min(value.length, maximumBreadth);
+            let i = 0;
+            for (;i < maximumValuesToStringify - 1; i++) {
+              const tmp2 = stringifyIndent(String(i), value[i], stack, spacer, indentation);
+              res2 += tmp2 !== undefined ? tmp2 : "null";
+              res2 += join2;
+            }
+            const tmp = stringifyIndent(String(i), value[i], stack, spacer, indentation);
+            res2 += tmp !== undefined ? tmp : "null";
+            if (value.length - 1 > maximumBreadth) {
+              const removedKeys = value.length - maximumBreadth - 1;
+              res2 += `${join2}"... ${getItemCount(removedKeys)} not stringified"`;
+            }
+            res2 += `
+${originalIndentation}`;
+            stack.pop();
+            return `[${res2}]`;
+          }
+          let keys = Object.keys(value);
+          const keyLength = keys.length;
+          if (keyLength === 0) {
+            return "{}";
+          }
+          if (maximumDepth < stack.length + 1) {
+            return '"[Object]"';
+          }
+          indentation += spacer;
+          const join = `,
+${indentation}`;
+          let res = "";
+          let separator = "";
+          let maximumPropertiesToStringify = Math.min(keyLength, maximumBreadth);
+          if (isTypedArrayWithEntries(value)) {
+            res += stringifyTypedArray(value, join, maximumBreadth);
+            keys = keys.slice(value.length);
+            maximumPropertiesToStringify -= value.length;
+            separator = join;
+          }
+          if (deterministic) {
+            keys = sort(keys, comparator);
+          }
+          stack.push(value);
+          for (let i = 0;i < maximumPropertiesToStringify; i++) {
+            const key2 = keys[i];
+            const tmp = stringifyIndent(key2, value[key2], stack, spacer, indentation);
+            if (tmp !== undefined) {
+              res += `${separator}${strEscape(key2)}: ${tmp}`;
+              separator = join;
+            }
+          }
+          if (keyLength > maximumBreadth) {
+            const removedKeys = keyLength - maximumBreadth;
+            res += `${separator}"...": "${getItemCount(removedKeys)} not stringified"`;
+            separator = join;
+          }
+          if (separator !== "") {
+            res = `
+${indentation}${res}
+${originalIndentation}`;
+          }
+          stack.pop();
+          return `{${res}}`;
+        }
+        case "number":
+          return isFinite(value) ? String(value) : fail ? fail(value) : "null";
+        case "boolean":
+          return value === true ? "true" : "false";
+        case "undefined":
+          return;
+        case "bigint":
+          if (bigint) {
+            return String(value);
+          }
+        default:
+          return fail ? fail(value) : undefined;
+      }
+    }
+    function stringifySimple(key, value, stack) {
+      switch (typeof value) {
+        case "string":
+          return strEscape(value);
+        case "object": {
+          if (value === null) {
+            return "null";
+          }
+          if (typeof value.toJSON === "function") {
+            value = value.toJSON(key);
+            if (typeof value !== "object") {
+              return stringifySimple(key, value, stack);
+            }
+            if (value === null) {
+              return "null";
+            }
+          }
+          if (stack.indexOf(value) !== -1) {
+            return circularValue;
+          }
+          let res = "";
+          const hasLength = value.length !== undefined;
+          if (hasLength && Array.isArray(value)) {
+            if (value.length === 0) {
+              return "[]";
+            }
+            if (maximumDepth < stack.length + 1) {
+              return '"[Array]"';
+            }
+            stack.push(value);
+            const maximumValuesToStringify = Math.min(value.length, maximumBreadth);
+            let i = 0;
+            for (;i < maximumValuesToStringify - 1; i++) {
+              const tmp2 = stringifySimple(String(i), value[i], stack);
+              res += tmp2 !== undefined ? tmp2 : "null";
+              res += ",";
+            }
+            const tmp = stringifySimple(String(i), value[i], stack);
+            res += tmp !== undefined ? tmp : "null";
+            if (value.length - 1 > maximumBreadth) {
+              const removedKeys = value.length - maximumBreadth - 1;
+              res += `,"... ${getItemCount(removedKeys)} not stringified"`;
+            }
+            stack.pop();
+            return `[${res}]`;
+          }
+          let keys = Object.keys(value);
+          const keyLength = keys.length;
+          if (keyLength === 0) {
+            return "{}";
+          }
+          if (maximumDepth < stack.length + 1) {
+            return '"[Object]"';
+          }
+          let separator = "";
+          let maximumPropertiesToStringify = Math.min(keyLength, maximumBreadth);
+          if (hasLength && isTypedArrayWithEntries(value)) {
+            res += stringifyTypedArray(value, ",", maximumBreadth);
+            keys = keys.slice(value.length);
+            maximumPropertiesToStringify -= value.length;
+            separator = ",";
+          }
+          if (deterministic) {
+            keys = sort(keys, comparator);
+          }
+          stack.push(value);
+          for (let i = 0;i < maximumPropertiesToStringify; i++) {
+            const key2 = keys[i];
+            const tmp = stringifySimple(key2, value[key2], stack);
+            if (tmp !== undefined) {
+              res += `${separator}${strEscape(key2)}:${tmp}`;
+              separator = ",";
+            }
+          }
+          if (keyLength > maximumBreadth) {
+            const removedKeys = keyLength - maximumBreadth;
+            res += `${separator}"...":"${getItemCount(removedKeys)} not stringified"`;
+          }
+          stack.pop();
+          return `{${res}}`;
+        }
+        case "number":
+          return isFinite(value) ? String(value) : fail ? fail(value) : "null";
+        case "boolean":
+          return value === true ? "true" : "false";
+        case "undefined":
+          return;
+        case "bigint":
+          if (bigint) {
+            return String(value);
+          }
+        default:
+          return fail ? fail(value) : undefined;
+      }
+    }
+    function stringify2(value, replacer, space) {
+      if (arguments.length > 1) {
+        let spacer = "";
+        if (typeof space === "number") {
+          spacer = " ".repeat(Math.min(space, 10));
+        } else if (typeof space === "string") {
+          spacer = space.slice(0, 10);
+        }
+        if (replacer != null) {
+          if (typeof replacer === "function") {
+            return stringifyFnReplacer("", { "": value }, [], replacer, spacer, "");
+          }
+          if (Array.isArray(replacer)) {
+            return stringifyArrayReplacer("", value, [], getUniqueReplacerSet(replacer), spacer, "");
+          }
+        }
+        if (spacer.length !== 0) {
+          return stringifyIndent("", value, [], spacer, "");
+        }
+      }
+      return stringifySimple("", value, []);
+    }
+    return stringify2;
+  }
+});
+
+// node_modules/pino/lib/multistream.js
+var require_multistream = __commonJS((exports, module) => {
+  var metadata = Symbol.for("pino.metadata");
+  var { DEFAULT_LEVELS } = require_constants();
+  var DEFAULT_INFO_LEVEL = DEFAULT_LEVELS.info;
+  function multistream(streamsArray, opts) {
+    streamsArray = streamsArray || [];
+    opts = opts || { dedupe: false };
+    const streamLevels = Object.create(DEFAULT_LEVELS);
+    streamLevels.silent = Infinity;
+    if (opts.levels && typeof opts.levels === "object") {
+      Object.keys(opts.levels).forEach((i) => {
+        streamLevels[i] = opts.levels[i];
+      });
+    }
+    const res = {
+      write,
+      add,
+      remove,
+      emit,
+      flushSync,
+      end,
+      minLevel: 0,
+      lastId: 0,
+      streams: [],
+      clone: clone2,
+      [metadata]: true,
+      streamLevels
+    };
+    if (Array.isArray(streamsArray)) {
+      streamsArray.forEach(add, res);
+    } else {
+      add.call(res, streamsArray);
+    }
+    streamsArray = null;
+    return res;
+    function write(data) {
+      let dest;
+      const level = this.lastLevel;
+      const { streams } = this;
+      let recordedLevel = 0;
+      let stream;
+      for (let i = initLoopVar(streams.length, opts.dedupe);checkLoopVar(i, streams.length, opts.dedupe); i = adjustLoopVar(i, opts.dedupe)) {
+        dest = streams[i];
+        if (dest.level <= level) {
+          if (recordedLevel !== 0 && recordedLevel !== dest.level) {
+            break;
+          }
+          stream = dest.stream;
+          if (stream[metadata]) {
+            const { lastTime, lastMsg, lastObj, lastLogger } = this;
+            stream.lastLevel = level;
+            stream.lastTime = lastTime;
+            stream.lastMsg = lastMsg;
+            stream.lastObj = lastObj;
+            stream.lastLogger = lastLogger;
+          }
+          stream.write(data);
+          if (opts.dedupe) {
+            recordedLevel = dest.level;
+          }
+        } else if (!opts.dedupe) {
+          break;
+        }
+      }
+    }
+    function emit(...args) {
+      for (const { stream } of this.streams) {
+        if (typeof stream.emit === "function") {
+          stream.emit(...args);
+        }
+      }
+    }
+    function flushSync() {
+      for (const { stream } of this.streams) {
+        if (typeof stream.flushSync === "function") {
+          stream.flushSync();
+        }
+      }
+    }
+    function add(dest) {
+      if (!dest) {
+        return res;
+      }
+      const isStream = typeof dest.write === "function" || dest.stream;
+      const stream_ = dest.write ? dest : dest.stream;
+      if (!isStream) {
+        throw Error("stream object needs to implement either StreamEntry or DestinationStream interface");
+      }
+      const { streams, streamLevels: streamLevels2 } = this;
+      let level;
+      if (typeof dest.levelVal === "number") {
+        level = dest.levelVal;
+      } else if (typeof dest.level === "string") {
+        level = streamLevels2[dest.level];
+      } else if (typeof dest.level === "number") {
+        level = dest.level;
+      } else {
+        level = DEFAULT_INFO_LEVEL;
+      }
+      const dest_ = {
+        stream: stream_,
+        level,
+        levelVal: undefined,
+        id: ++res.lastId
+      };
+      streams.unshift(dest_);
+      streams.sort(compareByLevel);
+      this.minLevel = streams[0].level;
+      return res;
+    }
+    function remove(id) {
+      const { streams } = this;
+      const index = streams.findIndex((s) => s.id === id);
+      if (index >= 0) {
+        streams.splice(index, 1);
+        streams.sort(compareByLevel);
+        this.minLevel = streams.length > 0 ? streams[0].level : -1;
+      }
+      return res;
+    }
+    function end() {
+      for (const { stream } of this.streams) {
+        if (typeof stream.flushSync === "function") {
+          stream.flushSync();
+        }
+        stream.end();
+      }
+    }
+    function clone2(level) {
+      const streams = new Array(this.streams.length);
+      for (let i = 0;i < streams.length; i++) {
+        streams[i] = {
+          level,
+          stream: this.streams[i].stream
+        };
+      }
+      return {
+        write,
+        add,
+        remove,
+        minLevel: level,
+        streams,
+        clone: clone2,
+        emit,
+        flushSync,
+        [metadata]: true
+      };
+    }
+  }
+  function compareByLevel(a12, b) {
+    return a12.level - b.level;
+  }
+  function initLoopVar(length, dedupe) {
+    return dedupe ? length - 1 : 0;
+  }
+  function adjustLoopVar(i, dedupe) {
+    return dedupe ? i - 1 : i + 1;
+  }
+  function checkLoopVar(i, length, dedupe) {
+    return dedupe ? i >= 0 : i < length;
+  }
+  module.exports = multistream;
+});
+
+// node_modules/pino/pino.js
+var require_pino = __commonJS((exports, module) => {
+  var os = __require("node:os");
+  var stdSerializers = require_pino_std_serializers();
+  var caller = require_caller();
+  var redaction = require_redaction();
+  var time = require_time();
+  var proto = require_proto();
+  var symbols = require_symbols();
+  var { configure } = require_safe_stable_stringify();
+  var { assertDefaultLevelFound, mappings, genLsCache, genLevelComparison, assertLevelComparison } = require_levels();
+  var { DEFAULT_LEVELS, SORTING_ORDER } = require_constants();
+  var {
+    createArgsNormalizer,
+    asChindings,
+    buildSafeSonicBoom,
+    buildFormatters,
+    stringify,
+    normalizeDestFileDescriptor,
+    noop
+  } = require_tools();
+  var { version } = require_meta();
+  var {
+    chindingsSym,
+    redactFmtSym,
+    serializersSym,
+    timeSym,
+    timeSliceIndexSym,
+    streamSym,
+    stringifySym,
+    stringifySafeSym,
+    stringifiersSym,
+    setLevelSym,
+    endSym,
+    formatOptsSym,
+    messageKeySym,
+    errorKeySym,
+    nestedKeySym,
+    mixinSym,
+    levelCompSym,
+    useOnlyCustomLevelsSym,
+    formattersSym,
+    hooksSym,
+    nestedKeyStrSym,
+    mixinMergeStrategySym,
+    msgPrefixSym
+  } = symbols;
+  var { epochTime, nullTime } = time;
+  var { pid } = process;
+  var hostname = os.hostname();
+  var defaultErrorSerializer = stdSerializers.err;
+  var defaultOptions = {
+    level: "info",
+    levelComparison: SORTING_ORDER.ASC,
+    levels: DEFAULT_LEVELS,
+    messageKey: "msg",
+    errorKey: "err",
+    nestedKey: null,
+    enabled: true,
+    base: { pid, hostname },
+    serializers: Object.assign(Object.create(null), {
+      err: defaultErrorSerializer
+    }),
+    formatters: Object.assign(Object.create(null), {
+      bindings(bindings) {
+        return bindings;
+      },
+      level(label, number) {
+        return { level: number };
+      }
+    }),
+    hooks: {
+      logMethod: undefined,
+      streamWrite: undefined
+    },
+    timestamp: epochTime,
+    name: undefined,
+    redact: null,
+    customLevels: null,
+    useOnlyCustomLevels: false,
+    depthLimit: 5,
+    edgeLimit: 100
+  };
+  var normalize = createArgsNormalizer(defaultOptions);
+  var serializers = Object.assign(Object.create(null), stdSerializers);
+  function pino(...args) {
+    const instance = {};
+    const { opts, stream } = normalize(instance, caller(), ...args);
+    if (opts.level && typeof opts.level === "string" && DEFAULT_LEVELS[opts.level.toLowerCase()] !== undefined)
+      opts.level = opts.level.toLowerCase();
+    const {
+      redact,
+      crlf,
+      serializers: serializers2,
+      timestamp,
+      messageKey,
+      errorKey,
+      nestedKey,
+      base,
+      name,
+      level,
+      customLevels,
+      levelComparison,
+      mixin,
+      mixinMergeStrategy,
+      useOnlyCustomLevels,
+      formatters,
+      hooks,
+      depthLimit,
+      edgeLimit,
+      onChild,
+      msgPrefix
+    } = opts;
+    const stringifySafe = configure({
+      maximumDepth: depthLimit,
+      maximumBreadth: edgeLimit
+    });
+    const allFormatters = buildFormatters(formatters.level, formatters.bindings, formatters.log);
+    const stringifyFn = stringify.bind({
+      [stringifySafeSym]: stringifySafe
+    });
+    const stringifiers = redact ? redaction(redact, stringifyFn) : {};
+    const formatOpts = redact ? { stringify: stringifiers[redactFmtSym] } : { stringify: stringifyFn };
+    const end = "}" + (crlf ? `\r
+` : `
+`);
+    const coreChindings = asChindings.bind(null, {
+      [chindingsSym]: "",
+      [serializersSym]: serializers2,
+      [stringifiersSym]: stringifiers,
+      [stringifySym]: stringify,
+      [stringifySafeSym]: stringifySafe,
+      [formattersSym]: allFormatters
+    });
+    let chindings = "";
+    if (base !== null) {
+      if (name === undefined) {
+        chindings = coreChindings(base);
+      } else {
+        chindings = coreChindings(Object.assign({}, base, { name }));
+      }
+    }
+    const time2 = timestamp instanceof Function ? timestamp : timestamp ? epochTime : nullTime;
+    const timeSliceIndex = time2().indexOf(":") + 1;
+    if (useOnlyCustomLevels && !customLevels)
+      throw Error("customLevels is required if useOnlyCustomLevels is set true");
+    if (mixin && typeof mixin !== "function")
+      throw Error(`Unknown mixin type "${typeof mixin}" - expected "function"`);
+    if (msgPrefix && typeof msgPrefix !== "string")
+      throw Error(`Unknown msgPrefix type "${typeof msgPrefix}" - expected "string"`);
+    assertDefaultLevelFound(level, customLevels, useOnlyCustomLevels);
+    const levels = mappings(customLevels, useOnlyCustomLevels);
+    if (typeof stream.emit === "function") {
+      stream.emit("message", { code: "PINO_CONFIG", config: { levels, messageKey, errorKey } });
+    }
+    assertLevelComparison(levelComparison);
+    const levelCompFunc = genLevelComparison(levelComparison);
+    Object.assign(instance, {
+      levels,
+      [levelCompSym]: levelCompFunc,
+      [useOnlyCustomLevelsSym]: useOnlyCustomLevels,
+      [streamSym]: stream,
+      [timeSym]: time2,
+      [timeSliceIndexSym]: timeSliceIndex,
+      [stringifySym]: stringify,
+      [stringifySafeSym]: stringifySafe,
+      [stringifiersSym]: stringifiers,
+      [endSym]: end,
+      [formatOptsSym]: formatOpts,
+      [messageKeySym]: messageKey,
+      [errorKeySym]: errorKey,
+      [nestedKeySym]: nestedKey,
+      [nestedKeyStrSym]: nestedKey ? `,${JSON.stringify(nestedKey)}:{` : "",
+      [serializersSym]: serializers2,
+      [mixinSym]: mixin,
+      [mixinMergeStrategySym]: mixinMergeStrategy,
+      [chindingsSym]: chindings,
+      [formattersSym]: allFormatters,
+      [hooksSym]: hooks,
+      silent: noop,
+      onChild,
+      [msgPrefixSym]: msgPrefix
+    });
+    Object.setPrototypeOf(instance, proto());
+    genLsCache(instance);
+    instance[setLevelSym](level);
+    return instance;
+  }
+  module.exports = pino;
+  module.exports.destination = (dest = process.stdout.fd) => {
+    if (typeof dest === "object") {
+      dest.dest = normalizeDestFileDescriptor(dest.dest || process.stdout.fd);
+      return buildSafeSonicBoom(dest);
+    } else {
+      return buildSafeSonicBoom({ dest: normalizeDestFileDescriptor(dest), minLength: 0 });
+    }
+  };
+  module.exports.transport = require_transport();
+  module.exports.multistream = require_multistream();
+  module.exports.levels = mappings();
+  module.exports.stdSerializers = serializers;
+  module.exports.stdTimeFunctions = Object.assign({}, time);
+  module.exports.symbols = symbols;
+  module.exports.version = version;
+  module.exports.default = pino;
+  module.exports.pino = pino;
+});
+
 // src/shared/sentry.ts
 var dsn, initialized = false, sentry;
 var init_sentry = __esm(() => {
@@ -10166,51 +14539,63 @@ var init_sentry = __esm(() => {
 });
 
 // src/shared/logger.ts
-import * as os from "node:os";
 function setCorrelationId(id) {
   correlationId = id;
 }
-function log(level, message, meta) {
-  if (LEVELS[level] < LEVELS[CURRENT_LEVEL])
-    return;
-  const entry = {
-    timestamp: new Date().toISOString(),
-    level,
-    message,
-    hostname: hostname2,
-    pid: process.pid,
-    correlationId: correlationId || undefined,
-    ...meta
-  };
-  const output = JSON.stringify(entry);
-  if (level === "error") {
-    console.error(output);
-    if (meta?.error) {
-      sentry.captureError(meta.error instanceof Error ? meta.error : new Error(String(meta.error)), { correlationId, ...meta });
+function log(level2, message, meta) {
+  const data = { ...meta, correlationId: correlationId || undefined };
+  if (data.error instanceof Error) {
+    const err = data.error;
+    delete data.error;
+    pinoLogger[level2]({ err, ...data }, message);
+    if (level2 === "error" || level2 === "fatal") {
+      sentry.captureError(err, data);
     }
-  } else if (level === "warn") {
-    console.warn(output);
+  } else if (data.error) {
+    const errStr = String(data.error);
+    delete data.error;
+    pinoLogger[level2]({ ...data }, `${message} — ${errStr}`);
+    if (level2 === "error" || level2 === "fatal") {
+      sentry.captureError(new Error(errStr), data);
+    }
   } else {
-    console.log(output);
+    pinoLogger[level2](data, message);
   }
 }
-var LEVELS, CURRENT_LEVEL, correlationId = "", hostname2, logger;
+function wrapLogger(defaultMeta) {
+  const withMeta = (msg, meta) => defaultMeta ? { ...defaultMeta, ...meta } : meta;
+  return {
+    debug: (msg, meta) => log("debug", msg, withMeta(msg, meta)),
+    info: (msg, meta) => log("info", msg, withMeta(msg, meta)),
+    warn: (msg, meta) => log("warn", msg, withMeta(msg, meta)),
+    error: (msg, meta) => log("error", msg, withMeta(msg, meta))
+  };
+}
+var import_pino, level, isDev = true, pinoLogger, correlationId = "", logger;
 var init_logger = __esm(() => {
   init_sentry();
-  LEVELS = { debug: 0, info: 1, warn: 2, error: 3 };
-  CURRENT_LEVEL = process.env.LOG_LEVEL || "info";
-  hostname2 = os.hostname();
+  import_pino = __toESM(require_pino(), 1);
+  level = process.env.LOG_LEVEL || "info";
+  pinoLogger = import_pino.default({
+    level,
+    ...isDev && {
+      transport: {
+        target: "pino-pretty",
+        options: {
+          colorize: true,
+          translateTime: "HH:MM:ss.l",
+          ignore: "pid,hostname,correlationId",
+          messageFormat: "{msg} {if correlationId}[{correlationId}]{end}"
+        }
+      }
+    },
+    serializers: {
+      error: import_pino.default.stdSerializers.err
+    }
+  });
   logger = {
-    debug: (msg, meta) => log("debug", msg, meta),
-    info: (msg, meta) => log("info", msg, meta),
-    warn: (msg, meta) => log("warn", msg, meta),
-    error: (msg, meta) => log("error", msg, meta),
-    child: (defaultMeta) => ({
-      debug: (msg, meta) => log("debug", msg, { ...defaultMeta, ...meta }),
-      info: (msg, meta) => log("info", msg, { ...defaultMeta, ...meta }),
-      warn: (msg, meta) => log("warn", msg, { ...defaultMeta, ...meta }),
-      error: (msg, meta) => log("error", msg, { ...defaultMeta, ...meta })
-    }),
+    ...wrapLogger(),
+    child: (defaultMeta) => wrapLogger(defaultMeta),
     flush: async () => {
       await sentry.flush();
     }
@@ -10218,7 +14603,13 @@ var init_logger = __esm(() => {
 });
 
 // src/shared/database/pool.ts
-async function query(text, params = []) {
+var exports_pool = {};
+__export(exports_pool, {
+  testConnection: () => testConnection,
+  query: () => query2,
+  pool: () => pool
+});
+async function query2(text, params = []) {
   try {
     const start = Date.now();
     const res = await pool.query(text, params);
@@ -10255,9 +14646,9 @@ var init_pool = __esm(() => {
 });
 
 // src/shared/errors/app-error.ts
-var AppError;
+var AppError2;
 var init_app_error = __esm(() => {
-  AppError = class AppError extends Error {
+  AppError2 = class AppError2 extends Error {
     statusCode;
     details;
     status;
@@ -16049,14 +20440,14 @@ var init_dist = __esm(() => {
 var require_node_gyp_build = __commonJS((exports, module) => {
   var fs = __require("fs");
   var path = __require("path");
-  var os2 = __require("os");
+  var os = __require("os");
   var runtimeRequire = typeof __webpack_require__ === "function" ? __non_webpack_require__ : __require;
   var vars = process.config && process.config.variables || {};
   var prebuildsOnly = !!process.env.PREBUILDS_ONLY;
   var abi = process.versions.modules;
   var runtime = isElectron() ? "electron" : isNwjs() ? "node-webkit" : "node";
-  var arch = process.env.npm_config_arch || os2.arch();
-  var platform = process.env.npm_config_platform || os2.platform();
+  var arch = process.env.npm_config_arch || os.arch();
+  var platform = process.env.npm_config_platform || os.platform();
   var libc = process.env.LIBC || (isAlpine(platform) ? "musl" : "glibc");
   var armv = process.env.ARM_VERSION || (arch === "arm64" ? "8" : vars.arm_version) || "";
   var uv = (process.versions.uv || "").split(".")[0];
@@ -17286,7 +21677,7 @@ var require_timespan = __commonJS((exports, module) => {
 });
 
 // node_modules/semver/internal/constants.js
-var require_constants = __commonJS((exports, module) => {
+var require_constants2 = __commonJS((exports, module) => {
   var SEMVER_SPEC_VERSION = "2.0.0";
   var MAX_LENGTH = 256;
   var MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER || 9007199254740991;
@@ -17325,7 +21716,7 @@ var require_re = __commonJS((exports, module) => {
     MAX_SAFE_COMPONENT_LENGTH,
     MAX_SAFE_BUILD_LENGTH,
     MAX_LENGTH
-  } = require_constants();
+  } = require_constants2();
   var debug2 = require_debug();
   exports = module.exports = {};
   var re = exports.re = [];
@@ -17445,7 +21836,7 @@ var require_identifiers = __commonJS((exports, module) => {
 // node_modules/semver/classes/semver.js
 var require_semver = __commonJS((exports, module) => {
   var debug2 = require_debug();
-  var { MAX_LENGTH, MAX_SAFE_INTEGER } = require_constants();
+  var { MAX_LENGTH, MAX_SAFE_INTEGER } = require_constants2();
   var { safeRe: re, t: t2 } = require_re();
   var parseOptions = require_parse_options();
   var { compareIdentifiers } = require_identifiers();
@@ -18034,7 +22425,7 @@ var require_coerce = __commonJS((exports, module) => {
 // node_modules/semver/functions/truncate.js
 var require_truncate = __commonJS((exports, module) => {
   var parse3 = require_parse();
-  var constants = require_constants();
+  var constants = require_constants2();
   var SemVer = require_semver();
   var truncate = (version, truncation, options) => {
     if (!constants.RELEASE_TYPES.includes(truncation)) {
@@ -18261,7 +22652,7 @@ var require_range = __commonJS((exports, module) => {
     tildeTrimReplace,
     caretTrimReplace
   } = require_re();
-  var { FLAG_INCLUDE_PRERELEASE, FLAG_LOOSE } = require_constants();
+  var { FLAG_INCLUDE_PRERELEASE, FLAG_LOOSE } = require_constants2();
   var BUILDSTRIPRE = new RegExp(src[t2.BUILD], "g");
   var isNullSet = (c) => c.value === "<0.0.0-0";
   var isAny = (c) => c.value === "";
@@ -19038,7 +23429,7 @@ var require_subset = __commonJS((exports, module) => {
 // node_modules/semver/index.js
 var require_semver2 = __commonJS((exports, module) => {
   var internalRe = require_re();
-  var constants = require_constants();
+  var constants = require_constants2();
   var SemVer = require_semver();
   var identifiers = require_identifiers();
   var parse3 = require_parse();
@@ -20083,7 +24474,7 @@ var init_user_repository = __esm(() => {
   init_app_error();
   userRepository = {
     async create(data) {
-      const r2 = await query(`
+      const r2 = await query2(`
       INSERT INTO users (id, email, password, full_name, phone, address, role, status)
       VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
       RETURNING id
@@ -20091,7 +24482,7 @@ var init_user_repository = __esm(() => {
       return this.getById(r2.rows[0].id);
     },
     async getById(id) {
-      const r2 = await query(`
+      const r2 = await query2(`
       SELECT u.id, u.email, u.full_name as "fullName", u.phone, u.address,
              u.role as "role", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt"
       FROM users u
@@ -20100,7 +24491,7 @@ var init_user_repository = __esm(() => {
       return r2.rowCount ? r2.rows[0] : null;
     },
     async getByEmail(email) {
-      const r2 = await query(`
+      const r2 = await query2(`
       SELECT u.id, u.email, u.password, u.full_name as "fullName", u.phone, u.address,
              u.role as "role", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt"
       FROM users u
@@ -20109,7 +24500,7 @@ var init_user_repository = __esm(() => {
       return r2.rowCount ? r2.rows[0] : null;
     },
     async getPasswordHash(id) {
-      const r2 = await query("SELECT password FROM users WHERE id = $1", [id]);
+      const r2 = await query2("SELECT password FROM users WHERE id = $1", [id]);
       return r2.rowCount ? r2.rows[0].password : null;
     },
     async list(filters = {}) {
@@ -20135,9 +24526,9 @@ var init_user_repository = __esm(() => {
         params.push(filters.role);
       }
       const where = "WHERE " + conditions.join(" AND ");
-      const countR = await query(`SELECT COUNT(*) as total FROM users u ${where}`, params);
+      const countR = await query2(`SELECT COUNT(*) as total FROM users u ${where}`, params);
       const totalCount = parseInt(countR.rows[0].total);
-      const usersR = await query(`
+      const usersR = await query2(`
       SELECT u.id, u.email, u.full_name as "fullName", u.phone, u.address,
              u.role as "role", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt"
       FROM users u
@@ -20174,99 +24565,186 @@ var init_user_repository = __esm(() => {
         params.push(data.status);
       }
       if (fields.length === 0)
-        throw new AppError(400, "No fields to update");
+        throw new AppError2(400, "No fields to update");
       fields.push("updated_at = CURRENT_TIMESTAMP");
-      await query(`UPDATE users SET ${fields.join(", ")} WHERE id = $${pc + 1}`, [...params, id]);
+      await query2(`UPDATE users SET ${fields.join(", ")} WHERE id = $${pc + 1}`, [...params, id]);
       return this.getById(id);
     },
     async updatePassword(id, hash2) {
-      await query(`UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, [hash2, id]);
+      await query2(`UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, [hash2, id]);
     },
     async softDelete(id) {
-      await query(`UPDATE users SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [id]);
+      await query2(`UPDATE users SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [id]);
     },
     async existsByEmail(email) {
-      const r2 = await query("SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL", [email]);
+      const r2 = await query2("SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL", [email]);
       return r2.rowCount !== null && r2.rowCount > 0;
+    },
+    async getByPhone(phone) {
+      const r2 = await query2(`
+      SELECT u.id, u.email, u.password, u.full_name as "fullName", u.phone, u.address,
+             u.role as "role", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt"
+      FROM users u
+      WHERE u.phone = $1 AND u.deleted_at IS NULL
+    `, [phone]);
+      return r2.rowCount ? r2.rows[0] : null;
     }
   };
 });
 
-// src/identity/user.service.ts
-var import_bcrypt2, userService;
-var init_user_service = __esm(() => {
-  init_snowflake();
-  init_app_error();
-  init_user_repository();
-  import_bcrypt2 = __toESM(require_bcrypt(), 1);
-  userService = {
-    async create(data) {
-      if (await userRepository.existsByEmail(data.email)) {
-        throw new AppError(400, "El email ya está registrado");
-      }
-      const hash2 = await import_bcrypt2.default.hash(data.password, 10);
-      return userRepository.create({ id: nextSnowflake(), ...data, password: hash2 });
-    },
-    getById(id) {
-      return userRepository.getById(id);
-    },
-    getByEmail(email) {
-      return userRepository.getByEmail(email);
-    },
-    list(filters) {
-      return userRepository.list(filters);
-    },
-    async update(id, data) {
-      const user = await userRepository.getById(id);
-      if (!user)
-        throw new AppError(404, "Usuario no encontrado");
-      return userRepository.update(id, data);
-    },
-    async changePassword(id, newPassword) {
-      const user = await userRepository.getById(id);
-      if (!user)
-        throw new AppError(404, "Usuario no encontrado");
-      const hash2 = await import_bcrypt2.default.hash(newPassword, 10);
-      await userRepository.updatePassword(id, hash2);
-    },
-    async delete(id) {
-      const user = await userRepository.getById(id);
-      if (!user)
-        throw new AppError(404, "Usuario no encontrado");
-      await userRepository.softDelete(id);
-    }
-  };
-});
-
-// src/banking/account/account.repository.ts
-var accountRepository;
-var init_account_repository = __esm(() => {
+// src/identity/tenants/tenant.repository.ts
+var tenantRepository;
+var init_tenant_repository = __esm(() => {
   init_pool();
-  init_snowflake();
-  accountRepository = {
+  tenantRepository = {
     async create(data) {
-      const r2 = await query(`
-      INSERT INTO accounts (id, account_number, account_type, account_level, account_subtype, currency, balance, available_balance, user_id, bank_credential_id)
-      VALUES ($1, $2, $3, $4, $5, $6, 0.00, 0.00, $7, $8)
-      RETURNING *
-    `, [nextSnowflake(), data.accountNumber, data.accountType, data.accountLevel || "client", data.accountSubtype || "passthrough", data.currency || "BOB", data.userId || null, data.bankCredentialId || null]);
+      const r2 = await query2(`
+      INSERT INTO tenants (id, full_name, email, phone, document_type, document_number,
+        date_of_birth, nationality, address, environment)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING id, full_name as "fullName", email, phone,
+        document_type as "documentType", document_number as "documentNumber",
+        date_of_birth as "dateOfBirth", nationality, address,
+        photo_url as "photoUrl", biometric_hash as "biometricHash",
+        biometric_data_url as "biometricDataUrl",
+        kyc_level as "kycLevel", kyc_submitted_at as "kycSubmittedAt",
+        kyc_verified_at as "kycVerifiedAt", kyc_verified_by as "kycVerifiedBy",
+        kyc_rejection_reason as "kycRejectionReason", status, environment
+    `, [
+        data.id,
+        data.fullName,
+        data.email || null,
+        data.phone || null,
+        data.documentType || null,
+        data.documentNumber || null,
+        data.dateOfBirth || null,
+        data.nationality || null,
+        data.address || null,
+        data.environment || "production"
+      ]);
       return r2.rows[0];
     },
     async getById(id) {
-      const r2 = await query("SELECT * FROM accounts WHERE id = $1 AND deleted_at IS NULL", [id]);
+      const r2 = await query2(`
+      SELECT id, full_name as "fullName", email, phone,
+        document_type as "documentType", document_number as "documentNumber",
+        date_of_birth as "dateOfBirth", nationality, address,
+        photo_url as "photoUrl", biometric_hash as "biometricHash",
+        biometric_data_url as "biometricDataUrl",
+        kyc_level as "kycLevel", kyc_submitted_at as "kycSubmittedAt",
+        kyc_verified_at as "kycVerifiedAt", kyc_verified_by as "kycVerifiedBy",
+        kyc_rejection_reason as "kycRejectionReason", status, environment
+      FROM tenants WHERE id = $1 AND deleted_at IS NULL
+    `, [id]);
       return r2.rowCount ? r2.rows[0] : null;
     },
-    async getByAccountNumber(number) {
-      const r2 = await query("SELECT * FROM accounts WHERE account_number = $1 AND deleted_at IS NULL", [number]);
-      return r2.rowCount ? r2.rows[0] : null;
+    async update(id, data) {
+      const sets = [];
+      const params = [];
+      let pc = 0;
+      for (const [k, v] of Object.entries(data)) {
+        if (v === undefined)
+          continue;
+        pc++;
+        sets.push(`${k.replace(/([A-Z])/g, "_$1").toLowerCase()} = $${pc}`);
+        params.push(v);
+      }
+      if (!sets.length)
+        return null;
+      sets.push("updated_at = CURRENT_TIMESTAMP");
+      await query2(`UPDATE tenants SET ${sets.join(", ")} WHERE id = $${pc + 1}`, [...params, id]);
+      return this.getById(id);
+    },
+    async setTenant(userId, tenantId, role = "owner") {
+      await query2(`
+      INSERT INTO tenant_users (user_id, tenant_id, role)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (user_id) DO UPDATE SET role = $3, deleted_at = NULL
+    `, [userId, tenantId, role]);
     },
     async listByUser(userId) {
-      const r2 = await query(`
-      SELECT a.*, ua.is_primary as "isPrimary", ua.role as "userRole"
-      FROM accounts a
-      JOIN user_accounts ua ON a.id = ua.account_id
-      WHERE ua.user_id = $1 AND a.deleted_at IS NULL AND ua.deleted_at IS NULL
-      ORDER BY ua.is_primary DESC
+      const r2 = await query2(`
+      SELECT t.id, t.full_name as "fullName", t.email, t.phone,
+        t.document_type as "documentType", t.document_number as "documentNumber",
+        t.date_of_birth as "dateOfBirth", t.nationality, t.address,
+        t.photo_url as "photoUrl", t.biometric_hash as "biometricHash",
+        t.biometric_data_url as "biometricDataUrl",
+        t.kyc_level as "kycLevel", t.kyc_submitted_at as "kycSubmittedAt",
+        t.kyc_verified_at as "kycVerifiedAt", t.kyc_verified_by as "kycVerifiedBy",
+        t.kyc_rejection_reason as "kycRejectionReason", t.status, t.environment,
+        tu.role as "userRole"
+      FROM tenants t
+      JOIN tenant_users tu ON t.id = tu.tenant_id
+      WHERE tu.user_id = $1 AND t.deleted_at IS NULL AND tu.deleted_at IS NULL
+    `, [userId]);
+      return r2.rows;
+    }
+  };
+});
+
+// src/banking/wallet/wallet.repository.ts
+var WLT_COLS = `w.id, w.wallet_number as "walletNumber", w.name, w.type, w.level,
+  w.currency, w.balance, w.available_balance as "availableBalance",
+  w.held_balance as "heldBalance", w.tenant_id as "tenantId",
+  w.status, w.is_default as "isDefault", w.is_collection as "isCollection",
+  w.baneco_credential_id as "banecoCredentialId",
+  w.max_per_tx as "maxPerTx", w.max_daily as "maxDaily", w.max_monthly as "maxMonthly"`, WLT_COLS_NOA = `id, wallet_number as "walletNumber", name, type, level,
+  currency, balance, available_balance as "availableBalance",
+  held_balance as "heldBalance", tenant_id as "tenantId",
+  status, is_default as "isDefault", is_collection as "isCollection",
+  baneco_credential_id as "banecoCredentialId",
+  max_per_tx as "maxPerTx", max_daily as "maxDaily", max_monthly as "maxMonthly"`, walletRepository;
+var init_wallet_repository = __esm(() => {
+  init_pool();
+  init_snowflake();
+  walletRepository = {
+    async create(data) {
+      const r2 = await query2(`
+      INSERT INTO wallets (id, wallet_number, name, type, level, currency,
+        balance, available_balance, held_balance, tenant_id,
+        baneco_credential_id, is_collection, is_default)
+      VALUES ($1, $2, $3, $4, $5, $6, 0.00, 0.00, 0.00, $7, $8, $9, $10)
+      RETURNING ${WLT_COLS_NOA}
+    `, [
+        nextSnowflake(),
+        data.walletNumber,
+        data.name || "Mi Wallet",
+        data.type,
+        data.level || "bronze",
+        data.currency || "BOB",
+        data.tenantId || null,
+        data.banecoCredentialId || null,
+        data.isCollection || false,
+        data.isDefault || false
+      ]);
+      return r2.rows[0];
+    },
+    async getById(id) {
+      const r2 = await query2(`SELECT ${WLT_COLS} FROM wallets w WHERE w.id = $1 AND w.deleted_at IS NULL`, [id]);
+      return r2.rowCount ? r2.rows[0] : null;
+    },
+    async getByWalletNumber(number) {
+      const r2 = await query2(`SELECT ${WLT_COLS} FROM wallets w WHERE w.wallet_number = $1 AND w.deleted_at IS NULL`, [number]);
+      return r2.rowCount ? r2.rows[0] : null;
+    },
+    async listByTenant(tenantId) {
+      const r2 = await query2(`
+      SELECT ${WLT_COLS}, COALESCE(wp.role, 'viewer') as "userRole"
+      FROM wallets w
+      LEFT JOIN wallet_permissions wp ON w.id = wp.wallet_id AND wp.deleted_at IS NULL
+      WHERE w.tenant_id = $1 AND w.deleted_at IS NULL
+    `, [tenantId]);
+      return r2.rows;
+    },
+    async listByUser(userId) {
+      const r2 = await query2(`
+      SELECT ${WLT_COLS}, wp.role as "permissionRole",
+        t.full_name as "holderName"
+      FROM wallets w
+      JOIN wallet_permissions wp ON w.id = wp.wallet_id
+      LEFT JOIN tenants t ON t.id = w.tenant_id
+      WHERE wp.user_id = $1 AND w.deleted_at IS NULL AND wp.deleted_at IS NULL AND (t.id IS NULL OR t.deleted_at IS NULL)
+      ORDER BY wp.role ASC
     `, [userId]);
       return r2.rows;
     },
@@ -20283,20 +24761,20 @@ var init_account_repository = __esm(() => {
         params.push(filters.status);
       }
       const where = "WHERE " + conditions.join(" AND ");
-      const c = await query(`SELECT COUNT(*) as t FROM accounts ${where}`, params);
-      const r2 = await query(`SELECT * FROM accounts ${where} ORDER BY created_at DESC LIMIT $${pc + 1} OFFSET $${pc + 2}`, [...params, limit, offset]);
-      return { accounts: r2.rows, totalCount: parseInt(c.rows[0].t) };
+      const c = await query2(`SELECT COUNT(*) as t FROM wallets ${where}`, params);
+      const r2 = await query2(`SELECT ${WLT_COLS_NOA} FROM wallets ${where} ORDER BY id DESC LIMIT $${pc + 1} OFFSET $${pc + 2}`, [...params, limit, offset]);
+      return { wallets: r2.rows, totalCount: parseInt(c.rows[0].t) };
     },
     async createMovement(data) {
-      const r2 = await query(`
-      INSERT INTO account_movements (id, account_id, movement_type, amount, balance_before, balance_after,
+      const r2 = await query2(`
+      INSERT INTO wallet_movements (id, wallet_id, movement_type, amount, balance_before, balance_after,
         description, qr_id, transaction_id, payment_date, currency, sender_name,
         sender_document_id, sender_account, sender_bank_code, settlement_id, reference_id, reference_type, status)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
       RETURNING *
     `, [
         nextSnowflake(),
-        data.accountId,
+        data.walletId,
         data.movementType,
         data.amount,
         data.balanceBefore,
@@ -20317,12 +24795,12 @@ var init_account_repository = __esm(() => {
       ]);
       return r2.rows[0];
     },
-    async getMovements(accountId, filters = {}) {
+    async getMovements(walletId, filters = {}) {
       const page = filters.page || 1;
       const limit = filters.limit || 20;
       const offset = (page - 1) * limit;
-      const conditions = ["account_id = $1", "deleted_at IS NULL"];
-      const params = [accountId];
+      const conditions = ["wallet_id = $1", "deleted_at IS NULL"];
+      const params = [walletId];
       let pc = 1;
       if (filters.from) {
         pc++;
@@ -20340,45 +24818,194 @@ var init_account_repository = __esm(() => {
         params.push(filters.type);
       }
       const where = "WHERE " + conditions.join(" AND ");
-      const c = await query(`SELECT COUNT(*) as t FROM account_movements ${where}`, params);
-      const r2 = await query(`SELECT * FROM account_movements ${where} ORDER BY created_at DESC LIMIT $${pc + 1} OFFSET $${pc + 2}`, [...params, limit, offset]);
+      const c = await query2(`SELECT COUNT(*) as t FROM wallet_movements ${where}`, params);
+      const r2 = await query2(`SELECT * FROM wallet_movements ${where} ORDER BY created_at DESC LIMIT $${pc + 1} OFFSET $${pc + 2}`, [...params, limit, offset]);
       return { movements: r2.rows, totalCount: parseInt(c.rows[0].t) };
     },
-    async getStats(accountId) {
-      const r2 = await query(`
+    async getStats(walletId) {
+      const r2 = await query2(`
       SELECT
         COALESCE(SUM(CASE WHEN created_at >= CURRENT_DATE THEN amount ELSE 0 END), 0) as today,
         COALESCE(SUM(CASE WHEN created_at >= DATE_TRUNC('week', CURRENT_DATE) THEN amount ELSE 0 END), 0) as week,
         COALESCE(SUM(CASE WHEN created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN amount ELSE 0 END), 0) as month
-      FROM account_movements WHERE account_id = $1 AND movement_type IN ('deposit','qr_payment','transfer_in') AND deleted_at IS NULL
-    `, [accountId]);
+      FROM wallet_movements WHERE wallet_id = $1 AND movement_type IN ('deposit','qr_payment','transfer_in') AND deleted_at IS NULL
+    `, [walletId]);
       return r2.rows[0];
     },
-    async linkUser(userId, accountId, role = "owner", isPrimary = true) {
-      await query(`
-      INSERT INTO user_accounts (user_id, account_id, role, is_primary)
-      VALUES ($1, $2, $3, $4) ON CONFLICT (user_id, account_id) DO UPDATE SET role = $3, is_primary = $4
-    `, [userId, accountId, role, isPrimary]);
-    },
     async getBusinessAccount() {
-      const r2 = await query(`
-      SELECT * FROM accounts WHERE account_level = 'business' AND deleted_at IS NULL LIMIT 1
-    `);
+      const r2 = await query2(`SELECT ${WLT_COLS} FROM wallets w WHERE w.type = 'business' AND w.deleted_at IS NULL LIMIT 1`);
       return r2.rowCount ? r2.rows[0] : null;
     },
-    async getByUserId(userId, accountLevel) {
-      let sql = `
-      SELECT a.* FROM accounts a
-      JOIN user_accounts ua ON a.id = ua.account_id
-      WHERE ua.user_id = $1 AND a.deleted_at IS NULL AND ua.deleted_at IS NULL
-    `;
-      const params = [userId];
-      if (accountLevel) {
-        sql += " AND a.account_level = $2";
-        params.push(accountLevel);
+    async update(id, data) {
+      const sets = [];
+      const params = [id];
+      let pc = 1;
+      if (data.type !== undefined) {
+        pc++;
+        sets.push(`type = $${pc}`);
+        params.push(data.type);
       }
-      const r2 = await query(sql, params);
+      if (data.status !== undefined) {
+        pc++;
+        sets.push(`status = $${pc}`);
+        params.push(data.status);
+      }
+      if (data.banecoCredentialId !== undefined) {
+        pc++;
+        sets.push(`baneco_credential_id = $${pc}`);
+        params.push(data.banecoCredentialId);
+      }
+      if (data.name !== undefined) {
+        pc++;
+        sets.push(`name = $${pc}`);
+        params.push(data.name);
+      }
+      if (data.isCollection !== undefined) {
+        pc++;
+        sets.push(`is_collection = $${pc}`);
+        params.push(data.isCollection);
+      }
+      if (data.level !== undefined) {
+        pc++;
+        sets.push(`level = $${pc}`);
+        params.push(data.level);
+      }
+      if (data.isDefault !== undefined) {
+        pc++;
+        sets.push(`is_default = $${pc}`);
+        params.push(data.isDefault);
+      }
+      if (data.tenantId !== undefined) {
+        pc++;
+        sets.push(`tenant_id = $${pc}`);
+        params.push(data.tenantId);
+      }
+      if (sets.length === 0)
+        return null;
+      sets.push("updated_at = CURRENT_TIMESTAMP");
+      const r2 = await query2(`UPDATE wallets SET ${sets.join(", ")} WHERE id = $1 AND deleted_at IS NULL RETURNING ${WLT_COLS_NOA}`, params);
+      return r2.rowCount ? r2.rows[0] : null;
+    },
+    async getCollectionByUser(userId) {
+      const r2 = await query2(`
+      SELECT ${WLT_COLS} FROM wallets w
+      JOIN wallet_permissions wp ON w.id = wp.wallet_id
+      WHERE wp.user_id = $1 AND w.is_collection = true AND w.deleted_at IS NULL AND wp.deleted_at IS NULL
+      LIMIT 1
+    `, [userId]);
+      return r2.rowCount ? r2.rows[0] : null;
+    },
+    async getCollectionById(userId, walletId) {
+      const r2 = await query2(`
+      SELECT ${WLT_COLS} FROM wallets w
+      JOIN wallet_permissions wp ON w.id = wp.wallet_id
+      WHERE wp.user_id = $1 AND w.id = $2 AND w.is_collection = true AND w.deleted_at IS NULL AND wp.deleted_at IS NULL
+      LIMIT 1
+    `, [userId, walletId]);
+      return r2.rowCount ? r2.rows[0] : null;
+    },
+    async getByUserId(userId, level2) {
+      let sql = `SELECT ${WLT_COLS} FROM wallets w JOIN wallet_permissions wp ON w.id = wp.wallet_id WHERE wp.user_id = $1 AND w.deleted_at IS NULL AND wp.deleted_at IS NULL`;
+      const params = [userId];
+      if (level2) {
+        sql += " AND w.level = $2";
+        params.push(level2);
+      }
+      const r2 = await query2(sql, params);
       return r2.rows;
+    }
+  };
+});
+
+// src/identity/wallet-permission/wallet-permission.repository.ts
+var walletPermissionRepository2;
+var init_wallet_permission_repository = __esm(() => {
+  init_pool();
+  walletPermissionRepository2 = {
+    async upsert(userId, walletId, role = "owner") {
+      await query2(`
+      INSERT INTO wallet_permissions (user_id, wallet_id, role)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (user_id, wallet_id) DO UPDATE SET role = $3, deleted_at = NULL
+    `, [userId, walletId, role]);
+    },
+    async listByUser(userId) {
+      const r2 = await query2(`
+      SELECT wp.user_id as "userId", wp.wallet_id as "walletId", wp.role,
+        wp.created_at as "createdAt",
+        w.id as "id", w.name, w.type, w.level, w.currency,
+        w.balance, w.available_balance as "availableBalance",
+        w.held_balance as "heldBalance", w.wallet_number as "walletNumber",
+        w.tenant_id as "tenantId", w.status, w.is_default as "isDefault",
+        w.is_collection as "isCollection",
+        t.full_name as "holderName"
+      FROM wallet_permissions wp
+      JOIN wallets w ON w.id = wp.wallet_id
+      LEFT JOIN tenants t ON t.id = w.tenant_id
+      WHERE wp.user_id = $1 AND wp.deleted_at IS NULL AND w.deleted_at IS NULL AND (t.id IS NULL OR t.deleted_at IS NULL)
+      ORDER BY wp.role ASC
+    `, [userId]);
+      return r2.rows;
+    },
+    async listByWallet(walletId) {
+      const r2 = await query2(`
+      SELECT user_id as "userId", wallet_id as "walletId", role,
+        created_at as "createdAt"
+      FROM wallet_permissions WHERE wallet_id = $1 AND deleted_at IS NULL
+    `, [walletId]);
+      return r2.rows;
+    },
+    async remove(userId, walletId) {
+      await query2(`
+      UPDATE wallet_permissions SET deleted_at = CURRENT_TIMESTAMP
+      WHERE user_id = $1 AND wallet_id = $2
+    `, [userId, walletId]);
+    }
+  };
+});
+
+// src/identity/user.service.ts
+var import_bcrypt2, userService;
+var init_user_service = __esm(() => {
+  init_snowflake();
+  init_app_error();
+  init_user_repository();
+  import_bcrypt2 = __toESM(require_bcrypt(), 1);
+  userService = {
+    async create(data) {
+      if (await userRepository.existsByEmail(data.email)) {
+        throw new AppError2(400, "El email ya está registrado");
+      }
+      const hash2 = await import_bcrypt2.default.hash(data.password, 10);
+      return userRepository.create({ id: nextSnowflake(), ...data, password: hash2 });
+    },
+    getById(id) {
+      return userRepository.getById(id);
+    },
+    getByEmail(email) {
+      return userRepository.getByEmail(email);
+    },
+    list(filters) {
+      return userRepository.list(filters);
+    },
+    async update(id, data) {
+      const user = await userRepository.getById(id);
+      if (!user)
+        throw new AppError2(404, "Usuario no encontrado");
+      return userRepository.update(id, data);
+    },
+    async changePassword(id, newPassword) {
+      const user = await userRepository.getById(id);
+      if (!user)
+        throw new AppError2(404, "Usuario no encontrado");
+      const hash2 = await import_bcrypt2.default.hash(newPassword, 10);
+      await userRepository.updatePassword(id, hash2);
+    },
+    async delete(id) {
+      const user = await userRepository.getById(id);
+      if (!user)
+        throw new AppError2(404, "Usuario no encontrado");
+      await userRepository.softDelete(id);
     }
   };
 });
@@ -23262,4524 +27889,52 @@ var require_lib4 = __commonJS((exports, module) => {
   exports.AbortError = AbortError2;
 });
 
-// src/banking/integration/baneco.adapter.ts
-var exports_baneco_adapter = {};
-__export(exports_baneco_adapter, {
-  BanecoAdapter: () => BanecoAdapter
+// src/collection/direct-transaction.service.ts
+var exports_direct_transaction_service = {};
+__export(exports_direct_transaction_service, {
+  directTransactionService: () => directTransactionService
 });
-
-class BanecoAdapter {
-  apiBaseUrl;
-  aesKey;
-  constructor(apiBaseUrl, aesKey) {
-    this.apiBaseUrl = apiBaseUrl.endsWith("/") ? apiBaseUrl : `${apiBaseUrl}/`;
-    this.aesKey = aesKey;
-  }
-  async request(path, options = {}) {
-    const url = `${this.apiBaseUrl}${path.replace(/^\//, "")}`;
-    const res = await import_node_fetch.default(url, {
-      ...options,
-      headers: { "Content-Type": "application/json", ...options.headers }
-    });
-    if (!res.ok)
-      throw new AppError(502, `${path} error: ${await res.text()}`);
-    const data = await res.json();
-    if (data.responseCode !== 0 && data.responseCode !== undefined) {
-      throw new AppError(502, `${path} error: ${data.message}`);
-    }
-    return data;
-  }
-  async encryptText(text, aesKey) {
-    const key = aesKey || this.aesKey;
-    return this.request(`api/authentication/encrypt?text=${encodeURIComponent(text)}&aesKey=${key}`, { method: "GET" });
-  }
-  async getToken(username, passwordPlain) {
-    const encryptedPassword = await this.encryptText(passwordPlain);
-    const data = await this.request("api/authentication/authenticate", {
-      method: "POST",
-      body: JSON.stringify({ userName: username, password: encryptedPassword })
-    });
-    return data.token;
-  }
-  async generateQr(token, transactionId, accountNumber, amount, options = {}) {
-    const encryptedAccount = await this.encryptText(accountNumber);
-    const data = await this.request("api/qrsimple/generateQR", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        transactionId,
-        accountCredit: encryptedAccount,
-        currency: options.currency || "BOB",
-        amount,
-        description: options.description || "Pago QR",
-        dueDate: options.dueDate || "2025-12-31",
-        singleUse: options.singleUse !== undefined ? options.singleUse : true,
-        modifyAmount: options.modifyAmount !== undefined ? options.modifyAmount : false,
-        branchCode: "E0001"
-      })
-    });
-    return { qrId: data.qrId, qrImage: data.qrImage, reference: data.reference };
-  }
-  async cancelQr(token, qrId) {
-    await this.request("api/qrsimple/cancelQR", {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ qrId })
-    });
-  }
-  async getQrStatus(token, qrId) {
-    const data = await this.request(`api/qrsimple/v2/statusQR/${qrId}`, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return { status: data.status, amount: data.amount, currency: data.currency, description: data.description, qrImage: data.qrImage };
-  }
-  async getPaidQrsByDate(token, dateStr) {
-    const data = await this.request(`api/qrsimple/v2/paidQR/${dateStr}`, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return data.paymentList || [];
-  }
-}
-var import_node_fetch;
-var init_baneco_adapter = __esm(() => {
+var COLS = `id, user_id as "userId", config_id as "configId", qr_code_id as "qrCodeId",
+  gross_amount as "grossAmount", commission as "commission", commission_rate as "commissionRate",
+  commission_paid as "commissionPaid", commission_paid_at as "commissionPaidAt",
+  currency, reference, paid_at as "paidAt", created_at as "createdAt"`, directTransactionService;
+var init_direct_transaction_service = __esm(() => {
+  init_pool();
+  init_snowflake();
   init_app_error();
-  import_node_fetch = __toESM(require_lib4(), 1);
-});
-
-// src/payments/wallet/wallet.repository.ts
-var walletRepository;
-var init_wallet_repository = __esm(() => {
-  init_pool();
-  init_snowflake();
-  walletRepository = {
+  directTransactionService = {
     async create(data) {
-      const r2 = await query(`
-      INSERT INTO wallets (id, user_id, name, type, currency)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING *
-    `, [nextSnowflake(), data.userId, data.name || "Principal", data.type || "personal", data.currency || "BOB"]);
-      return r2.rows[0];
-    },
-    async getById(id) {
-      const r2 = await query("SELECT * FROM wallets WHERE id = $1", [id]);
-      return r2.rowCount ? r2.rows[0] : null;
-    },
-    async listByUser(userId) {
-      const r2 = await query("SELECT * FROM wallets WHERE user_id = $1 ORDER BY is_default DESC, created_at ASC", [userId]);
-      return r2.rows;
-    },
-    async getDefault(userId) {
-      const r2 = await query("SELECT * FROM wallets WHERE user_id = $1 AND is_default = true LIMIT 1", [userId]);
-      return r2.rowCount ? r2.rows[0] : null;
-    },
-    async updateBalance(id, balance, availableBalance) {
-      await query("UPDATE wallets SET balance = $1, available_balance = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3", [balance, availableBalance, id]);
-    },
-    async holdAmount(id, amount) {
-      await query(`
-      UPDATE wallets SET held_balance = held_balance + $1, available_balance = available_balance - $1, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $2 AND available_balance >= $1
-    `, [amount, id]);
-    },
-    async releaseHold(id, amount) {
-      await query(`
-      UPDATE wallets SET held_balance = held_balance - $1, available_balance = available_balance + $1, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $2
-    `, [amount, id]);
-    }
-  };
-});
-
-// src/payments/fee/fee.repository.ts
-var feeRepository;
-var init_fee_repository = __esm(() => {
-  init_pool();
-  init_snowflake();
-  feeRepository = {
-    async create(data) {
-      const r2 = await query(`
-      INSERT INTO fee_rules (id, transaction_type, fee_type, fee_value, fee_cap, min_amount, max_amount)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING *
+      const r2 = await query2(`
+      INSERT INTO direct_transactions (id, user_id, config_id, qr_code_id, gross_amount, commission, commission_rate, currency, reference, paid_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP) RETURNING ${COLS}
     `, [
         nextSnowflake(),
-        data.transactionType,
-        data.feeType,
-        data.feeValue,
-        data.feeCap || null,
-        data.minAmount || null,
-        data.maxAmount || null
+        data.userId,
+        data.configId,
+        data.qrCodeId ?? null,
+        data.grossAmount,
+        data.commission,
+        data.commissionRate,
+        data.currency ?? "BOB",
+        data.reference ?? null
       ]);
       return r2.rows[0];
     },
-    async findByType(transactionType) {
-      const r2 = await query("SELECT * FROM fee_rules WHERE transaction_type = $1 AND is_active = true ORDER BY min_amount ASC NULLS FIRST", [transactionType]);
-      return r2.rows;
+    async listByUser(userId, page = 1, limit = 50) {
+      const offset = (page - 1) * limit;
+      const c = await query2("SELECT COUNT(*) as t FROM direct_transactions WHERE user_id = $1", [userId]);
+      const r2 = await query2(`SELECT ${COLS} FROM direct_transactions WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`, [userId, limit, offset]);
+      return { items: r2.rows, totalCount: parseInt(c.rows[0].t) };
     },
-    async listAll() {
-      const r2 = await query("SELECT * FROM fee_rules ORDER BY transaction_type, min_amount ASC NULLS FIRST");
-      return r2.rows;
+    async getPendingTotal(userId) {
+      const r2 = await query2("SELECT COALESCE(SUM(commission), 0) as t FROM direct_transactions WHERE user_id = $1 AND commission_paid = false", [userId]);
+      return parseFloat(r2.rows[0].t);
     },
-    async update(id, data) {
-      const sets = [];
-      const params = [];
-      let pc = 0;
-      for (const [k, v] of Object.entries(data)) {
-        if (v === undefined)
-          continue;
-        pc++;
-        sets.push(`${k.replace(/([A-Z])/g, "_$1").toLowerCase()} = $${pc}`);
-        params.push(v);
-      }
-      if (sets.length) {
-        await query(`UPDATE fee_rules SET ${sets.join(", ")} WHERE id = $${pc + 1}`, [...params, id]);
-      }
-    },
-    calculateFee(amount, rules) {
-      for (const rule of rules) {
-        if (rule.minAmount && amount < rule.minAmount)
-          continue;
-        if (rule.maxAmount && amount > rule.maxAmount)
-          continue;
-        if (rule.feeType === "fixed")
-          return Math.min(rule.feeValue, rule.feeCap || Infinity);
-        if (rule.feeType === "percentage") {
-          const fee = amount * (rule.feeValue / 100);
-          return rule.feeCap ? Math.min(fee, rule.feeCap) : fee;
-        }
-      }
-      return 0;
+    async markAsPaid(id) {
+      const r2 = await query2("UPDATE direct_transactions SET commission_paid = true, commission_paid_at = CURRENT_TIMESTAMP WHERE id = $1 AND commission_paid = false RETURNING id", [id]);
+      if (!r2.rowCount)
+        throw new AppError2(404, "Transacción no encontrada o ya pagada");
     }
-  };
-});
-
-// src/collections/company/company.repository.ts
-var companyRepository;
-var init_company_repository = __esm(() => {
-  init_pool();
-  init_snowflake();
-  companyRepository = {
-    async upsert(data) {
-      const existing = await this.getBySlug(data.slug);
-      const id = existing?.id || nextSnowflake();
-      const r2 = await query(`
-      INSERT INTO companies (id, slug, name, logo_url, colors, permissions, config)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      ON CONFLICT (slug) DO UPDATE SET
-        name = $3, logo_url = COALESCE($4, companies.logo_url),
-        colors = COALESCE($5, companies.colors), config = COALESCE($7, companies.config),
-        updated_at = CURRENT_TIMESTAMP
-      RETURNING *
-    `, [
-        id,
-        data.slug,
-        data.name,
-        data.logoUrl || null,
-        data.colors ? JSON.stringify(data.colors) : null,
-        data.permissions ? JSON.stringify(data.permissions) : null,
-        data.config ? JSON.stringify(data.config) : null
-      ]);
-      return r2.rows[0];
-    },
-    async getBySlug(slug) {
-      const r2 = await query("SELECT * FROM companies WHERE slug = $1", [slug]);
-      return r2.rowCount ? r2.rows[0] : null;
-    },
-    async listActive() {
-      const r2 = await query("SELECT * FROM companies WHERE is_active = true ORDER BY name");
-      return r2.rows;
-    }
-  };
-});
-
-// node_modules/qrcode/lib/can-promise.js
-var require_can_promise = __commonJS((exports, module) => {
-  module.exports = function() {
-    return typeof Promise === "function" && Promise.prototype && Promise.prototype.then;
-  };
-});
-
-// node_modules/qrcode/lib/core/utils.js
-var require_utils4 = __commonJS((exports) => {
-  var toSJISFunction;
-  var CODEWORDS_COUNT = [
-    0,
-    26,
-    44,
-    70,
-    100,
-    134,
-    172,
-    196,
-    242,
-    292,
-    346,
-    404,
-    466,
-    532,
-    581,
-    655,
-    733,
-    815,
-    901,
-    991,
-    1085,
-    1156,
-    1258,
-    1364,
-    1474,
-    1588,
-    1706,
-    1828,
-    1921,
-    2051,
-    2185,
-    2323,
-    2465,
-    2611,
-    2761,
-    2876,
-    3034,
-    3196,
-    3362,
-    3532,
-    3706
-  ];
-  exports.getSymbolSize = function getSymbolSize(version) {
-    if (!version)
-      throw new Error('"version" cannot be null or undefined');
-    if (version < 1 || version > 40)
-      throw new Error('"version" should be in range from 1 to 40');
-    return version * 4 + 17;
-  };
-  exports.getSymbolTotalCodewords = function getSymbolTotalCodewords(version) {
-    return CODEWORDS_COUNT[version];
-  };
-  exports.getBCHDigit = function(data) {
-    let digit = 0;
-    while (data !== 0) {
-      digit++;
-      data >>>= 1;
-    }
-    return digit;
-  };
-  exports.setToSJISFunction = function setToSJISFunction(f) {
-    if (typeof f !== "function") {
-      throw new Error('"toSJISFunc" is not a valid function.');
-    }
-    toSJISFunction = f;
-  };
-  exports.isKanjiModeEnabled = function() {
-    return typeof toSJISFunction !== "undefined";
-  };
-  exports.toSJIS = function toSJIS(kanji) {
-    return toSJISFunction(kanji);
-  };
-});
-
-// node_modules/qrcode/lib/core/error-correction-level.js
-var require_error_correction_level = __commonJS((exports) => {
-  exports.L = { bit: 1 };
-  exports.M = { bit: 0 };
-  exports.Q = { bit: 3 };
-  exports.H = { bit: 2 };
-  function fromString(string) {
-    if (typeof string !== "string") {
-      throw new Error("Param is not a string");
-    }
-    const lcStr = string.toLowerCase();
-    switch (lcStr) {
-      case "l":
-      case "low":
-        return exports.L;
-      case "m":
-      case "medium":
-        return exports.M;
-      case "q":
-      case "quartile":
-        return exports.Q;
-      case "h":
-      case "high":
-        return exports.H;
-      default:
-        throw new Error("Unknown EC Level: " + string);
-    }
-  }
-  exports.isValid = function isValid2(level) {
-    return level && typeof level.bit !== "undefined" && level.bit >= 0 && level.bit < 4;
-  };
-  exports.from = function from(value, defaultValue) {
-    if (exports.isValid(value)) {
-      return value;
-    }
-    try {
-      return fromString(value);
-    } catch (e) {
-      return defaultValue;
-    }
-  };
-});
-
-// node_modules/qrcode/lib/core/bit-buffer.js
-var require_bit_buffer = __commonJS((exports, module) => {
-  function BitBuffer() {
-    this.buffer = [];
-    this.length = 0;
-  }
-  BitBuffer.prototype = {
-    get: function(index) {
-      const bufIndex = Math.floor(index / 8);
-      return (this.buffer[bufIndex] >>> 7 - index % 8 & 1) === 1;
-    },
-    put: function(num, length) {
-      for (let i = 0;i < length; i++) {
-        this.putBit((num >>> length - i - 1 & 1) === 1);
-      }
-    },
-    getLengthInBits: function() {
-      return this.length;
-    },
-    putBit: function(bit) {
-      const bufIndex = Math.floor(this.length / 8);
-      if (this.buffer.length <= bufIndex) {
-        this.buffer.push(0);
-      }
-      if (bit) {
-        this.buffer[bufIndex] |= 128 >>> this.length % 8;
-      }
-      this.length++;
-    }
-  };
-  module.exports = BitBuffer;
-});
-
-// node_modules/qrcode/lib/core/bit-matrix.js
-var require_bit_matrix = __commonJS((exports, module) => {
-  function BitMatrix(size) {
-    if (!size || size < 1) {
-      throw new Error("BitMatrix size must be defined and greater than 0");
-    }
-    this.size = size;
-    this.data = new Uint8Array(size * size);
-    this.reservedBit = new Uint8Array(size * size);
-  }
-  BitMatrix.prototype.set = function(row, col, value, reserved) {
-    const index = row * this.size + col;
-    this.data[index] = value;
-    if (reserved)
-      this.reservedBit[index] = true;
-  };
-  BitMatrix.prototype.get = function(row, col) {
-    return this.data[row * this.size + col];
-  };
-  BitMatrix.prototype.xor = function(row, col, value) {
-    this.data[row * this.size + col] ^= value;
-  };
-  BitMatrix.prototype.isReserved = function(row, col) {
-    return this.reservedBit[row * this.size + col];
-  };
-  module.exports = BitMatrix;
-});
-
-// node_modules/qrcode/lib/core/alignment-pattern.js
-var require_alignment_pattern = __commonJS((exports) => {
-  var getSymbolSize = require_utils4().getSymbolSize;
-  exports.getRowColCoords = function getRowColCoords(version) {
-    if (version === 1)
-      return [];
-    const posCount = Math.floor(version / 7) + 2;
-    const size = getSymbolSize(version);
-    const intervals = size === 145 ? 26 : Math.ceil((size - 13) / (2 * posCount - 2)) * 2;
-    const positions = [size - 7];
-    for (let i = 1;i < posCount - 1; i++) {
-      positions[i] = positions[i - 1] - intervals;
-    }
-    positions.push(6);
-    return positions.reverse();
-  };
-  exports.getPositions = function getPositions(version) {
-    const coords = [];
-    const pos = exports.getRowColCoords(version);
-    const posLength = pos.length;
-    for (let i = 0;i < posLength; i++) {
-      for (let j = 0;j < posLength; j++) {
-        if (i === 0 && j === 0 || i === 0 && j === posLength - 1 || i === posLength - 1 && j === 0) {
-          continue;
-        }
-        coords.push([pos[i], pos[j]]);
-      }
-    }
-    return coords;
-  };
-});
-
-// node_modules/qrcode/lib/core/finder-pattern.js
-var require_finder_pattern = __commonJS((exports) => {
-  var getSymbolSize = require_utils4().getSymbolSize;
-  var FINDER_PATTERN_SIZE = 7;
-  exports.getPositions = function getPositions(version) {
-    const size = getSymbolSize(version);
-    return [
-      [0, 0],
-      [size - FINDER_PATTERN_SIZE, 0],
-      [0, size - FINDER_PATTERN_SIZE]
-    ];
-  };
-});
-
-// node_modules/qrcode/lib/core/mask-pattern.js
-var require_mask_pattern = __commonJS((exports) => {
-  exports.Patterns = {
-    PATTERN000: 0,
-    PATTERN001: 1,
-    PATTERN010: 2,
-    PATTERN011: 3,
-    PATTERN100: 4,
-    PATTERN101: 5,
-    PATTERN110: 6,
-    PATTERN111: 7
-  };
-  var PenaltyScores = {
-    N1: 3,
-    N2: 3,
-    N3: 40,
-    N4: 10
-  };
-  exports.isValid = function isValid2(mask) {
-    return mask != null && mask !== "" && !isNaN(mask) && mask >= 0 && mask <= 7;
-  };
-  exports.from = function from(value) {
-    return exports.isValid(value) ? parseInt(value, 10) : undefined;
-  };
-  exports.getPenaltyN1 = function getPenaltyN1(data) {
-    const size = data.size;
-    let points = 0;
-    let sameCountCol = 0;
-    let sameCountRow = 0;
-    let lastCol = null;
-    let lastRow = null;
-    for (let row = 0;row < size; row++) {
-      sameCountCol = sameCountRow = 0;
-      lastCol = lastRow = null;
-      for (let col = 0;col < size; col++) {
-        let module2 = data.get(row, col);
-        if (module2 === lastCol) {
-          sameCountCol++;
-        } else {
-          if (sameCountCol >= 5)
-            points += PenaltyScores.N1 + (sameCountCol - 5);
-          lastCol = module2;
-          sameCountCol = 1;
-        }
-        module2 = data.get(col, row);
-        if (module2 === lastRow) {
-          sameCountRow++;
-        } else {
-          if (sameCountRow >= 5)
-            points += PenaltyScores.N1 + (sameCountRow - 5);
-          lastRow = module2;
-          sameCountRow = 1;
-        }
-      }
-      if (sameCountCol >= 5)
-        points += PenaltyScores.N1 + (sameCountCol - 5);
-      if (sameCountRow >= 5)
-        points += PenaltyScores.N1 + (sameCountRow - 5);
-    }
-    return points;
-  };
-  exports.getPenaltyN2 = function getPenaltyN2(data) {
-    const size = data.size;
-    let points = 0;
-    for (let row = 0;row < size - 1; row++) {
-      for (let col = 0;col < size - 1; col++) {
-        const last = data.get(row, col) + data.get(row, col + 1) + data.get(row + 1, col) + data.get(row + 1, col + 1);
-        if (last === 4 || last === 0)
-          points++;
-      }
-    }
-    return points * PenaltyScores.N2;
-  };
-  exports.getPenaltyN3 = function getPenaltyN3(data) {
-    const size = data.size;
-    let points = 0;
-    let bitsCol = 0;
-    let bitsRow = 0;
-    for (let row = 0;row < size; row++) {
-      bitsCol = bitsRow = 0;
-      for (let col = 0;col < size; col++) {
-        bitsCol = bitsCol << 1 & 2047 | data.get(row, col);
-        if (col >= 10 && (bitsCol === 1488 || bitsCol === 93))
-          points++;
-        bitsRow = bitsRow << 1 & 2047 | data.get(col, row);
-        if (col >= 10 && (bitsRow === 1488 || bitsRow === 93))
-          points++;
-      }
-    }
-    return points * PenaltyScores.N3;
-  };
-  exports.getPenaltyN4 = function getPenaltyN4(data) {
-    let darkCount = 0;
-    const modulesCount = data.data.length;
-    for (let i = 0;i < modulesCount; i++)
-      darkCount += data.data[i];
-    const k = Math.abs(Math.ceil(darkCount * 100 / modulesCount / 5) - 10);
-    return k * PenaltyScores.N4;
-  };
-  function getMaskAt(maskPattern, i, j) {
-    switch (maskPattern) {
-      case exports.Patterns.PATTERN000:
-        return (i + j) % 2 === 0;
-      case exports.Patterns.PATTERN001:
-        return i % 2 === 0;
-      case exports.Patterns.PATTERN010:
-        return j % 3 === 0;
-      case exports.Patterns.PATTERN011:
-        return (i + j) % 3 === 0;
-      case exports.Patterns.PATTERN100:
-        return (Math.floor(i / 2) + Math.floor(j / 3)) % 2 === 0;
-      case exports.Patterns.PATTERN101:
-        return i * j % 2 + i * j % 3 === 0;
-      case exports.Patterns.PATTERN110:
-        return (i * j % 2 + i * j % 3) % 2 === 0;
-      case exports.Patterns.PATTERN111:
-        return (i * j % 3 + (i + j) % 2) % 2 === 0;
-      default:
-        throw new Error("bad maskPattern:" + maskPattern);
-    }
-  }
-  exports.applyMask = function applyMask(pattern, data) {
-    const size = data.size;
-    for (let col = 0;col < size; col++) {
-      for (let row = 0;row < size; row++) {
-        if (data.isReserved(row, col))
-          continue;
-        data.xor(row, col, getMaskAt(pattern, row, col));
-      }
-    }
-  };
-  exports.getBestMask = function getBestMask(data, setupFormatFunc) {
-    const numPatterns = Object.keys(exports.Patterns).length;
-    let bestPattern = 0;
-    let lowerPenalty = Infinity;
-    for (let p = 0;p < numPatterns; p++) {
-      setupFormatFunc(p);
-      exports.applyMask(p, data);
-      const penalty = exports.getPenaltyN1(data) + exports.getPenaltyN2(data) + exports.getPenaltyN3(data) + exports.getPenaltyN4(data);
-      exports.applyMask(p, data);
-      if (penalty < lowerPenalty) {
-        lowerPenalty = penalty;
-        bestPattern = p;
-      }
-    }
-    return bestPattern;
-  };
-});
-
-// node_modules/qrcode/lib/core/error-correction-code.js
-var require_error_correction_code = __commonJS((exports) => {
-  var ECLevel = require_error_correction_level();
-  var EC_BLOCKS_TABLE = [
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    2,
-    2,
-    1,
-    2,
-    2,
-    4,
-    1,
-    2,
-    4,
-    4,
-    2,
-    4,
-    4,
-    4,
-    2,
-    4,
-    6,
-    5,
-    2,
-    4,
-    6,
-    6,
-    2,
-    5,
-    8,
-    8,
-    4,
-    5,
-    8,
-    8,
-    4,
-    5,
-    8,
-    11,
-    4,
-    8,
-    10,
-    11,
-    4,
-    9,
-    12,
-    16,
-    4,
-    9,
-    16,
-    16,
-    6,
-    10,
-    12,
-    18,
-    6,
-    10,
-    17,
-    16,
-    6,
-    11,
-    16,
-    19,
-    6,
-    13,
-    18,
-    21,
-    7,
-    14,
-    21,
-    25,
-    8,
-    16,
-    20,
-    25,
-    8,
-    17,
-    23,
-    25,
-    9,
-    17,
-    23,
-    34,
-    9,
-    18,
-    25,
-    30,
-    10,
-    20,
-    27,
-    32,
-    12,
-    21,
-    29,
-    35,
-    12,
-    23,
-    34,
-    37,
-    12,
-    25,
-    34,
-    40,
-    13,
-    26,
-    35,
-    42,
-    14,
-    28,
-    38,
-    45,
-    15,
-    29,
-    40,
-    48,
-    16,
-    31,
-    43,
-    51,
-    17,
-    33,
-    45,
-    54,
-    18,
-    35,
-    48,
-    57,
-    19,
-    37,
-    51,
-    60,
-    19,
-    38,
-    53,
-    63,
-    20,
-    40,
-    56,
-    66,
-    21,
-    43,
-    59,
-    70,
-    22,
-    45,
-    62,
-    74,
-    24,
-    47,
-    65,
-    77,
-    25,
-    49,
-    68,
-    81
-  ];
-  var EC_CODEWORDS_TABLE = [
-    7,
-    10,
-    13,
-    17,
-    10,
-    16,
-    22,
-    28,
-    15,
-    26,
-    36,
-    44,
-    20,
-    36,
-    52,
-    64,
-    26,
-    48,
-    72,
-    88,
-    36,
-    64,
-    96,
-    112,
-    40,
-    72,
-    108,
-    130,
-    48,
-    88,
-    132,
-    156,
-    60,
-    110,
-    160,
-    192,
-    72,
-    130,
-    192,
-    224,
-    80,
-    150,
-    224,
-    264,
-    96,
-    176,
-    260,
-    308,
-    104,
-    198,
-    288,
-    352,
-    120,
-    216,
-    320,
-    384,
-    132,
-    240,
-    360,
-    432,
-    144,
-    280,
-    408,
-    480,
-    168,
-    308,
-    448,
-    532,
-    180,
-    338,
-    504,
-    588,
-    196,
-    364,
-    546,
-    650,
-    224,
-    416,
-    600,
-    700,
-    224,
-    442,
-    644,
-    750,
-    252,
-    476,
-    690,
-    816,
-    270,
-    504,
-    750,
-    900,
-    300,
-    560,
-    810,
-    960,
-    312,
-    588,
-    870,
-    1050,
-    336,
-    644,
-    952,
-    1110,
-    360,
-    700,
-    1020,
-    1200,
-    390,
-    728,
-    1050,
-    1260,
-    420,
-    784,
-    1140,
-    1350,
-    450,
-    812,
-    1200,
-    1440,
-    480,
-    868,
-    1290,
-    1530,
-    510,
-    924,
-    1350,
-    1620,
-    540,
-    980,
-    1440,
-    1710,
-    570,
-    1036,
-    1530,
-    1800,
-    570,
-    1064,
-    1590,
-    1890,
-    600,
-    1120,
-    1680,
-    1980,
-    630,
-    1204,
-    1770,
-    2100,
-    660,
-    1260,
-    1860,
-    2220,
-    720,
-    1316,
-    1950,
-    2310,
-    750,
-    1372,
-    2040,
-    2430
-  ];
-  exports.getBlocksCount = function getBlocksCount(version, errorCorrectionLevel) {
-    switch (errorCorrectionLevel) {
-      case ECLevel.L:
-        return EC_BLOCKS_TABLE[(version - 1) * 4 + 0];
-      case ECLevel.M:
-        return EC_BLOCKS_TABLE[(version - 1) * 4 + 1];
-      case ECLevel.Q:
-        return EC_BLOCKS_TABLE[(version - 1) * 4 + 2];
-      case ECLevel.H:
-        return EC_BLOCKS_TABLE[(version - 1) * 4 + 3];
-      default:
-        return;
-    }
-  };
-  exports.getTotalCodewordsCount = function getTotalCodewordsCount(version, errorCorrectionLevel) {
-    switch (errorCorrectionLevel) {
-      case ECLevel.L:
-        return EC_CODEWORDS_TABLE[(version - 1) * 4 + 0];
-      case ECLevel.M:
-        return EC_CODEWORDS_TABLE[(version - 1) * 4 + 1];
-      case ECLevel.Q:
-        return EC_CODEWORDS_TABLE[(version - 1) * 4 + 2];
-      case ECLevel.H:
-        return EC_CODEWORDS_TABLE[(version - 1) * 4 + 3];
-      default:
-        return;
-    }
-  };
-});
-
-// node_modules/qrcode/lib/core/galois-field.js
-var require_galois_field = __commonJS((exports) => {
-  var EXP_TABLE = new Uint8Array(512);
-  var LOG_TABLE = new Uint8Array(256);
-  (function initTables() {
-    let x = 1;
-    for (let i = 0;i < 255; i++) {
-      EXP_TABLE[i] = x;
-      LOG_TABLE[x] = i;
-      x <<= 1;
-      if (x & 256) {
-        x ^= 285;
-      }
-    }
-    for (let i = 255;i < 512; i++) {
-      EXP_TABLE[i] = EXP_TABLE[i - 255];
-    }
-  })();
-  exports.log = function log2(n2) {
-    if (n2 < 1)
-      throw new Error("log(" + n2 + ")");
-    return LOG_TABLE[n2];
-  };
-  exports.exp = function exp(n2) {
-    return EXP_TABLE[n2];
-  };
-  exports.mul = function mul(x, y) {
-    if (x === 0 || y === 0)
-      return 0;
-    return EXP_TABLE[LOG_TABLE[x] + LOG_TABLE[y]];
-  };
-});
-
-// node_modules/qrcode/lib/core/polynomial.js
-var require_polynomial = __commonJS((exports) => {
-  var GF = require_galois_field();
-  exports.mul = function mul(p1, p2) {
-    const coeff = new Uint8Array(p1.length + p2.length - 1);
-    for (let i = 0;i < p1.length; i++) {
-      for (let j = 0;j < p2.length; j++) {
-        coeff[i + j] ^= GF.mul(p1[i], p2[j]);
-      }
-    }
-    return coeff;
-  };
-  exports.mod = function mod(divident, divisor) {
-    let result = new Uint8Array(divident);
-    while (result.length - divisor.length >= 0) {
-      const coeff = result[0];
-      for (let i = 0;i < divisor.length; i++) {
-        result[i] ^= GF.mul(divisor[i], coeff);
-      }
-      let offset = 0;
-      while (offset < result.length && result[offset] === 0)
-        offset++;
-      result = result.slice(offset);
-    }
-    return result;
-  };
-  exports.generateECPolynomial = function generateECPolynomial(degree) {
-    let poly = new Uint8Array([1]);
-    for (let i = 0;i < degree; i++) {
-      poly = exports.mul(poly, new Uint8Array([1, GF.exp(i)]));
-    }
-    return poly;
-  };
-});
-
-// node_modules/qrcode/lib/core/reed-solomon-encoder.js
-var require_reed_solomon_encoder = __commonJS((exports, module) => {
-  var Polynomial = require_polynomial();
-  function ReedSolomonEncoder(degree) {
-    this.genPoly = undefined;
-    this.degree = degree;
-    if (this.degree)
-      this.initialize(this.degree);
-  }
-  ReedSolomonEncoder.prototype.initialize = function initialize(degree) {
-    this.degree = degree;
-    this.genPoly = Polynomial.generateECPolynomial(this.degree);
-  };
-  ReedSolomonEncoder.prototype.encode = function encode2(data) {
-    if (!this.genPoly) {
-      throw new Error("Encoder not initialized");
-    }
-    const paddedData = new Uint8Array(data.length + this.degree);
-    paddedData.set(data);
-    const remainder = Polynomial.mod(paddedData, this.genPoly);
-    const start = this.degree - remainder.length;
-    if (start > 0) {
-      const buff = new Uint8Array(this.degree);
-      buff.set(remainder, start);
-      return buff;
-    }
-    return remainder;
-  };
-  module.exports = ReedSolomonEncoder;
-});
-
-// node_modules/qrcode/lib/core/version-check.js
-var require_version_check = __commonJS((exports) => {
-  exports.isValid = function isValid2(version) {
-    return !isNaN(version) && version >= 1 && version <= 40;
-  };
-});
-
-// node_modules/qrcode/lib/core/regex.js
-var require_regex = __commonJS((exports) => {
-  var numeric = "[0-9]+";
-  var alphanumeric = "[A-Z $%*+\\-./:]+";
-  var kanji = "(?:[u3000-u303F]|[u3040-u309F]|[u30A0-u30FF]|" + "[uFF00-uFFEF]|[u4E00-u9FAF]|[u2605-u2606]|[u2190-u2195]|u203B|" + "[u2010u2015u2018u2019u2025u2026u201Cu201Du2225u2260]|" + "[u0391-u0451]|[u00A7u00A8u00B1u00B4u00D7u00F7])+";
-  kanji = kanji.replace(/u/g, "\\u");
-  var byte2 = "(?:(?![A-Z0-9 $%*+\\-./:]|" + kanji + `)(?:.|[\r
-]))+`;
-  exports.KANJI = new RegExp(kanji, "g");
-  exports.BYTE_KANJI = new RegExp("[^A-Z0-9 $%*+\\-./:]+", "g");
-  exports.BYTE = new RegExp(byte2, "g");
-  exports.NUMERIC = new RegExp(numeric, "g");
-  exports.ALPHANUMERIC = new RegExp(alphanumeric, "g");
-  var TEST_KANJI = new RegExp("^" + kanji + "$");
-  var TEST_NUMERIC = new RegExp("^" + numeric + "$");
-  var TEST_ALPHANUMERIC = new RegExp("^[A-Z0-9 $%*+\\-./:]+$");
-  exports.testKanji = function testKanji(str) {
-    return TEST_KANJI.test(str);
-  };
-  exports.testNumeric = function testNumeric(str) {
-    return TEST_NUMERIC.test(str);
-  };
-  exports.testAlphanumeric = function testAlphanumeric(str) {
-    return TEST_ALPHANUMERIC.test(str);
-  };
-});
-
-// node_modules/qrcode/lib/core/mode.js
-var require_mode = __commonJS((exports) => {
-  var VersionCheck = require_version_check();
-  var Regex = require_regex();
-  exports.NUMERIC = {
-    id: "Numeric",
-    bit: 1 << 0,
-    ccBits: [10, 12, 14]
-  };
-  exports.ALPHANUMERIC = {
-    id: "Alphanumeric",
-    bit: 1 << 1,
-    ccBits: [9, 11, 13]
-  };
-  exports.BYTE = {
-    id: "Byte",
-    bit: 1 << 2,
-    ccBits: [8, 16, 16]
-  };
-  exports.KANJI = {
-    id: "Kanji",
-    bit: 1 << 3,
-    ccBits: [8, 10, 12]
-  };
-  exports.MIXED = {
-    bit: -1
-  };
-  exports.getCharCountIndicator = function getCharCountIndicator(mode, version) {
-    if (!mode.ccBits)
-      throw new Error("Invalid mode: " + mode);
-    if (!VersionCheck.isValid(version)) {
-      throw new Error("Invalid version: " + version);
-    }
-    if (version >= 1 && version < 10)
-      return mode.ccBits[0];
-    else if (version < 27)
-      return mode.ccBits[1];
-    return mode.ccBits[2];
-  };
-  exports.getBestModeForData = function getBestModeForData(dataStr) {
-    if (Regex.testNumeric(dataStr))
-      return exports.NUMERIC;
-    else if (Regex.testAlphanumeric(dataStr))
-      return exports.ALPHANUMERIC;
-    else if (Regex.testKanji(dataStr))
-      return exports.KANJI;
-    else
-      return exports.BYTE;
-  };
-  exports.toString = function toString(mode) {
-    if (mode && mode.id)
-      return mode.id;
-    throw new Error("Invalid mode");
-  };
-  exports.isValid = function isValid2(mode) {
-    return mode && mode.bit && mode.ccBits;
-  };
-  function fromString(string) {
-    if (typeof string !== "string") {
-      throw new Error("Param is not a string");
-    }
-    const lcStr = string.toLowerCase();
-    switch (lcStr) {
-      case "numeric":
-        return exports.NUMERIC;
-      case "alphanumeric":
-        return exports.ALPHANUMERIC;
-      case "kanji":
-        return exports.KANJI;
-      case "byte":
-        return exports.BYTE;
-      default:
-        throw new Error("Unknown mode: " + string);
-    }
-  }
-  exports.from = function from(value, defaultValue) {
-    if (exports.isValid(value)) {
-      return value;
-    }
-    try {
-      return fromString(value);
-    } catch (e) {
-      return defaultValue;
-    }
-  };
-});
-
-// node_modules/qrcode/lib/core/version.js
-var require_version = __commonJS((exports) => {
-  var Utils = require_utils4();
-  var ECCode = require_error_correction_code();
-  var ECLevel = require_error_correction_level();
-  var Mode = require_mode();
-  var VersionCheck = require_version_check();
-  var G18 = 1 << 12 | 1 << 11 | 1 << 10 | 1 << 9 | 1 << 8 | 1 << 5 | 1 << 2 | 1 << 0;
-  var G18_BCH = Utils.getBCHDigit(G18);
-  function getBestVersionForDataLength(mode, length, errorCorrectionLevel) {
-    for (let currentVersion = 1;currentVersion <= 40; currentVersion++) {
-      if (length <= exports.getCapacity(currentVersion, errorCorrectionLevel, mode)) {
-        return currentVersion;
-      }
-    }
-    return;
-  }
-  function getReservedBitsCount(mode, version) {
-    return Mode.getCharCountIndicator(mode, version) + 4;
-  }
-  function getTotalBitsFromDataArray(segments, version) {
-    let totalBits = 0;
-    segments.forEach(function(data) {
-      const reservedBits = getReservedBitsCount(data.mode, version);
-      totalBits += reservedBits + data.getBitsLength();
-    });
-    return totalBits;
-  }
-  function getBestVersionForMixedData(segments, errorCorrectionLevel) {
-    for (let currentVersion = 1;currentVersion <= 40; currentVersion++) {
-      const length = getTotalBitsFromDataArray(segments, currentVersion);
-      if (length <= exports.getCapacity(currentVersion, errorCorrectionLevel, Mode.MIXED)) {
-        return currentVersion;
-      }
-    }
-    return;
-  }
-  exports.from = function from(value, defaultValue) {
-    if (VersionCheck.isValid(value)) {
-      return parseInt(value, 10);
-    }
-    return defaultValue;
-  };
-  exports.getCapacity = function getCapacity(version, errorCorrectionLevel, mode) {
-    if (!VersionCheck.isValid(version)) {
-      throw new Error("Invalid QR Code version");
-    }
-    if (typeof mode === "undefined")
-      mode = Mode.BYTE;
-    const totalCodewords = Utils.getSymbolTotalCodewords(version);
-    const ecTotalCodewords = ECCode.getTotalCodewordsCount(version, errorCorrectionLevel);
-    const dataTotalCodewordsBits = (totalCodewords - ecTotalCodewords) * 8;
-    if (mode === Mode.MIXED)
-      return dataTotalCodewordsBits;
-    const usableBits = dataTotalCodewordsBits - getReservedBitsCount(mode, version);
-    switch (mode) {
-      case Mode.NUMERIC:
-        return Math.floor(usableBits / 10 * 3);
-      case Mode.ALPHANUMERIC:
-        return Math.floor(usableBits / 11 * 2);
-      case Mode.KANJI:
-        return Math.floor(usableBits / 13);
-      case Mode.BYTE:
-      default:
-        return Math.floor(usableBits / 8);
-    }
-  };
-  exports.getBestVersionForData = function getBestVersionForData(data, errorCorrectionLevel) {
-    let seg;
-    const ecl = ECLevel.from(errorCorrectionLevel, ECLevel.M);
-    if (Array.isArray(data)) {
-      if (data.length > 1) {
-        return getBestVersionForMixedData(data, ecl);
-      }
-      if (data.length === 0) {
-        return 1;
-      }
-      seg = data[0];
-    } else {
-      seg = data;
-    }
-    return getBestVersionForDataLength(seg.mode, seg.getLength(), ecl);
-  };
-  exports.getEncodedBits = function getEncodedBits(version) {
-    if (!VersionCheck.isValid(version) || version < 7) {
-      throw new Error("Invalid QR Code version");
-    }
-    let d = version << 12;
-    while (Utils.getBCHDigit(d) - G18_BCH >= 0) {
-      d ^= G18 << Utils.getBCHDigit(d) - G18_BCH;
-    }
-    return version << 12 | d;
-  };
-});
-
-// node_modules/qrcode/lib/core/format-info.js
-var require_format_info = __commonJS((exports) => {
-  var Utils = require_utils4();
-  var G15 = 1 << 10 | 1 << 8 | 1 << 5 | 1 << 4 | 1 << 2 | 1 << 1 | 1 << 0;
-  var G15_MASK = 1 << 14 | 1 << 12 | 1 << 10 | 1 << 4 | 1 << 1;
-  var G15_BCH = Utils.getBCHDigit(G15);
-  exports.getEncodedBits = function getEncodedBits(errorCorrectionLevel, mask) {
-    const data = errorCorrectionLevel.bit << 3 | mask;
-    let d = data << 10;
-    while (Utils.getBCHDigit(d) - G15_BCH >= 0) {
-      d ^= G15 << Utils.getBCHDigit(d) - G15_BCH;
-    }
-    return (data << 10 | d) ^ G15_MASK;
-  };
-});
-
-// node_modules/qrcode/lib/core/numeric-data.js
-var require_numeric_data = __commonJS((exports, module) => {
-  var Mode = require_mode();
-  function NumericData(data) {
-    this.mode = Mode.NUMERIC;
-    this.data = data.toString();
-  }
-  NumericData.getBitsLength = function getBitsLength(length) {
-    return 10 * Math.floor(length / 3) + (length % 3 ? length % 3 * 3 + 1 : 0);
-  };
-  NumericData.prototype.getLength = function getLength() {
-    return this.data.length;
-  };
-  NumericData.prototype.getBitsLength = function getBitsLength() {
-    return NumericData.getBitsLength(this.data.length);
-  };
-  NumericData.prototype.write = function write(bitBuffer) {
-    let i, group, value;
-    for (i = 0;i + 3 <= this.data.length; i += 3) {
-      group = this.data.substr(i, 3);
-      value = parseInt(group, 10);
-      bitBuffer.put(value, 10);
-    }
-    const remainingNum = this.data.length - i;
-    if (remainingNum > 0) {
-      group = this.data.substr(i);
-      value = parseInt(group, 10);
-      bitBuffer.put(value, remainingNum * 3 + 1);
-    }
-  };
-  module.exports = NumericData;
-});
-
-// node_modules/qrcode/lib/core/alphanumeric-data.js
-var require_alphanumeric_data = __commonJS((exports, module) => {
-  var Mode = require_mode();
-  var ALPHA_NUM_CHARS = [
-    "0",
-    "1",
-    "2",
-    "3",
-    "4",
-    "5",
-    "6",
-    "7",
-    "8",
-    "9",
-    "A",
-    "B",
-    "C",
-    "D",
-    "E",
-    "F",
-    "G",
-    "H",
-    "I",
-    "J",
-    "K",
-    "L",
-    "M",
-    "N",
-    "O",
-    "P",
-    "Q",
-    "R",
-    "S",
-    "T",
-    "U",
-    "V",
-    "W",
-    "X",
-    "Y",
-    "Z",
-    " ",
-    "$",
-    "%",
-    "*",
-    "+",
-    "-",
-    ".",
-    "/",
-    ":"
-  ];
-  function AlphanumericData(data) {
-    this.mode = Mode.ALPHANUMERIC;
-    this.data = data;
-  }
-  AlphanumericData.getBitsLength = function getBitsLength(length) {
-    return 11 * Math.floor(length / 2) + 6 * (length % 2);
-  };
-  AlphanumericData.prototype.getLength = function getLength() {
-    return this.data.length;
-  };
-  AlphanumericData.prototype.getBitsLength = function getBitsLength() {
-    return AlphanumericData.getBitsLength(this.data.length);
-  };
-  AlphanumericData.prototype.write = function write(bitBuffer) {
-    let i;
-    for (i = 0;i + 2 <= this.data.length; i += 2) {
-      let value = ALPHA_NUM_CHARS.indexOf(this.data[i]) * 45;
-      value += ALPHA_NUM_CHARS.indexOf(this.data[i + 1]);
-      bitBuffer.put(value, 11);
-    }
-    if (this.data.length % 2) {
-      bitBuffer.put(ALPHA_NUM_CHARS.indexOf(this.data[i]), 6);
-    }
-  };
-  module.exports = AlphanumericData;
-});
-
-// node_modules/qrcode/lib/core/byte-data.js
-var require_byte_data = __commonJS((exports, module) => {
-  var Mode = require_mode();
-  function ByteData(data) {
-    this.mode = Mode.BYTE;
-    if (typeof data === "string") {
-      this.data = new TextEncoder().encode(data);
-    } else {
-      this.data = new Uint8Array(data);
-    }
-  }
-  ByteData.getBitsLength = function getBitsLength(length) {
-    return length * 8;
-  };
-  ByteData.prototype.getLength = function getLength() {
-    return this.data.length;
-  };
-  ByteData.prototype.getBitsLength = function getBitsLength() {
-    return ByteData.getBitsLength(this.data.length);
-  };
-  ByteData.prototype.write = function(bitBuffer) {
-    for (let i = 0, l2 = this.data.length;i < l2; i++) {
-      bitBuffer.put(this.data[i], 8);
-    }
-  };
-  module.exports = ByteData;
-});
-
-// node_modules/qrcode/lib/core/kanji-data.js
-var require_kanji_data = __commonJS((exports, module) => {
-  var Mode = require_mode();
-  var Utils = require_utils4();
-  function KanjiData(data) {
-    this.mode = Mode.KANJI;
-    this.data = data;
-  }
-  KanjiData.getBitsLength = function getBitsLength(length) {
-    return length * 13;
-  };
-  KanjiData.prototype.getLength = function getLength() {
-    return this.data.length;
-  };
-  KanjiData.prototype.getBitsLength = function getBitsLength() {
-    return KanjiData.getBitsLength(this.data.length);
-  };
-  KanjiData.prototype.write = function(bitBuffer) {
-    let i;
-    for (i = 0;i < this.data.length; i++) {
-      let value = Utils.toSJIS(this.data[i]);
-      if (value >= 33088 && value <= 40956) {
-        value -= 33088;
-      } else if (value >= 57408 && value <= 60351) {
-        value -= 49472;
-      } else {
-        throw new Error("Invalid SJIS character: " + this.data[i] + `
-` + "Make sure your charset is UTF-8");
-      }
-      value = (value >>> 8 & 255) * 192 + (value & 255);
-      bitBuffer.put(value, 13);
-    }
-  };
-  module.exports = KanjiData;
-});
-
-// node_modules/dijkstrajs/dijkstra.js
-var require_dijkstra = __commonJS((exports, module) => {
-  var dijkstra = {
-    single_source_shortest_paths: function(graph, s, d) {
-      var predecessors = {};
-      var costs = {};
-      costs[s] = 0;
-      var open = dijkstra.PriorityQueue.make();
-      open.push(s, 0);
-      var closest, u, v, cost_of_s_to_u, adjacent_nodes, cost_of_e, cost_of_s_to_u_plus_cost_of_e, cost_of_s_to_v, first_visit;
-      while (!open.empty()) {
-        closest = open.pop();
-        u = closest.value;
-        cost_of_s_to_u = closest.cost;
-        adjacent_nodes = graph[u] || {};
-        for (v in adjacent_nodes) {
-          if (adjacent_nodes.hasOwnProperty(v)) {
-            cost_of_e = adjacent_nodes[v];
-            cost_of_s_to_u_plus_cost_of_e = cost_of_s_to_u + cost_of_e;
-            cost_of_s_to_v = costs[v];
-            first_visit = typeof costs[v] === "undefined";
-            if (first_visit || cost_of_s_to_v > cost_of_s_to_u_plus_cost_of_e) {
-              costs[v] = cost_of_s_to_u_plus_cost_of_e;
-              open.push(v, cost_of_s_to_u_plus_cost_of_e);
-              predecessors[v] = u;
-            }
-          }
-        }
-      }
-      if (typeof d !== "undefined" && typeof costs[d] === "undefined") {
-        var msg = ["Could not find a path from ", s, " to ", d, "."].join("");
-        throw new Error(msg);
-      }
-      return predecessors;
-    },
-    extract_shortest_path_from_predecessor_list: function(predecessors, d) {
-      var nodes = [];
-      var u = d;
-      var predecessor;
-      while (u) {
-        nodes.push(u);
-        predecessor = predecessors[u];
-        u = predecessors[u];
-      }
-      nodes.reverse();
-      return nodes;
-    },
-    find_path: function(graph, s, d) {
-      var predecessors = dijkstra.single_source_shortest_paths(graph, s, d);
-      return dijkstra.extract_shortest_path_from_predecessor_list(predecessors, d);
-    },
-    PriorityQueue: {
-      make: function(opts) {
-        var T = dijkstra.PriorityQueue, t3 = {}, key;
-        opts = opts || {};
-        for (key in T) {
-          if (T.hasOwnProperty(key)) {
-            t3[key] = T[key];
-          }
-        }
-        t3.queue = [];
-        t3.sorter = opts.sorter || T.default_sorter;
-        return t3;
-      },
-      default_sorter: function(a12, b) {
-        return a12.cost - b.cost;
-      },
-      push: function(value, cost) {
-        var item = { value, cost };
-        this.queue.push(item);
-        this.queue.sort(this.sorter);
-      },
-      pop: function() {
-        return this.queue.shift();
-      },
-      empty: function() {
-        return this.queue.length === 0;
-      }
-    }
-  };
-  if (typeof module !== "undefined") {
-    module.exports = dijkstra;
-  }
-});
-
-// node_modules/qrcode/lib/core/segments.js
-var require_segments = __commonJS((exports) => {
-  var Mode = require_mode();
-  var NumericData = require_numeric_data();
-  var AlphanumericData = require_alphanumeric_data();
-  var ByteData = require_byte_data();
-  var KanjiData = require_kanji_data();
-  var Regex = require_regex();
-  var Utils = require_utils4();
-  var dijkstra = require_dijkstra();
-  function getStringByteLength(str) {
-    return unescape(encodeURIComponent(str)).length;
-  }
-  function getSegments(regex2, mode, str) {
-    const segments = [];
-    let result;
-    while ((result = regex2.exec(str)) !== null) {
-      segments.push({
-        data: result[0],
-        index: result.index,
-        mode,
-        length: result[0].length
-      });
-    }
-    return segments;
-  }
-  function getSegmentsFromString(dataStr) {
-    const numSegs = getSegments(Regex.NUMERIC, Mode.NUMERIC, dataStr);
-    const alphaNumSegs = getSegments(Regex.ALPHANUMERIC, Mode.ALPHANUMERIC, dataStr);
-    let byteSegs;
-    let kanjiSegs;
-    if (Utils.isKanjiModeEnabled()) {
-      byteSegs = getSegments(Regex.BYTE, Mode.BYTE, dataStr);
-      kanjiSegs = getSegments(Regex.KANJI, Mode.KANJI, dataStr);
-    } else {
-      byteSegs = getSegments(Regex.BYTE_KANJI, Mode.BYTE, dataStr);
-      kanjiSegs = [];
-    }
-    const segs = numSegs.concat(alphaNumSegs, byteSegs, kanjiSegs);
-    return segs.sort(function(s1, s2) {
-      return s1.index - s2.index;
-    }).map(function(obj) {
-      return {
-        data: obj.data,
-        mode: obj.mode,
-        length: obj.length
-      };
-    });
-  }
-  function getSegmentBitsLength(length, mode) {
-    switch (mode) {
-      case Mode.NUMERIC:
-        return NumericData.getBitsLength(length);
-      case Mode.ALPHANUMERIC:
-        return AlphanumericData.getBitsLength(length);
-      case Mode.KANJI:
-        return KanjiData.getBitsLength(length);
-      case Mode.BYTE:
-        return ByteData.getBitsLength(length);
-    }
-  }
-  function mergeSegments(segs) {
-    return segs.reduce(function(acc, curr) {
-      const prevSeg = acc.length - 1 >= 0 ? acc[acc.length - 1] : null;
-      if (prevSeg && prevSeg.mode === curr.mode) {
-        acc[acc.length - 1].data += curr.data;
-        return acc;
-      }
-      acc.push(curr);
-      return acc;
-    }, []);
-  }
-  function buildNodes(segs) {
-    const nodes = [];
-    for (let i = 0;i < segs.length; i++) {
-      const seg = segs[i];
-      switch (seg.mode) {
-        case Mode.NUMERIC:
-          nodes.push([
-            seg,
-            { data: seg.data, mode: Mode.ALPHANUMERIC, length: seg.length },
-            { data: seg.data, mode: Mode.BYTE, length: seg.length }
-          ]);
-          break;
-        case Mode.ALPHANUMERIC:
-          nodes.push([
-            seg,
-            { data: seg.data, mode: Mode.BYTE, length: seg.length }
-          ]);
-          break;
-        case Mode.KANJI:
-          nodes.push([
-            seg,
-            { data: seg.data, mode: Mode.BYTE, length: getStringByteLength(seg.data) }
-          ]);
-          break;
-        case Mode.BYTE:
-          nodes.push([
-            { data: seg.data, mode: Mode.BYTE, length: getStringByteLength(seg.data) }
-          ]);
-      }
-    }
-    return nodes;
-  }
-  function buildGraph(nodes, version) {
-    const table = {};
-    const graph = { start: {} };
-    let prevNodeIds = ["start"];
-    for (let i = 0;i < nodes.length; i++) {
-      const nodeGroup = nodes[i];
-      const currentNodeIds = [];
-      for (let j = 0;j < nodeGroup.length; j++) {
-        const node = nodeGroup[j];
-        const key = "" + i + j;
-        currentNodeIds.push(key);
-        table[key] = { node, lastCount: 0 };
-        graph[key] = {};
-        for (let n2 = 0;n2 < prevNodeIds.length; n2++) {
-          const prevNodeId = prevNodeIds[n2];
-          if (table[prevNodeId] && table[prevNodeId].node.mode === node.mode) {
-            graph[prevNodeId][key] = getSegmentBitsLength(table[prevNodeId].lastCount + node.length, node.mode) - getSegmentBitsLength(table[prevNodeId].lastCount, node.mode);
-            table[prevNodeId].lastCount += node.length;
-          } else {
-            if (table[prevNodeId])
-              table[prevNodeId].lastCount = node.length;
-            graph[prevNodeId][key] = getSegmentBitsLength(node.length, node.mode) + 4 + Mode.getCharCountIndicator(node.mode, version);
-          }
-        }
-      }
-      prevNodeIds = currentNodeIds;
-    }
-    for (let n2 = 0;n2 < prevNodeIds.length; n2++) {
-      graph[prevNodeIds[n2]].end = 0;
-    }
-    return { map: graph, table };
-  }
-  function buildSingleSegment(data, modesHint) {
-    let mode;
-    const bestMode = Mode.getBestModeForData(data);
-    mode = Mode.from(modesHint, bestMode);
-    if (mode !== Mode.BYTE && mode.bit < bestMode.bit) {
-      throw new Error('"' + data + '"' + " cannot be encoded with mode " + Mode.toString(mode) + `.
- Suggested mode is: ` + Mode.toString(bestMode));
-    }
-    if (mode === Mode.KANJI && !Utils.isKanjiModeEnabled()) {
-      mode = Mode.BYTE;
-    }
-    switch (mode) {
-      case Mode.NUMERIC:
-        return new NumericData(data);
-      case Mode.ALPHANUMERIC:
-        return new AlphanumericData(data);
-      case Mode.KANJI:
-        return new KanjiData(data);
-      case Mode.BYTE:
-        return new ByteData(data);
-    }
-  }
-  exports.fromArray = function fromArray(array) {
-    return array.reduce(function(acc, seg) {
-      if (typeof seg === "string") {
-        acc.push(buildSingleSegment(seg, null));
-      } else if (seg.data) {
-        acc.push(buildSingleSegment(seg.data, seg.mode));
-      }
-      return acc;
-    }, []);
-  };
-  exports.fromString = function fromString(data, version) {
-    const segs = getSegmentsFromString(data, Utils.isKanjiModeEnabled());
-    const nodes = buildNodes(segs);
-    const graph = buildGraph(nodes, version);
-    const path = dijkstra.find_path(graph.map, "start", "end");
-    const optimizedSegs = [];
-    for (let i = 1;i < path.length - 1; i++) {
-      optimizedSegs.push(graph.table[path[i]].node);
-    }
-    return exports.fromArray(mergeSegments(optimizedSegs));
-  };
-  exports.rawSplit = function rawSplit(data) {
-    return exports.fromArray(getSegmentsFromString(data, Utils.isKanjiModeEnabled()));
-  };
-});
-
-// node_modules/qrcode/lib/core/qrcode.js
-var require_qrcode = __commonJS((exports) => {
-  var Utils = require_utils4();
-  var ECLevel = require_error_correction_level();
-  var BitBuffer = require_bit_buffer();
-  var BitMatrix = require_bit_matrix();
-  var AlignmentPattern = require_alignment_pattern();
-  var FinderPattern = require_finder_pattern();
-  var MaskPattern = require_mask_pattern();
-  var ECCode = require_error_correction_code();
-  var ReedSolomonEncoder = require_reed_solomon_encoder();
-  var Version = require_version();
-  var FormatInfo = require_format_info();
-  var Mode = require_mode();
-  var Segments = require_segments();
-  function setupFinderPattern(matrix, version) {
-    const size = matrix.size;
-    const pos = FinderPattern.getPositions(version);
-    for (let i = 0;i < pos.length; i++) {
-      const row = pos[i][0];
-      const col = pos[i][1];
-      for (let r2 = -1;r2 <= 7; r2++) {
-        if (row + r2 <= -1 || size <= row + r2)
-          continue;
-        for (let c = -1;c <= 7; c++) {
-          if (col + c <= -1 || size <= col + c)
-            continue;
-          if (r2 >= 0 && r2 <= 6 && (c === 0 || c === 6) || c >= 0 && c <= 6 && (r2 === 0 || r2 === 6) || r2 >= 2 && r2 <= 4 && c >= 2 && c <= 4) {
-            matrix.set(row + r2, col + c, true, true);
-          } else {
-            matrix.set(row + r2, col + c, false, true);
-          }
-        }
-      }
-    }
-  }
-  function setupTimingPattern(matrix) {
-    const size = matrix.size;
-    for (let r2 = 8;r2 < size - 8; r2++) {
-      const value = r2 % 2 === 0;
-      matrix.set(r2, 6, value, true);
-      matrix.set(6, r2, value, true);
-    }
-  }
-  function setupAlignmentPattern(matrix, version) {
-    const pos = AlignmentPattern.getPositions(version);
-    for (let i = 0;i < pos.length; i++) {
-      const row = pos[i][0];
-      const col = pos[i][1];
-      for (let r2 = -2;r2 <= 2; r2++) {
-        for (let c = -2;c <= 2; c++) {
-          if (r2 === -2 || r2 === 2 || c === -2 || c === 2 || r2 === 0 && c === 0) {
-            matrix.set(row + r2, col + c, true, true);
-          } else {
-            matrix.set(row + r2, col + c, false, true);
-          }
-        }
-      }
-    }
-  }
-  function setupVersionInfo(matrix, version) {
-    const size = matrix.size;
-    const bits = Version.getEncodedBits(version);
-    let row, col, mod;
-    for (let i = 0;i < 18; i++) {
-      row = Math.floor(i / 3);
-      col = i % 3 + size - 8 - 3;
-      mod = (bits >> i & 1) === 1;
-      matrix.set(row, col, mod, true);
-      matrix.set(col, row, mod, true);
-    }
-  }
-  function setupFormatInfo(matrix, errorCorrectionLevel, maskPattern) {
-    const size = matrix.size;
-    const bits = FormatInfo.getEncodedBits(errorCorrectionLevel, maskPattern);
-    let i, mod;
-    for (i = 0;i < 15; i++) {
-      mod = (bits >> i & 1) === 1;
-      if (i < 6) {
-        matrix.set(i, 8, mod, true);
-      } else if (i < 8) {
-        matrix.set(i + 1, 8, mod, true);
-      } else {
-        matrix.set(size - 15 + i, 8, mod, true);
-      }
-      if (i < 8) {
-        matrix.set(8, size - i - 1, mod, true);
-      } else if (i < 9) {
-        matrix.set(8, 15 - i - 1 + 1, mod, true);
-      } else {
-        matrix.set(8, 15 - i - 1, mod, true);
-      }
-    }
-    matrix.set(size - 8, 8, 1, true);
-  }
-  function setupData(matrix, data) {
-    const size = matrix.size;
-    let inc = -1;
-    let row = size - 1;
-    let bitIndex = 7;
-    let byteIndex = 0;
-    for (let col = size - 1;col > 0; col -= 2) {
-      if (col === 6)
-        col--;
-      while (true) {
-        for (let c = 0;c < 2; c++) {
-          if (!matrix.isReserved(row, col - c)) {
-            let dark = false;
-            if (byteIndex < data.length) {
-              dark = (data[byteIndex] >>> bitIndex & 1) === 1;
-            }
-            matrix.set(row, col - c, dark);
-            bitIndex--;
-            if (bitIndex === -1) {
-              byteIndex++;
-              bitIndex = 7;
-            }
-          }
-        }
-        row += inc;
-        if (row < 0 || size <= row) {
-          row -= inc;
-          inc = -inc;
-          break;
-        }
-      }
-    }
-  }
-  function createData(version, errorCorrectionLevel, segments) {
-    const buffer = new BitBuffer;
-    segments.forEach(function(data) {
-      buffer.put(data.mode.bit, 4);
-      buffer.put(data.getLength(), Mode.getCharCountIndicator(data.mode, version));
-      data.write(buffer);
-    });
-    const totalCodewords = Utils.getSymbolTotalCodewords(version);
-    const ecTotalCodewords = ECCode.getTotalCodewordsCount(version, errorCorrectionLevel);
-    const dataTotalCodewordsBits = (totalCodewords - ecTotalCodewords) * 8;
-    if (buffer.getLengthInBits() + 4 <= dataTotalCodewordsBits) {
-      buffer.put(0, 4);
-    }
-    while (buffer.getLengthInBits() % 8 !== 0) {
-      buffer.putBit(0);
-    }
-    const remainingByte = (dataTotalCodewordsBits - buffer.getLengthInBits()) / 8;
-    for (let i = 0;i < remainingByte; i++) {
-      buffer.put(i % 2 ? 17 : 236, 8);
-    }
-    return createCodewords(buffer, version, errorCorrectionLevel);
-  }
-  function createCodewords(bitBuffer, version, errorCorrectionLevel) {
-    const totalCodewords = Utils.getSymbolTotalCodewords(version);
-    const ecTotalCodewords = ECCode.getTotalCodewordsCount(version, errorCorrectionLevel);
-    const dataTotalCodewords = totalCodewords - ecTotalCodewords;
-    const ecTotalBlocks = ECCode.getBlocksCount(version, errorCorrectionLevel);
-    const blocksInGroup2 = totalCodewords % ecTotalBlocks;
-    const blocksInGroup1 = ecTotalBlocks - blocksInGroup2;
-    const totalCodewordsInGroup1 = Math.floor(totalCodewords / ecTotalBlocks);
-    const dataCodewordsInGroup1 = Math.floor(dataTotalCodewords / ecTotalBlocks);
-    const dataCodewordsInGroup2 = dataCodewordsInGroup1 + 1;
-    const ecCount = totalCodewordsInGroup1 - dataCodewordsInGroup1;
-    const rs = new ReedSolomonEncoder(ecCount);
-    let offset = 0;
-    const dcData = new Array(ecTotalBlocks);
-    const ecData = new Array(ecTotalBlocks);
-    let maxDataSize = 0;
-    const buffer = new Uint8Array(bitBuffer.buffer);
-    for (let b = 0;b < ecTotalBlocks; b++) {
-      const dataSize = b < blocksInGroup1 ? dataCodewordsInGroup1 : dataCodewordsInGroup2;
-      dcData[b] = buffer.slice(offset, offset + dataSize);
-      ecData[b] = rs.encode(dcData[b]);
-      offset += dataSize;
-      maxDataSize = Math.max(maxDataSize, dataSize);
-    }
-    const data = new Uint8Array(totalCodewords);
-    let index = 0;
-    let i, r2;
-    for (i = 0;i < maxDataSize; i++) {
-      for (r2 = 0;r2 < ecTotalBlocks; r2++) {
-        if (i < dcData[r2].length) {
-          data[index++] = dcData[r2][i];
-        }
-      }
-    }
-    for (i = 0;i < ecCount; i++) {
-      for (r2 = 0;r2 < ecTotalBlocks; r2++) {
-        data[index++] = ecData[r2][i];
-      }
-    }
-    return data;
-  }
-  function createSymbol(data, version, errorCorrectionLevel, maskPattern) {
-    let segments;
-    if (Array.isArray(data)) {
-      segments = Segments.fromArray(data);
-    } else if (typeof data === "string") {
-      let estimatedVersion = version;
-      if (!estimatedVersion) {
-        const rawSegments = Segments.rawSplit(data);
-        estimatedVersion = Version.getBestVersionForData(rawSegments, errorCorrectionLevel);
-      }
-      segments = Segments.fromString(data, estimatedVersion || 40);
-    } else {
-      throw new Error("Invalid data");
-    }
-    const bestVersion = Version.getBestVersionForData(segments, errorCorrectionLevel);
-    if (!bestVersion) {
-      throw new Error("The amount of data is too big to be stored in a QR Code");
-    }
-    if (!version) {
-      version = bestVersion;
-    } else if (version < bestVersion) {
-      throw new Error(`
-` + `The chosen QR Code version cannot contain this amount of data.
-` + "Minimum version required to store current data is: " + bestVersion + `.
-`);
-    }
-    const dataBits = createData(version, errorCorrectionLevel, segments);
-    const moduleCount = Utils.getSymbolSize(version);
-    const modules = new BitMatrix(moduleCount);
-    setupFinderPattern(modules, version);
-    setupTimingPattern(modules);
-    setupAlignmentPattern(modules, version);
-    setupFormatInfo(modules, errorCorrectionLevel, 0);
-    if (version >= 7) {
-      setupVersionInfo(modules, version);
-    }
-    setupData(modules, dataBits);
-    if (isNaN(maskPattern)) {
-      maskPattern = MaskPattern.getBestMask(modules, setupFormatInfo.bind(null, modules, errorCorrectionLevel));
-    }
-    MaskPattern.applyMask(maskPattern, modules);
-    setupFormatInfo(modules, errorCorrectionLevel, maskPattern);
-    return {
-      modules,
-      version,
-      errorCorrectionLevel,
-      maskPattern,
-      segments
-    };
-  }
-  exports.create = function create2(data, options) {
-    if (typeof data === "undefined" || data === "") {
-      throw new Error("No input text");
-    }
-    let errorCorrectionLevel = ECLevel.M;
-    let version;
-    let mask;
-    if (typeof options !== "undefined") {
-      errorCorrectionLevel = ECLevel.from(options.errorCorrectionLevel, ECLevel.M);
-      version = Version.from(options.version);
-      mask = MaskPattern.from(options.maskPattern);
-      if (options.toSJISFunc) {
-        Utils.setToSJISFunction(options.toSJISFunc);
-      }
-    }
-    return createSymbol(data, version, errorCorrectionLevel, mask);
-  };
-});
-
-// node_modules/pngjs/lib/chunkstream.js
-var require_chunkstream = __commonJS((exports, module) => {
-  var util3 = __require("util");
-  var Stream = __require("stream");
-  var ChunkStream = module.exports = function() {
-    Stream.call(this);
-    this._buffers = [];
-    this._buffered = 0;
-    this._reads = [];
-    this._paused = false;
-    this._encoding = "utf8";
-    this.writable = true;
-  };
-  util3.inherits(ChunkStream, Stream);
-  ChunkStream.prototype.read = function(length, callback) {
-    this._reads.push({
-      length: Math.abs(length),
-      allowLess: length < 0,
-      func: callback
-    });
-    process.nextTick(function() {
-      this._process();
-      if (this._paused && this._reads && this._reads.length > 0) {
-        this._paused = false;
-        this.emit("drain");
-      }
-    }.bind(this));
-  };
-  ChunkStream.prototype.write = function(data, encoding) {
-    if (!this.writable) {
-      this.emit("error", new Error("Stream not writable"));
-      return false;
-    }
-    let dataBuffer;
-    if (Buffer.isBuffer(data)) {
-      dataBuffer = data;
-    } else {
-      dataBuffer = Buffer.from(data, encoding || this._encoding);
-    }
-    this._buffers.push(dataBuffer);
-    this._buffered += dataBuffer.length;
-    this._process();
-    if (this._reads && this._reads.length === 0) {
-      this._paused = true;
-    }
-    return this.writable && !this._paused;
-  };
-  ChunkStream.prototype.end = function(data, encoding) {
-    if (data) {
-      this.write(data, encoding);
-    }
-    this.writable = false;
-    if (!this._buffers) {
-      return;
-    }
-    if (this._buffers.length === 0) {
-      this._end();
-    } else {
-      this._buffers.push(null);
-      this._process();
-    }
-  };
-  ChunkStream.prototype.destroySoon = ChunkStream.prototype.end;
-  ChunkStream.prototype._end = function() {
-    if (this._reads.length > 0) {
-      this.emit("error", new Error("Unexpected end of input"));
-    }
-    this.destroy();
-  };
-  ChunkStream.prototype.destroy = function() {
-    if (!this._buffers) {
-      return;
-    }
-    this.writable = false;
-    this._reads = null;
-    this._buffers = null;
-    this.emit("close");
-  };
-  ChunkStream.prototype._processReadAllowingLess = function(read) {
-    this._reads.shift();
-    let smallerBuf = this._buffers[0];
-    if (smallerBuf.length > read.length) {
-      this._buffered -= read.length;
-      this._buffers[0] = smallerBuf.slice(read.length);
-      read.func.call(this, smallerBuf.slice(0, read.length));
-    } else {
-      this._buffered -= smallerBuf.length;
-      this._buffers.shift();
-      read.func.call(this, smallerBuf);
-    }
-  };
-  ChunkStream.prototype._processRead = function(read) {
-    this._reads.shift();
-    let pos = 0;
-    let count = 0;
-    let data = Buffer.alloc(read.length);
-    while (pos < read.length) {
-      let buf = this._buffers[count++];
-      let len = Math.min(buf.length, read.length - pos);
-      buf.copy(data, pos, 0, len);
-      pos += len;
-      if (len !== buf.length) {
-        this._buffers[--count] = buf.slice(len);
-      }
-    }
-    if (count > 0) {
-      this._buffers.splice(0, count);
-    }
-    this._buffered -= read.length;
-    read.func.call(this, data);
-  };
-  ChunkStream.prototype._process = function() {
-    try {
-      while (this._buffered > 0 && this._reads && this._reads.length > 0) {
-        let read = this._reads[0];
-        if (read.allowLess) {
-          this._processReadAllowingLess(read);
-        } else if (this._buffered >= read.length) {
-          this._processRead(read);
-        } else {
-          break;
-        }
-      }
-      if (this._buffers && !this.writable) {
-        this._end();
-      }
-    } catch (ex) {
-      this.emit("error", ex);
-    }
-  };
-});
-
-// node_modules/pngjs/lib/interlace.js
-var require_interlace = __commonJS((exports) => {
-  var imagePasses = [
-    {
-      x: [0],
-      y: [0]
-    },
-    {
-      x: [4],
-      y: [0]
-    },
-    {
-      x: [0, 4],
-      y: [4]
-    },
-    {
-      x: [2, 6],
-      y: [0, 4]
-    },
-    {
-      x: [0, 2, 4, 6],
-      y: [2, 6]
-    },
-    {
-      x: [1, 3, 5, 7],
-      y: [0, 2, 4, 6]
-    },
-    {
-      x: [0, 1, 2, 3, 4, 5, 6, 7],
-      y: [1, 3, 5, 7]
-    }
-  ];
-  exports.getImagePasses = function(width, height) {
-    let images = [];
-    let xLeftOver = width % 8;
-    let yLeftOver = height % 8;
-    let xRepeats = (width - xLeftOver) / 8;
-    let yRepeats = (height - yLeftOver) / 8;
-    for (let i = 0;i < imagePasses.length; i++) {
-      let pass = imagePasses[i];
-      let passWidth = xRepeats * pass.x.length;
-      let passHeight = yRepeats * pass.y.length;
-      for (let j = 0;j < pass.x.length; j++) {
-        if (pass.x[j] < xLeftOver) {
-          passWidth++;
-        } else {
-          break;
-        }
-      }
-      for (let j = 0;j < pass.y.length; j++) {
-        if (pass.y[j] < yLeftOver) {
-          passHeight++;
-        } else {
-          break;
-        }
-      }
-      if (passWidth > 0 && passHeight > 0) {
-        images.push({ width: passWidth, height: passHeight, index: i });
-      }
-    }
-    return images;
-  };
-  exports.getInterlaceIterator = function(width) {
-    return function(x, y, pass) {
-      let outerXLeftOver = x % imagePasses[pass].x.length;
-      let outerX = (x - outerXLeftOver) / imagePasses[pass].x.length * 8 + imagePasses[pass].x[outerXLeftOver];
-      let outerYLeftOver = y % imagePasses[pass].y.length;
-      let outerY = (y - outerYLeftOver) / imagePasses[pass].y.length * 8 + imagePasses[pass].y[outerYLeftOver];
-      return outerX * 4 + outerY * width * 4;
-    };
-  };
-});
-
-// node_modules/pngjs/lib/paeth-predictor.js
-var require_paeth_predictor = __commonJS((exports, module) => {
-  module.exports = function paethPredictor(left, above, upLeft) {
-    let paeth = left + above - upLeft;
-    let pLeft = Math.abs(paeth - left);
-    let pAbove = Math.abs(paeth - above);
-    let pUpLeft = Math.abs(paeth - upLeft);
-    if (pLeft <= pAbove && pLeft <= pUpLeft) {
-      return left;
-    }
-    if (pAbove <= pUpLeft) {
-      return above;
-    }
-    return upLeft;
-  };
-});
-
-// node_modules/pngjs/lib/filter-parse.js
-var require_filter_parse = __commonJS((exports, module) => {
-  var interlaceUtils = require_interlace();
-  var paethPredictor = require_paeth_predictor();
-  function getByteWidth(width, bpp, depth) {
-    let byteWidth = width * bpp;
-    if (depth !== 8) {
-      byteWidth = Math.ceil(byteWidth / (8 / depth));
-    }
-    return byteWidth;
-  }
-  var Filter = module.exports = function(bitmapInfo, dependencies) {
-    let width = bitmapInfo.width;
-    let height = bitmapInfo.height;
-    let interlace = bitmapInfo.interlace;
-    let bpp = bitmapInfo.bpp;
-    let depth = bitmapInfo.depth;
-    this.read = dependencies.read;
-    this.write = dependencies.write;
-    this.complete = dependencies.complete;
-    this._imageIndex = 0;
-    this._images = [];
-    if (interlace) {
-      let passes = interlaceUtils.getImagePasses(width, height);
-      for (let i = 0;i < passes.length; i++) {
-        this._images.push({
-          byteWidth: getByteWidth(passes[i].width, bpp, depth),
-          height: passes[i].height,
-          lineIndex: 0
-        });
-      }
-    } else {
-      this._images.push({
-        byteWidth: getByteWidth(width, bpp, depth),
-        height,
-        lineIndex: 0
-      });
-    }
-    if (depth === 8) {
-      this._xComparison = bpp;
-    } else if (depth === 16) {
-      this._xComparison = bpp * 2;
-    } else {
-      this._xComparison = 1;
-    }
-  };
-  Filter.prototype.start = function() {
-    this.read(this._images[this._imageIndex].byteWidth + 1, this._reverseFilterLine.bind(this));
-  };
-  Filter.prototype._unFilterType1 = function(rawData, unfilteredLine, byteWidth) {
-    let xComparison = this._xComparison;
-    let xBiggerThan = xComparison - 1;
-    for (let x = 0;x < byteWidth; x++) {
-      let rawByte = rawData[1 + x];
-      let f1Left = x > xBiggerThan ? unfilteredLine[x - xComparison] : 0;
-      unfilteredLine[x] = rawByte + f1Left;
-    }
-  };
-  Filter.prototype._unFilterType2 = function(rawData, unfilteredLine, byteWidth) {
-    let lastLine = this._lastLine;
-    for (let x = 0;x < byteWidth; x++) {
-      let rawByte = rawData[1 + x];
-      let f2Up = lastLine ? lastLine[x] : 0;
-      unfilteredLine[x] = rawByte + f2Up;
-    }
-  };
-  Filter.prototype._unFilterType3 = function(rawData, unfilteredLine, byteWidth) {
-    let xComparison = this._xComparison;
-    let xBiggerThan = xComparison - 1;
-    let lastLine = this._lastLine;
-    for (let x = 0;x < byteWidth; x++) {
-      let rawByte = rawData[1 + x];
-      let f3Up = lastLine ? lastLine[x] : 0;
-      let f3Left = x > xBiggerThan ? unfilteredLine[x - xComparison] : 0;
-      let f3Add = Math.floor((f3Left + f3Up) / 2);
-      unfilteredLine[x] = rawByte + f3Add;
-    }
-  };
-  Filter.prototype._unFilterType4 = function(rawData, unfilteredLine, byteWidth) {
-    let xComparison = this._xComparison;
-    let xBiggerThan = xComparison - 1;
-    let lastLine = this._lastLine;
-    for (let x = 0;x < byteWidth; x++) {
-      let rawByte = rawData[1 + x];
-      let f4Up = lastLine ? lastLine[x] : 0;
-      let f4Left = x > xBiggerThan ? unfilteredLine[x - xComparison] : 0;
-      let f4UpLeft = x > xBiggerThan && lastLine ? lastLine[x - xComparison] : 0;
-      let f4Add = paethPredictor(f4Left, f4Up, f4UpLeft);
-      unfilteredLine[x] = rawByte + f4Add;
-    }
-  };
-  Filter.prototype._reverseFilterLine = function(rawData) {
-    let filter = rawData[0];
-    let unfilteredLine;
-    let currentImage = this._images[this._imageIndex];
-    let byteWidth = currentImage.byteWidth;
-    if (filter === 0) {
-      unfilteredLine = rawData.slice(1, byteWidth + 1);
-    } else {
-      unfilteredLine = Buffer.alloc(byteWidth);
-      switch (filter) {
-        case 1:
-          this._unFilterType1(rawData, unfilteredLine, byteWidth);
-          break;
-        case 2:
-          this._unFilterType2(rawData, unfilteredLine, byteWidth);
-          break;
-        case 3:
-          this._unFilterType3(rawData, unfilteredLine, byteWidth);
-          break;
-        case 4:
-          this._unFilterType4(rawData, unfilteredLine, byteWidth);
-          break;
-        default:
-          throw new Error("Unrecognised filter type - " + filter);
-      }
-    }
-    this.write(unfilteredLine);
-    currentImage.lineIndex++;
-    if (currentImage.lineIndex >= currentImage.height) {
-      this._lastLine = null;
-      this._imageIndex++;
-      currentImage = this._images[this._imageIndex];
-    } else {
-      this._lastLine = unfilteredLine;
-    }
-    if (currentImage) {
-      this.read(currentImage.byteWidth + 1, this._reverseFilterLine.bind(this));
-    } else {
-      this._lastLine = null;
-      this.complete();
-    }
-  };
-});
-
-// node_modules/pngjs/lib/filter-parse-async.js
-var require_filter_parse_async = __commonJS((exports, module) => {
-  var util3 = __require("util");
-  var ChunkStream = require_chunkstream();
-  var Filter = require_filter_parse();
-  var FilterAsync = module.exports = function(bitmapInfo) {
-    ChunkStream.call(this);
-    let buffers = [];
-    let that = this;
-    this._filter = new Filter(bitmapInfo, {
-      read: this.read.bind(this),
-      write: function(buffer) {
-        buffers.push(buffer);
-      },
-      complete: function() {
-        that.emit("complete", Buffer.concat(buffers));
-      }
-    });
-    this._filter.start();
-  };
-  util3.inherits(FilterAsync, ChunkStream);
-});
-
-// node_modules/pngjs/lib/constants.js
-var require_constants2 = __commonJS((exports, module) => {
-  module.exports = {
-    PNG_SIGNATURE: [137, 80, 78, 71, 13, 10, 26, 10],
-    TYPE_IHDR: 1229472850,
-    TYPE_IEND: 1229278788,
-    TYPE_IDAT: 1229209940,
-    TYPE_PLTE: 1347179589,
-    TYPE_tRNS: 1951551059,
-    TYPE_gAMA: 1732332865,
-    COLORTYPE_GRAYSCALE: 0,
-    COLORTYPE_PALETTE: 1,
-    COLORTYPE_COLOR: 2,
-    COLORTYPE_ALPHA: 4,
-    COLORTYPE_PALETTE_COLOR: 3,
-    COLORTYPE_COLOR_ALPHA: 6,
-    COLORTYPE_TO_BPP_MAP: {
-      0: 1,
-      2: 3,
-      3: 1,
-      4: 2,
-      6: 4
-    },
-    GAMMA_DIVISION: 1e5
-  };
-});
-
-// node_modules/pngjs/lib/crc.js
-var require_crc = __commonJS((exports, module) => {
-  var crcTable = [];
-  (function() {
-    for (let i = 0;i < 256; i++) {
-      let currentCrc = i;
-      for (let j = 0;j < 8; j++) {
-        if (currentCrc & 1) {
-          currentCrc = 3988292384 ^ currentCrc >>> 1;
-        } else {
-          currentCrc = currentCrc >>> 1;
-        }
-      }
-      crcTable[i] = currentCrc;
-    }
-  })();
-  var CrcCalculator = module.exports = function() {
-    this._crc = -1;
-  };
-  CrcCalculator.prototype.write = function(data) {
-    for (let i = 0;i < data.length; i++) {
-      this._crc = crcTable[(this._crc ^ data[i]) & 255] ^ this._crc >>> 8;
-    }
-    return true;
-  };
-  CrcCalculator.prototype.crc32 = function() {
-    return this._crc ^ -1;
-  };
-  CrcCalculator.crc32 = function(buf) {
-    let crc = -1;
-    for (let i = 0;i < buf.length; i++) {
-      crc = crcTable[(crc ^ buf[i]) & 255] ^ crc >>> 8;
-    }
-    return crc ^ -1;
-  };
-});
-
-// node_modules/pngjs/lib/parser.js
-var require_parser2 = __commonJS((exports, module) => {
-  var constants = require_constants2();
-  var CrcCalculator = require_crc();
-  var Parser = module.exports = function(options, dependencies) {
-    this._options = options;
-    options.checkCRC = options.checkCRC !== false;
-    this._hasIHDR = false;
-    this._hasIEND = false;
-    this._emittedHeadersFinished = false;
-    this._palette = [];
-    this._colorType = 0;
-    this._chunks = {};
-    this._chunks[constants.TYPE_IHDR] = this._handleIHDR.bind(this);
-    this._chunks[constants.TYPE_IEND] = this._handleIEND.bind(this);
-    this._chunks[constants.TYPE_IDAT] = this._handleIDAT.bind(this);
-    this._chunks[constants.TYPE_PLTE] = this._handlePLTE.bind(this);
-    this._chunks[constants.TYPE_tRNS] = this._handleTRNS.bind(this);
-    this._chunks[constants.TYPE_gAMA] = this._handleGAMA.bind(this);
-    this.read = dependencies.read;
-    this.error = dependencies.error;
-    this.metadata = dependencies.metadata;
-    this.gamma = dependencies.gamma;
-    this.transColor = dependencies.transColor;
-    this.palette = dependencies.palette;
-    this.parsed = dependencies.parsed;
-    this.inflateData = dependencies.inflateData;
-    this.finished = dependencies.finished;
-    this.simpleTransparency = dependencies.simpleTransparency;
-    this.headersFinished = dependencies.headersFinished || function() {};
-  };
-  Parser.prototype.start = function() {
-    this.read(constants.PNG_SIGNATURE.length, this._parseSignature.bind(this));
-  };
-  Parser.prototype._parseSignature = function(data) {
-    let signature = constants.PNG_SIGNATURE;
-    for (let i = 0;i < signature.length; i++) {
-      if (data[i] !== signature[i]) {
-        this.error(new Error("Invalid file signature"));
-        return;
-      }
-    }
-    this.read(8, this._parseChunkBegin.bind(this));
-  };
-  Parser.prototype._parseChunkBegin = function(data) {
-    let length = data.readUInt32BE(0);
-    let type = data.readUInt32BE(4);
-    let name = "";
-    for (let i = 4;i < 8; i++) {
-      name += String.fromCharCode(data[i]);
-    }
-    let ancillary = Boolean(data[4] & 32);
-    if (!this._hasIHDR && type !== constants.TYPE_IHDR) {
-      this.error(new Error("Expected IHDR on beggining"));
-      return;
-    }
-    this._crc = new CrcCalculator;
-    this._crc.write(Buffer.from(name));
-    if (this._chunks[type]) {
-      return this._chunks[type](length);
-    }
-    if (!ancillary) {
-      this.error(new Error("Unsupported critical chunk type " + name));
-      return;
-    }
-    this.read(length + 4, this._skipChunk.bind(this));
-  };
-  Parser.prototype._skipChunk = function() {
-    this.read(8, this._parseChunkBegin.bind(this));
-  };
-  Parser.prototype._handleChunkEnd = function() {
-    this.read(4, this._parseChunkEnd.bind(this));
-  };
-  Parser.prototype._parseChunkEnd = function(data) {
-    let fileCrc = data.readInt32BE(0);
-    let calcCrc = this._crc.crc32();
-    if (this._options.checkCRC && calcCrc !== fileCrc) {
-      this.error(new Error("Crc error - " + fileCrc + " - " + calcCrc));
-      return;
-    }
-    if (!this._hasIEND) {
-      this.read(8, this._parseChunkBegin.bind(this));
-    }
-  };
-  Parser.prototype._handleIHDR = function(length) {
-    this.read(length, this._parseIHDR.bind(this));
-  };
-  Parser.prototype._parseIHDR = function(data) {
-    this._crc.write(data);
-    let width = data.readUInt32BE(0);
-    let height = data.readUInt32BE(4);
-    let depth = data[8];
-    let colorType = data[9];
-    let compr = data[10];
-    let filter = data[11];
-    let interlace = data[12];
-    if (depth !== 8 && depth !== 4 && depth !== 2 && depth !== 1 && depth !== 16) {
-      this.error(new Error("Unsupported bit depth " + depth));
-      return;
-    }
-    if (!(colorType in constants.COLORTYPE_TO_BPP_MAP)) {
-      this.error(new Error("Unsupported color type"));
-      return;
-    }
-    if (compr !== 0) {
-      this.error(new Error("Unsupported compression method"));
-      return;
-    }
-    if (filter !== 0) {
-      this.error(new Error("Unsupported filter method"));
-      return;
-    }
-    if (interlace !== 0 && interlace !== 1) {
-      this.error(new Error("Unsupported interlace method"));
-      return;
-    }
-    this._colorType = colorType;
-    let bpp = constants.COLORTYPE_TO_BPP_MAP[this._colorType];
-    this._hasIHDR = true;
-    this.metadata({
-      width,
-      height,
-      depth,
-      interlace: Boolean(interlace),
-      palette: Boolean(colorType & constants.COLORTYPE_PALETTE),
-      color: Boolean(colorType & constants.COLORTYPE_COLOR),
-      alpha: Boolean(colorType & constants.COLORTYPE_ALPHA),
-      bpp,
-      colorType
-    });
-    this._handleChunkEnd();
-  };
-  Parser.prototype._handlePLTE = function(length) {
-    this.read(length, this._parsePLTE.bind(this));
-  };
-  Parser.prototype._parsePLTE = function(data) {
-    this._crc.write(data);
-    let entries = Math.floor(data.length / 3);
-    for (let i = 0;i < entries; i++) {
-      this._palette.push([data[i * 3], data[i * 3 + 1], data[i * 3 + 2], 255]);
-    }
-    this.palette(this._palette);
-    this._handleChunkEnd();
-  };
-  Parser.prototype._handleTRNS = function(length) {
-    this.simpleTransparency();
-    this.read(length, this._parseTRNS.bind(this));
-  };
-  Parser.prototype._parseTRNS = function(data) {
-    this._crc.write(data);
-    if (this._colorType === constants.COLORTYPE_PALETTE_COLOR) {
-      if (this._palette.length === 0) {
-        this.error(new Error("Transparency chunk must be after palette"));
-        return;
-      }
-      if (data.length > this._palette.length) {
-        this.error(new Error("More transparent colors than palette size"));
-        return;
-      }
-      for (let i = 0;i < data.length; i++) {
-        this._palette[i][3] = data[i];
-      }
-      this.palette(this._palette);
-    }
-    if (this._colorType === constants.COLORTYPE_GRAYSCALE) {
-      this.transColor([data.readUInt16BE(0)]);
-    }
-    if (this._colorType === constants.COLORTYPE_COLOR) {
-      this.transColor([
-        data.readUInt16BE(0),
-        data.readUInt16BE(2),
-        data.readUInt16BE(4)
-      ]);
-    }
-    this._handleChunkEnd();
-  };
-  Parser.prototype._handleGAMA = function(length) {
-    this.read(length, this._parseGAMA.bind(this));
-  };
-  Parser.prototype._parseGAMA = function(data) {
-    this._crc.write(data);
-    this.gamma(data.readUInt32BE(0) / constants.GAMMA_DIVISION);
-    this._handleChunkEnd();
-  };
-  Parser.prototype._handleIDAT = function(length) {
-    if (!this._emittedHeadersFinished) {
-      this._emittedHeadersFinished = true;
-      this.headersFinished();
-    }
-    this.read(-length, this._parseIDAT.bind(this, length));
-  };
-  Parser.prototype._parseIDAT = function(length, data) {
-    this._crc.write(data);
-    if (this._colorType === constants.COLORTYPE_PALETTE_COLOR && this._palette.length === 0) {
-      throw new Error("Expected palette not found");
-    }
-    this.inflateData(data);
-    let leftOverLength = length - data.length;
-    if (leftOverLength > 0) {
-      this._handleIDAT(leftOverLength);
-    } else {
-      this._handleChunkEnd();
-    }
-  };
-  Parser.prototype._handleIEND = function(length) {
-    this.read(length, this._parseIEND.bind(this));
-  };
-  Parser.prototype._parseIEND = function(data) {
-    this._crc.write(data);
-    this._hasIEND = true;
-    this._handleChunkEnd();
-    if (this.finished) {
-      this.finished();
-    }
-  };
-});
-
-// node_modules/pngjs/lib/bitmapper.js
-var require_bitmapper = __commonJS((exports) => {
-  var interlaceUtils = require_interlace();
-  var pixelBppMapper = [
-    function() {},
-    function(pxData, data, pxPos, rawPos) {
-      if (rawPos === data.length) {
-        throw new Error("Ran out of data");
-      }
-      let pixel = data[rawPos];
-      pxData[pxPos] = pixel;
-      pxData[pxPos + 1] = pixel;
-      pxData[pxPos + 2] = pixel;
-      pxData[pxPos + 3] = 255;
-    },
-    function(pxData, data, pxPos, rawPos) {
-      if (rawPos + 1 >= data.length) {
-        throw new Error("Ran out of data");
-      }
-      let pixel = data[rawPos];
-      pxData[pxPos] = pixel;
-      pxData[pxPos + 1] = pixel;
-      pxData[pxPos + 2] = pixel;
-      pxData[pxPos + 3] = data[rawPos + 1];
-    },
-    function(pxData, data, pxPos, rawPos) {
-      if (rawPos + 2 >= data.length) {
-        throw new Error("Ran out of data");
-      }
-      pxData[pxPos] = data[rawPos];
-      pxData[pxPos + 1] = data[rawPos + 1];
-      pxData[pxPos + 2] = data[rawPos + 2];
-      pxData[pxPos + 3] = 255;
-    },
-    function(pxData, data, pxPos, rawPos) {
-      if (rawPos + 3 >= data.length) {
-        throw new Error("Ran out of data");
-      }
-      pxData[pxPos] = data[rawPos];
-      pxData[pxPos + 1] = data[rawPos + 1];
-      pxData[pxPos + 2] = data[rawPos + 2];
-      pxData[pxPos + 3] = data[rawPos + 3];
-    }
-  ];
-  var pixelBppCustomMapper = [
-    function() {},
-    function(pxData, pixelData, pxPos, maxBit) {
-      let pixel = pixelData[0];
-      pxData[pxPos] = pixel;
-      pxData[pxPos + 1] = pixel;
-      pxData[pxPos + 2] = pixel;
-      pxData[pxPos + 3] = maxBit;
-    },
-    function(pxData, pixelData, pxPos) {
-      let pixel = pixelData[0];
-      pxData[pxPos] = pixel;
-      pxData[pxPos + 1] = pixel;
-      pxData[pxPos + 2] = pixel;
-      pxData[pxPos + 3] = pixelData[1];
-    },
-    function(pxData, pixelData, pxPos, maxBit) {
-      pxData[pxPos] = pixelData[0];
-      pxData[pxPos + 1] = pixelData[1];
-      pxData[pxPos + 2] = pixelData[2];
-      pxData[pxPos + 3] = maxBit;
-    },
-    function(pxData, pixelData, pxPos) {
-      pxData[pxPos] = pixelData[0];
-      pxData[pxPos + 1] = pixelData[1];
-      pxData[pxPos + 2] = pixelData[2];
-      pxData[pxPos + 3] = pixelData[3];
-    }
-  ];
-  function bitRetriever(data, depth) {
-    let leftOver = [];
-    let i = 0;
-    function split() {
-      if (i === data.length) {
-        throw new Error("Ran out of data");
-      }
-      let byte2 = data[i];
-      i++;
-      let byte8, byte7, byte6, byte5, byte4, byte3, byte22, byte1;
-      switch (depth) {
-        default:
-          throw new Error("unrecognised depth");
-        case 16:
-          byte22 = data[i];
-          i++;
-          leftOver.push((byte2 << 8) + byte22);
-          break;
-        case 4:
-          byte22 = byte2 & 15;
-          byte1 = byte2 >> 4;
-          leftOver.push(byte1, byte22);
-          break;
-        case 2:
-          byte4 = byte2 & 3;
-          byte3 = byte2 >> 2 & 3;
-          byte22 = byte2 >> 4 & 3;
-          byte1 = byte2 >> 6 & 3;
-          leftOver.push(byte1, byte22, byte3, byte4);
-          break;
-        case 1:
-          byte8 = byte2 & 1;
-          byte7 = byte2 >> 1 & 1;
-          byte6 = byte2 >> 2 & 1;
-          byte5 = byte2 >> 3 & 1;
-          byte4 = byte2 >> 4 & 1;
-          byte3 = byte2 >> 5 & 1;
-          byte22 = byte2 >> 6 & 1;
-          byte1 = byte2 >> 7 & 1;
-          leftOver.push(byte1, byte22, byte3, byte4, byte5, byte6, byte7, byte8);
-          break;
-      }
-    }
-    return {
-      get: function(count) {
-        while (leftOver.length < count) {
-          split();
-        }
-        let returner = leftOver.slice(0, count);
-        leftOver = leftOver.slice(count);
-        return returner;
-      },
-      resetAfterLine: function() {
-        leftOver.length = 0;
-      },
-      end: function() {
-        if (i !== data.length) {
-          throw new Error("extra data found");
-        }
-      }
-    };
-  }
-  function mapImage8Bit(image, pxData, getPxPos, bpp, data, rawPos) {
-    let imageWidth = image.width;
-    let imageHeight = image.height;
-    let imagePass = image.index;
-    for (let y = 0;y < imageHeight; y++) {
-      for (let x = 0;x < imageWidth; x++) {
-        let pxPos = getPxPos(x, y, imagePass);
-        pixelBppMapper[bpp](pxData, data, pxPos, rawPos);
-        rawPos += bpp;
-      }
-    }
-    return rawPos;
-  }
-  function mapImageCustomBit(image, pxData, getPxPos, bpp, bits, maxBit) {
-    let imageWidth = image.width;
-    let imageHeight = image.height;
-    let imagePass = image.index;
-    for (let y = 0;y < imageHeight; y++) {
-      for (let x = 0;x < imageWidth; x++) {
-        let pixelData = bits.get(bpp);
-        let pxPos = getPxPos(x, y, imagePass);
-        pixelBppCustomMapper[bpp](pxData, pixelData, pxPos, maxBit);
-      }
-      bits.resetAfterLine();
-    }
-  }
-  exports.dataToBitMap = function(data, bitmapInfo) {
-    let width = bitmapInfo.width;
-    let height = bitmapInfo.height;
-    let depth = bitmapInfo.depth;
-    let bpp = bitmapInfo.bpp;
-    let interlace = bitmapInfo.interlace;
-    let bits;
-    if (depth !== 8) {
-      bits = bitRetriever(data, depth);
-    }
-    let pxData;
-    if (depth <= 8) {
-      pxData = Buffer.alloc(width * height * 4);
-    } else {
-      pxData = new Uint16Array(width * height * 4);
-    }
-    let maxBit = Math.pow(2, depth) - 1;
-    let rawPos = 0;
-    let images;
-    let getPxPos;
-    if (interlace) {
-      images = interlaceUtils.getImagePasses(width, height);
-      getPxPos = interlaceUtils.getInterlaceIterator(width, height);
-    } else {
-      let nonInterlacedPxPos = 0;
-      getPxPos = function() {
-        let returner = nonInterlacedPxPos;
-        nonInterlacedPxPos += 4;
-        return returner;
-      };
-      images = [{ width, height }];
-    }
-    for (let imageIndex = 0;imageIndex < images.length; imageIndex++) {
-      if (depth === 8) {
-        rawPos = mapImage8Bit(images[imageIndex], pxData, getPxPos, bpp, data, rawPos);
-      } else {
-        mapImageCustomBit(images[imageIndex], pxData, getPxPos, bpp, bits, maxBit);
-      }
-    }
-    if (depth === 8) {
-      if (rawPos !== data.length) {
-        throw new Error("extra data found");
-      }
-    } else {
-      bits.end();
-    }
-    return pxData;
-  };
-});
-
-// node_modules/pngjs/lib/format-normaliser.js
-var require_format_normaliser = __commonJS((exports, module) => {
-  function dePalette(indata, outdata, width, height, palette) {
-    let pxPos = 0;
-    for (let y = 0;y < height; y++) {
-      for (let x = 0;x < width; x++) {
-        let color = palette[indata[pxPos]];
-        if (!color) {
-          throw new Error("index " + indata[pxPos] + " not in palette");
-        }
-        for (let i = 0;i < 4; i++) {
-          outdata[pxPos + i] = color[i];
-        }
-        pxPos += 4;
-      }
-    }
-  }
-  function replaceTransparentColor(indata, outdata, width, height, transColor) {
-    let pxPos = 0;
-    for (let y = 0;y < height; y++) {
-      for (let x = 0;x < width; x++) {
-        let makeTrans = false;
-        if (transColor.length === 1) {
-          if (transColor[0] === indata[pxPos]) {
-            makeTrans = true;
-          }
-        } else if (transColor[0] === indata[pxPos] && transColor[1] === indata[pxPos + 1] && transColor[2] === indata[pxPos + 2]) {
-          makeTrans = true;
-        }
-        if (makeTrans) {
-          for (let i = 0;i < 4; i++) {
-            outdata[pxPos + i] = 0;
-          }
-        }
-        pxPos += 4;
-      }
-    }
-  }
-  function scaleDepth(indata, outdata, width, height, depth) {
-    let maxOutSample = 255;
-    let maxInSample = Math.pow(2, depth) - 1;
-    let pxPos = 0;
-    for (let y = 0;y < height; y++) {
-      for (let x = 0;x < width; x++) {
-        for (let i = 0;i < 4; i++) {
-          outdata[pxPos + i] = Math.floor(indata[pxPos + i] * maxOutSample / maxInSample + 0.5);
-        }
-        pxPos += 4;
-      }
-    }
-  }
-  module.exports = function(indata, imageData) {
-    let depth = imageData.depth;
-    let width = imageData.width;
-    let height = imageData.height;
-    let colorType = imageData.colorType;
-    let transColor = imageData.transColor;
-    let palette = imageData.palette;
-    let outdata = indata;
-    if (colorType === 3) {
-      dePalette(indata, outdata, width, height, palette);
-    } else {
-      if (transColor) {
-        replaceTransparentColor(indata, outdata, width, height, transColor);
-      }
-      if (depth !== 8) {
-        if (depth === 16) {
-          outdata = Buffer.alloc(width * height * 4);
-        }
-        scaleDepth(indata, outdata, width, height, depth);
-      }
-    }
-    return outdata;
-  };
-});
-
-// node_modules/pngjs/lib/parser-async.js
-var require_parser_async = __commonJS((exports, module) => {
-  var util3 = __require("util");
-  var zlib = __require("zlib");
-  var ChunkStream = require_chunkstream();
-  var FilterAsync = require_filter_parse_async();
-  var Parser = require_parser2();
-  var bitmapper = require_bitmapper();
-  var formatNormaliser = require_format_normaliser();
-  var ParserAsync = module.exports = function(options) {
-    ChunkStream.call(this);
-    this._parser = new Parser(options, {
-      read: this.read.bind(this),
-      error: this._handleError.bind(this),
-      metadata: this._handleMetaData.bind(this),
-      gamma: this.emit.bind(this, "gamma"),
-      palette: this._handlePalette.bind(this),
-      transColor: this._handleTransColor.bind(this),
-      finished: this._finished.bind(this),
-      inflateData: this._inflateData.bind(this),
-      simpleTransparency: this._simpleTransparency.bind(this),
-      headersFinished: this._headersFinished.bind(this)
-    });
-    this._options = options;
-    this.writable = true;
-    this._parser.start();
-  };
-  util3.inherits(ParserAsync, ChunkStream);
-  ParserAsync.prototype._handleError = function(err) {
-    this.emit("error", err);
-    this.writable = false;
-    this.destroy();
-    if (this._inflate && this._inflate.destroy) {
-      this._inflate.destroy();
-    }
-    if (this._filter) {
-      this._filter.destroy();
-      this._filter.on("error", function() {});
-    }
-    this.errord = true;
-  };
-  ParserAsync.prototype._inflateData = function(data) {
-    if (!this._inflate) {
-      if (this._bitmapInfo.interlace) {
-        this._inflate = zlib.createInflate();
-        this._inflate.on("error", this.emit.bind(this, "error"));
-        this._filter.on("complete", this._complete.bind(this));
-        this._inflate.pipe(this._filter);
-      } else {
-        let rowSize = (this._bitmapInfo.width * this._bitmapInfo.bpp * this._bitmapInfo.depth + 7 >> 3) + 1;
-        let imageSize = rowSize * this._bitmapInfo.height;
-        let chunkSize = Math.max(imageSize, zlib.Z_MIN_CHUNK);
-        this._inflate = zlib.createInflate({ chunkSize });
-        let leftToInflate = imageSize;
-        let emitError = this.emit.bind(this, "error");
-        this._inflate.on("error", function(err) {
-          if (!leftToInflate) {
-            return;
-          }
-          emitError(err);
-        });
-        this._filter.on("complete", this._complete.bind(this));
-        let filterWrite = this._filter.write.bind(this._filter);
-        this._inflate.on("data", function(chunk) {
-          if (!leftToInflate) {
-            return;
-          }
-          if (chunk.length > leftToInflate) {
-            chunk = chunk.slice(0, leftToInflate);
-          }
-          leftToInflate -= chunk.length;
-          filterWrite(chunk);
-        });
-        this._inflate.on("end", this._filter.end.bind(this._filter));
-      }
-    }
-    this._inflate.write(data);
-  };
-  ParserAsync.prototype._handleMetaData = function(metaData) {
-    this._metaData = metaData;
-    this._bitmapInfo = Object.create(metaData);
-    this._filter = new FilterAsync(this._bitmapInfo);
-  };
-  ParserAsync.prototype._handleTransColor = function(transColor) {
-    this._bitmapInfo.transColor = transColor;
-  };
-  ParserAsync.prototype._handlePalette = function(palette) {
-    this._bitmapInfo.palette = palette;
-  };
-  ParserAsync.prototype._simpleTransparency = function() {
-    this._metaData.alpha = true;
-  };
-  ParserAsync.prototype._headersFinished = function() {
-    this.emit("metadata", this._metaData);
-  };
-  ParserAsync.prototype._finished = function() {
-    if (this.errord) {
-      return;
-    }
-    if (!this._inflate) {
-      this.emit("error", "No Inflate block");
-    } else {
-      this._inflate.end();
-    }
-  };
-  ParserAsync.prototype._complete = function(filteredData) {
-    if (this.errord) {
-      return;
-    }
-    let normalisedBitmapData;
-    try {
-      let bitmapData = bitmapper.dataToBitMap(filteredData, this._bitmapInfo);
-      normalisedBitmapData = formatNormaliser(bitmapData, this._bitmapInfo);
-      bitmapData = null;
-    } catch (ex) {
-      this._handleError(ex);
-      return;
-    }
-    this.emit("parsed", normalisedBitmapData);
-  };
-});
-
-// node_modules/pngjs/lib/bitpacker.js
-var require_bitpacker = __commonJS((exports, module) => {
-  var constants = require_constants2();
-  module.exports = function(dataIn, width, height, options) {
-    let outHasAlpha = [constants.COLORTYPE_COLOR_ALPHA, constants.COLORTYPE_ALPHA].indexOf(options.colorType) !== -1;
-    if (options.colorType === options.inputColorType) {
-      let bigEndian = function() {
-        let buffer = new ArrayBuffer(2);
-        new DataView(buffer).setInt16(0, 256, true);
-        return new Int16Array(buffer)[0] !== 256;
-      }();
-      if (options.bitDepth === 8 || options.bitDepth === 16 && bigEndian) {
-        return dataIn;
-      }
-    }
-    let data = options.bitDepth !== 16 ? dataIn : new Uint16Array(dataIn.buffer);
-    let maxValue = 255;
-    let inBpp = constants.COLORTYPE_TO_BPP_MAP[options.inputColorType];
-    if (inBpp === 4 && !options.inputHasAlpha) {
-      inBpp = 3;
-    }
-    let outBpp = constants.COLORTYPE_TO_BPP_MAP[options.colorType];
-    if (options.bitDepth === 16) {
-      maxValue = 65535;
-      outBpp *= 2;
-    }
-    let outData = Buffer.alloc(width * height * outBpp);
-    let inIndex = 0;
-    let outIndex = 0;
-    let bgColor = options.bgColor || {};
-    if (bgColor.red === undefined) {
-      bgColor.red = maxValue;
-    }
-    if (bgColor.green === undefined) {
-      bgColor.green = maxValue;
-    }
-    if (bgColor.blue === undefined) {
-      bgColor.blue = maxValue;
-    }
-    function getRGBA() {
-      let red;
-      let green;
-      let blue;
-      let alpha = maxValue;
-      switch (options.inputColorType) {
-        case constants.COLORTYPE_COLOR_ALPHA:
-          alpha = data[inIndex + 3];
-          red = data[inIndex];
-          green = data[inIndex + 1];
-          blue = data[inIndex + 2];
-          break;
-        case constants.COLORTYPE_COLOR:
-          red = data[inIndex];
-          green = data[inIndex + 1];
-          blue = data[inIndex + 2];
-          break;
-        case constants.COLORTYPE_ALPHA:
-          alpha = data[inIndex + 1];
-          red = data[inIndex];
-          green = red;
-          blue = red;
-          break;
-        case constants.COLORTYPE_GRAYSCALE:
-          red = data[inIndex];
-          green = red;
-          blue = red;
-          break;
-        default:
-          throw new Error("input color type:" + options.inputColorType + " is not supported at present");
-      }
-      if (options.inputHasAlpha) {
-        if (!outHasAlpha) {
-          alpha /= maxValue;
-          red = Math.min(Math.max(Math.round((1 - alpha) * bgColor.red + alpha * red), 0), maxValue);
-          green = Math.min(Math.max(Math.round((1 - alpha) * bgColor.green + alpha * green), 0), maxValue);
-          blue = Math.min(Math.max(Math.round((1 - alpha) * bgColor.blue + alpha * blue), 0), maxValue);
-        }
-      }
-      return { red, green, blue, alpha };
-    }
-    for (let y = 0;y < height; y++) {
-      for (let x = 0;x < width; x++) {
-        let rgba = getRGBA(data, inIndex);
-        switch (options.colorType) {
-          case constants.COLORTYPE_COLOR_ALPHA:
-          case constants.COLORTYPE_COLOR:
-            if (options.bitDepth === 8) {
-              outData[outIndex] = rgba.red;
-              outData[outIndex + 1] = rgba.green;
-              outData[outIndex + 2] = rgba.blue;
-              if (outHasAlpha) {
-                outData[outIndex + 3] = rgba.alpha;
-              }
-            } else {
-              outData.writeUInt16BE(rgba.red, outIndex);
-              outData.writeUInt16BE(rgba.green, outIndex + 2);
-              outData.writeUInt16BE(rgba.blue, outIndex + 4);
-              if (outHasAlpha) {
-                outData.writeUInt16BE(rgba.alpha, outIndex + 6);
-              }
-            }
-            break;
-          case constants.COLORTYPE_ALPHA:
-          case constants.COLORTYPE_GRAYSCALE: {
-            let grayscale = (rgba.red + rgba.green + rgba.blue) / 3;
-            if (options.bitDepth === 8) {
-              outData[outIndex] = grayscale;
-              if (outHasAlpha) {
-                outData[outIndex + 1] = rgba.alpha;
-              }
-            } else {
-              outData.writeUInt16BE(grayscale, outIndex);
-              if (outHasAlpha) {
-                outData.writeUInt16BE(rgba.alpha, outIndex + 2);
-              }
-            }
-            break;
-          }
-          default:
-            throw new Error("unrecognised color Type " + options.colorType);
-        }
-        inIndex += inBpp;
-        outIndex += outBpp;
-      }
-    }
-    return outData;
-  };
-});
-
-// node_modules/pngjs/lib/filter-pack.js
-var require_filter_pack = __commonJS((exports, module) => {
-  var paethPredictor = require_paeth_predictor();
-  function filterNone(pxData, pxPos, byteWidth, rawData, rawPos) {
-    for (let x = 0;x < byteWidth; x++) {
-      rawData[rawPos + x] = pxData[pxPos + x];
-    }
-  }
-  function filterSumNone(pxData, pxPos, byteWidth) {
-    let sum = 0;
-    let length = pxPos + byteWidth;
-    for (let i = pxPos;i < length; i++) {
-      sum += Math.abs(pxData[i]);
-    }
-    return sum;
-  }
-  function filterSub(pxData, pxPos, byteWidth, rawData, rawPos, bpp) {
-    for (let x = 0;x < byteWidth; x++) {
-      let left = x >= bpp ? pxData[pxPos + x - bpp] : 0;
-      let val = pxData[pxPos + x] - left;
-      rawData[rawPos + x] = val;
-    }
-  }
-  function filterSumSub(pxData, pxPos, byteWidth, bpp) {
-    let sum = 0;
-    for (let x = 0;x < byteWidth; x++) {
-      let left = x >= bpp ? pxData[pxPos + x - bpp] : 0;
-      let val = pxData[pxPos + x] - left;
-      sum += Math.abs(val);
-    }
-    return sum;
-  }
-  function filterUp(pxData, pxPos, byteWidth, rawData, rawPos) {
-    for (let x = 0;x < byteWidth; x++) {
-      let up = pxPos > 0 ? pxData[pxPos + x - byteWidth] : 0;
-      let val = pxData[pxPos + x] - up;
-      rawData[rawPos + x] = val;
-    }
-  }
-  function filterSumUp(pxData, pxPos, byteWidth) {
-    let sum = 0;
-    let length = pxPos + byteWidth;
-    for (let x = pxPos;x < length; x++) {
-      let up = pxPos > 0 ? pxData[x - byteWidth] : 0;
-      let val = pxData[x] - up;
-      sum += Math.abs(val);
-    }
-    return sum;
-  }
-  function filterAvg(pxData, pxPos, byteWidth, rawData, rawPos, bpp) {
-    for (let x = 0;x < byteWidth; x++) {
-      let left = x >= bpp ? pxData[pxPos + x - bpp] : 0;
-      let up = pxPos > 0 ? pxData[pxPos + x - byteWidth] : 0;
-      let val = pxData[pxPos + x] - (left + up >> 1);
-      rawData[rawPos + x] = val;
-    }
-  }
-  function filterSumAvg(pxData, pxPos, byteWidth, bpp) {
-    let sum = 0;
-    for (let x = 0;x < byteWidth; x++) {
-      let left = x >= bpp ? pxData[pxPos + x - bpp] : 0;
-      let up = pxPos > 0 ? pxData[pxPos + x - byteWidth] : 0;
-      let val = pxData[pxPos + x] - (left + up >> 1);
-      sum += Math.abs(val);
-    }
-    return sum;
-  }
-  function filterPaeth(pxData, pxPos, byteWidth, rawData, rawPos, bpp) {
-    for (let x = 0;x < byteWidth; x++) {
-      let left = x >= bpp ? pxData[pxPos + x - bpp] : 0;
-      let up = pxPos > 0 ? pxData[pxPos + x - byteWidth] : 0;
-      let upleft = pxPos > 0 && x >= bpp ? pxData[pxPos + x - (byteWidth + bpp)] : 0;
-      let val = pxData[pxPos + x] - paethPredictor(left, up, upleft);
-      rawData[rawPos + x] = val;
-    }
-  }
-  function filterSumPaeth(pxData, pxPos, byteWidth, bpp) {
-    let sum = 0;
-    for (let x = 0;x < byteWidth; x++) {
-      let left = x >= bpp ? pxData[pxPos + x - bpp] : 0;
-      let up = pxPos > 0 ? pxData[pxPos + x - byteWidth] : 0;
-      let upleft = pxPos > 0 && x >= bpp ? pxData[pxPos + x - (byteWidth + bpp)] : 0;
-      let val = pxData[pxPos + x] - paethPredictor(left, up, upleft);
-      sum += Math.abs(val);
-    }
-    return sum;
-  }
-  var filters = {
-    0: filterNone,
-    1: filterSub,
-    2: filterUp,
-    3: filterAvg,
-    4: filterPaeth
-  };
-  var filterSums = {
-    0: filterSumNone,
-    1: filterSumSub,
-    2: filterSumUp,
-    3: filterSumAvg,
-    4: filterSumPaeth
-  };
-  module.exports = function(pxData, width, height, options, bpp) {
-    let filterTypes;
-    if (!("filterType" in options) || options.filterType === -1) {
-      filterTypes = [0, 1, 2, 3, 4];
-    } else if (typeof options.filterType === "number") {
-      filterTypes = [options.filterType];
-    } else {
-      throw new Error("unrecognised filter types");
-    }
-    if (options.bitDepth === 16) {
-      bpp *= 2;
-    }
-    let byteWidth = width * bpp;
-    let rawPos = 0;
-    let pxPos = 0;
-    let rawData = Buffer.alloc((byteWidth + 1) * height);
-    let sel = filterTypes[0];
-    for (let y = 0;y < height; y++) {
-      if (filterTypes.length > 1) {
-        let min = Infinity;
-        for (let i = 0;i < filterTypes.length; i++) {
-          let sum = filterSums[filterTypes[i]](pxData, pxPos, byteWidth, bpp);
-          if (sum < min) {
-            sel = filterTypes[i];
-            min = sum;
-          }
-        }
-      }
-      rawData[rawPos] = sel;
-      rawPos++;
-      filters[sel](pxData, pxPos, byteWidth, rawData, rawPos, bpp);
-      rawPos += byteWidth;
-      pxPos += byteWidth;
-    }
-    return rawData;
-  };
-});
-
-// node_modules/pngjs/lib/packer.js
-var require_packer = __commonJS((exports, module) => {
-  var constants = require_constants2();
-  var CrcStream = require_crc();
-  var bitPacker = require_bitpacker();
-  var filter = require_filter_pack();
-  var zlib = __require("zlib");
-  var Packer = module.exports = function(options) {
-    this._options = options;
-    options.deflateChunkSize = options.deflateChunkSize || 32 * 1024;
-    options.deflateLevel = options.deflateLevel != null ? options.deflateLevel : 9;
-    options.deflateStrategy = options.deflateStrategy != null ? options.deflateStrategy : 3;
-    options.inputHasAlpha = options.inputHasAlpha != null ? options.inputHasAlpha : true;
-    options.deflateFactory = options.deflateFactory || zlib.createDeflate;
-    options.bitDepth = options.bitDepth || 8;
-    options.colorType = typeof options.colorType === "number" ? options.colorType : constants.COLORTYPE_COLOR_ALPHA;
-    options.inputColorType = typeof options.inputColorType === "number" ? options.inputColorType : constants.COLORTYPE_COLOR_ALPHA;
-    if ([
-      constants.COLORTYPE_GRAYSCALE,
-      constants.COLORTYPE_COLOR,
-      constants.COLORTYPE_COLOR_ALPHA,
-      constants.COLORTYPE_ALPHA
-    ].indexOf(options.colorType) === -1) {
-      throw new Error("option color type:" + options.colorType + " is not supported at present");
-    }
-    if ([
-      constants.COLORTYPE_GRAYSCALE,
-      constants.COLORTYPE_COLOR,
-      constants.COLORTYPE_COLOR_ALPHA,
-      constants.COLORTYPE_ALPHA
-    ].indexOf(options.inputColorType) === -1) {
-      throw new Error("option input color type:" + options.inputColorType + " is not supported at present");
-    }
-    if (options.bitDepth !== 8 && options.bitDepth !== 16) {
-      throw new Error("option bit depth:" + options.bitDepth + " is not supported at present");
-    }
-  };
-  Packer.prototype.getDeflateOptions = function() {
-    return {
-      chunkSize: this._options.deflateChunkSize,
-      level: this._options.deflateLevel,
-      strategy: this._options.deflateStrategy
-    };
-  };
-  Packer.prototype.createDeflate = function() {
-    return this._options.deflateFactory(this.getDeflateOptions());
-  };
-  Packer.prototype.filterData = function(data, width, height) {
-    let packedData = bitPacker(data, width, height, this._options);
-    let bpp = constants.COLORTYPE_TO_BPP_MAP[this._options.colorType];
-    let filteredData = filter(packedData, width, height, this._options, bpp);
-    return filteredData;
-  };
-  Packer.prototype._packChunk = function(type, data) {
-    let len = data ? data.length : 0;
-    let buf = Buffer.alloc(len + 12);
-    buf.writeUInt32BE(len, 0);
-    buf.writeUInt32BE(type, 4);
-    if (data) {
-      data.copy(buf, 8);
-    }
-    buf.writeInt32BE(CrcStream.crc32(buf.slice(4, buf.length - 4)), buf.length - 4);
-    return buf;
-  };
-  Packer.prototype.packGAMA = function(gamma) {
-    let buf = Buffer.alloc(4);
-    buf.writeUInt32BE(Math.floor(gamma * constants.GAMMA_DIVISION), 0);
-    return this._packChunk(constants.TYPE_gAMA, buf);
-  };
-  Packer.prototype.packIHDR = function(width, height) {
-    let buf = Buffer.alloc(13);
-    buf.writeUInt32BE(width, 0);
-    buf.writeUInt32BE(height, 4);
-    buf[8] = this._options.bitDepth;
-    buf[9] = this._options.colorType;
-    buf[10] = 0;
-    buf[11] = 0;
-    buf[12] = 0;
-    return this._packChunk(constants.TYPE_IHDR, buf);
-  };
-  Packer.prototype.packIDAT = function(data) {
-    return this._packChunk(constants.TYPE_IDAT, data);
-  };
-  Packer.prototype.packIEND = function() {
-    return this._packChunk(constants.TYPE_IEND, null);
-  };
-});
-
-// node_modules/pngjs/lib/packer-async.js
-var require_packer_async = __commonJS((exports, module) => {
-  var util3 = __require("util");
-  var Stream = __require("stream");
-  var constants = require_constants2();
-  var Packer = require_packer();
-  var PackerAsync = module.exports = function(opt) {
-    Stream.call(this);
-    let options = opt || {};
-    this._packer = new Packer(options);
-    this._deflate = this._packer.createDeflate();
-    this.readable = true;
-  };
-  util3.inherits(PackerAsync, Stream);
-  PackerAsync.prototype.pack = function(data, width, height, gamma) {
-    this.emit("data", Buffer.from(constants.PNG_SIGNATURE));
-    this.emit("data", this._packer.packIHDR(width, height));
-    if (gamma) {
-      this.emit("data", this._packer.packGAMA(gamma));
-    }
-    let filteredData = this._packer.filterData(data, width, height);
-    this._deflate.on("error", this.emit.bind(this, "error"));
-    this._deflate.on("data", function(compressedData) {
-      this.emit("data", this._packer.packIDAT(compressedData));
-    }.bind(this));
-    this._deflate.on("end", function() {
-      this.emit("data", this._packer.packIEND());
-      this.emit("end");
-    }.bind(this));
-    this._deflate.end(filteredData);
-  };
-});
-
-// node_modules/pngjs/lib/sync-inflate.js
-var require_sync_inflate = __commonJS((exports, module) => {
-  var assert2 = __require("assert").ok;
-  var zlib = __require("zlib");
-  var util3 = __require("util");
-  var kMaxLength = __require("buffer").kMaxLength;
-  function Inflate(opts) {
-    if (!(this instanceof Inflate)) {
-      return new Inflate(opts);
-    }
-    if (opts && opts.chunkSize < zlib.Z_MIN_CHUNK) {
-      opts.chunkSize = zlib.Z_MIN_CHUNK;
-    }
-    zlib.Inflate.call(this, opts);
-    this._offset = this._offset === undefined ? this._outOffset : this._offset;
-    this._buffer = this._buffer || this._outBuffer;
-    if (opts && opts.maxLength != null) {
-      this._maxLength = opts.maxLength;
-    }
-  }
-  function createInflate(opts) {
-    return new Inflate(opts);
-  }
-  function _close(engine, callback) {
-    if (callback) {
-      process.nextTick(callback);
-    }
-    if (!engine._handle) {
-      return;
-    }
-    engine._handle.close();
-    engine._handle = null;
-  }
-  Inflate.prototype._processChunk = function(chunk, flushFlag, asyncCb) {
-    if (typeof asyncCb === "function") {
-      return zlib.Inflate._processChunk.call(this, chunk, flushFlag, asyncCb);
-    }
-    let self = this;
-    let availInBefore = chunk && chunk.length;
-    let availOutBefore = this._chunkSize - this._offset;
-    let leftToInflate = this._maxLength;
-    let inOff = 0;
-    let buffers = [];
-    let nread = 0;
-    let error;
-    this.on("error", function(err) {
-      error = err;
-    });
-    function handleChunk(availInAfter, availOutAfter) {
-      if (self._hadError) {
-        return;
-      }
-      let have = availOutBefore - availOutAfter;
-      assert2(have >= 0, "have should not go down");
-      if (have > 0) {
-        let out = self._buffer.slice(self._offset, self._offset + have);
-        self._offset += have;
-        if (out.length > leftToInflate) {
-          out = out.slice(0, leftToInflate);
-        }
-        buffers.push(out);
-        nread += out.length;
-        leftToInflate -= out.length;
-        if (leftToInflate === 0) {
-          return false;
-        }
-      }
-      if (availOutAfter === 0 || self._offset >= self._chunkSize) {
-        availOutBefore = self._chunkSize;
-        self._offset = 0;
-        self._buffer = Buffer.allocUnsafe(self._chunkSize);
-      }
-      if (availOutAfter === 0) {
-        inOff += availInBefore - availInAfter;
-        availInBefore = availInAfter;
-        return true;
-      }
-      return false;
-    }
-    assert2(this._handle, "zlib binding closed");
-    let res;
-    do {
-      res = this._handle.writeSync(flushFlag, chunk, inOff, availInBefore, this._buffer, this._offset, availOutBefore);
-      res = res || this._writeState;
-    } while (!this._hadError && handleChunk(res[0], res[1]));
-    if (this._hadError) {
-      throw error;
-    }
-    if (nread >= kMaxLength) {
-      _close(this);
-      throw new RangeError("Cannot create final Buffer. It would be larger than 0x" + kMaxLength.toString(16) + " bytes");
-    }
-    let buf = Buffer.concat(buffers, nread);
-    _close(this);
-    return buf;
-  };
-  util3.inherits(Inflate, zlib.Inflate);
-  function zlibBufferSync(engine, buffer) {
-    if (typeof buffer === "string") {
-      buffer = Buffer.from(buffer);
-    }
-    if (!(buffer instanceof Buffer)) {
-      throw new TypeError("Not a string or buffer");
-    }
-    let flushFlag = engine._finishFlushFlag;
-    if (flushFlag == null) {
-      flushFlag = zlib.Z_FINISH;
-    }
-    return engine._processChunk(buffer, flushFlag);
-  }
-  function inflateSync(buffer, opts) {
-    return zlibBufferSync(new Inflate(opts), buffer);
-  }
-  module.exports = exports = inflateSync;
-  exports.Inflate = Inflate;
-  exports.createInflate = createInflate;
-  exports.inflateSync = inflateSync;
-});
-
-// node_modules/pngjs/lib/sync-reader.js
-var require_sync_reader = __commonJS((exports, module) => {
-  var SyncReader = module.exports = function(buffer) {
-    this._buffer = buffer;
-    this._reads = [];
-  };
-  SyncReader.prototype.read = function(length, callback) {
-    this._reads.push({
-      length: Math.abs(length),
-      allowLess: length < 0,
-      func: callback
-    });
-  };
-  SyncReader.prototype.process = function() {
-    while (this._reads.length > 0 && this._buffer.length) {
-      let read = this._reads[0];
-      if (this._buffer.length && (this._buffer.length >= read.length || read.allowLess)) {
-        this._reads.shift();
-        let buf = this._buffer;
-        this._buffer = buf.slice(read.length);
-        read.func.call(this, buf.slice(0, read.length));
-      } else {
-        break;
-      }
-    }
-    if (this._reads.length > 0) {
-      return new Error("There are some read requests waitng on finished stream");
-    }
-    if (this._buffer.length > 0) {
-      return new Error("unrecognised content at end of stream");
-    }
-  };
-});
-
-// node_modules/pngjs/lib/filter-parse-sync.js
-var require_filter_parse_sync = __commonJS((exports) => {
-  var SyncReader = require_sync_reader();
-  var Filter = require_filter_parse();
-  exports.process = function(inBuffer, bitmapInfo) {
-    let outBuffers = [];
-    let reader = new SyncReader(inBuffer);
-    let filter = new Filter(bitmapInfo, {
-      read: reader.read.bind(reader),
-      write: function(bufferPart) {
-        outBuffers.push(bufferPart);
-      },
-      complete: function() {}
-    });
-    filter.start();
-    reader.process();
-    return Buffer.concat(outBuffers);
-  };
-});
-
-// node_modules/pngjs/lib/parser-sync.js
-var require_parser_sync = __commonJS((exports, module) => {
-  var hasSyncZlib = true;
-  var zlib = __require("zlib");
-  var inflateSync = require_sync_inflate();
-  if (!zlib.deflateSync) {
-    hasSyncZlib = false;
-  }
-  var SyncReader = require_sync_reader();
-  var FilterSync = require_filter_parse_sync();
-  var Parser = require_parser2();
-  var bitmapper = require_bitmapper();
-  var formatNormaliser = require_format_normaliser();
-  module.exports = function(buffer, options) {
-    if (!hasSyncZlib) {
-      throw new Error("To use the sync capability of this library in old node versions, please pin pngjs to v2.3.0");
-    }
-    let err;
-    function handleError(_err_) {
-      err = _err_;
-    }
-    let metaData;
-    function handleMetaData(_metaData_) {
-      metaData = _metaData_;
-    }
-    function handleTransColor(transColor) {
-      metaData.transColor = transColor;
-    }
-    function handlePalette(palette) {
-      metaData.palette = palette;
-    }
-    function handleSimpleTransparency() {
-      metaData.alpha = true;
-    }
-    let gamma;
-    function handleGamma(_gamma_) {
-      gamma = _gamma_;
-    }
-    let inflateDataList = [];
-    function handleInflateData(inflatedData2) {
-      inflateDataList.push(inflatedData2);
-    }
-    let reader = new SyncReader(buffer);
-    let parser = new Parser(options, {
-      read: reader.read.bind(reader),
-      error: handleError,
-      metadata: handleMetaData,
-      gamma: handleGamma,
-      palette: handlePalette,
-      transColor: handleTransColor,
-      inflateData: handleInflateData,
-      simpleTransparency: handleSimpleTransparency
-    });
-    parser.start();
-    reader.process();
-    if (err) {
-      throw err;
-    }
-    let inflateData = Buffer.concat(inflateDataList);
-    inflateDataList.length = 0;
-    let inflatedData;
-    if (metaData.interlace) {
-      inflatedData = zlib.inflateSync(inflateData);
-    } else {
-      let rowSize = (metaData.width * metaData.bpp * metaData.depth + 7 >> 3) + 1;
-      let imageSize = rowSize * metaData.height;
-      inflatedData = inflateSync(inflateData, {
-        chunkSize: imageSize,
-        maxLength: imageSize
-      });
-    }
-    inflateData = null;
-    if (!inflatedData || !inflatedData.length) {
-      throw new Error("bad png - invalid inflate data response");
-    }
-    let unfilteredData = FilterSync.process(inflatedData, metaData);
-    inflateData = null;
-    let bitmapData = bitmapper.dataToBitMap(unfilteredData, metaData);
-    unfilteredData = null;
-    let normalisedBitmapData = formatNormaliser(bitmapData, metaData);
-    metaData.data = normalisedBitmapData;
-    metaData.gamma = gamma || 0;
-    return metaData;
-  };
-});
-
-// node_modules/pngjs/lib/packer-sync.js
-var require_packer_sync = __commonJS((exports, module) => {
-  var hasSyncZlib = true;
-  var zlib = __require("zlib");
-  if (!zlib.deflateSync) {
-    hasSyncZlib = false;
-  }
-  var constants = require_constants2();
-  var Packer = require_packer();
-  module.exports = function(metaData, opt) {
-    if (!hasSyncZlib) {
-      throw new Error("To use the sync capability of this library in old node versions, please pin pngjs to v2.3.0");
-    }
-    let options = opt || {};
-    let packer = new Packer(options);
-    let chunks = [];
-    chunks.push(Buffer.from(constants.PNG_SIGNATURE));
-    chunks.push(packer.packIHDR(metaData.width, metaData.height));
-    if (metaData.gamma) {
-      chunks.push(packer.packGAMA(metaData.gamma));
-    }
-    let filteredData = packer.filterData(metaData.data, metaData.width, metaData.height);
-    let compressedData = zlib.deflateSync(filteredData, packer.getDeflateOptions());
-    filteredData = null;
-    if (!compressedData || !compressedData.length) {
-      throw new Error("bad png - invalid compressed data response");
-    }
-    chunks.push(packer.packIDAT(compressedData));
-    chunks.push(packer.packIEND());
-    return Buffer.concat(chunks);
-  };
-});
-
-// node_modules/pngjs/lib/png-sync.js
-var require_png_sync = __commonJS((exports) => {
-  var parse3 = require_parser_sync();
-  var pack = require_packer_sync();
-  exports.read = function(buffer, options) {
-    return parse3(buffer, options || {});
-  };
-  exports.write = function(png, options) {
-    return pack(png, options);
-  };
-});
-
-// node_modules/pngjs/lib/png.js
-var require_png = __commonJS((exports) => {
-  var util3 = __require("util");
-  var Stream = __require("stream");
-  var Parser = require_parser_async();
-  var Packer = require_packer_async();
-  var PNGSync = require_png_sync();
-  var PNG = exports.PNG = function(options) {
-    Stream.call(this);
-    options = options || {};
-    this.width = options.width | 0;
-    this.height = options.height | 0;
-    this.data = this.width > 0 && this.height > 0 ? Buffer.alloc(4 * this.width * this.height) : null;
-    if (options.fill && this.data) {
-      this.data.fill(0);
-    }
-    this.gamma = 0;
-    this.readable = this.writable = true;
-    this._parser = new Parser(options);
-    this._parser.on("error", this.emit.bind(this, "error"));
-    this._parser.on("close", this._handleClose.bind(this));
-    this._parser.on("metadata", this._metadata.bind(this));
-    this._parser.on("gamma", this._gamma.bind(this));
-    this._parser.on("parsed", function(data) {
-      this.data = data;
-      this.emit("parsed", data);
-    }.bind(this));
-    this._packer = new Packer(options);
-    this._packer.on("data", this.emit.bind(this, "data"));
-    this._packer.on("end", this.emit.bind(this, "end"));
-    this._parser.on("close", this._handleClose.bind(this));
-    this._packer.on("error", this.emit.bind(this, "error"));
-  };
-  util3.inherits(PNG, Stream);
-  PNG.sync = PNGSync;
-  PNG.prototype.pack = function() {
-    if (!this.data || !this.data.length) {
-      this.emit("error", "No data provided");
-      return this;
-    }
-    process.nextTick(function() {
-      this._packer.pack(this.data, this.width, this.height, this.gamma);
-    }.bind(this));
-    return this;
-  };
-  PNG.prototype.parse = function(data, callback) {
-    if (callback) {
-      let onParsed, onError;
-      onParsed = function(parsedData) {
-        this.removeListener("error", onError);
-        this.data = parsedData;
-        callback(null, this);
-      }.bind(this);
-      onError = function(err) {
-        this.removeListener("parsed", onParsed);
-        callback(err, null);
-      }.bind(this);
-      this.once("parsed", onParsed);
-      this.once("error", onError);
-    }
-    this.end(data);
-    return this;
-  };
-  PNG.prototype.write = function(data) {
-    this._parser.write(data);
-    return true;
-  };
-  PNG.prototype.end = function(data) {
-    this._parser.end(data);
-  };
-  PNG.prototype._metadata = function(metadata) {
-    this.width = metadata.width;
-    this.height = metadata.height;
-    this.emit("metadata", metadata);
-  };
-  PNG.prototype._gamma = function(gamma) {
-    this.gamma = gamma;
-  };
-  PNG.prototype._handleClose = function() {
-    if (!this._parser.writable && !this._packer.readable) {
-      this.emit("close");
-    }
-  };
-  PNG.bitblt = function(src, dst, srcX, srcY, width, height, deltaX, deltaY) {
-    srcX |= 0;
-    srcY |= 0;
-    width |= 0;
-    height |= 0;
-    deltaX |= 0;
-    deltaY |= 0;
-    if (srcX > src.width || srcY > src.height || srcX + width > src.width || srcY + height > src.height) {
-      throw new Error("bitblt reading outside image");
-    }
-    if (deltaX > dst.width || deltaY > dst.height || deltaX + width > dst.width || deltaY + height > dst.height) {
-      throw new Error("bitblt writing outside image");
-    }
-    for (let y = 0;y < height; y++) {
-      src.data.copy(dst.data, (deltaY + y) * dst.width + deltaX << 2, (srcY + y) * src.width + srcX << 2, (srcY + y) * src.width + srcX + width << 2);
-    }
-  };
-  PNG.prototype.bitblt = function(dst, srcX, srcY, width, height, deltaX, deltaY) {
-    PNG.bitblt(this, dst, srcX, srcY, width, height, deltaX, deltaY);
-    return this;
-  };
-  PNG.adjustGamma = function(src) {
-    if (src.gamma) {
-      for (let y = 0;y < src.height; y++) {
-        for (let x = 0;x < src.width; x++) {
-          let idx = src.width * y + x << 2;
-          for (let i = 0;i < 3; i++) {
-            let sample = src.data[idx + i] / 255;
-            sample = Math.pow(sample, 1 / 2.2 / src.gamma);
-            src.data[idx + i] = Math.round(sample * 255);
-          }
-        }
-      }
-      src.gamma = 0;
-    }
-  };
-  PNG.prototype.adjustGamma = function() {
-    PNG.adjustGamma(this);
-  };
-});
-
-// node_modules/qrcode/lib/renderer/utils.js
-var require_utils5 = __commonJS((exports) => {
-  function hex2rgba(hex) {
-    if (typeof hex === "number") {
-      hex = hex.toString();
-    }
-    if (typeof hex !== "string") {
-      throw new Error("Color should be defined as hex string");
-    }
-    let hexCode = hex.slice().replace("#", "").split("");
-    if (hexCode.length < 3 || hexCode.length === 5 || hexCode.length > 8) {
-      throw new Error("Invalid hex color: " + hex);
-    }
-    if (hexCode.length === 3 || hexCode.length === 4) {
-      hexCode = Array.prototype.concat.apply([], hexCode.map(function(c) {
-        return [c, c];
-      }));
-    }
-    if (hexCode.length === 6)
-      hexCode.push("F", "F");
-    const hexValue = parseInt(hexCode.join(""), 16);
-    return {
-      r: hexValue >> 24 & 255,
-      g: hexValue >> 16 & 255,
-      b: hexValue >> 8 & 255,
-      a: hexValue & 255,
-      hex: "#" + hexCode.slice(0, 6).join("")
-    };
-  }
-  exports.getOptions = function getOptions(options) {
-    if (!options)
-      options = {};
-    if (!options.color)
-      options.color = {};
-    const margin = typeof options.margin === "undefined" || options.margin === null || options.margin < 0 ? 4 : options.margin;
-    const width = options.width && options.width >= 21 ? options.width : undefined;
-    const scale = options.scale || 4;
-    return {
-      width,
-      scale: width ? 4 : scale,
-      margin,
-      color: {
-        dark: hex2rgba(options.color.dark || "#000000ff"),
-        light: hex2rgba(options.color.light || "#ffffffff")
-      },
-      type: options.type,
-      rendererOpts: options.rendererOpts || {}
-    };
-  };
-  exports.getScale = function getScale(qrSize, opts) {
-    return opts.width && opts.width >= qrSize + opts.margin * 2 ? opts.width / (qrSize + opts.margin * 2) : opts.scale;
-  };
-  exports.getImageWidth = function getImageWidth(qrSize, opts) {
-    const scale = exports.getScale(qrSize, opts);
-    return Math.floor((qrSize + opts.margin * 2) * scale);
-  };
-  exports.qrToImageData = function qrToImageData(imgData, qr, opts) {
-    const size = qr.modules.size;
-    const data = qr.modules.data;
-    const scale = exports.getScale(size, opts);
-    const symbolSize = Math.floor((size + opts.margin * 2) * scale);
-    const scaledMargin = opts.margin * scale;
-    const palette = [opts.color.light, opts.color.dark];
-    for (let i = 0;i < symbolSize; i++) {
-      for (let j = 0;j < symbolSize; j++) {
-        let posDst = (i * symbolSize + j) * 4;
-        let pxColor = opts.color.light;
-        if (i >= scaledMargin && j >= scaledMargin && i < symbolSize - scaledMargin && j < symbolSize - scaledMargin) {
-          const iSrc = Math.floor((i - scaledMargin) / scale);
-          const jSrc = Math.floor((j - scaledMargin) / scale);
-          pxColor = palette[data[iSrc * size + jSrc] ? 1 : 0];
-        }
-        imgData[posDst++] = pxColor.r;
-        imgData[posDst++] = pxColor.g;
-        imgData[posDst++] = pxColor.b;
-        imgData[posDst] = pxColor.a;
-      }
-    }
-  };
-});
-
-// node_modules/qrcode/lib/renderer/png.js
-var require_png2 = __commonJS((exports) => {
-  var fs = __require("fs");
-  var PNG = require_png().PNG;
-  var Utils = require_utils5();
-  exports.render = function render(qrData, options) {
-    const opts = Utils.getOptions(options);
-    const pngOpts = opts.rendererOpts;
-    const size = Utils.getImageWidth(qrData.modules.size, opts);
-    pngOpts.width = size;
-    pngOpts.height = size;
-    const pngImage = new PNG(pngOpts);
-    Utils.qrToImageData(pngImage.data, qrData, opts);
-    return pngImage;
-  };
-  exports.renderToDataURL = function renderToDataURL(qrData, options, cb) {
-    if (typeof cb === "undefined") {
-      cb = options;
-      options = undefined;
-    }
-    exports.renderToBuffer(qrData, options, function(err, output) {
-      if (err)
-        cb(err);
-      let url = "data:image/png;base64,";
-      url += output.toString("base64");
-      cb(null, url);
-    });
-  };
-  exports.renderToBuffer = function renderToBuffer(qrData, options, cb) {
-    if (typeof cb === "undefined") {
-      cb = options;
-      options = undefined;
-    }
-    const png = exports.render(qrData, options);
-    const buffer = [];
-    png.on("error", cb);
-    png.on("data", function(data) {
-      buffer.push(data);
-    });
-    png.on("end", function() {
-      cb(null, Buffer.concat(buffer));
-    });
-    png.pack();
-  };
-  exports.renderToFile = function renderToFile(path, qrData, options, cb) {
-    if (typeof cb === "undefined") {
-      cb = options;
-      options = undefined;
-    }
-    let called = false;
-    const done = (...args) => {
-      if (called)
-        return;
-      called = true;
-      cb.apply(null, args);
-    };
-    const stream = fs.createWriteStream(path);
-    stream.on("error", done);
-    stream.on("close", done);
-    exports.renderToFileStream(stream, qrData, options);
-  };
-  exports.renderToFileStream = function renderToFileStream(stream, qrData, options) {
-    const png = exports.render(qrData, options);
-    png.pack().pipe(stream);
-  };
-});
-
-// node_modules/qrcode/lib/renderer/utf8.js
-var require_utf8 = __commonJS((exports) => {
-  var Utils = require_utils5();
-  var BLOCK_CHAR = {
-    WW: " ",
-    WB: "▄",
-    BB: "█",
-    BW: "▀"
-  };
-  var INVERTED_BLOCK_CHAR = {
-    BB: " ",
-    BW: "▄",
-    WW: "█",
-    WB: "▀"
-  };
-  function getBlockChar(top, bottom, blocks) {
-    if (top && bottom)
-      return blocks.BB;
-    if (top && !bottom)
-      return blocks.BW;
-    if (!top && bottom)
-      return blocks.WB;
-    return blocks.WW;
-  }
-  exports.render = function(qrData, options, cb) {
-    const opts = Utils.getOptions(options);
-    let blocks = BLOCK_CHAR;
-    if (opts.color.dark.hex === "#ffffff" || opts.color.light.hex === "#000000") {
-      blocks = INVERTED_BLOCK_CHAR;
-    }
-    const size = qrData.modules.size;
-    const data = qrData.modules.data;
-    let output = "";
-    let hMargin = Array(size + opts.margin * 2 + 1).join(blocks.WW);
-    hMargin = Array(opts.margin / 2 + 1).join(hMargin + `
-`);
-    const vMargin = Array(opts.margin + 1).join(blocks.WW);
-    output += hMargin;
-    for (let i = 0;i < size; i += 2) {
-      output += vMargin;
-      for (let j = 0;j < size; j++) {
-        const topModule = data[i * size + j];
-        const bottomModule = data[(i + 1) * size + j];
-        output += getBlockChar(topModule, bottomModule, blocks);
-      }
-      output += vMargin + `
-`;
-    }
-    output += hMargin.slice(0, -1);
-    if (typeof cb === "function") {
-      cb(null, output);
-    }
-    return output;
-  };
-  exports.renderToFile = function renderToFile(path, qrData, options, cb) {
-    if (typeof cb === "undefined") {
-      cb = options;
-      options = undefined;
-    }
-    const fs = __require("fs");
-    const utf8 = exports.render(qrData, options);
-    fs.writeFile(path, utf8, cb);
-  };
-});
-
-// node_modules/qrcode/lib/renderer/terminal/terminal.js
-var require_terminal = __commonJS((exports) => {
-  exports.render = function(qrData, options, cb) {
-    const size = qrData.modules.size;
-    const data = qrData.modules.data;
-    const black = "\x1B[40m  \x1B[0m";
-    const white = "\x1B[47m  \x1B[0m";
-    let output = "";
-    const hMargin = Array(size + 3).join(white);
-    const vMargin = Array(2).join(white);
-    output += hMargin + `
-`;
-    for (let i = 0;i < size; ++i) {
-      output += white;
-      for (let j = 0;j < size; j++) {
-        output += data[i * size + j] ? black : white;
-      }
-      output += vMargin + `
-`;
-    }
-    output += hMargin + `
-`;
-    if (typeof cb === "function") {
-      cb(null, output);
-    }
-    return output;
-  };
-});
-
-// node_modules/qrcode/lib/renderer/terminal/terminal-small.js
-var require_terminal_small = __commonJS((exports) => {
-  var backgroundWhite = "\x1B[47m";
-  var backgroundBlack = "\x1B[40m";
-  var foregroundWhite = "\x1B[37m";
-  var foregroundBlack = "\x1B[30m";
-  var reset = "\x1B[0m";
-  var lineSetupNormal = backgroundWhite + foregroundBlack;
-  var lineSetupInverse = backgroundBlack + foregroundWhite;
-  var createPalette = function(lineSetup, foregroundWhite2, foregroundBlack2) {
-    return {
-      "00": reset + " " + lineSetup,
-      "01": reset + foregroundWhite2 + "▄" + lineSetup,
-      "02": reset + foregroundBlack2 + "▄" + lineSetup,
-      10: reset + foregroundWhite2 + "▀" + lineSetup,
-      11: " ",
-      12: "▄",
-      20: reset + foregroundBlack2 + "▀" + lineSetup,
-      21: "▀",
-      22: "█"
-    };
-  };
-  var mkCodePixel = function(modules, size, x, y) {
-    const sizePlus = size + 1;
-    if (x >= sizePlus || y >= sizePlus || y < -1 || x < -1)
-      return "0";
-    if (x >= size || y >= size || y < 0 || x < 0)
-      return "1";
-    const idx = y * size + x;
-    return modules[idx] ? "2" : "1";
-  };
-  var mkCode = function(modules, size, x, y) {
-    return mkCodePixel(modules, size, x, y) + mkCodePixel(modules, size, x, y + 1);
-  };
-  exports.render = function(qrData, options, cb) {
-    const size = qrData.modules.size;
-    const data = qrData.modules.data;
-    const inverse = !!(options && options.inverse);
-    const lineSetup = options && options.inverse ? lineSetupInverse : lineSetupNormal;
-    const white = inverse ? foregroundBlack : foregroundWhite;
-    const black = inverse ? foregroundWhite : foregroundBlack;
-    const palette = createPalette(lineSetup, white, black);
-    const newLine = reset + `
-` + lineSetup;
-    let output = lineSetup;
-    for (let y = -1;y < size + 1; y += 2) {
-      for (let x = -1;x < size; x++) {
-        output += palette[mkCode(data, size, x, y)];
-      }
-      output += palette[mkCode(data, size, size, y)] + newLine;
-    }
-    output += reset;
-    if (typeof cb === "function") {
-      cb(null, output);
-    }
-    return output;
-  };
-});
-
-// node_modules/qrcode/lib/renderer/terminal.js
-var require_terminal2 = __commonJS((exports) => {
-  var big = require_terminal();
-  var small = require_terminal_small();
-  exports.render = function(qrData, options, cb) {
-    if (options && options.small) {
-      return small.render(qrData, options, cb);
-    }
-    return big.render(qrData, options, cb);
-  };
-});
-
-// node_modules/qrcode/lib/renderer/svg-tag.js
-var require_svg_tag = __commonJS((exports) => {
-  var Utils = require_utils5();
-  function getColorAttrib(color, attrib) {
-    const alpha = color.a / 255;
-    const str = attrib + '="' + color.hex + '"';
-    return alpha < 1 ? str + " " + attrib + '-opacity="' + alpha.toFixed(2).slice(1) + '"' : str;
-  }
-  function svgCmd(cmd, x, y) {
-    let str = cmd + x;
-    if (typeof y !== "undefined")
-      str += " " + y;
-    return str;
-  }
-  function qrToPath(data, size, margin) {
-    let path = "";
-    let moveBy = 0;
-    let newRow = false;
-    let lineLength = 0;
-    for (let i = 0;i < data.length; i++) {
-      const col = Math.floor(i % size);
-      const row = Math.floor(i / size);
-      if (!col && !newRow)
-        newRow = true;
-      if (data[i]) {
-        lineLength++;
-        if (!(i > 0 && col > 0 && data[i - 1])) {
-          path += newRow ? svgCmd("M", col + margin, 0.5 + row + margin) : svgCmd("m", moveBy, 0);
-          moveBy = 0;
-          newRow = false;
-        }
-        if (!(col + 1 < size && data[i + 1])) {
-          path += svgCmd("h", lineLength);
-          lineLength = 0;
-        }
-      } else {
-        moveBy++;
-      }
-    }
-    return path;
-  }
-  exports.render = function render(qrData, options, cb) {
-    const opts = Utils.getOptions(options);
-    const size = qrData.modules.size;
-    const data = qrData.modules.data;
-    const qrcodesize = size + opts.margin * 2;
-    const bg = !opts.color.light.a ? "" : "<path " + getColorAttrib(opts.color.light, "fill") + ' d="M0 0h' + qrcodesize + "v" + qrcodesize + 'H0z"/>';
-    const path = "<path " + getColorAttrib(opts.color.dark, "stroke") + ' d="' + qrToPath(data, size, opts.margin) + '"/>';
-    const viewBox = 'viewBox="' + "0 0 " + qrcodesize + " " + qrcodesize + '"';
-    const width = !opts.width ? "" : 'width="' + opts.width + '" height="' + opts.width + '" ';
-    const svgTag = '<svg xmlns="http://www.w3.org/2000/svg" ' + width + viewBox + ' shape-rendering="crispEdges">' + bg + path + `</svg>
-`;
-    if (typeof cb === "function") {
-      cb(null, svgTag);
-    }
-    return svgTag;
-  };
-});
-
-// node_modules/qrcode/lib/renderer/svg.js
-var require_svg = __commonJS((exports) => {
-  var svgTagRenderer = require_svg_tag();
-  exports.render = svgTagRenderer.render;
-  exports.renderToFile = function renderToFile(path, qrData, options, cb) {
-    if (typeof cb === "undefined") {
-      cb = options;
-      options = undefined;
-    }
-    const fs = __require("fs");
-    const svgTag = exports.render(qrData, options);
-    const xmlStr = '<?xml version="1.0" encoding="utf-8"?>' + '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">' + svgTag;
-    fs.writeFile(path, xmlStr, cb);
-  };
-});
-
-// node_modules/qrcode/lib/renderer/canvas.js
-var require_canvas = __commonJS((exports) => {
-  var Utils = require_utils5();
-  function clearCanvas(ctx, canvas, size) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (!canvas.style)
-      canvas.style = {};
-    canvas.height = size;
-    canvas.width = size;
-    canvas.style.height = size + "px";
-    canvas.style.width = size + "px";
-  }
-  function getCanvasElement() {
-    try {
-      return document.createElement("canvas");
-    } catch (e) {
-      throw new Error("You need to specify a canvas element");
-    }
-  }
-  exports.render = function render(qrData, canvas, options) {
-    let opts = options;
-    let canvasEl = canvas;
-    if (typeof opts === "undefined" && (!canvas || !canvas.getContext)) {
-      opts = canvas;
-      canvas = undefined;
-    }
-    if (!canvas) {
-      canvasEl = getCanvasElement();
-    }
-    opts = Utils.getOptions(opts);
-    const size = Utils.getImageWidth(qrData.modules.size, opts);
-    const ctx = canvasEl.getContext("2d");
-    const image = ctx.createImageData(size, size);
-    Utils.qrToImageData(image.data, qrData, opts);
-    clearCanvas(ctx, canvasEl, size);
-    ctx.putImageData(image, 0, 0);
-    return canvasEl;
-  };
-  exports.renderToDataURL = function renderToDataURL(qrData, canvas, options) {
-    let opts = options;
-    if (typeof opts === "undefined" && (!canvas || !canvas.getContext)) {
-      opts = canvas;
-      canvas = undefined;
-    }
-    if (!opts)
-      opts = {};
-    const canvasEl = exports.render(qrData, canvas, opts);
-    const type = opts.type || "image/png";
-    const rendererOpts = opts.rendererOpts || {};
-    return canvasEl.toDataURL(type, rendererOpts.quality);
-  };
-});
-
-// node_modules/qrcode/lib/browser.js
-var require_browser2 = __commonJS((exports) => {
-  var canPromise = require_can_promise();
-  var QRCode = require_qrcode();
-  var CanvasRenderer = require_canvas();
-  var SvgRenderer = require_svg_tag();
-  function renderCanvas(renderFunc, canvas, text, opts, cb) {
-    const args = [].slice.call(arguments, 1);
-    const argsNum = args.length;
-    const isLastArgCb = typeof args[argsNum - 1] === "function";
-    if (!isLastArgCb && !canPromise()) {
-      throw new Error("Callback required as last argument");
-    }
-    if (isLastArgCb) {
-      if (argsNum < 2) {
-        throw new Error("Too few arguments provided");
-      }
-      if (argsNum === 2) {
-        cb = text;
-        text = canvas;
-        canvas = opts = undefined;
-      } else if (argsNum === 3) {
-        if (canvas.getContext && typeof cb === "undefined") {
-          cb = opts;
-          opts = undefined;
-        } else {
-          cb = opts;
-          opts = text;
-          text = canvas;
-          canvas = undefined;
-        }
-      }
-    } else {
-      if (argsNum < 1) {
-        throw new Error("Too few arguments provided");
-      }
-      if (argsNum === 1) {
-        text = canvas;
-        canvas = opts = undefined;
-      } else if (argsNum === 2 && !canvas.getContext) {
-        opts = text;
-        text = canvas;
-        canvas = undefined;
-      }
-      return new Promise(function(resolve, reject) {
-        try {
-          const data = QRCode.create(text, opts);
-          resolve(renderFunc(data, canvas, opts));
-        } catch (e) {
-          reject(e);
-        }
-      });
-    }
-    try {
-      const data = QRCode.create(text, opts);
-      cb(null, renderFunc(data, canvas, opts));
-    } catch (e) {
-      cb(e);
-    }
-  }
-  exports.create = QRCode.create;
-  exports.toCanvas = renderCanvas.bind(null, CanvasRenderer.render);
-  exports.toDataURL = renderCanvas.bind(null, CanvasRenderer.renderToDataURL);
-  exports.toString = renderCanvas.bind(null, function(data, _, opts) {
-    return SvgRenderer.render(data, opts);
-  });
-});
-
-// node_modules/qrcode/lib/server.js
-var require_server = __commonJS((exports) => {
-  var canPromise = require_can_promise();
-  var QRCode = require_qrcode();
-  var PngRenderer = require_png2();
-  var Utf8Renderer = require_utf8();
-  var TerminalRenderer = require_terminal2();
-  var SvgRenderer = require_svg();
-  function checkParams(text, opts, cb) {
-    if (typeof text === "undefined") {
-      throw new Error("String required as first argument");
-    }
-    if (typeof cb === "undefined") {
-      cb = opts;
-      opts = {};
-    }
-    if (typeof cb !== "function") {
-      if (!canPromise()) {
-        throw new Error("Callback required as last argument");
-      } else {
-        opts = cb || {};
-        cb = null;
-      }
-    }
-    return {
-      opts,
-      cb
-    };
-  }
-  function getTypeFromFilename(path) {
-    return path.slice((path.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
-  }
-  function getRendererFromType(type) {
-    switch (type) {
-      case "svg":
-        return SvgRenderer;
-      case "txt":
-      case "utf8":
-        return Utf8Renderer;
-      case "png":
-      case "image/png":
-      default:
-        return PngRenderer;
-    }
-  }
-  function getStringRendererFromType(type) {
-    switch (type) {
-      case "svg":
-        return SvgRenderer;
-      case "terminal":
-        return TerminalRenderer;
-      case "utf8":
-      default:
-        return Utf8Renderer;
-    }
-  }
-  function render(renderFunc, text, params) {
-    if (!params.cb) {
-      return new Promise(function(resolve, reject) {
-        try {
-          const data = QRCode.create(text, params.opts);
-          return renderFunc(data, params.opts, function(err, data2) {
-            return err ? reject(err) : resolve(data2);
-          });
-        } catch (e) {
-          reject(e);
-        }
-      });
-    }
-    try {
-      const data = QRCode.create(text, params.opts);
-      return renderFunc(data, params.opts, params.cb);
-    } catch (e) {
-      params.cb(e);
-    }
-  }
-  exports.create = QRCode.create;
-  exports.toCanvas = require_browser2().toCanvas;
-  exports.toString = function toString(text, opts, cb) {
-    const params = checkParams(text, opts, cb);
-    const type = params.opts ? params.opts.type : undefined;
-    const renderer = getStringRendererFromType(type);
-    return render(renderer.render, text, params);
-  };
-  exports.toDataURL = function toDataURL(text, opts, cb) {
-    const params = checkParams(text, opts, cb);
-    const renderer = getRendererFromType(params.opts.type);
-    return render(renderer.renderToDataURL, text, params);
-  };
-  exports.toBuffer = function toBuffer(text, opts, cb) {
-    const params = checkParams(text, opts, cb);
-    const renderer = getRendererFromType(params.opts.type);
-    return render(renderer.renderToBuffer, text, params);
-  };
-  exports.toFile = function toFile(path, text, opts, cb) {
-    if (typeof path !== "string" || !(typeof text === "string" || typeof text === "object")) {
-      throw new Error("Invalid argument");
-    }
-    if (arguments.length < 3 && !canPromise()) {
-      throw new Error("Too few arguments provided");
-    }
-    const params = checkParams(text, opts, cb);
-    const type = params.opts.type || getTypeFromFilename(path);
-    const renderer = getRendererFromType(type);
-    const renderToFile = renderer.renderToFile.bind(null, path);
-    return render(renderToFile, text, params);
-  };
-  exports.toFileStream = function toFileStream(stream, text, opts) {
-    if (arguments.length < 2) {
-      throw new Error("Too few arguments provided");
-    }
-    const params = checkParams(text, opts, stream.emit.bind(stream, "error"));
-    const renderer = getRendererFromType("png");
-    const renderToFileStream = renderer.renderToFileStream.bind(null, stream);
-    render(renderToFileStream, text, params);
   };
 });
 
@@ -27790,27 +27945,27 @@ __export(exports_seed_db, {
 });
 async function seedDatabase() {
   logger.info("Seeding database");
-  const banecoId = nextSnowflake();
-  await query(`
-    INSERT INTO banks (id, code, name) VALUES ($1, 'BANECO', 'Banco Económico')
-    ON CONFLICT (code) DO NOTHING
-  `, [banecoId]);
-  const businessCredId = nextSnowflake();
-  const prodCredId = nextSnowflake();
-  const clientCredId = nextSnowflake();
-  const credentials = [
-    { id: businessCredId, bankId: banecoId, accountNumber: "1041070599", accountName: "PAGUI Empresarial", merchantId: "MERCH001", username: "1649710", password: "1234", encryptionKey: "6F09E3167E1D40829207B01041A65B12", environment: "test", apiBaseUrl: "https://apimktdesa.baneco.com.bo/ApiGateway", type: "business", userId: null, commissionRate: 0 },
-    { id: prodCredId, bankId: banecoId, accountNumber: "5021531650", accountName: "PAGUI Producción", merchantId: "MERCH002", username: "prod_user", password: "enc_prod_pass", encryptionKey: "enc_prod_key", environment: "prod", apiBaseUrl: "https://apimkt.baneco.com.bo/ApiGateway", type: "business", userId: null, commissionRate: 0 },
-    { id: clientCredId, bankId: banecoId, accountNumber: "5021979319", accountName: "Cliente Demo", merchantId: "MERCH003", username: "client_user", password: "client_pass", encryptionKey: "client_key", environment: "test", apiBaseUrl: "https://apimktdesa.baneco.com.bo/ApiGateway", type: "client", userId: null, commissionRate: 0.01 }
+  const bankData = [
+    { code: "001", name: "Mercantil Santa Cruz" },
+    { code: "002", name: "BNB" },
+    { code: "003", name: "BCP / Crédito de Bolivia" },
+    { code: "005", name: "Bisa" },
+    { code: "006", name: "Unión" },
+    { code: "007", name: "Económico" },
+    { code: "008", name: "Solidario" },
+    { code: "009", name: "Ganadero" },
+    { code: "044", name: "PYME de la Comunidad" },
+    { code: "045", name: "FIE" },
+    { code: "047", name: "Ecofuturo" },
+    { code: "049", name: "Fortaleza" },
+    { code: "052", name: "Nación Argentina" }
   ];
-  for (const c of credentials) {
-    await query(`
-      INSERT INTO bank_credentials (id, bank_id, account_number, account_name, merchant_id, username, password, encryption_key, environment, api_base_url, type, commission_rate)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      ON CONFLICT DO NOTHING
-    `, [c.id, c.bankId, c.accountNumber, c.accountName, c.merchantId, c.username, c.password, c.encryptionKey, c.environment, c.apiBaseUrl, c.type, c.commissionRate]);
+  for (const b of bankData) {
+    await query2(`
+      INSERT INTO banks (id, code, name) VALUES ($1, $2, $3)
+      ON CONFLICT (code) DO NOTHING
+    `, [nextSnowflake(), b.code, b.name]);
   }
-  logger.info("Bank credentials created");
   const users = [
     { email: "admin@pagui.com", password: "admin123", fullName: "Administrador del Sistema", phone: "76543210", address: "La Paz, Bolivia", role: Role.Super },
     { email: "usuario@example.com", password: "usuario123", fullName: "Usuario Demo", phone: "65432109", address: "Santa Cruz, Bolivia", role: Role.User },
@@ -27827,73 +27982,286 @@ async function seedDatabase() {
       logger.warn("User skipped", { email: u.email, error: e.message });
     }
   }
-  if (createdUsers.length > 1) {
-    await query(`
-      UPDATE bank_credentials SET user_id = $1 WHERE id = $2
-    `, [createdUsers[1].id, clientCredId]);
-  }
-  const accountConfigs = [
-    { accountNumber: "100013101", accountType: "business", accountLevel: "business", accountSubtype: "administered", bankCredentialId: businessCredId, userId: createdUsers[0].id },
-    { accountNumber: "100011102", accountType: "current", accountLevel: "client", accountSubtype: "passthrough", bankCredentialId: clientCredId, userId: createdUsers[1].id },
-    { accountNumber: "100013103", accountType: "business", accountLevel: "business", accountSubtype: "administered", bankCredentialId: prodCredId, userId: createdUsers[2].id },
-    { accountNumber: "100013104", accountType: "business", accountLevel: "client", accountSubtype: "administered", userId: createdUsers[3].id }
+  const tenantConfigs = [
+    { fullName: "PAGUI Empresarial", email: "admin@pagui.com", userId: createdUsers[0]?.id, documentType: "nit", documentNumber: "1029547027", environment: "production" },
+    { fullName: "Usuario Demo", email: "usuario@example.com", userId: createdUsers[1]?.id, documentType: "ci", documentNumber: "12345678", environment: "production" },
+    { fullName: "Gerencia Demo", email: "gerente@example.com", userId: createdUsers[2]?.id, documentType: "ci", documentNumber: "87654321", environment: "production" },
+    { fullName: "IATHINGS EMPRESARIAL", email: "iathings@example.com", userId: createdUsers[3]?.id, documentType: "nit", documentNumber: "1029547028", environment: "production" }
   ];
-  for (const ac of accountConfigs) {
-    const a12 = await accountRepository.create({
-      accountNumber: ac.accountNumber,
-      accountType: ac.accountType,
-      accountLevel: ac.accountLevel,
-      accountSubtype: ac.accountSubtype,
-      bankCredentialId: "bankCredentialId" in ac ? ac.bankCredentialId : undefined,
-      userId: ac.userId
+  for (const tc of tenantConfigs) {
+    if (!tc.userId)
+      continue;
+    const tenantId = nextSnowflake();
+    await tenantRepository.create({
+      id: tenantId,
+      fullName: tc.fullName,
+      email: tc.email,
+      documentType: tc.documentType,
+      documentNumber: tc.documentNumber,
+      environment: tc.environment
     });
-    await accountRepository.linkUser(ac.userId, a12.id, "owner", true);
-    logger.info("Account created", { accountNumber: ac.accountNumber, accountSubtype: ac.accountSubtype });
+    await tenantRepository.setTenant(tc.userId, tenantId, "owner");
+    logger.info("Tenant created", { fullName: tc.fullName, tenantId });
   }
-  for (const u of createdUsers) {
-    await walletRepository.create({ userId: u.id, name: "Principal", type: "personal" });
-    logger.info("Wallet created", { email: u.email });
-  }
-  await companyRepository.upsert({
-    slug: "empsaat",
-    name: "EMPSAAT",
-    colors: { primary: "#0047AB", secondary: "#FF6600" },
-    permissions: { qr_generate: true, qr_status: true },
-    config: { apiUrl: "https://api.empsaat.org.bo" }
-  });
-  await companyRepository.upsert({
-    slug: "empresa-b",
-    name: "Farmacia Salud Total",
-    colors: { primary: "#2E7D32", secondary: "#FFC107" },
-    permissions: { qr_generate: true, qr_status: true }
-  });
-  await companyRepository.upsert({
-    slug: "empresa-c",
-    name: "Taller Mecanico Rapido",
-    colors: { primary: "#C62828", secondary: "#424242" },
-    permissions: { qr_generate: true, qr_status: true }
-  });
-  logger.info("Companies created");
-  await feeRepository.create({ transactionType: "p2p", feeType: "percentage", feeValue: 0.5, feeCap: 10, minAmount: 0 });
-  await feeRepository.create({ transactionType: "withdrawal", feeType: "fixed", feeValue: 2.5 });
-  await feeRepository.create({ transactionType: "topup", feeType: "percentage", feeValue: 1, feeCap: 15 });
-  logger.info("Fee rules created");
-  const storedUsers = await query("SELECT id FROM users WHERE deleted_at IS NULL");
-  for (const row of storedUsers.rows) {
-    const userAccounts = await accountRepository.listByUser(row.id);
-    if (userAccounts.length > 0) {
-      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-      let key = "pg_";
-      for (let i = 0;i < 40; i++)
-        key += chars.charAt(Math.floor(Math.random() * chars.length));
-      await query(`
-        INSERT INTO api_keys (id, api_key, account_id, description, permissions, status)
-        VALUES ($1, $2, $3, $4, $5, 'active')
-        ON CONFLICT (api_key) DO NOTHING
-      `, [nextSnowflake(), key, userAccounts[0].id, `API Key ${userAccounts[0].accountNumber}`, JSON.stringify({ qr_generate: true, qr_status: true, qr_cancel: true })]);
+  logger.info("Tenants created");
+  const storedTenants = await query2("SELECT id FROM tenants WHERE deleted_at IS NULL");
+  const walletConfigs = [
+    { walletNumber: "100013101", name: "PAGUI Empresarial", type: "business", level: "gold", tenantIdx: 0 },
+    { walletNumber: "100013102", name: "PAGUI Ahorros", type: "standard", level: "silver", tenantIdx: 0 },
+    { walletNumber: "100013105", name: "PAGUI Inversiones", type: "business", level: "gold", tenantIdx: 0 },
+    { walletNumber: "100011102", name: "Mi Cuenta Principal", type: "standard", level: "bronze", tenantIdx: 1 },
+    { walletNumber: "100013103", name: "Gerencia", type: "business", level: "silver", tenantIdx: 2 },
+    { walletNumber: "100013104", name: "IATHINGS Corporativo", type: "business", level: "gold", tenantIdx: 3 },
+    { walletNumber: "400015001", name: "Collection", type: "standard", level: "bronze", isCollection: true, tenantIdx: 1 },
+    { walletNumber: "400015002", name: "PAGUI Collection", type: "standard", level: "bronze", isCollection: true, tenantIdx: 0 }
+  ];
+  const createdWallets = [];
+  for (const wc of walletConfigs) {
+    const tenant = storedTenants.rows[wc.tenantIdx];
+    if (!tenant)
+      continue;
+    const w = await walletRepository.create({
+      walletNumber: wc.walletNumber,
+      name: wc.name,
+      type: wc.type,
+      level: wc.level,
+      banecoCredentialId: wc.banecoCredentialId,
+      tenantId: tenant.id,
+      isCollection: wc.isCollection || false,
+      isDefault: true
+    });
+    createdWallets.push(w);
+    const ut = await query2("SELECT user_id FROM tenant_users WHERE tenant_id = $1 LIMIT 1", [tenant.id]);
+    if (ut.rowCount) {
+      await walletPermissionRepository2.upsert(ut.rows[0].user_id, w.id, "owner");
     }
+    logger.info("Wallet created", { walletNumber: wc.walletNumber, type: wc.type, name: wc.name });
+  }
+  const walletsWithUsers = await query2(`
+    SELECT w.id as wallet_id, wp.user_id FROM wallets w
+    JOIN wallet_permissions wp ON wp.wallet_id = w.id
+    WHERE w.is_collection = true AND wp.deleted_at IS NULL
+  `);
+  for (const row of walletsWithUsers.rows) {
+    await query2(`
+      INSERT INTO collection_config (id, user_id, wallet_id, use_default, is_active)
+      VALUES ($1, $2, $3, true, true) ON CONFLICT DO NOTHING
+    `, [nextSnowflake(), row.user_id, row.wallet_id]);
+  }
+  logger.info("Collection configs created");
+  const storedWallets = await query2("SELECT id FROM wallets WHERE deleted_at IS NULL");
+  for (const row of storedWallets.rows) {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let key = "pg_";
+    for (let i = 0;i < 40; i++)
+      key += chars.charAt(Math.floor(Math.random() * chars.length));
+    await query2(`
+      INSERT INTO api_keys (id, api_key, wallet_id, description, permissions, status)
+      VALUES ($1, $2, $3, $4, $5, 'active')
+      ON CONFLICT (api_key) DO NOTHING
+    `, [nextSnowflake(), key, row.id, `API Key wallet ${row.id}`, JSON.stringify({ qr_generate: true, qr_status: true, qr_cancel: true })]);
   }
   logger.info("API keys created");
+  const W = createdWallets;
+  const txId = (prefix, n2) => `TXN${prefix}${nextSnowflake().toString().slice(-8)}`;
+  async function addMovement(walletIdx, type, amount, opts = {}) {
+    const w = W[walletIdx];
+    if (!w)
+      return;
+    const bal = await query2("SELECT balance FROM wallets WHERE id = $1", [w.id]);
+    const balBefore = parseFloat(bal.rows[0]?.balance || "0");
+    const balAfter = type === "deposit" || type === "transfer_in" || type === "qr_payment" ? balBefore + amount : balBefore - amount;
+    const d = opts.daysAgo ? new Date(Date.now() - opts.daysAgo * 86400000) : new Date;
+    const movementId = nextSnowflake();
+    await query2(`
+      INSERT INTO wallet_movements (id, wallet_id, movement_type, amount, balance_before, balance_after,
+        description, payment_date, currency, sender_name, sender_document_id, sender_account,
+        sender_bank_code, reference_id, reference_type, status, created_at)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'BOB',$9,$10,$11,$12,$13,$14,'completed',$15)
+    `, [
+      movementId,
+      w.id,
+      type,
+      amount,
+      balBefore,
+      balAfter,
+      opts.description || null,
+      d,
+      opts.senderName || null,
+      opts.senderDoc || null,
+      opts.senderAccount || null,
+      opts.senderBank || null,
+      opts.refId || null,
+      opts.refType || null,
+      d
+    ]);
+    return movementId;
+  }
+  async function addTransfer(fromIdx, toIdx, amount, daysAgo = 0) {
+    const fromW = W[fromIdx];
+    const toW = W[toIdx];
+    if (!fromW || !toW)
+      return;
+    const d = daysAgo ? new Date(Date.now() - daysAgo * 86400000) : new Date;
+    const tId = nextSnowflake();
+    const refId = `txn_${tId}`;
+    const fromBal = await query2("SELECT balance FROM wallets WHERE id = $1", [fromW.id]);
+    const fromBefore = parseFloat(fromBal.rows[0]?.balance || "0");
+    await query2(`
+      INSERT INTO wallet_movements (id, wallet_id, movement_type, amount, balance_before, balance_after,
+        description, payment_date, currency, reference_id, reference_type, status, created_at)
+      VALUES ($1,$2,'transfer_out',$3,$4,$5,$6,$7,'BOB',$8,'transfer','completed',$9)
+    `, [
+      nextSnowflake(),
+      fromW.id,
+      amount,
+      fromBefore,
+      fromBefore - amount,
+      `Transferencia a ${toW.name}`,
+      d,
+      refId,
+      d
+    ]);
+    const toBal = await query2("SELECT balance FROM wallets WHERE id = $1", [toW.id]);
+    const toBefore = parseFloat(toBal.rows[0]?.balance || "0");
+    await query2(`
+      INSERT INTO wallet_movements (id, wallet_id, movement_type, amount, balance_before, balance_after,
+        description, payment_date, currency, reference_id, reference_type, status, created_at)
+      VALUES ($1,$2,'transfer_in',$3,$4,$5,$6,$7,'BOB',$8,'transfer','completed',$9)
+    `, [
+      nextSnowflake(),
+      toW.id,
+      amount,
+      toBefore,
+      toBefore + amount,
+      `Transferencia de ${fromW.name}`,
+      d,
+      refId,
+      d
+    ]);
+    await query2(`
+      INSERT INTO transfers (id, sender_wallet_id, receiver_wallet_id, amount, fee, total, currency, description, status, completed_at, created_at)
+      VALUES ($1,$2,$3,$4,0.00,$4,'BOB',$5,'completed',$6,$6)
+    `, [nextSnowflake(), fromW.id, toW.id, amount, `Transferencia P2P`, d]);
+  }
+  const initialDeposits = [
+    [0, 50000, "Depósito inicial PAGUI Empresarial", 60],
+    [1, 15000, "Depósito inicial Ahorros", 60],
+    [2, 1e5, "Depósito inicial Inversiones", 60],
+    [3, 8000, "Depósito inicial Cuenta Principal", 60],
+    [4, 25000, "Depósito inicial Gerencia", 60],
+    [5, 75000, "Depósito inicial IATHINGS", 60]
+  ];
+  for (const [wi, amt, desc, da] of initialDeposits) {
+    await addMovement(wi, "deposit", amt, { description: desc, daysAgo: da });
+  }
+  logger.info("Initial deposits created");
+  await addTransfer(3, 1, 500, 50);
+  await addTransfer(5, 4, 1200, 45);
+  await addTransfer(0, 5, 1e4, 40);
+  await addTransfer(1, 3, 200, 35);
+  await addTransfer(4, 0, 3000, 30);
+  await addTransfer(3, 6, 150, 28);
+  await addTransfer(5, 7, 5000, 25);
+  await addTransfer(0, 7, 2500, 20);
+  await addTransfer(2, 0, 15000, 18);
+  await addTransfer(3, 1, 350, 14);
+  await addTransfer(4, 3, 800, 10);
+  await addTransfer(1, 2, 5000, 7);
+  logger.info("P2P transfers created");
+  const qrPayments = [
+    [6, 150, "Juan Pérez", "12345678", "Pago recibo luz", 15],
+    [6, 85, "María García", "87654321", "Pago agua", 12],
+    [6, 200, "Carlos López", "45678912", "Recarga", 8],
+    [7, 500, "Empresa Alpha", "A-001", "Pago factura", 22],
+    [7, 1200, "Empresa Beta", "A-002", "Servicio mensual", 18],
+    [7, 350, "Pedro Sánchez", "78912345", "Compra QR", 5],
+    [6, 75, "Ana Torres", "32165487", "Pago servicio", 3],
+    [7, 900, "Empresa Gamma", "A-003", "Mantenimiento", 1]
+  ];
+  for (const [wi, amt, name, doc, desc, da] of qrPayments) {
+    await addMovement(wi, "qr_payment", amt, {
+      description: desc,
+      senderName: name,
+      senderDoc: doc,
+      senderAccount: `QR-${nextSnowflake().toString().slice(-6)}`,
+      senderBank: "BANECO",
+      daysAgo: da
+    });
+  }
+  logger.info("QR payments created");
+  await addMovement(0, "fee", 5, { description: "Comisión transferencia", daysAgo: 40 });
+  await addMovement(3, "fee", 2.5, { description: "Comisión retiro", daysAgo: 28 });
+  await addMovement(5, "fee", 10, { description: "Comisión transferencia", daysAgo: 25 });
+  logger.info("Fee movements created");
+  logger.info("Transactions seeded");
+  const dependentUsers = [
+    { email: "contador@example.com", password: "contador123", fullName: "Contador Demo", phone: "66660001", role: Role.User },
+    { email: "asistente@example.com", password: "asistente123", fullName: "Asistente Demo", phone: "66660002", role: Role.User }
+  ];
+  const createdDependents = [];
+  for (const u of dependentUsers) {
+    try {
+      const user = await userService.create(u);
+      createdDependents.push(user);
+      logger.info("Dependent user created", { email: u.email });
+    } catch (e) {
+      logger.warn("Dependent user skipped", { email: u.email, error: e.message });
+    }
+  }
+  if (createdDependents.length > 0 && storedTenants.rows[3]) {
+    const iathingsTenant = storedTenants.rows[3];
+    await tenantRepository.setTenant(createdDependents[0].id, iathingsTenant.id, "manager");
+    const iathingsWallets = await query2("SELECT id FROM wallets WHERE tenant_id = $1 AND deleted_at IS NULL", [iathingsTenant.id]);
+    for (const w of iathingsWallets.rows) {
+      await walletPermissionRepository2.upsert(createdDependents[0].id, w.id, "viewer");
+    }
+    logger.info("Contador linked to IATHINGS tenant as manager");
+  }
+  if (createdDependents.length > 1 && storedTenants.rows[1]) {
+    const demoTenant = storedTenants.rows[1];
+    await tenantRepository.setTenant(createdDependents[1].id, demoTenant.id, "viewer");
+    const demoWallets = await query2("SELECT id FROM wallets WHERE tenant_id = $1 AND deleted_at IS NULL LIMIT 1", [demoTenant.id]);
+    for (const w of demoWallets.rows) {
+      await walletPermissionRepository2.upsert(createdDependents[1].id, w.id, "viewer");
+    }
+    logger.info("Asistente linked to Demo tenant as viewer");
+  }
+  const adminRelatedUsers = [
+    { email: "tesorero@example.com", password: "tesorero123", fullName: "Tesorero Demo", phone: "66660003", role: Role.User },
+    { email: "auditor@example.com", password: "auditor123", fullName: "Auditor Demo", phone: "66660004", role: Role.User }
+  ];
+  const createdAdminRelated = [];
+  for (const u of adminRelatedUsers) {
+    try {
+      const user = await userService.create(u);
+      createdAdminRelated.push(user);
+      logger.info("Admin related user created", { email: u.email });
+    } catch (e) {
+      logger.warn("Admin related user skipped", { email: u.email, error: e.message });
+    }
+  }
+  if (createdAdminRelated.length > 0 && storedTenants.rows[0]) {
+    const adminTenant = storedTenants.rows[0];
+    await tenantRepository.setTenant(createdAdminRelated[0].id, adminTenant.id, "manager");
+    const adminWallets = await query2("SELECT id FROM wallets WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY id", [adminTenant.id]);
+    if (adminWallets.rows.length > 0) {
+      await walletPermissionRepository2.upsert(createdAdminRelated[0].id, adminWallets.rows[0].id, "manager");
+    }
+    if (adminWallets.rows.length > 1) {
+      await walletPermissionRepository2.upsert(createdAdminRelated[0].id, adminWallets.rows[1].id, "viewer");
+    }
+    logger.info("Tesorero linked to admin tenant as manager");
+  }
+  if (createdAdminRelated.length > 1 && storedTenants.rows[0]) {
+    const adminTenant = storedTenants.rows[0];
+    await tenantRepository.setTenant(createdAdminRelated[1].id, adminTenant.id, "viewer");
+    const adminWallets = await query2("SELECT id FROM wallets WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY id", [adminTenant.id]);
+    for (const w of adminWallets.rows) {
+      await walletPermissionRepository2.upsert(createdAdminRelated[1].id, w.id, "viewer");
+    }
+    logger.info("Auditor linked to admin tenant as viewer");
+  }
   logger.info("Seed completed");
 }
 var init_seed_db = __esm(() => {
@@ -27901,10 +28269,9 @@ var init_seed_db = __esm(() => {
   init_pool();
   init_snowflake();
   init_user_service();
-  init_account_repository();
+  init_tenant_repository();
   init_wallet_repository();
-  init_company_repository();
-  init_fee_repository();
+  init_wallet_permission_repository();
   init_logger();
 });
 
@@ -40582,7 +40949,7 @@ for(const [k,v] of c.request.headers.entries())c.headers[k]=v
       normalize: app.config.normalize
     });
     app.route("WS", path, async (context) => {
-      const server = context.server ?? app.server, { set: set2, path: path2, qi, headers, query, params } = context;
+      const server = context.server ?? app.server, { set: set2, path: path2, qi, headers, query: query2, params } = context;
       if (context.validator = responseValidator, options.upgrade)
         if (typeof options.upgrade == "function") {
           const temp = options.upgrade(context);
@@ -41760,14 +42127,14 @@ var _Elysia = class _Elysia2 {
         const {
           body,
           headers,
-          query,
+          query: query2,
           params,
           cookie,
           response,
           ...hook
         } = schemaOrRun, localHook = hooks;
         this.applyMacro(hook);
-        const hasStandaloneSchema = body || headers || query || params || cookie || response;
+        const hasStandaloneSchema = body || headers || query2 || params || cookie || response;
         this.add(method, path, handler, mergeHook(hook, {
           ...localHook || {},
           error: localHook.error ? Array.isArray(localHook.error) ? [
@@ -41784,7 +42151,7 @@ var _Elysia = class _Elysia2 {
               {
                 body,
                 headers,
-                query,
+                query: query2,
                 params,
                 cookie,
                 response
@@ -41849,12 +42216,12 @@ var _Elysia = class _Elysia2 {
       const {
         body,
         headers,
-        query,
+        query: query2,
         params,
         cookie,
         response,
         ...guardHook
-      } = hook, hasStandaloneSchema = body || headers || query || params || cookie || response;
+      } = hook, hasStandaloneSchema = body || headers || query2 || params || cookie || response;
       this.add(method, path, handler, mergeHook(guardHook, {
         ...localHook || {},
         error: localHook.error ? Array.isArray(localHook.error) ? [
@@ -41869,7 +42236,7 @@ var _Elysia = class _Elysia2 {
           {
             body,
             headers,
-            query,
+            query: query2,
             params,
             cookie,
             response
@@ -41883,12 +42250,12 @@ var _Elysia = class _Elysia2 {
           const {
             body,
             headers,
-            query,
+            query: query2,
             params,
             cookie,
             response,
             ...guardHook
-          } = hook, hasStandaloneSchema = body || headers || query || params || cookie || response, startIndex = processedUntil;
+          } = hook, hasStandaloneSchema = body || headers || query2 || params || cookie || response, startIndex = processedUntil;
           processedUntil = instance.router.history.length;
           for (let i = startIndex;i < instance.router.history.length; i++) {
             const {
@@ -41911,7 +42278,7 @@ var _Elysia = class _Elysia2 {
                 {
                   body,
                   headers,
-                  query,
+                  query: query2,
                   params,
                   cookie,
                   response
@@ -48683,65 +49050,13 @@ function rateLimit(options = {}) {
     entry.count++;
     if (entry.count > maxRequests) {
       logger.warn("Rate limit exceeded", { ip, count: entry.count, maxRequests });
-      throw new AppError(429, "Demasiadas solicitudes. Intente más tarde.");
+      throw new AppError2(429, "Demasiadas solicitudes. Intente más tarde.");
     }
     return {};
   });
 }
 
-// src/index.ts
-init_sentry();
-
-// src/shared/compliance/pci.service.ts
-init_pool();
-init_logger();
-async function checkPCICompliance() {
-  const issues = [];
-  if (!process.env.ENCRYPTION_KEY || process.env.ENCRYPTION_KEY === "default-encryption-key-change-in-production!") {
-    issues.push("ENCRYPTION_KEY no configurada o es la default");
-  }
-  if (!process.env.JWT_SECRET || process.env.JWT_SECRET === "default-secret") {
-    issues.push("JWT_SECRET no configurado o es la default");
-  }
-  try {
-    const result = await query(`SELECT column_name, table_name FROM information_schema.columns
-       WHERE table_schema = 'public'
-       AND (column_name LIKE '%password%' OR column_name LIKE '%secret%' OR column_name LIKE '%token%')
-       AND data_type NOT IN ('bytea') AND is_updatable = 'YES'`);
-    for (const row of result.rows) {
-      issues.push(`Columna sensible sin cifrar: ${row.table_name}.${row.column_name}`);
-    }
-  } catch {}
-  return {
-    compliant: issues.length === 0,
-    issues
-  };
-}
-function complianceHeaders() {
-  return {
-    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
-    "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
-    "X-XSS-Protection": "1; mode=block",
-    "Content-Security-Policy": "default-src 'self'",
-    "Referrer-Policy": "strict-origin-when-cross-origin",
-    "Permissions-Policy": "camera=(), microphone=(), geolocation=(self)",
-    "Cache-Control": "no-store",
-    Pragma: "no-cache"
-  };
-}
-async function logComplianceCheck() {
-  const result = await checkPCICompliance();
-  if (!result.compliant) {
-    logger.warn("PCI compliance issues", { issues: result.issues });
-    for (const issue of result.issues) {
-      logger.error(`PCI: ${issue}`);
-    }
-  }
-  return result;
-}
-
-// src/index.ts
+// src/shared/middleware/auth.middleware.ts
 init_dist();
 
 // src/identity/auth.service.ts
@@ -48751,6 +49066,239 @@ init_snowflake();
 init_user_repository();
 var import_bcrypt = __toESM(require_bcrypt(), 1);
 var import_jsonwebtoken = __toESM(require_jsonwebtoken(), 1);
+import crypto3 from "node:crypto";
+
+// src/identity/tenants/tenant.service.ts
+init_app_error();
+init_tenant_repository();
+init_snowflake();
+var tenantService = {
+  async create(data) {
+    const tenant = await tenantRepository.create({
+      id: nextSnowflake(),
+      ...data
+    });
+    await tenantRepository.setTenant(data.ownerUserId, tenant.id, "owner");
+    return tenant;
+  },
+  getById(id) {
+    return tenantRepository.getById(id);
+  },
+  listByUser(userId) {
+    return tenantRepository.listByUser(userId);
+  },
+  async update(id, data) {
+    const tenant = await tenantRepository.getById(id);
+    if (!tenant)
+      throw new AppError2(404, "Cliente no encontrado");
+    const updated = await tenantRepository.update(id, data);
+    if (!updated)
+      throw new AppError2(500, "Error al actualizar cliente");
+    return updated;
+  }
+};
+
+// src/banking/wallet/wallet.service.ts
+init_wallet_repository();
+
+// src/banking/wallet/wallet-number.service.ts
+var BANK_CODE = "100";
+var BRANCH_CODE = "01";
+function luhnCheckDigit(digits) {
+  let sum = 0;
+  let alternate = false;
+  for (let i = digits.length - 1;i >= 0; i--) {
+    let n2 = parseInt(digits[i], 10);
+    if (alternate) {
+      n2 *= 2;
+      if (n2 > 9)
+        n2 -= 9;
+    }
+    sum += n2;
+    alternate = !alternate;
+  }
+  return (10 - sum % 10) % 10;
+}
+var ACCOUNT_TYPE_MAP = {
+  standard: "1",
+  business: "3"
+};
+function generateWalletNumber(accountType, sequence2) {
+  const typeCode = ACCOUNT_TYPE_MAP[accountType] || "1";
+  const seqStr = sequence2.toString().padStart(2, "0").slice(-2);
+  const withoutCheck = `${BANK_CODE}${BRANCH_CODE}${typeCode}${seqStr}`;
+  return withoutCheck + luhnCheckDigit(withoutCheck);
+}
+
+// src/banking/wallet/wallet.service.ts
+init_pool();
+var _walletSeq = null;
+async function getWalletSeq() {
+  if (_walletSeq === null) {
+    const r2 = await query2("SELECT COUNT(*)::int AS c FROM wallets WHERE deleted_at IS NULL");
+    _walletSeq = (r2.rows[0]?.c || 0) + 1;
+  }
+  return _walletSeq++;
+}
+var walletService = {
+  async create(data) {
+    const num = generateWalletNumber(data.type, await getWalletSeq());
+    const wallet = await walletRepository.create({
+      walletNumber: num,
+      type: data.type,
+      level: data.level,
+      name: data.name,
+      currency: data.currency || "BOB",
+      banecoCredentialId: data.banecoCredentialId,
+      tenantId: data.tenantId,
+      isCollection: data.isCollection,
+      isDefault: data.isDefault
+    });
+    return wallet;
+  },
+  getById(id) {
+    return walletRepository.getById(id);
+  },
+  listByUser(userId) {
+    return walletRepository.listByUser(userId);
+  },
+  listByTenant(tenantId) {
+    return walletRepository.listByTenant(tenantId);
+  },
+  listAll(filters) {
+    return walletRepository.listAll(filters);
+  },
+  getMovements(walletId, filters) {
+    return walletRepository.getMovements(walletId, filters);
+  },
+  getStats(walletId) {
+    return walletRepository.getStats(walletId);
+  },
+  async createMovement(data) {
+    return walletRepository.createMovement(data);
+  },
+  async createCollection(tenantId) {
+    const wallet = await walletService.create({
+      type: "standard",
+      name: "Collectiones",
+      isCollection: true,
+      tenantId
+    });
+    return wallet;
+  },
+  async getCollectionAccount(userId) {
+    return walletRepository.getCollectionByUser(userId);
+  },
+  async setAsCollection(walletId) {
+    return walletRepository.update(walletId, { isCollection: true });
+  }
+};
+
+// src/identity/auth.service.ts
+init_wallet_permission_repository();
+
+// src/identity/otp.service.ts
+init_pool();
+init_app_error();
+init_snowflake();
+init_logger();
+import crypto2 from "node:crypto";
+var WHATSAPP_API_URL = process.env.WHATSAPP_API_URL || "";
+var WHATSAPP_API_KEY = process.env.WHATSAPP_API_KEY || "";
+var MAX_SEND_ATTEMPTS = 3;
+var SEND_WINDOW_MIN = 2;
+var MAX_VERIFY_ATTEMPTS = 5;
+var OTP_EXPIRATION_MIN = 5;
+var VERIFIED_TOKEN_EXPIRATION_MIN = 2;
+function hashCode(code) {
+  return crypto2.createHash("sha256").update(code).digest("hex");
+}
+async function sendWhatsApp(phone, message) {
+  if (!WHATSAPP_API_URL) {
+    logger.warn("WHATSAPP_API_URL no configurada", { phone });
+    return;
+  }
+  const headers = { "Content-Type": "application/json" };
+  if (WHATSAPP_API_KEY)
+    headers["apikey"] = WHATSAPP_API_KEY;
+  const number = `591${phone}`;
+  const url = `${WHATSAPP_API_URL}/send/text`;
+  const body = { number, text: message };
+  logger.info("Enviando WhatsApp", { phone, number, url, hasKey: !!WHATSAPP_API_KEY });
+  const start = Date.now();
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body)
+  });
+  const elapsed = Date.now() - start;
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    logger.error("WhatsApp falló", { phone, status: res.status, error: JSON.stringify(err), elapsed });
+    throw new AppError2(502, `Error al enviar WhatsApp: ${res.status}`);
+  }
+  logger.info("WhatsApp enviado", { phone, status: res.status, elapsed });
+}
+var otpService = {
+  async sendOTP(phone) {
+    const recent = await this.getRecentSendAttempts(phone);
+    if (recent >= MAX_SEND_ATTEMPTS) {
+      throw new AppError2(429, `Demasiados intentos. Espere ${SEND_WINDOW_MIN} minutos.`);
+    }
+    const code = crypto2.randomInt(1e5, 999999).toString();
+    const codeHash = hashCode(code);
+    await query2("DELETE FROM otp_codes WHERE phone = $1 AND verified_at IS NULL", [phone]);
+    await query2(`
+      INSERT INTO otp_codes (id, phone, code_hash, attempts, expires_at)
+      VALUES ($1, $2, $3, 0, CURRENT_TIMESTAMP + INTERVAL '${OTP_EXPIRATION_MIN} minutes')
+    `, [nextSnowflake(), phone, codeHash]);
+    logger.info("OTP generated", { phone });
+    const msg = `Tu código de verificación PAGUI es: *${code}*`;
+    await sendWhatsApp(phone, msg);
+  },
+  async verifyOTP(phone, code) {
+    const r2 = await query2(`
+      SELECT id, code_hash, attempts FROM otp_codes
+      WHERE phone = $1 AND verified_at IS NULL AND expires_at > CURRENT_TIMESTAMP
+      ORDER BY created_at DESC LIMIT 1
+    `, [phone]);
+    if (r2.rowCount === 0)
+      throw new AppError2(400, "Código inválido o expirado");
+    const row = r2.rows[0];
+    if (row.attempts >= MAX_VERIFY_ATTEMPTS) {
+      throw new AppError2(429, "Demasiados intentos fallidos. Solicite un nuevo código.");
+    }
+    const computedHash = hashCode(code);
+    if (computedHash !== row.code_hash) {
+      await query2("UPDATE otp_codes SET attempts = attempts + 1 WHERE id = $1", [row.id]);
+      const remaining = MAX_VERIFY_ATTEMPTS - row.attempts - 1;
+      if (remaining <= 0) {
+        throw new AppError2(429, "Demasiados intentos fallidos. Solicite un nuevo código.");
+      }
+      throw new AppError2(400, `Código incorrecto. Intentos restantes: ${remaining}`);
+    }
+    await query2("UPDATE otp_codes SET verified_at = CURRENT_TIMESTAMP WHERE id = $1", [row.id]);
+    return true;
+  },
+  async isPhoneVerified(phone) {
+    const r2 = await query2(`
+      SELECT id FROM otp_codes
+      WHERE phone = $1 AND verified_at IS NOT NULL
+        AND verified_at > CURRENT_TIMESTAMP - INTERVAL '${VERIFIED_TOKEN_EXPIRATION_MIN} minutes'
+      ORDER BY created_at DESC LIMIT 1
+    `, [phone]);
+    return r2.rowCount > 0;
+  },
+  async getRecentSendAttempts(phone) {
+    const r2 = await query2(`
+      SELECT COUNT(*) as count FROM otp_codes
+      WHERE phone = $1 AND created_at > CURRENT_TIMESTAMP - INTERVAL '${SEND_WINDOW_MIN} minutes'
+    `, [phone]);
+    return parseInt(r2.rows[0].count);
+  }
+};
+
+// src/identity/auth.service.ts
 var JWT_SECRET = () => process.env.JWT_SECRET || "your-secret-key";
 var JWT_REFRESH_SECRET = () => process.env.JWT_REFRESH_SECRET || "your-refresh-secret-key";
 var JWT_EXPIRES_IN = () => process.env.JWT_EXPIRES_IN || "24h";
@@ -48758,27 +49306,71 @@ var authService = {
   async login(email, password) {
     const user = await userRepository.getByEmail(email);
     if (!user || user.status !== "active")
-      throw new AppError(401, "Credenciales inválidas");
+      throw new AppError2(401, "Credenciales inválidas");
     const valid = await import_bcrypt.default.compare(password, user.password);
     if (!valid)
-      throw new AppError(401, "Credenciales inválidas");
+      throw new AppError2(401, "Credenciales inválidas");
+    return this.generateSession(user);
+  },
+  async loginWithOTP(phone, code) {
+    await otpService.verifyOTP(phone, code);
+    const user = await userRepository.getByPhone(phone);
+    if (!user) {
+      const tempToken = import_jsonwebtoken.default.sign({ phone, type: "otp_verified" }, JWT_SECRET(), { expiresIn: "15m" });
+      return { needsRegistration: true, tempToken };
+    }
+    return { ...await this.generateSession(user), needsRegistration: false };
+  },
+  async completeRegistration(phone, name, documentId, tempToken) {
+    const decoded = import_jsonwebtoken.default.verify(tempToken, JWT_SECRET());
+    if (decoded.type !== "otp_verified" || decoded.phone !== phone) {
+      throw new AppError2(401, "Token de verificación inválido");
+    }
+    const id = nextSnowflake();
+    const fakeEmail = `u_${id}@pagui.app`;
+    const fakePassword = crypto3.randomBytes(32).toString("hex");
+    await query2(`
+      INSERT INTO users (id, email, password, full_name, phone, address, role, status)
+      VALUES ($1, $2, $3, $4, $5, $6, 3, 'active')
+    `, [id, fakeEmail, fakePassword, name, phone, documentId || null]);
+    const user = await userRepository.getById(id);
+    if (!user)
+      throw new AppError2(500, "Error al crear usuario");
+    const tenant = await tenantService.create({
+      fullName: name,
+      phone,
+      documentType: "CI",
+      documentNumber: documentId,
+      ownerUserId: id
+    });
+    const wallet = await walletService.create({
+      type: "standard",
+      name: "Mi Wallet",
+      tenantId: tenant.id,
+      isDefault: true
+    });
+    await walletPermissionRepository2.upsert(id, wallet.id, "owner");
+    return this.generateSession(user);
+  },
+  async generateSession(user) {
     const accessPayload = { userId: Number(user.id), email: user.email, role: user.role };
     const accessToken = import_jsonwebtoken.default.sign(accessPayload, JWT_SECRET(), { expiresIn: JWT_EXPIRES_IN() });
     const refreshPayload = { userId: Number(user.id), type: "refresh" };
     const refreshToken = import_jsonwebtoken.default.sign(refreshPayload, JWT_REFRESH_SECRET(), { expiresIn: "30d" });
     try {
-      await query("INSERT INTO auth_tokens (id, user_id, token_type, token) VALUES ($1, $2, $3, $4)", [nextSnowflake(), user.id, "ACCESS_TOKEN", accessToken]);
-      await query("INSERT INTO auth_tokens (id, user_id, token_type, token) VALUES ($1, $2, $3, $4)", [nextSnowflake(), user.id, "REFRESH_TOKEN", refreshToken]);
+      await query2("INSERT INTO auth_tokens (id, user_id, token_type, token) VALUES ($1, $2, $3, $4)", [nextSnowflake(), user.id, "ACCESS_TOKEN", accessToken]);
+      await query2("INSERT INTO auth_tokens (id, user_id, token_type, token) VALUES ($1, $2, $3, $4)", [nextSnowflake(), user.id, "REFRESH_TOKEN", refreshToken]);
     } catch {}
+    const wallets = await walletPermissionRepository2.listByUser(user.id);
     return {
       user: {
         id: user.id,
         email: user.email,
         fullName: user.fullName,
         role: user.role,
-        status: user.status,
-        accounts: []
+        status: user.status
       },
+      wallets,
       accessToken,
       refreshToken,
       expiresIn: JWT_EXPIRES_IN()
@@ -48788,14 +49380,14 @@ var authService = {
     try {
       return import_jsonwebtoken.default.verify(token, JWT_SECRET());
     } catch {
-      throw new AppError(401, "Token inválido o expirado");
+      throw new AppError2(401, "Token inválido o expirado");
     }
   },
   async verifyTokenWithDb(token) {
     const decoded = this.verifyToken(token);
-    const r2 = await query("SELECT id FROM auth_tokens WHERE token = $1 AND token_type = $2", [token, "ACCESS_TOKEN"]);
+    const r2 = await query2("SELECT id FROM auth_tokens WHERE token = $1 AND token_type = $2", [token, "ACCESS_TOKEN"]);
     if (r2.rowCount === 0)
-      throw new AppError(401, "Token revocado");
+      throw new AppError2(401, "Token revocado");
     return decoded;
   },
   async getUserInfo(email) {
@@ -48807,30 +49399,30 @@ var authService = {
   async refreshAccessToken(refreshToken) {
     const decoded = import_jsonwebtoken.default.verify(refreshToken, JWT_REFRESH_SECRET());
     if (decoded.type !== "refresh")
-      throw new AppError(401, "Token inválido");
-    const r2 = await query("SELECT user_id FROM auth_tokens WHERE token = $1 AND token_type = $2", [refreshToken, "REFRESH_TOKEN"]);
+      throw new AppError2(401, "Token inválido");
+    const r2 = await query2("SELECT user_id FROM auth_tokens WHERE token = $1 AND token_type = $2", [refreshToken, "REFRESH_TOKEN"]);
     if (r2.rowCount === 0)
-      throw new AppError(401, "Token expirado o inválido");
+      throw new AppError2(401, "Token expirado o inválido");
     const userId = BigInt(decoded.userId);
     const user = await userRepository.getById(userId);
     if (!user || user.status !== "active")
-      throw new AppError(401, "Usuario no encontrado");
+      throw new AppError2(401, "Usuario no encontrado");
     const accessPayload = { userId: Number(user.id), email: user.email, role: user.role };
     const newAccessToken = import_jsonwebtoken.default.sign(accessPayload, JWT_SECRET(), { expiresIn: JWT_EXPIRES_IN() });
     const newRefreshPayload = { userId: Number(user.id), type: "refresh" };
     const newRefreshToken = import_jsonwebtoken.default.sign(newRefreshPayload, JWT_REFRESH_SECRET(), { expiresIn: "30d" });
-    await query("DELETE FROM auth_tokens WHERE token = $1 AND token_type = $2", [refreshToken, "REFRESH_TOKEN"]);
-    await query("INSERT INTO auth_tokens (id, user_id, token_type, token) VALUES ($1, $2, $3, $4)", [nextSnowflake(), user.id, "REFRESH_TOKEN", newRefreshToken]);
+    await query2("DELETE FROM auth_tokens WHERE token = $1 AND token_type = $2", [refreshToken, "REFRESH_TOKEN"]);
+    await query2("INSERT INTO auth_tokens (id, user_id, token_type, token) VALUES ($1, $2, $3, $4)", [nextSnowflake(), user.id, "REFRESH_TOKEN", newRefreshToken]);
     return { accessToken: newAccessToken, refreshToken: newRefreshToken };
   },
   async revokeToken(token) {
-    await query("DELETE FROM auth_tokens WHERE token = $1", [token]);
+    await query2("DELETE FROM auth_tokens WHERE token = $1", [token]);
   },
   async revokeAllUserTokens(userId) {
-    await query("DELETE FROM auth_tokens WHERE user_id = $1", [userId]);
+    await query2("DELETE FROM auth_tokens WHERE user_id = $1", [userId]);
   },
   async listTokens(userId) {
-    const r2 = await query(`
+    const r2 = await query2(`
       SELECT id, token_type, token, expires_at, created_at
       FROM auth_tokens WHERE user_id = $1 AND deleted_at IS NULL
       ORDER BY created_at DESC
@@ -48839,72 +49431,21 @@ var authService = {
   }
 };
 
-// src/identity/auth.routes.ts
-init_user_service();
-
-// src/identity/otp.service.ts
-init_pool();
-init_app_error();
-init_snowflake();
-init_logger();
-var otpService = {
-  async sendOTP(phone) {
-    const recent = await this.getRecentAttempts(phone);
-    if (recent >= 3) {
-      throw new AppError(429, "Demasiados intentos. Intente más tarde.");
-    }
-    const code = Math.floor(1e5 + Math.random() * 900000).toString();
-    await query(`
-      INSERT INTO auth_tokens (id, user_id, token, token_type, expires_at)
-      VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP + INTERVAL '5 minutes')
-    `, [nextSnowflake(), 0, `${phone}:${code}`, "OTP_SENT"]);
-    logger.info("OTP sent", { phone });
-  },
-  async verifyOTP(phone, code) {
-    const r2 = await query(`
-      SELECT id, token FROM auth_tokens
-      WHERE token LIKE $1 AND token_type = 'OTP_SENT' AND expires_at > CURRENT_TIMESTAMP
-      ORDER BY created_at DESC LIMIT 1
-    `, [`${phone}:%`]);
-    if (r2.rowCount === 0)
-      throw new AppError(400, "Código inválido o expirado");
-    const stored = r2.rows[0].token.split(":")[1];
-    if (stored !== code) {
-      await query("DELETE FROM auth_tokens WHERE id = $1", [r2.rows[0].id]);
-      throw new AppError(400, "Código incorrecto");
-    }
-    await query("DELETE FROM auth_tokens WHERE id = $1", [r2.rows[0].id]);
-    await query("INSERT INTO auth_tokens (id, user_id, token, token_type) VALUES ($1, 0, $2, 'OTP_VERIFIED')", [nextSnowflake(), `${phone}:${code}`]);
-    return true;
-  },
-  async getRecentAttempts(phone) {
-    const r2 = await query(`
-      SELECT COUNT(*) as count FROM auth_tokens
-      WHERE token LIKE $1 AND token_type = 'OTP_SENT'
-      AND created_at > CURRENT_TIMESTAMP - INTERVAL '2 minutes'
-    `, [`${phone}%`]);
-    return parseInt(r2.rows[0].count);
-  }
-};
-
-// src/shared/middleware/auth.middleware.ts
-init_dist();
-
 // src/api-keys/apikey.repository.ts
 init_pool();
 init_snowflake();
 var apikeyRepository = {
   async create(data) {
-    const r2 = await query(`
-      INSERT INTO api_keys (id, api_key, account_id, description, permissions, expires_at, status)
+    const r2 = await query2(`
+      INSERT INTO api_keys (id, api_key, wallet_id, description, permissions, expires_at, status)
       VALUES ($1, $2, $3, $4, $5, $6, 'active')
-      RETURNING id, api_key as "apiKey", account_id as "accountId",
+      RETURNING id, api_key as "apiKey", wallet_id as "walletId",
                 description, permissions, expires_at as "expiresAt",
                 status, created_at as "createdAt", updated_at as "updatedAt"
     `, [
       nextSnowflake(),
       data.apiKey,
-      data.accountId,
+      data.walletId,
       data.description || null,
       JSON.stringify(data.permissions),
       data.expiresAt ? new Date(data.expiresAt) : null
@@ -48912,30 +49453,30 @@ var apikeyRepository = {
     return r2.rows[0];
   },
   async findByKey(apiKey) {
-    const r2 = await query(`
-      SELECT ak.id, ak.api_key as "apiKey", ak.account_id as "accountId",
+    const r2 = await query2(`
+      SELECT ak.id, ak.api_key as "apiKey", ak.wallet_id as "walletId",
              ak.description, ak.permissions, ak.expires_at as "expiresAt",
              ak.status, ak.created_at as "createdAt", ak.updated_at as "updatedAt",
-             a.bank_credential_id as "bankCredentialId"
+             w.baneco_credential_id as "banecoCredentialId"
       FROM api_keys ak
-      INNER JOIN accounts a ON ak.account_id = a.id
+      INNER JOIN wallets w ON ak.wallet_id = w.id
       WHERE ak.api_key = $1 AND ak.deleted_at IS NULL
     `, [apiKey]);
     return r2.rowCount ? r2.rows[0] : null;
   },
-  async listByAccount(accountId) {
-    const r2 = await query(`
-      SELECT id, api_key as "apiKey", account_id as "accountId",
+  async listByWallet(walletId) {
+    const r2 = await query2(`
+      SELECT id, api_key as "apiKey", wallet_id as "walletId",
              description, permissions, expires_at as "expiresAt",
              status, created_at as "createdAt", updated_at as "updatedAt"
-      FROM api_keys WHERE account_id = $1 AND deleted_at IS NULL
+      FROM api_keys WHERE wallet_id = $1 AND deleted_at IS NULL
       AND status = 'active' ORDER BY created_at DESC
-    `, [accountId]);
+    `, [walletId]);
     return r2.rows;
   },
   async getById(id) {
-    const r2 = await query(`
-      SELECT id, api_key as "apiKey", account_id as "accountId",
+    const r2 = await query2(`
+      SELECT id, api_key as "apiKey", wallet_id as "walletId",
              description, permissions, expires_at as "expiresAt",
              status, created_at as "createdAt", updated_at as "updatedAt"
       FROM api_keys WHERE id = $1 AND deleted_at IS NULL
@@ -48943,10 +49484,10 @@ var apikeyRepository = {
     return r2.rowCount ? r2.rows[0] : null;
   },
   async revoke(id) {
-    await query("UPDATE api_keys SET status = 'REVOKED', updated_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
+    await query2("UPDATE api_keys SET status = 'REVOKED', updated_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
   },
   async markExpired(id) {
-    await query("UPDATE api_keys SET status = 'EXPIRED', updated_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
+    await query2("UPDATE api_keys SET status = 'EXPIRED', updated_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
   }
 };
 
@@ -48968,20 +49509,20 @@ var apiKeyService = {
       await apikeyRepository.markExpired(key.id);
       return { isValid: false };
     }
-    return { isValid: true, accountId: key.accountId, bankCredentialId: key.bankCredentialId, permissions: key.permissions };
+    return { isValid: true, walletId: key.walletId, banecoCredentialId: key.banecoCredentialId, permissions: key.permissions };
   },
-  async generate(accountId, description, permissions, expiresAt) {
+  async generate(walletId, description, permissions, expiresAt) {
     const apiKey = generateApiKeyString();
-    const key = await apikeyRepository.create({ apiKey, accountId, description, permissions, expiresAt });
+    const key = await apikeyRepository.create({ apiKey, walletId, description, permissions, expiresAt });
     return { ...key, apiKey };
   },
-  async list(accountId) {
-    return apikeyRepository.listByAccount(accountId);
+  async list(walletId) {
+    return apikeyRepository.listByWallet(walletId);
   },
   async revoke(id) {
     const key = await apikeyRepository.getById(id);
     if (!key)
-      throw new AppError(404, "API key no encontrada");
+      throw new AppError2(404, "API key no encontrada");
     await apikeyRepository.revoke(id);
   }
 };
@@ -48994,8 +49535,15 @@ async function verifyToken(token) {
   const decoded = jwt2.verify(token, secret);
   return { userId: decoded.userId || decoded.sub, email: decoded.email, role: decoded.role ?? Role.User };
 }
+function requireRole(...roles) {
+  return (auth) => {
+    if (!roles.includes(auth.user.role)) {
+      throw new AppError2(403, "No tienes permisos para realizar esta acción");
+    }
+  };
+}
 function authMiddleware(options = { type: "jwt", level: "user" }) {
-  return new Elysia({ name: "auth" }).derive({ as: "scoped" }, async (ctx) => {
+  return async (ctx) => {
     const authHeader = ctx.headers.authorization;
     const apiKeyHeader = ctx.headers["x-api-key"];
     if (authHeader?.startsWith("Bearer ") && (options.type === "jwt" || options.type === "all")) {
@@ -49004,109 +49552,87 @@ function authMiddleware(options = { type: "jwt", level: "user" }) {
         const decoded = await authService.verifyTokenWithDb(token);
         const userInfo = await authService.getUserInfo(decoded.email);
         if (!userInfo)
-          throw new AppError(401, "Usuario no encontrado");
+          throw new AppError2(401, "Usuario no encontrado");
         if (options.level === "admin" && userInfo.role !== Role.Admin && userInfo.role !== Role.Super) {
-          throw new AppError(403, "Se requiere rol de administrador");
+          throw new AppError2(403, "Se requiere rol de administrador");
         }
         return { auth: { type: "jwt", user: userInfo } };
       } catch (err) {
-        if (err instanceof AppError)
+        if (err instanceof AppError2)
           throw err;
-        throw new AppError(401, "Error en autenticación");
+        throw new AppError2(401, "Error en autenticación");
       }
     }
     if (apiKeyHeader && (options.type === "apikey" || options.type === "all")) {
       const verification = await apiKeyService.verifyApiKey(apiKeyHeader);
-      if (verification.isValid && verification.accountId) {
+      if (verification.isValid && verification.walletId) {
         if (options.level === "admin" && !verification.permissions?.qr_generate) {
-          throw new AppError(403, "Se requieren permisos de administrador");
+          throw new AppError2(403, "Se requieren permisos de administrador");
         }
         return {
           auth: {
             type: "apikey",
             apiKeyInfo: {
-              accountId: verification.accountId,
-              bankCredentialId: verification.bankCredentialId || null,
+              walletId: verification.walletId,
+              banecoCredentialId: verification.banecoCredentialId || null,
               permissions: verification.permissions || {},
               apiKey: apiKeyHeader
             }
           }
         };
       }
-      throw new AppError(401, "API key inválida");
+      throw new AppError2(401, "API key inválida");
     }
     const msg = options.type === "jwt" ? "JWT requerida" : options.type === "apikey" ? "API key requerida" : "Autenticación requerida";
-    throw new AppError(401, msg);
-  });
+    throw new AppError2(401, msg);
+  };
 }
 
+// src/index.ts
+init_sentry();
+
+// src/shared/compliance/pci.service.ts
+init_pool();
+init_logger();
+function complianceHeaders() {
+  return {
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "X-XSS-Protection": "1; mode=block",
+    "Content-Security-Policy": "default-src 'self'",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(self)",
+    "Cache-Control": "no-store",
+    Pragma: "no-cache"
+  };
+}
+
+// src/index.ts
+init_dist();
+
 // src/identity/auth.routes.ts
+init_user_service();
 init_pool();
 init_snowflake();
 
 // src/shared/crypto.ts
-import crypto2 from "node:crypto";
+import crypto4 from "node:crypto";
 var ALGORITHM = "aes-256-cbc";
 function getKey() {
   const secret = process.env.ENCRYPTION_KEY || "default-encryption-key-change-in-production!";
-  return crypto2.createHash("sha256").update(secret).digest();
+  return crypto4.createHash("sha256").update(secret).digest();
 }
 function encrypt(text) {
   const key = getKey();
-  const iv = crypto2.randomBytes(16);
-  const cipher = crypto2.createCipheriv(ALGORITHM, key, iv);
+  const iv = crypto4.randomBytes(16);
+  const cipher = crypto4.createCipheriv(ALGORITHM, key, iv);
   let encrypted = cipher.update(text, "utf8", "hex");
   encrypted += cipher.final("hex");
   return iv.toString("hex") + ":" + encrypted;
 }
 function hash2(text) {
-  return crypto2.createHash("sha256").update(text).digest("hex");
-}
-function generateSeedPhrase() {
-  const words = [
-    "arena",
-    "brazo",
-    "casa",
-    "dedo",
-    "eco",
-    "faro",
-    "gato",
-    "hoja",
-    "isla",
-    "juez",
-    "kilo",
-    "lago",
-    "mano",
-    "nube",
-    "ojo",
-    "palo",
-    "queso",
-    "rama",
-    "sapo",
-    "taza",
-    "uno",
-    "vaca",
-    "yema",
-    "zorro",
-    "alto",
-    "bajo",
-    "cielo",
-    "dulce",
-    "este",
-    "flor",
-    "gris",
-    "hondo"
-  ];
-  const phrase = [];
-  const used = new Set;
-  while (phrase.length < 12) {
-    const idx = crypto2.randomInt(0, words.length);
-    if (!used.has(idx)) {
-      used.add(idx);
-      phrase.push(words[idx]);
-    }
-  }
-  return phrase;
+  return crypto4.createHash("sha256").update(text).digest("hex");
 }
 
 // src/identity/auth.routes.ts
@@ -49130,7 +49656,7 @@ var authRoutes = new Elysia({ prefix: "/auth" }).post("/login", async ({ body, s
   body: t.Object({ email: t.String(), password: t.String() }),
   detail: { tags: ["Auth"], summary: "Iniciar sesión" }
 }).post("/biometric/login", async ({ body }) => {
-  const result = await query(`SELECT u.id, u.password_hash, u.is_active FROM users u
+  const result = await query2(`SELECT u.id, u.password_hash, u.is_active FROM users u
        JOIN devices d ON d.user_id = u.id
        WHERE d.biometric_key_hash = $1 AND d.is_active = TRUE
        LIMIT 1`, [body.biometricKeyHash]);
@@ -49160,13 +49686,13 @@ var authRoutes = new Elysia({ prefix: "/auth" }).post("/login", async ({ body, s
   detail: { tags: ["Auth"], summary: "Recuperar contraseña" }
 }).post("/register", async ({ body, set: set2 }) => {
   try {
-    const exists = await query("SELECT id FROM registration_requests WHERE email = $1", [body.email]);
+    const exists = await query2("SELECT id FROM registration_requests WHERE email = $1", [body.email]);
     if (exists.rows.length > 0) {
       set2.status = 409;
       return fail("Ya existe una solicitud con este email", "Ya existe una solicitud con este email");
     }
     const id = nextSnowflake();
-    await query(`INSERT INTO registration_requests (id, full_name, email, company, phone, message)
+    await query2(`INSERT INTO registration_requests (id, full_name, email, company, phone, message)
          VALUES ($1, $2, $3, $4, $5, $6)`, [id, body.fullName, body.email, body.company, body.phone, body.message || ""]);
     return ok({ id: id.toString() }, "Solicitud enviada exitosamente");
   } catch (e) {
@@ -49185,7 +49711,37 @@ var authRoutes = new Elysia({ prefix: "/auth" }).post("/login", async ({ body, s
     message: t.Optional(t.String())
   }),
   detail: { tags: ["Auth"], summary: "Solicitar registro de cuenta" }
-}).use(authMiddleware({ type: "jwt", level: "user" })).get("/tokens", async ({ auth }) => {
+}).post("/otp/login", async ({ body }) => {
+  return ok(await authService.loginWithOTP(body.phone, body.code));
+}, {
+  body: t.Object({
+    phone: t.String({ minLength: 1 }),
+    code: t.String({ minLength: 6 })
+  }),
+  detail: { tags: ["Auth"], summary: "Iniciar sesión con OTP" }
+}).post("/otp/complete", async ({ body }) => {
+  return ok(await authService.completeRegistration(body.phone, body.name, body.documentId, body.tempToken));
+}, {
+  body: t.Object({
+    phone: t.String({ minLength: 1 }),
+    name: t.String({ minLength: 1 }),
+    documentId: t.String({ minLength: 1 }),
+    tempToken: t.String({ minLength: 1 })
+  }),
+  detail: { tags: ["Auth"], summary: "Completar registro con nombre y carnet" }
+}).post("/send-otp", async ({ body }) => {
+  await otpService.sendOTP(body.phone);
+  return ok(null, "OTP enviado por WhatsApp");
+}, {
+  body: t.Object({ phone: t.String() }),
+  detail: { tags: ["Auth"], summary: "Enviar OTP" }
+}).post("/verify-otp", async ({ body }) => {
+  await otpService.verifyOTP(body.phone, body.code);
+  return ok(null, "OTP verificado");
+}, {
+  body: t.Object({ phone: t.String(), code: t.String() }),
+  detail: { tags: ["Auth"], summary: "Verificar OTP" }
+}).derive(authMiddleware({ type: "jwt", level: "user" })).get("/tokens", async ({ auth }) => {
   const tokens = await authService.listTokens(auth.user.id);
   return list(tokens, undefined, "Tokens listados exitosamente");
 }, {
@@ -49206,23 +49762,11 @@ var authRoutes = new Elysia({ prefix: "/auth" }).post("/login", async ({ body, s
 }, {
   body: t.Object({ newPassword: t.String({ minLength: 6 }) }),
   detail: { tags: ["Auth"], summary: "Cambiar contraseña" }
-}).post("/send-otp", async ({ body }) => {
-  await otpService.sendOTP(body.phone);
-  return ok(null, "OTP enviado");
-}, {
-  body: t.Object({ phone: t.String() }),
-  detail: { tags: ["Auth"], summary: "Enviar OTP" }
-}).post("/verify-otp", async ({ body }) => {
-  await otpService.verifyOTP(body.phone, body.code);
-  return ok(null, "OTP verificado");
-}, {
-  body: t.Object({ phone: t.String(), code: t.String() }),
-  detail: { tags: ["Auth"], summary: "Verificar OTP" }
 }).post("/biometric/register", async ({ body, auth }) => {
   const keyHash = hash2(body.biometricKey);
   const encryptedKey = encrypt(body.biometricKey);
   const deviceData = body.deviceName ? { name: body.deviceName, platform: body.platform || "unknown" } : {};
-  const result = await query(`INSERT INTO devices (id, user_id, name, platform, biometric_key_hash, encrypted_biometric_key, is_active)
+  const result = await query2(`INSERT INTO devices (id, user_id, name, platform, biometric_key_hash, encrypted_biometric_key, is_active)
        VALUES ($1, $2, $3, $4, $5, $6, TRUE)
        RETURNING id`, [nextSnowflake(), auth.user.id, deviceData.name || null, deviceData.platform || null, keyHash, encryptedKey]);
   logger.info("Biometric key registered", { userId: auth.user.id, deviceId: result.rows[0].id });
@@ -49235,7 +49779,7 @@ var authRoutes = new Elysia({ prefix: "/auth" }).post("/login", async ({ body, s
   }),
   detail: { tags: ["Auth"], summary: "Registrar credencial biométrica" }
 }).post("/biometric/unregister/:deviceId", async ({ params, auth }) => {
-  await query("UPDATE devices SET is_active = FALSE, biometric_key_hash = NULL, encrypted_biometric_key = NULL WHERE id = $1 AND user_id = $2", [params.deviceId, auth.user.id]);
+  await query2("UPDATE devices SET is_active = FALSE, biometric_key_hash = NULL, encrypted_biometric_key = NULL WHERE id = $1 AND user_id = $2", [params.deviceId, auth.user.id]);
   return ok(null, "Credencial biométrica eliminada");
 }, {
   params: t.Object({ deviceId: t.String() }),
@@ -49249,7 +49793,7 @@ init_user_service();
 init_pool();
 var userProfileRepository = {
   async upsert(userId, data) {
-    const exists = await query("SELECT user_id FROM user_profiles WHERE user_id = $1", [userId]);
+    const exists = await query2("SELECT user_id FROM user_profiles WHERE user_id = $1", [userId]);
     if (exists.rowCount) {
       const sets = [];
       const params = [];
@@ -49263,17 +49807,17 @@ var userProfileRepository = {
       }
       if (sets.length) {
         sets.push("updated_at = CURRENT_TIMESTAMP");
-        await query(`UPDATE user_profiles SET ${sets.join(", ")} WHERE user_id = $${pc + 1}`, [...params, userId]);
+        await query2(`UPDATE user_profiles SET ${sets.join(", ")} WHERE user_id = $${pc + 1}`, [...params, userId]);
       }
     } else {
-      await query(`
-        INSERT INTO user_profiles (user_id, pin_hash, kyc_level, document_type, document_number, date_of_birth, nationality, daily_limit, monthly_limit)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      `, [userId, data.pinHash || null, data.kycLevel || "none", data.documentType || null, data.documentNumber || null, data.dateOfBirth || null, data.nationality || null, data.dailyLimit || 5000, data.monthlyLimit || 50000]);
+      await query2(`
+        INSERT INTO user_profiles (user_id, pin_hash, daily_limit, monthly_limit)
+        VALUES ($1, $2, $3, $4)
+      `, [userId, data.pinHash || null, data.dailyLimit || 5000, data.monthlyLimit || 50000]);
     }
   },
   async getByUserId(userId) {
-    const r2 = await query("SELECT * FROM user_profiles WHERE user_id = $1", [userId]);
+    const r2 = await query2("SELECT * FROM user_profiles WHERE user_id = $1", [userId]);
     return r2.rowCount ? r2.rows[0] : null;
   }
 };
@@ -49283,7 +49827,7 @@ init_pool();
 init_snowflake();
 var deviceRepository = {
   async register(data) {
-    const r2 = await query(`
+    const r2 = await query2(`
       INSERT INTO devices (id, user_id, device_name, device_type, device_id, fcm_token, apns_token)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       ON CONFLICT (device_id) DO UPDATE SET
@@ -49295,22 +49839,22 @@ var deviceRepository = {
     return r2.rows[0];
   },
   async listByUser(userId) {
-    const r2 = await query("SELECT * FROM devices WHERE user_id = $1 AND is_active = true ORDER BY last_seen_at DESC NULLS LAST", [userId]);
+    const r2 = await query2("SELECT * FROM devices WHERE user_id = $1 AND is_active = true ORDER BY last_seen_at DESC NULLS LAST", [userId]);
     return r2.rows;
   },
   async unregister(deviceId) {
-    await query("UPDATE devices SET is_active = false WHERE device_id = $1", [deviceId]);
+    await query2("UPDATE devices SET is_active = false WHERE device_id = $1", [deviceId]);
   }
 };
 
 // src/identity/user.routes.ts
 init_app_error();
-var userRoutes = new Elysia({ prefix: "/users" }).use(authMiddleware({ type: "jwt", level: "user" })).get("/", async ({ query: query2 }) => {
+var userRoutes = new Elysia({ prefix: "/users" }).get("/", async ({ query: query3 }) => {
   const result = await userService.list({
-    page: query2.page ? parseInt(query2.page) : undefined,
-    limit: query2.limit ? parseInt(query2.limit) : undefined,
-    search: query2.search,
-    status: query2.status
+    page: query3.page ? parseInt(query3.page) : undefined,
+    limit: query3.limit ? parseInt(query3.limit) : undefined,
+    search: query3.search,
+    status: query3.status
   });
   return list(result.users, result.totalCount, "Usuarios listados exitosamente");
 }, {
@@ -49337,7 +49881,7 @@ var userRoutes = new Elysia({ prefix: "/users" }).use(authMiddleware({ type: "jw
 }).get("/:id", async ({ params }) => {
   const user = await userService.getById(BigInt(params.id));
   if (!user)
-    throw new AppError(404, "Usuario no encontrado");
+    throw new AppError2(404, "Usuario no encontrado");
   return ok(user);
 }, {
   detail: { tags: ["Users"], summary: "Obtener usuario por ID" }
@@ -49352,10 +49896,6 @@ var userRoutes = new Elysia({ prefix: "/users" }).use(authMiddleware({ type: "jw
 }, {
   body: t.Object({
     pinHash: t.Optional(t.String()),
-    documentType: t.Optional(t.String()),
-    documentNumber: t.Optional(t.String()),
-    dateOfBirth: t.Optional(t.String()),
-    nationality: t.Optional(t.String()),
     dailyLimit: t.Optional(t.Number()),
     monthlyLimit: t.Optional(t.Number())
   }),
@@ -49378,180 +49918,129 @@ var userRoutes = new Elysia({ prefix: "/users" }).use(authMiddleware({ type: "jw
   detail: { tags: ["Users"], summary: "Registrar dispositivo" }
 });
 
+// src/identity/tenants/tenant.routes.ts
+init_app_error();
+var tenantRoutes = new Elysia({ prefix: "/tenants" }).get("/", async ({ auth }) => {
+  const tenants = await tenantService.listByUser(auth.user.id);
+  return list(tenants, undefined, "Clientes listados exitosamente");
+}, {
+  detail: { tags: ["Tenants"], summary: "Listar mis clientes" }
+}).get("/:id", async ({ params, auth }) => {
+  const tenant = await tenantService.getById(BigInt(params.id));
+  if (!tenant)
+    throw new AppError2(404, "Cliente no encontrado");
+  return ok(tenant);
+}, {
+  detail: { tags: ["Tenants"], summary: "Obtener cliente por ID" }
+}).post("/", async ({ body, auth }) => {
+  const tenant = await tenantService.create({ ...body, ownerUserId: auth.user.id });
+  return ok(tenant, "Cliente creado exitosamente");
+}, {
+  body: t.Object({
+    fullName: t.String({ minLength: 2 }),
+    email: t.Optional(t.String()),
+    phone: t.Optional(t.String()),
+    documentType: t.Optional(t.String()),
+    documentNumber: t.Optional(t.String()),
+    dateOfBirth: t.Optional(t.String()),
+    nationality: t.Optional(t.String()),
+    address: t.Optional(t.String())
+  }),
+  detail: { tags: ["Tenants"], summary: "Crear cliente" }
+}).put("/:id", async ({ params, body, auth }) => {
+  return ok(await tenantService.update(BigInt(params.id), body));
+}, {
+  body: t.Object({
+    fullName: t.Optional(t.String()),
+    email: t.Optional(t.String()),
+    phone: t.Optional(t.String()),
+    documentType: t.Optional(t.String()),
+    documentNumber: t.Optional(t.String()),
+    dateOfBirth: t.Optional(t.String()),
+    nationality: t.Optional(t.String()),
+    address: t.Optional(t.String()),
+    photoUrl: t.Optional(t.String())
+  }),
+  detail: { tags: ["Tenants"], summary: "Actualizar cliente" }
+});
+
 // src/banking/banking.routes.ts
 init_dist();
 
-// src/banking/account/account.service.ts
-init_account_repository();
-
-// src/banking/account/account-number.service.ts
-var BANK_CODE = "100";
-var BRANCH_CODE = "01";
-function luhnCheckDigit(digits) {
-  let sum = 0;
-  let alternate = false;
-  for (let i = digits.length - 1;i >= 0; i--) {
-    let n2 = parseInt(digits[i], 10);
-    if (alternate) {
-      n2 *= 2;
-      if (n2 > 9)
-        n2 -= 9;
-    }
-    sum += n2;
-    alternate = !alternate;
-  }
-  return (10 - sum % 10) % 10;
-}
-var ACCOUNT_TYPE_MAP = {
-  current: "1",
-  savings: "2",
-  business: "3"
-};
-function generateAccountNumber(accountType, sequence2) {
-  const typeCode = ACCOUNT_TYPE_MAP[accountType] || "1";
-  const seqStr = sequence2.toString().padStart(2, "0").slice(-2);
-  const withoutCheck = `${BANK_CODE}${BRANCH_CODE}${typeCode}${seqStr}`;
-  return withoutCheck + luhnCheckDigit(withoutCheck);
-}
-
-// src/banking/account/account.service.ts
-var _accountSeq = 1;
-var accountService = {
-  async create(data) {
-    const num = generateAccountNumber(data.accountType, _accountSeq++);
-    const account = await accountRepository.create({
-      accountNumber: num,
-      accountType: data.accountType,
-      accountLevel: data.accountLevel,
-      accountSubtype: data.accountSubtype,
-      currency: data.currency || "BOB",
-      bankCredentialId: data.bankCredentialId,
-      userId: data.userId
-    });
-    await accountRepository.linkUser(data.userId, account.id);
-    return account;
-  },
-  getById(id) {
-    return accountRepository.getById(id);
-  },
-  listByUser(userId) {
-    return accountRepository.listByUser(userId);
-  },
-  listAll(filters) {
-    return accountRepository.listAll(filters);
-  },
-  getMovements(accountId, filters) {
-    return accountRepository.getMovements(accountId, filters);
-  },
-  getStats(accountId) {
-    return accountRepository.getStats(accountId);
-  },
-  async createMovement(data) {
-    return accountRepository.createMovement(data);
-  }
-};
-
-// src/banking/credential/bank-credential.repository.ts
+// src/collection/collection.service.ts
 init_pool();
 init_snowflake();
-var bankCredentialRepository = {
-  async create(data) {
-    const r2 = await query(`
-      INSERT INTO bank_credentials (id, bank_id, account_number, account_name, merchant_id,
-        username, password, encryption_key, environment, api_base_url, type, commission_rate)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      RETURNING *
+var CFG_COLS = `id, user_id as "userId", wallet_id as "walletId", use_default as "useDefault",
+  baneco_credential_id as "banecoCredentialId", bank_account_id as "bankAccountId",
+  collection_type as "collectionType", commission_rate as "commissionRate",
+  is_active as "isActive", created_at as "createdAt", updated_at as "updatedAt", deleted_at as "deletedAt"`;
+var collectionService = {
+  async getConfig(userId) {
+    const r2 = await query2(`SELECT ${CFG_COLS} FROM collection_config WHERE user_id = $1 AND deleted_at IS NULL`, [userId]);
+    return r2.rowCount ? r2.rows[0] : null;
+  },
+  async upsertConfig(userId, data) {
+    const existing = await collectionService.getConfig(userId);
+    if (existing) {
+      const r3 = await query2(`
+        UPDATE collection_config
+        SET use_default = $1, baneco_credential_id = $2, bank_account_id = $3,
+          collection_type = $4, commission_rate = $5, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $6 RETURNING ${CFG_COLS}
+      `, [
+        data.useDefault ?? true,
+        data.banecoCredentialId ?? null,
+        data.bankAccountId ?? null,
+        data.collectionType ?? "gateway",
+        data.commissionRate ?? 0,
+        existing.id
+      ]);
+      return r3.rows[0];
+    }
+    const r2 = await query2(`
+      INSERT INTO collection_config (id, user_id, wallet_id, use_default, baneco_credential_id, bank_account_id, collection_type, commission_rate, is_active)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true) RETURNING ${CFG_COLS}
     `, [
       nextSnowflake(),
-      data.bankId,
-      data.accountNumber,
-      data.accountName,
-      data.merchantId,
-      data.username,
-      data.password,
-      data.encryptionKey,
-      data.environment,
-      data.apiBaseUrl,
-      data.type || "client",
+      userId,
+      data.walletId ?? null,
+      data.useDefault ?? true,
+      data.banecoCredentialId ?? null,
+      data.bankAccountId ?? null,
+      data.collectionType ?? "gateway",
       data.commissionRate ?? 0
     ]);
     return r2.rows[0];
-  },
-  async getById(id) {
-    const r2 = await query("SELECT * FROM bank_credentials WHERE id = $1 AND deleted_at IS NULL", [id]);
-    return r2.rowCount ? r2.rows[0] : null;
-  },
-  async listByBank(bankId) {
-    const r2 = await query("SELECT * FROM bank_credentials WHERE bank_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC", [bankId]);
-    return r2.rows;
-  },
-  async list(filters = {}) {
-    const conditions = ["bc.deleted_at IS NULL"];
-    const params = [];
-    let pc = 0;
-    if (filters.environment) {
-      pc++;
-      conditions.push(`bc.environment = $${pc}`);
-      params.push(filters.environment);
-    }
-    if (filters.status) {
-      pc++;
-      conditions.push(`bc.status = $${pc}`);
-      params.push(filters.status);
-    }
-    if (filters.type) {
-      pc++;
-      conditions.push(`bc.type = $${pc}`);
-      params.push(filters.type);
-    }
-    if (filters.userId) {
-      pc++;
-      conditions.push(`bc.user_id = $${pc}`);
-      params.push(filters.userId);
-    }
-    const where = "WHERE " + conditions.join(" AND ");
-    const r2 = await query(`SELECT bc.* FROM bank_credentials bc ${where} ORDER BY bc.created_at DESC`, params);
-    return r2.rows;
-  },
-  async update(id, data) {
-    const sets = [];
-    const params = [];
-    let pc = 0;
-    const map4 = { accountNumber: "account_number", accountName: "account_name", merchantId: "merchant_id", apiBaseUrl: "api_base_url", encryptionKey: "encryption_key" };
-    for (const [k, v] of Object.entries(data)) {
-      if (v === undefined)
-        continue;
-      pc++;
-      sets.push(`${map4[k] || k.replace(/([A-Z])/g, "_$1").toLowerCase()} = $${pc}`);
-      params.push(v);
-    }
-    if (sets.length) {
-      await query(`UPDATE bank_credentials SET ${sets.join(", ")} WHERE id = $${pc + 1}`, [...params, id]);
-    }
   }
 };
 
 // src/banking/banking.routes.ts
+init_tenant_repository();
 init_app_error();
-var bankingRoutes = new Elysia().use(authMiddleware({ type: "jwt", level: "user" })).get("/accounts", async ({ auth }) => {
+var bankingRoutes = new Elysia().get("/wallets", async ({ auth }) => {
   const isAdmin = auth.user.role === Role.Admin || auth.user.role === Role.Super;
   if (isAdmin) {
-    const result = await accountService.listAll();
-    return list(result.accounts, result.totalCount, "Cuentas listadas exitosamente");
+    const result = await walletService.listAll();
+    return list(result.wallets, result.totalCount, "Billeteras listadas exitosamente");
   }
-  const accounts = await accountService.listByUser(auth.user.id);
-  return list(accounts, undefined, "Cuentas listadas exitosamente");
+  const wallets = await walletService.listByUser(auth.user.id);
+  return list(wallets, undefined, "Billeteras listadas exitosamente");
 }, {
-  detail: { tags: ["Banking"], summary: "Listar cuentas bancarias" }
-}).get("/accounts/:id", async ({ params, auth }) => {
-  const account = await accountService.getById(BigInt(params.id));
-  if (!account)
-    throw new AppError(404, "Cuenta no encontrada");
-  return ok(account);
+  detail: { tags: ["Wallets"], summary: "Listar billeteras" }
+}).get("/wallets/collection", async ({ auth }) => {
+  const wallet = await walletService.getCollectionAccount(auth.user.id);
+  return ok(wallet || null);
 }, {
-  detail: { tags: ["Banking"], summary: "Obtener cuenta por ID" }
-}).get("/accounts/:id/movements", async ({ params, query: q }) => {
-  const result = await accountService.getMovements(BigInt(params.id), {
+  detail: { tags: ["Wallets"], summary: "Obtener billetera de recaudación" }
+}).get("/wallets/:id", async ({ params, auth }) => {
+  const wallet = await walletService.getById(BigInt(params.id));
+  if (!wallet)
+    throw new AppError2(404, "Billetera no encontrada");
+  return ok(wallet);
+}, {
+  detail: { tags: ["Wallets"], summary: "Obtener billetera por ID" }
+}).get("/wallets/:id/movements", async ({ params, query: q }) => {
+  const result = await walletService.getMovements(BigInt(params.id), {
     page: q.page ? parseInt(q.page) : undefined,
     limit: q.limit ? parseInt(q.limit) : undefined,
     from: q.from,
@@ -49567,70 +50056,32 @@ var bankingRoutes = new Elysia().use(authMiddleware({ type: "jwt", level: "user"
     to: t.Optional(t.String()),
     type: t.Optional(t.String())
   })),
-  detail: { tags: ["Banking"], summary: "Listar movimientos de cuenta" }
-}).get("/accounts/:id/stats", async ({ params }) => {
-  return ok(await accountService.getStats(BigInt(params.id)));
+  detail: { tags: ["Wallets"], summary: "Listar movimientos de billetera" }
+}).get("/wallets/:id/stats", async ({ params }) => {
+  return ok(await walletService.getStats(BigInt(params.id)));
 }, {
-  detail: { tags: ["Banking"], summary: "Estadísticas de cuenta" }
-}).get("/bank-credentials", async ({ auth }) => {
-  const isAdmin = auth.user.role === Role.Admin || auth.user.role === Role.Super;
-  const filters = {};
-  if (!isAdmin)
-    filters.userId = auth.user.id;
-  const credentials = await bankCredentialRepository.list(filters);
-  return list(credentials, undefined, "Credenciales listadas exitosamente");
+  detail: { tags: ["Wallets"], summary: "Estadísticas de billetera" }
+}).post("/wallets/collection", async ({ auth }) => {
+  const existing = await walletService.getCollectionAccount(auth.user.id);
+  if (existing)
+    throw new AppError2(400, "Ya tienes una billetera de recaudación");
+  const tenants = await tenantRepository.listByUser(auth.user.id);
+  const tenant = tenants[0];
+  if (!tenant)
+    throw new AppError2(404, "No tienes un cliente asociado");
+  const wallet = await walletService.createCollection(tenant.id);
+  await collectionService.upsertConfig(auth.user.id, { walletId: wallet.id, useDefault: true });
+  return ok(wallet, "Billetera de recaudación creada exitosamente");
 }, {
-  detail: { tags: ["Banking"], summary: "Listar credenciales bancarias" }
-}).post("/bank-credentials", async ({ auth, body }) => {
-  const cred = await bankCredentialRepository.create({
-    bankId: 1n,
-    accountNumber: body.accountNumber,
-    accountName: body.accountName,
-    merchantId: body.merchantId || `MERCH-${auth.user.id}`,
-    username: body.username,
-    password: encrypt(body.password),
-    encryptionKey: encrypt(body.encryptionKey),
-    environment: body.environment || "test",
-    apiBaseUrl: body.apiBaseUrl || "https://apimktdesa.baneco.com.bo/ApiGateway"
-  });
-  return ok(cred, "Credencial registrada exitosamente");
+  detail: { tags: ["Wallets"], summary: "Crear billetera de recaudación" }
+}).put("/wallets/:id/set-collection", async ({ params, auth }) => {
+  const wallet = await walletService.getById(BigInt(params.id));
+  if (!wallet)
+    throw new AppError2(404, "Billetera no encontrada");
+  const updated = await walletService.setAsCollection(BigInt(params.id));
+  return ok(updated, "Billetera marcada como recaudación");
 }, {
-  body: t.Object({
-    accountNumber: t.String(),
-    accountName: t.String(),
-    username: t.String(),
-    password: t.String(),
-    encryptionKey: t.String(),
-    merchantId: t.Optional(t.String()),
-    environment: t.Optional(t.String()),
-    apiBaseUrl: t.Optional(t.String())
-  }),
-  detail: { tags: ["Banking"], summary: "Registrar credencial bancaria" }
-}).delete("/bank-credentials/:id", async ({ params, auth }) => {
-  const cred = await bankCredentialRepository.getById(BigInt(params.id));
-  if (!cred)
-    throw new AppError(404, "Credencial no encontrada");
-  await bankCredentialRepository.update(BigInt(params.id), { status: "inactive" });
-  return ok(null, "Credencial eliminada");
-}, {
-  detail: { tags: ["Banking"], summary: "Eliminar credencial bancaria" }
-}).post("/bank-credentials/test", async ({ body }) => {
-  const { BanecoAdapter: BanecoAdapter2 } = await Promise.resolve().then(() => (init_baneco_adapter(), exports_baneco_adapter));
-  const adapter = new BanecoAdapter2(body.apiBaseUrl || "https://apimktdesa.baneco.com.bo/ApiGateway", body.encryptionKey);
-  try {
-    const token = await adapter.getToken(body.username, body.password);
-    return ok({ success: true }, "Conexión exitosa con Baneco");
-  } catch (e) {
-    throw new AppError(400, "Error de conexión: " + e.message);
-  }
-}, {
-  body: t.Object({
-    username: t.String(),
-    password: t.String(),
-    encryptionKey: t.String(),
-    apiBaseUrl: t.Optional(t.String())
-  }),
-  detail: { tags: ["Banking"], summary: "Probar conexión con Baneco" }
+  detail: { tags: ["Wallets"], summary: "Marcar billetera como recaudación" }
 });
 
 // src/payments/qr/qr.service.ts
@@ -49641,22 +50092,22 @@ init_pool();
 init_snowflake();
 var qrRepository = {
   async create(data) {
-    const r2 = await query(`
-      INSERT INTO qr_codes (id, qr_id, transaction_id, account_id, bank_credential_id, user_id,
-        amount, currency, description, due_date, qr_image, single_use, modify_amount, wallet_id)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+    const r2 = await query2(`
+      INSERT INTO qr_codes (id, qr_id, transaction_id, wallet_id, baneco_credential_id, user_id,
+        amount, currency, description, due_date, qr_image, single_use, modify_amount)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
       RETURNING id, qr_id as "qrId", transaction_id as "transactionId",
-        account_id as "accountId", bank_credential_id as "bankCredentialId", user_id as "userId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
         single_use as "singleUse", modify_amount as "modifyAmount",
-        status, wallet_id as "walletId",
+        status,
         created_at as "createdAt", updated_at as "updatedAt"
     `, [
       nextSnowflake(),
       data.qrId,
       data.transactionId,
-      data.accountId,
-      data.bankCredentialId || null,
+      data.walletId,
+      data.banecoCredentialId || null,
       data.userId || null,
       data.amount,
       data.currency || "BOB",
@@ -49664,41 +50115,40 @@ var qrRepository = {
       data.dueDate,
       data.qrImage || null,
       data.singleUse !== false,
-      data.modifyAmount === true,
-      data.walletId || null
+      data.modifyAmount === true
     ]);
     return r2.rows[0];
   },
   async getByQrId(qrId) {
-    const r2 = await query(`
+    const r2 = await query2(`
       SELECT id, qr_id as "qrId", transaction_id as "transactionId",
-        account_id as "accountId", bank_credential_id as "bankCredentialId", user_id as "userId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
         single_use as "singleUse", modify_amount as "modifyAmount",
-        status, wallet_id as "walletId",
+        status,
         created_at as "createdAt", updated_at as "updatedAt"
       FROM qr_codes WHERE qr_id = $1 AND deleted_at IS NULL
     `, [qrId]);
     return r2.rowCount ? r2.rows[0] : null;
   },
   async getById(id) {
-    const r2 = await query(`
+    const r2 = await query2(`
       SELECT id, qr_id as "qrId", transaction_id as "transactionId",
-        account_id as "accountId", bank_credential_id as "bankCredentialId", user_id as "userId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
         single_use as "singleUse", modify_amount as "modifyAmount",
-        status, wallet_id as "walletId",
+        status,
         created_at as "createdAt", updated_at as "updatedAt"
       FROM qr_codes WHERE id = $1 AND deleted_at IS NULL
     `, [id]);
     return r2.rowCount ? r2.rows[0] : null;
   },
-  async listByAccount(accountId, filters = {}) {
+  async listByAccount(walletId, filters = {}) {
     const page = filters.page || 1;
     const limit = filters.limit || 20;
     const offset = (page - 1) * limit;
-    const conditions = ["account_id = $1", "deleted_at IS NULL"];
-    const params = [accountId];
+    const conditions = ["wallet_id = $1", "deleted_at IS NULL"];
+    const params = [walletId];
     let pc = 1;
     if (filters.status) {
       pc++;
@@ -49716,13 +50166,13 @@ var qrRepository = {
       params.push(filters.to);
     }
     const where = "WHERE " + conditions.join(" AND ");
-    const c = await query(`SELECT COUNT(*) as t FROM qr_codes ${where}`, params);
-    const r2 = await query(`
+    const c = await query2(`SELECT COUNT(*) as t FROM qr_codes ${where}`, params);
+    const r2 = await query2(`
       SELECT id, qr_id as "qrId", transaction_id as "transactionId",
-        account_id as "accountId", bank_credential_id as "bankCredentialId", user_id as "userId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
         single_use as "singleUse", modify_amount as "modifyAmount",
-        status, wallet_id as "walletId",
+        status,
         created_at as "createdAt", updated_at as "updatedAt"
       FROM qr_codes ${where} ORDER BY created_at DESC LIMIT $${pc + 1} OFFSET $${pc + 2}
     `, [...params, limit, offset]);
@@ -49741,50 +50191,164 @@ var qrRepository = {
       params.push(filters.status);
     }
     const where = "WHERE " + conditions.join(" AND ");
-    const c = await query(`SELECT COUNT(*) as t FROM qr_codes ${where}`, params);
-    const r2 = await query(`
+    const c = await query2(`SELECT COUNT(*) as t FROM qr_codes ${where}`, params);
+    const r2 = await query2(`
       SELECT id, qr_id as "qrId", transaction_id as "transactionId",
-        account_id as "accountId", bank_credential_id as "bankCredentialId", user_id as "userId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
         single_use as "singleUse", modify_amount as "modifyAmount",
-        status, wallet_id as "walletId",
+        status,
         created_at as "createdAt", updated_at as "updatedAt"
       FROM qr_codes ${where} ORDER BY created_at DESC LIMIT $${pc + 1} OFFSET $${pc + 2}
     `, [...params, limit, offset]);
     return { qrs: r2.rows, totalCount: parseInt(c.rows[0].t) };
   },
   async updateStatus(qrId, status2) {
-    await query("UPDATE qr_codes SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE qr_id = $2", [status2, qrId]);
+    await query2("UPDATE qr_codes SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE qr_id = $2", [status2, qrId]);
   },
   async updateQrImage(qrId, qrImage) {
-    await query("UPDATE qr_codes SET qr_image = $1, updated_at = CURRENT_TIMESTAMP WHERE qr_id = $2", [qrImage, qrId]);
+    await query2("UPDATE qr_codes SET qr_image = $1, updated_at = CURRENT_TIMESTAMP WHERE qr_id = $2", [qrImage, qrId]);
   },
   async getPayments(qrId) {
-    const r2 = await query(`
-      SELECT * FROM account_movements WHERE qr_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC
+    const r2 = await query2(`
+      SELECT * FROM wallet_movements WHERE qr_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC
     `, [qrId]);
     return r2.rows;
   }
 };
 
 // src/payments/qr/qr.service.ts
-init_account_repository();
-init_baneco_adapter();
+init_wallet_repository();
+
+// src/banking/integration/baneco.adapter.ts
+init_app_error();
+var import_node_fetch = __toESM(require_lib4(), 1);
+
+class BanecoAdapter {
+  apiBaseUrl;
+  aesKey;
+  constructor(apiBaseUrl, aesKey) {
+    this.apiBaseUrl = apiBaseUrl.endsWith("/") ? apiBaseUrl : `${apiBaseUrl}/`;
+    this.aesKey = aesKey;
+  }
+  async request(path, options = {}) {
+    const url = `${this.apiBaseUrl}${path.replace(/^\//, "")}`;
+    const res = await import_node_fetch.default(url, {
+      ...options,
+      headers: { "Content-Type": "application/json", ...options.headers }
+    });
+    if (!res.ok)
+      throw new AppError2(502, `${path} error: ${await res.text()}`);
+    const data = await res.json();
+    if (data.responseCode !== 0 && data.responseCode !== undefined) {
+      throw new AppError2(502, `${path} error: ${data.message}`);
+    }
+    return data;
+  }
+  async encryptText(text, aesKey) {
+    const key = aesKey || this.aesKey;
+    return this.request(`api/authentication/encrypt?text=${encodeURIComponent(text)}&aesKey=${key}`, { method: "GET" });
+  }
+  async getToken(username, passwordPlain) {
+    const encryptedPassword = await this.encryptText(passwordPlain);
+    const data = await this.request("api/authentication/authenticate", {
+      method: "POST",
+      body: JSON.stringify({ userName: username, password: encryptedPassword })
+    });
+    return data.token;
+  }
+  async generateQr(token, transactionId, accountNumber, amount, options = {}) {
+    const encryptedAccount = await this.encryptText(accountNumber);
+    const data = await this.request("api/qrsimple/generateQR", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        transactionId,
+        accountCredit: encryptedAccount,
+        currency: options.currency || "BOB",
+        amount,
+        description: options.description || "Pago QR",
+        dueDate: options.dueDate || "2025-12-31",
+        singleUse: options.singleUse !== undefined ? options.singleUse : true,
+        modifyAmount: options.modifyAmount !== undefined ? options.modifyAmount : false,
+        branchCode: "E0001"
+      })
+    });
+    return { qrId: data.qrId, qrImage: data.qrImage, reference: data.reference };
+  }
+  async cancelQr(token, qrId) {
+    await this.request("api/qrsimple/cancelQR", {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ qrId })
+    });
+  }
+  async getQrStatus(token, qrId) {
+    const data = await this.request(`api/qrsimple/v2/statusQR/${qrId}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return { status: data.status, amount: data.amount, currency: data.currency, description: data.description, qrImage: data.qrImage };
+  }
+  async getPaidQrsByDate(token, dateStr) {
+    const data = await this.request(`api/qrsimple/v2/paidQR/${dateStr}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return data.paymentList || [];
+  }
+}
+
+// src/banking/credential/credential-resolver.ts
+init_pool();
+function buildFromEnv() {
+  const env3 = process.env.BANECO_ENVIRONMENT || "sandbox";
+  const prefix = env3 === "prod" ? "BANECO_PROD" : "BANECO_SANDBOX";
+  const get = (key) => {
+    const val = process.env[key];
+    if (!val)
+      throw new Error(`Credenciales Baneco no configuradas: falta ${key} en .env`);
+    return val;
+  };
+  return {
+    api_base_url: get(`${prefix}_API_URL`),
+    encryption_key: get(`${prefix}_ENCRYPTION_KEY`),
+    username: get(`${prefix}_USERNAME`),
+    password: get(`${prefix}_PASSWORD`),
+    account_number: get(`${prefix}_ACCOUNT_NUMBER`)
+  };
+}
+async function resolveCredentials(credentialId) {
+  if (credentialId) {
+    const r2 = await query2("SELECT * FROM baneco_credentials WHERE id = $1 AND deleted_at IS NULL", [credentialId]);
+    if (r2.rowCount) {
+      const row = r2.rows[0];
+      return {
+        api_base_url: row.api_base_url,
+        encryption_key: row.encryption_key,
+        username: row.username,
+        password: row.password,
+        account_number: row.account_number
+      };
+    }
+  }
+  return buildFromEnv();
+}
 
 // src/payments/settlement/settlement.repository.ts
 init_pool();
 init_snowflake();
 var settlementRepository = {
   async create(data) {
-    const r2 = await query(`
-      INSERT INTO settlements (id, from_account_id, to_bank_credential_id, user_id, qr_code_id,
+    const r2 = await query2(`
+      INSERT INTO settlements (id, from_wallet_id, config_id, user_id, qr_code_id,
         gross_amount, commission, commission_rate, net_amount, currency, status)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending')
       RETURNING *
     `, [
       nextSnowflake(),
-      data.fromAccountId,
-      data.toBankCredentialId || null,
+      data.fromWalletId,
+      data.configId || null,
       data.userId,
       data.qrCodeId || null,
       data.grossAmount,
@@ -49796,7 +50360,7 @@ var settlementRepository = {
     return r2.rows[0];
   },
   async getById(id) {
-    const r2 = await query("SELECT * FROM settlements WHERE id = $1", [id]);
+    const r2 = await query2("SELECT * FROM settlements WHERE id = $1", [id]);
     return r2.rowCount ? r2.rows[0] : null;
   },
   async listByUser(userId, filters = {}) {
@@ -49812,12 +50376,12 @@ var settlementRepository = {
       params.push(filters.status);
     }
     const where = "WHERE " + conditions.join(" AND ");
-    const c = await query(`SELECT COUNT(*) as t FROM settlements ${where}`, params);
-    const r2 = await query(`SELECT * FROM settlements ${where} ORDER BY created_at DESC LIMIT $${pc + 1} OFFSET $${pc + 2}`, [...params, limit, offset]);
+    const c = await query2(`SELECT COUNT(*) as t FROM settlements ${where}`, params);
+    const r2 = await query2(`SELECT * FROM settlements ${where} ORDER BY created_at DESC LIMIT $${pc + 1} OFFSET $${pc + 2}`, [...params, limit, offset]);
     return { settlements: r2.rows, totalCount: parseInt(c.rows[0].t) };
   },
   async getPending() {
-    const r2 = await query("SELECT * FROM settlements WHERE status = 'pending' ORDER BY created_at ASC");
+    const r2 = await query2("SELECT * FROM settlements WHERE status = 'pending' ORDER BY created_at ASC");
     return r2.rows;
   },
   async updateStatus(id, status2, data = {}) {
@@ -49834,15 +50398,15 @@ var settlementRepository = {
       sets.push(`error_message = $${pc}`);
       params.push(data.errorMessage);
     }
-    if (data.accountMovementId) {
+    if (data.walletMovementId) {
       pc++;
-      sets.push(`account_movement_id = $${pc}`);
-      params.push(data.accountMovementId);
+      sets.push(`wallet_movement_id = $${pc}`);
+      params.push(data.walletMovementId);
     }
     if (status2 === "completed") {
       sets.push("settled_at = CURRENT_TIMESTAMP");
     }
-    await query(`UPDATE settlements SET ${sets.join(", ")} WHERE id = $${pc + 1}`, [...params, id]);
+    await query2(`UPDATE settlements SET ${sets.join(", ")} WHERE id = $${pc + 1}`, [...params, id]);
   }
 };
 
@@ -49875,30 +50439,179 @@ class EventBus {
 }
 var eventBus = new EventBus;
 
+// src/payments/notification/notif.repository.ts
+init_pool();
+init_snowflake();
+var notifRepository = {
+  async create(data) {
+    const r2 = await query2(`
+      INSERT INTO notifications (id, user_id, type, title, body, data)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+    `, [nextSnowflake(), data.userId, data.type, data.title, data.body || null, data.data ? JSON.stringify(data.data) : null]);
+    return r2.rows[0];
+  },
+  async listByUser(userId, limit = 50, offset = 0) {
+    const r2 = await query2(`
+      SELECT * FROM notifications WHERE user_id = $1
+      ORDER BY created_at DESC LIMIT $2 OFFSET $3
+    `, [userId, limit, offset]);
+    return r2.rows;
+  },
+  async markRead(id) {
+    await query2("UPDATE notifications SET is_read = true WHERE id = $1", [id]);
+  },
+  async markAllRead(userId) {
+    await query2("UPDATE notifications SET is_read = true WHERE user_id = $1", [userId]);
+  },
+  async countUnread(userId) {
+    const r2 = await query2("SELECT COUNT(*) as c FROM notifications WHERE user_id = $1 AND is_read = false", [userId]);
+    return parseInt(r2.rows[0].c);
+  }
+};
+
+// src/payments/push/push.service.ts
+init_pool();
+init_logger();
+init_app_error();
+async function sendPush(userId, payload) {
+  const devices = await query2(`SELECT fcm_token, apns_token, platform FROM devices
+     WHERE user_id = $1 AND is_active = TRUE
+       AND (fcm_token IS NOT NULL OR apns_token IS NOT NULL)`, [userId]);
+  let sent = 0;
+  for (const device of devices.rows) {
+    if (device.fcm_token) {
+      await sendFCM(device.fcm_token, payload).catch((e) => logger.error("FCM send failed", { error: e.message, userId }));
+      sent++;
+    }
+    if (device.apns_token) {
+      await sendAPNS(device.apns_token, payload).catch((e) => logger.error("APNS send failed", { error: e.message, userId }));
+      sent++;
+    }
+  }
+  return sent;
+}
+async function sendFCM(token, payload) {
+  const serverKey = process.env.FCM_SERVER_KEY;
+  if (!serverKey) {
+    logger.warn("FCM_SERVER_KEY not configured");
+    return;
+  }
+  const res = await fetch("https://fcm.googleapis.com/fcm/send", {
+    method: "POST",
+    headers: {
+      Authorization: `key=${serverKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      to: token,
+      notification: {
+        title: payload.title,
+        body: payload.body,
+        sound: payload.sound || "default",
+        badge: payload.badge || 1
+      },
+      data: payload.data || {},
+      priority: "high"
+    })
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new AppError2(502, `FCM error ${res.status}: ${text}`);
+  }
+}
+async function sendAPNS(token, payload) {
+  const keyId = process.env.APNS_KEY_ID;
+  const teamId = process.env.APNS_TEAM_ID;
+  const keyFile = process.env.APNS_KEY_FILE;
+  if (!keyId || !teamId || !keyFile) {
+    logger.warn("APNS not configured");
+    return;
+  }
+  const res = await fetch(`https://api.push.apple.com/3/device/${token}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${await generateAPNSToken(keyId, teamId, keyFile)}`,
+      "apns-topic": "bo.pagui.app"
+    },
+    body: JSON.stringify({
+      aps: {
+        alert: { title: payload.title, body: payload.body },
+        sound: payload.sound || "default",
+        badge: payload.badge || 1
+      },
+      data: payload.data || {}
+    })
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new AppError2(502, `APNS error ${res.status}: ${text}`);
+  }
+}
+async function generateAPNSToken(keyId, teamId, keyFile) {
+  const { readFileSync: readFileSync2 } = await import("node:fs");
+  const { createSign } = await import("node:crypto");
+  const key = readFileSync2(keyFile);
+  const now = Math.floor(Date.now() / 1000);
+  const payload = `{ "iss": "${teamId}", "iat": ${now} }`;
+  const token = createSign("ES256").update(payload).end().sign({
+    key,
+    format: "pem"
+  }, "base64");
+  return `${teamId}.${keyId}.${token}`;
+}
+
+// src/payments/notification/notif.service.ts
+init_wallet_permission_repository();
+var notifService = {
+  async create(userId, type, title, body, data) {
+    const notification = await notifRepository.create({
+      userId,
+      type,
+      title,
+      body,
+      data
+    });
+    eventBus.emit("notification.created", notification);
+    sendPush(userId, { title, body: body || title }).catch(() => {});
+    return notification;
+  },
+  async creditReceived(userId, amount, description) {
+    return this.create(userId, "balance", "Saldo acreditado", `Has recibido un abono de BOB ${amount.toFixed(2)} por: ${description}`, { amount, description, type: "credit" });
+  },
+  async transferSent(userId, amount, receiverName, transferId) {
+    return this.create(userId, "payment", "Transferencia enviada", `Has enviado BOB ${amount.toFixed(2)} a ${receiverName}`, { amount, receiverName, transferId: String(transferId), type: "transfer_sent" });
+  },
+  async transferReceived(userId, amount, senderName, transferId) {
+    return this.create(userId, "payment", "Transferencia recibida", `Has recibido BOB ${amount.toFixed(2)} de ${senderName}`, { amount, senderName, transferId: String(transferId), type: "transfer_received" });
+  },
+  async qrPaymentReceived(userId, amount, description, qrId, senderName) {
+    return this.create(userId, "payment", "Pago QR recibido", senderName ? `Recibiste BOB ${amount.toFixed(2)} de ${senderName}${description ? ` — ${description}` : ""}` : `Has recibido BOB ${amount.toFixed(2)}${description ? ` por: ${description}` : ""}`, { amount, description, qrId, senderName, type: "qr_payment" });
+  },
+  async getWalletUserIds(walletId) {
+    const permissions = await walletPermissionRepository2.listByWallet(walletId);
+    return permissions.map((p) => p.userId);
+  }
+};
+
 // src/payments/sync/payment-sync.service.ts
 init_pool();
-init_account_repository();
-init_baneco_adapter();
+init_wallet_repository();
 init_logger();
 var paymentSyncService = {
   async syncQRStatus(qrId) {
     const qr = await qrRepository.getByQrId(qrId);
     if (!qr || qr.status === "used" || qr.status === "cancelled")
       return { changed: false };
-    const cred = qr.bankCredentialId ? await bankCredentialRepository.getById(qr.bankCredentialId) : null;
-    if (!cred)
-      return { changed: false };
-    if (!cred.apiBaseUrl || !cred.encryptionKey) {
-      logger.warn("Sync QR missing credential config", { qrId, credentialId: cred.id });
-      return { changed: false };
-    }
+    const cred = await resolveCredentials(qr.banecoCredentialId);
     try {
-      const adapter = new BanecoAdapter(cred.apiBaseUrl, cred.encryptionKey);
+      const adapter = new BanecoAdapter(cred.api_base_url, cred.encryption_key);
       const token = await adapter.getToken(cred.username, cred.password);
       const status2 = await adapter.getQrStatus(token, qrId);
       if (status2.status === "PAID" || status2.status === "COMPLETED") {
-        const movement = await accountRepository.createMovement({
-          accountId: qr.accountId,
+        const movement = await walletRepository.createMovement({
+          walletId: qr.walletId,
           movementType: "qr_payment",
           amount: status2.amount,
           balanceBefore: 0,
@@ -49912,19 +50625,20 @@ var paymentSyncService = {
           referenceType: "qr"
         });
         await qrRepository.updateStatus(qrId, "used");
-        await query(`
+        await query2(`
           INSERT INTO payment_sync_status (qr_id, last_checked, check_count, success, final_status)
           VALUES ($1, CURRENT_TIMESTAMP, 1, true, 'completed')
           ON CONFLICT (qr_id) DO UPDATE SET
             last_checked = CURRENT_TIMESTAMP, check_count = payment_sync_status.check_count + 1,
             success = true, final_status = 'completed'
         `, [qrId]);
-        eventBus.emit("qr.paid", { qrId, accountId: qr.accountId, amount: status2.amount, movementId: movement.id });
+        eventBus.emit("qr.paid", { qrId, walletId: qr.walletId, amount: status2.amount, movementId: movement.id });
+        notifService.getWalletUserIds(qr.walletId).then((userIds) => Promise.all(userIds.map((uid) => notifService.qrPaymentReceived(uid, status2.amount, qr.description || "Pago QR", qrId)))).catch((e) => logger.error("Failed to notify QR payment to wallet users", { error: e.message, qrId }));
         return { changed: true, status: "completed" };
       }
       if (status2.status === "EXPIRED" || status2.status === "CANCELLED") {
         await qrRepository.updateStatus(qrId, status2.status.toLowerCase());
-        await query(`
+        await query2(`
           INSERT INTO payment_sync_status (qr_id, last_checked, check_count, success, final_status)
           VALUES ($1, CURRENT_TIMESTAMP, 1, true, $2)
           ON CONFLICT (qr_id) DO UPDATE SET
@@ -49933,7 +50647,7 @@ var paymentSyncService = {
         `, [qrId, status2.status.toLowerCase()]);
         return { changed: true, status: status2.status.toLowerCase() };
       }
-      await query(`
+      await query2(`
         INSERT INTO payment_sync_status (qr_id, last_checked, check_count, success)
         VALUES ($1, CURRENT_TIMESTAMP, 1, true)
         ON CONFLICT (qr_id) DO UPDATE SET
@@ -49942,7 +50656,7 @@ var paymentSyncService = {
       return { changed: false };
     } catch (e) {
       logger.error("Sync error for QR", { qrId, error: String(e) });
-      await query(`
+      await query2(`
         INSERT INTO payment_sync_status (qr_id, last_checked, success)
         VALUES ($1, CURRENT_TIMESTAMP, false)
         ON CONFLICT (qr_id) DO UPDATE SET last_checked = CURRENT_TIMESTAMP, success = false
@@ -49995,20 +50709,22 @@ var paymentQueueService = {
 // src/payments/qr/qr.service.ts
 var qrService = {
   async generate(data) {
-    const businessAccount = await accountRepository.getBusinessAccount();
-    if (!businessAccount)
-      throw new AppError(500, "Cuenta empresarial no configurada");
-    const bcid = businessAccount.bank_credential_id;
-    if (!bcid)
-      throw new AppError(400, "Credencial bancaria empresarial no configurada");
-    const cred = await bankCredentialRepository.getById(bcid);
-    if (!cred)
-      throw new AppError(400, "Credencial bancaria empresarial no encontrada");
-    const credRow = cred;
-    const adapter = new BanecoAdapter(credRow.api_base_url, credRow.encryption_key);
-    const token = await adapter.getToken(credRow.username, credRow.password);
+    let targetWallet;
+    if (data.walletId) {
+      targetWallet = await walletRepository.getById(data.walletId);
+      if (!targetWallet)
+        throw new AppError2(404, "Billetera no encontrada");
+    } else {
+      targetWallet = await walletRepository.getBusinessAccount();
+      if (!targetWallet)
+        throw new AppError2(500, "Billetera empresarial no configurada");
+    }
+    const bcid = targetWallet.banecoCredentialId || targetWallet.baneco_credential_id;
+    const cred = await resolveCredentials(bcid);
+    const adapter = new BanecoAdapter(cred.api_base_url, cred.encryption_key);
+    const token = await adapter.getToken(cred.username, cred.password);
     const transactionId = `TXN${Date.now()}${Math.random().toString(36).slice(2, 8)}`.toUpperCase();
-    const result = await adapter.generateQr(token, transactionId, credRow.account_number, data.amount, {
+    const result = await adapter.generateQr(token, transactionId, cred.account_number, data.amount, {
       description: data.description,
       dueDate: data.dueDate,
       singleUse: data.singleUse,
@@ -50018,8 +50734,8 @@ var qrService = {
     const qr = await qrRepository.create({
       qrId: result.qrId,
       transactionId,
-      accountId: businessAccount.id,
-      bankCredentialId: bcid,
+      walletId: targetWallet.id,
+      banecoCredentialId: bcid,
       userId: data.userId,
       amount: data.amount,
       currency: data.currency || "BOB",
@@ -50027,15 +50743,14 @@ var qrService = {
       dueDate: data.dueDate || "2025-12-31",
       qrImage: result.qrImage,
       singleUse: data.singleUse,
-      modifyAmount: data.modifyAmount,
-      walletId: data.walletId
+      modifyAmount: data.modifyAmount
     });
     paymentQueueService.enqueueSync(result.qrId);
-    eventBus.emit("qr.created", { qrId: result.qrId, accountId: businessAccount.id, amount: data.amount });
+    eventBus.emit("qr.created", { qrId: result.qrId, walletId: targetWallet.id, amount: data.amount });
     return qr;
   },
-  async list(accountId, filters) {
-    return qrRepository.listByAccount(accountId, filters);
+  async list(walletId, filters) {
+    return qrRepository.listByAccount(walletId, filters);
   },
   async listByUser(userId, filters) {
     return qrRepository.listByUser(userId, filters);
@@ -50049,23 +50764,20 @@ var qrService = {
   async cancel(qrId) {
     const qr = await qrRepository.getByQrId(qrId);
     if (!qr)
-      throw new AppError(404, "QR no encontrado");
+      throw new AppError2(404, "QR no encontrado");
     if (qr.status !== "active")
-      throw new AppError(400, "El QR no está activo");
-    const qrBcid = qr.bank_credential_id;
-    const cred = qrBcid ? await bankCredentialRepository.getById(qrBcid) : null;
-    if (cred) {
-      try {
-        const credRow = cred;
-        const adapter = new BanecoAdapter(credRow.api_base_url, credRow.encryption_key);
-        const token = await adapter.getToken(credRow.username, credRow.password);
-        await adapter.cancelQr(token, qrId);
-      } catch (e) {
-        logger.error("Error cancelando QR en banco", { error: String(e), qrId });
-      }
+      throw new AppError2(400, "El QR no está activo");
+    const qrBcid = qr.baneco_credential_id;
+    const cred = await resolveCredentials(qrBcid);
+    try {
+      const adapter = new BanecoAdapter(cred.api_base_url, cred.encryption_key);
+      const token = await adapter.getToken(cred.username, cred.password);
+      await adapter.cancelQr(token, qrId);
+    } catch (e) {
+      logger.error("Error cancelando QR en banco", { error: String(e), qrId });
     }
     await qrRepository.updateStatus(qrId, "cancelled");
-    eventBus.emit("qr.cancelled", { qrId, accountId: qr.accountId });
+    eventBus.emit("qr.cancelled", { qrId, walletId: qr.walletId });
   },
   async handleBanecoNotification(data) {
     const {
@@ -50082,9 +50794,89 @@ var qrService = {
     } = data;
     const qr = await qrRepository.getByQrId(qrId);
     if (!qr)
-      throw new AppError(404, "QR no encontrado");
-    const movement = await accountRepository.createMovement({
-      accountId: qr.accountId,
+      throw new AppError2(404, "QR no encontrado");
+    await qrRepository.updateStatus(qrId, "used");
+    if (qr.userId) {
+      try {
+        const clientConfigs = await query(`
+          SELECT * FROM collection_config WHERE user_id = $1 AND is_active = true LIMIT 1
+        `, [qr.userId]);
+        if (!clientConfigs.rowCount) {
+          logger.warn("No collection config for user, skipping", { userId: qr.userId, qrId });
+          return;
+        }
+        const clientConfig = clientConfigs.rows[0];
+        if (clientConfig.collection_type === "direct") {
+          const rate = clientConfig.commission_rate || 0;
+          const commission = amount * (rate / 100);
+          const { directTransactionService: directTransactionService2 } = await Promise.resolve().then(() => (init_direct_transaction_service(), exports_direct_transaction_service));
+          await directTransactionService2.create({
+            userId: qr.userId,
+            configId: clientConfig.id,
+            qrCodeId: qr.id,
+            grossAmount: amount,
+            commission,
+            commissionRate: rate,
+            currency: currency || qr.currency,
+            reference: transactionId
+          });
+          logger.info("Direct transaction created", { userId: qr.userId, grossAmount: amount, commission });
+        } else {
+          const movement2 = await walletRepository.createMovement({
+            walletId: qr.walletId,
+            movementType: "qr_payment",
+            amount,
+            balanceBefore: 0,
+            balanceAfter: 0,
+            description: `Pago QR ${qrId}`,
+            qrId,
+            transactionId,
+            paymentDate: paymentDate || new Date().toISOString(),
+            currency: currency || qr.currency,
+            senderName,
+            senderDocumentId,
+            senderAccount,
+            senderBankCode,
+            referenceId: qr.transactionId,
+            referenceType: "qr",
+            status: "completed"
+          });
+          const userWallets = await walletRepository.listByUser(qr.userId);
+          const userWallet = userWallets.find((a12) => a12.level === "bronze");
+          if (!userWallet) {
+            logger.warn("No wallet found for user, skipping settlement", { userId: qr.userId, qrId });
+            return;
+          }
+          const commissionRate = clientConfig.use_default ? parseFloat(process.env.IATHINGS_CLIENT_COMMISSION_RATE || "0.01") : 0;
+          const grossAmount = amount;
+          const commission = grossAmount * (commissionRate / 100);
+          const netAmount = grossAmount - commission;
+          const settlement = await settlementRepository.create({
+            fromWalletId: qr.walletId,
+            configId: clientConfig.id,
+            userId: qr.userId,
+            grossAmount,
+            commission,
+            commissionRate,
+            netAmount,
+            currency: currency || qr.currency,
+            qrCodeId: qr.id
+          });
+          logger.info("Settlement created", {
+            settlementId: settlement.id,
+            userId: qr.userId,
+            netAmount,
+            walletType: userWallet.type
+          });
+          notifService.qrPaymentReceived(qr.userId, amount, qr.description || "Pago QR", qrId, senderName).catch((e) => logger.error("Failed to send QR payment notification", { error: e.message, qrId }));
+        }
+      } catch (e) {
+        logger.error("Error processing payment notification", { error: e.message, qrId });
+      }
+      return;
+    }
+    const movement = await walletRepository.createMovement({
+      walletId: qr.walletId,
       movementType: "qr_payment",
       amount,
       balanceBefore: 0,
@@ -50102,59 +50894,8 @@ var qrService = {
       referenceType: "qr",
       status: "completed"
     });
-    await qrRepository.updateStatus(qrId, "used");
-    if (qr.userId) {
-      try {
-        const userAccounts = await accountRepository.listByUser(qr.userId);
-        const userAccount = userAccounts.find((a12) => a12.accountLevel === "client");
-        if (!userAccount) {
-          logger.warn("No client account found for user, skipping settlement", { userId: qr.userId, qrId });
-          return;
-        }
-        let commissionRate;
-        let toBankCredentialId;
-        if (userAccount.accountSubtype === "administered") {
-          commissionRate = parseFloat(process.env.IATHINGS_CLIENT_COMMISSION_RATE || "0.01");
-          toBankCredentialId = null;
-        } else {
-          const clientCreds = await bankCredentialRepository.list({
-            userId: qr.userId,
-            type: "client",
-            status: "active"
-          });
-          if (clientCreds.length === 0) {
-            logger.warn("No bank credentials for passthrough client, skipping settlement", { userId: qr.userId, qrId });
-            return;
-          }
-          const clientCred = clientCreds[0];
-          commissionRate = clientCred.commission_rate || 0;
-          toBankCredentialId = clientCred.id;
-        }
-        const grossAmount = amount;
-        const commission = grossAmount * (commissionRate / 100);
-        const netAmount = grossAmount - commission;
-        const settlement = await settlementRepository.create({
-          fromAccountId: qr.accountId,
-          toBankCredentialId,
-          userId: qr.userId,
-          grossAmount,
-          commission,
-          commissionRate,
-          netAmount,
-          currency: currency || qr.currency,
-          qrCodeId: qr.id
-        });
-        logger.info("Settlement created", {
-          settlementId: settlement.id,
-          userId: qr.userId,
-          netAmount,
-          subtype: userAccount.accountSubtype
-        });
-      } catch (e) {
-        logger.error("Error creating settlement", { error: e.message, qrId });
-      }
-    }
-    eventBus.emit("qr.paid", { qrId, accountId: qr.accountId, amount, movementId: movement.id });
+    eventBus.emit("qr.paid", { qrId, walletId: qr.walletId, amount, movementId: movement.id });
+    notifService.getWalletUserIds(qr.walletId).then((userIds) => Promise.all(userIds.map((uid) => notifService.qrPaymentReceived(uid, amount, qr.description || "Pago QR", qrId, senderName)))).catch((e) => logger.error("Failed to notify QR payment to wallet users", { error: e.message, qrId }));
   }
 };
 
@@ -50166,24 +50907,25 @@ var QRRequestSchema = t.Object({
   dueDate: t.Optional(t.String()),
   singleUse: t.Optional(t.Boolean({ default: true })),
   modifyAmount: t.Optional(t.Boolean({ default: false })),
-  accountId: t.Optional(t.Number())
+  walletId: t.Optional(t.String())
 });
 
 // src/payments/qr/qr.routes.ts
 init_app_error();
-var qrRoutes = new Elysia({ prefix: "/qr" }).use(authMiddleware({ type: "jwt", level: "user" })).post("/generate", async ({ body, auth }) => {
-  const qr = await qrService.generate({ ...body, userId: auth.user.id });
+var qrRoutes = new Elysia({ prefix: "/qr" }).post("/generate", async ({ body, auth }) => {
+  const walletId = body.walletId ? BigInt(body.walletId) : undefined;
+  const qr = await qrService.generate({ ...body, walletId, userId: auth.user.id });
   return ok(qr, "QR generado exitosamente");
-}, { body: QRRequestSchema, detail: { tags: ["QR"], summary: "Generar QR de pago" } }).get("/list", async ({ query: query2, auth }) => {
+}, { body: QRRequestSchema, detail: { tags: ["QR"], summary: "Generar QR de pago" } }).get("/list", async ({ query: query3, auth }) => {
   const result = await qrService.listByUser(auth.user.id, {
-    page: query2.page ? parseInt(query2.page) : undefined,
-    limit: query2.limit ? parseInt(query2.limit) : undefined,
-    status: query2.status
+    page: query3.page ? parseInt(query3.page) : undefined,
+    limit: query3.limit ? parseInt(query3.limit) : undefined,
+    status: query3.status
   });
   return list(result.qrs, result.totalCount, "QR listados exitosamente");
 }, {
   query: t.Optional(t.Object({
-    accountId: t.Optional(t.String()),
+    walletId: t.Optional(t.String()),
     page: t.Optional(t.String()),
     limit: t.Optional(t.String()),
     status: t.Optional(t.String()),
@@ -50196,14 +50938,14 @@ var qrRoutes = new Elysia({ prefix: "/qr" }).use(authMiddleware({ type: "jwt", l
 }).get("/:qrId", async ({ params }) => {
   const qr = await qrService.getDetails(params.qrId);
   if (!qr)
-    throw new AppError(404, "QR no encontrado");
+    throw new AppError2(404, "QR no encontrado");
   return ok(qr);
 }, {
   detail: { tags: ["QR"], summary: "Obtener detalle de QR" }
 }).get("/:qrId/status", async ({ params }) => {
   const qr = await qrService.getDetails(params.qrId);
   if (!qr)
-    throw new AppError(404, "QR no encontrado");
+    throw new AppError2(404, "QR no encontrado");
   const payments = await qrService.getPayments(params.qrId);
   return ok({ ...qr, payments }, "Estado del QR verificado");
 }, {
@@ -50255,10 +50997,10 @@ function idempotency() {
     const key = ctx.headers["idempotency-key"];
     if (!key)
       return {};
-    const existing = await query("SELECT response_body FROM idempotency_keys WHERE idempotency_key = $1 AND expires_at > CURRENT_TIMESTAMP", [key]);
+    const existing = await query2("SELECT response_body FROM idempotency_keys WHERE idempotency_key = $1 AND expires_at > CURRENT_TIMESTAMP", [key]);
     if (existing.rowCount && existing.rowCount > 0) {
       logger.info("Idempotency hit", { key });
-      throw new AppError(409, "Idempotency conflict", {
+      throw new AppError2(409, "Idempotency conflict", {
         key,
         previousResponse: existing.rows[0].response_body
       });
@@ -50268,7 +51010,7 @@ function idempotency() {
 }
 async function storeIdempotencyResponse(key, responseBody) {
   try {
-    await query(`INSERT INTO idempotency_keys (id, idempotency_key, response_body, expires_at)
+    await query2(`INSERT INTO idempotency_keys (id, idempotency_key, response_body, expires_at)
        VALUES ($1, $2, $3, CURRENT_TIMESTAMP + INTERVAL '24 hours')
        ON CONFLICT (idempotency_key) DO NOTHING`, [nextSnowflake(), key, JSON.stringify(responseBody)]);
   } catch (e) {
@@ -50278,14 +51020,14 @@ async function storeIdempotencyResponse(key, responseBody) {
 
 // src/payments/transfer/transfer.service.ts
 init_app_error();
-init_wallet_repository();
+init_pool();
 
 // src/payments/transfer/transfer.repository.ts
 init_pool();
 init_snowflake();
 var transferRepository = {
   async create(data) {
-    const r2 = await query(`
+    const r2 = await query2(`
       INSERT INTO transfers (id, sender_wallet_id, receiver_wallet_id, amount, fee, total,
         currency, description, reference_type, reference_id)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -50305,99 +51047,34 @@ var transferRepository = {
     return r2.rows[0];
   },
   async getById(id) {
-    const r2 = await query("SELECT * FROM transfers WHERE id = $1", [id]);
+    const r2 = await query2(`
+      SELECT t.*,
+        sw.wallet_number as "senderWalletNumber",
+        rw.wallet_number as "receiverWalletNumber"
+      FROM transfers t
+      LEFT JOIN wallets sw ON sw.id = t.sender_wallet_id
+      LEFT JOIN wallets rw ON rw.id = t.receiver_wallet_id
+      WHERE t.id = $1
+    `, [id]);
     return r2.rowCount ? r2.rows[0] : null;
   },
   async listByWallet(walletId, limit = 20, offset = 0) {
-    const r2 = await query(`
-      SELECT * FROM transfers WHERE sender_wallet_id = $1 OR receiver_wallet_id = $1
-      ORDER BY created_at DESC LIMIT $2 OFFSET $3
+    const r2 = await query2(`
+      SELECT t.*,
+        sw.wallet_number as "senderWalletNumber",
+        rw.wallet_number as "receiverWalletNumber"
+      FROM transfers t
+      LEFT JOIN wallets sw ON sw.id = t.sender_wallet_id
+      LEFT JOIN wallets rw ON rw.id = t.receiver_wallet_id
+      WHERE t.sender_wallet_id = $1 OR t.receiver_wallet_id = $1
+      ORDER BY t.created_at DESC LIMIT $2 OFFSET $3
     `, [walletId, limit, offset]);
     return r2.rows;
   },
   async updateStatus(id, status2) {
-    await query(`UPDATE transfers SET status = $1, completed_at = CASE WHEN $1 = 'completed' THEN CURRENT_TIMESTAMP ELSE completed_at END WHERE id = $2`, [status2, id]);
+    await query2(`UPDATE transfers SET status = $1, completed_at = CASE WHEN $2 THEN CURRENT_TIMESTAMP ELSE completed_at END WHERE id = $3`, [status2, status2 === "completed", id]);
   }
 };
-
-// src/payments/fraud/fraud.service.ts
-init_pool();
-init_snowflake();
-init_logger();
-var DAILY_LIMIT_PERCENTAGE = 0.5;
-var SINGLE_TX_LIMIT = 1e4;
-var VELOCITY_MAX_TX = 5;
-async function evaluateFraud(params) {
-  let score = 0;
-  const reasons = [];
-  const wallet = await query("SELECT balance FROM wallets WHERE id = $1", [params.walletId]);
-  if (wallet.rows.length === 0)
-    return { allowed: false, score: 100, reasons: ["Wallet no encontrada"] };
-  const balance = parseFloat(wallet.rows[0].balance);
-  if (params.amount > balance) {
-    score += 40;
-    reasons.push("Saldo insuficiente");
-  }
-  if (params.amount > SINGLE_TX_LIMIT) {
-    score += 30;
-    reasons.push("Monto excede límite por transacción");
-  }
-  if (params.amount > balance * DAILY_LIMIT_PERCENTAGE && params.amount > 1000) {
-    score += 15;
-    reasons.push("Monto supera 50% del saldo actual");
-  }
-  const recent = await query(`SELECT COUNT(*) as cnt FROM transfers
-     WHERE sender_wallet_id = $1
-       AND created_at > CURRENT_TIMESTAMP - INTERVAL '1 minute'`, [params.walletId]);
-  const recentCount = parseInt(recent.rows[0].cnt);
-  if (recentCount >= VELOCITY_MAX_TX) {
-    score += 20;
-    reasons.push("Alta velocidad de transacciones");
-  }
-  const dailySum = await query(`SELECT COALESCE(SUM(amount), 0) as total FROM transfers
-     WHERE sender_wallet_id = $1
-       AND created_at > CURRENT_TIMESTAMP - INTERVAL '24 hours'`, [params.walletId]);
-  const dailyTotal = parseFloat(dailySum.rows[0].total);
-  if (dailyTotal + params.amount > balance * 0.8) {
-    score += 15;
-    reasons.push("Límite diario del 80% del saldo alcanzado");
-  }
-  if (reasons.length >= 3) {
-    score += 10;
-  }
-  const allowed = score < 60;
-  if (!allowed) {
-    await createAlert({
-      userId: params.userId,
-      alertType: "fraud_detected",
-      severity: score >= 80 ? "high" : "medium",
-      description: `Fraud score ${score}: ${reasons.join(", ")}`,
-      metadata: params
-    });
-    const safeParams = Object.fromEntries(Object.entries(params).map(([k, v]) => [k, typeof v === "bigint" ? Number(v) : v]));
-    logger.warn("Fraud detected", { score, reasons, ...safeParams });
-  }
-  return { allowed, score, reasons };
-}
-async function createAlert(params) {
-  await query(`INSERT INTO fraud_alerts (id, user_id, transfer_id, alert_type, severity, description, metadata)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`, [
-    nextSnowflake(),
-    params.userId || null,
-    params.transferId || null,
-    params.alertType,
-    params.severity || "medium",
-    params.description || null,
-    params.metadata ? JSON.stringify(params.metadata, (_k, v) => typeof v === "bigint" ? Number(v) : v) : "{}"
-  ]);
-}
-async function resolveAlert(alertId, resolvedBy) {
-  await query(`UPDATE fraud_alerts SET status = 'resolved', resolved_at = CURRENT_TIMESTAMP, resolved_by = $1 WHERE id = $2`, [resolvedBy, alertId]);
-}
-async function getOpenAlerts(userId) {
-  const result = await query("SELECT * FROM fraud_alerts WHERE user_id = $1 AND status = 'open' ORDER BY created_at DESC", [userId]);
-  return result.rows;
-}
 
 // src/payments/webhooks/webhook.service.ts
 init_pool();
@@ -50406,16 +51083,20 @@ init_logger();
 init_app_error();
 import { createHmac } from "node:crypto";
 async function registerWebhook(params) {
-  const result = await query(`INSERT INTO outgoing_webhooks (id, user_id, company_id, url, secret, events)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING id`, [nextSnowflake(), params.userId, params.companyId || null, params.url, params.secret || null, params.events]);
-  return result.rows[0].id;
+  const keys = await apikeyRepository.listByWallet(BigInt(params.walletId));
+  if (keys.length === 0) {
+    throw new AppError2(400, "Se requiere al menos una API Key activa en esta billetera para crear un webhook");
+  }
+  const result = await query2(`INSERT INTO outgoing_webhooks (id, user_id, wallet_id, url, events)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id`, [nextSnowflake(), params.userId, params.walletId, params.url, params.events]);
+  return { id: result.rows[0].id };
 }
 async function dispatch(event, payload) {
-  const webhooks = await query(`SELECT id, url, secret FROM outgoing_webhooks
+  const webhooks = await query2(`SELECT id, wallet_id, url FROM outgoing_webhooks
      WHERE $1 = ANY(events) AND is_active = TRUE`, [event]);
   for (const wh of webhooks.rows) {
-    await query(`INSERT INTO outgoing_webhook_jobs (id, webhook_id, event, payload)
+    await query2(`INSERT INTO outgoing_webhook_jobs (id, webhook_id, event, payload)
        VALUES ($1, $2, $3, $4)`, [nextSnowflake(), wh.id, event, JSON.stringify(payload)]);
   }
   if (webhooks.rows.length > 0) {
@@ -50423,51 +51104,62 @@ async function dispatch(event, payload) {
   }
 }
 async function processPendingJobs() {
-  const jobs = await query(`SELECT j.id, j.webhook_id, j.event, j.payload, j.retry_count, w.url, w.secret
+  const jobs = await query2(`SELECT j.id, j.webhook_id, j.event, j.payload, j.retry_count, w.url, w.wallet_id
      FROM outgoing_webhook_jobs j
      JOIN outgoing_webhooks w ON w.id = j.webhook_id
      WHERE j.status = 'pending' AND j.scheduled_at <= CURRENT_TIMESTAMP
      ORDER BY j.scheduled_at ASC
      LIMIT 20
      FOR UPDATE SKIP LOCKED`);
+  const walletKeyCache = new Map;
   for (const job of jobs.rows) {
     try {
+      let apiKeyValue = walletKeyCache.get(job.wallet_id);
+      if (!apiKeyValue) {
+        const keys = await apikeyRepository.listByWallet(BigInt(job.wallet_id));
+        if (keys.length === 0) {
+          logger.warn("No active API key for wallet, skipping webhook signature", { walletId: job.wallet_id });
+          continue;
+        }
+        apiKeyValue = keys[0].apiKey;
+        walletKeyCache.set(job.wallet_id, apiKeyValue);
+      }
       const response = await fetch(job.url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-Webhook-Event": job.event,
-          "X-Webhook-Signature": job.secret ? createSignature(job.secret, job.payload) : ""
+          "X-Webhook-Signature": createSignature(apiKeyValue, job.payload)
         },
         body: job.payload
       });
       if (response.ok) {
-        await query(`UPDATE outgoing_webhook_jobs SET status = 'completed', completed_at = CURRENT_TIMESTAMP WHERE id = $1`, [job.id]);
-        await query(`UPDATE outgoing_webhooks SET last_sent_at = CURRENT_TIMESTAMP WHERE id = $1`, [job.webhook_id]);
+        await query2(`UPDATE outgoing_webhook_jobs SET status = 'completed', completed_at = CURRENT_TIMESTAMP WHERE id = $1`, [job.id]);
+        await query2(`UPDATE outgoing_webhooks SET last_sent_at = CURRENT_TIMESTAMP WHERE id = $1`, [job.webhook_id]);
       } else {
-        throw new AppError(502, `HTTP ${response.status}`);
+        throw new AppError2(502, `HTTP ${response.status}`);
       }
     } catch (err) {
       const retryCount = job.retry_count + 1;
       const status2 = retryCount >= 3 ? "failed" : "pending";
       const backoff = Math.min(Math.pow(2, retryCount) * 1e4, 600000);
-      await query(`UPDATE outgoing_webhook_jobs
+      await query2(`UPDATE outgoing_webhook_jobs
          SET status = $1, retry_count = $2, last_error = $3,
              scheduled_at = CURRENT_TIMESTAMP + INTERVAL '${backoff} milliseconds'
          WHERE id = $4`, [status2, retryCount, err.message, job.id]);
       if (status2 === "failed") {
-        await query(`UPDATE outgoing_webhooks SET last_error = $1 WHERE id = $2`, [err.message, job.webhook_id]);
+        await query2(`UPDATE outgoing_webhooks SET last_error = $1 WHERE id = $2`, [err.message, job.webhook_id]);
         logger.error("Webhook job failed", { jobId: job.id, error: err.message });
       }
     }
   }
 }
-async function getWebhooks(userId) {
-  const result = await query("SELECT id, url, events, is_active, last_sent_at, last_error, created_at FROM outgoing_webhooks WHERE user_id = $1", [userId]);
+async function getWebhooks(userId, walletId) {
+  const result = await query2('SELECT id, wallet_id as "walletId", url, events, is_active as "isActive", last_sent_at as "lastSentAt", last_error as "lastError", created_at as "createdAt" FROM outgoing_webhooks WHERE user_id = $1 AND wallet_id = $2 ORDER BY created_at DESC', [userId, walletId]);
   return result.rows;
 }
-async function deleteWebhook(id, userId) {
-  await query("DELETE FROM outgoing_webhooks WHERE id = $1 AND user_id = $2", [id, userId]);
+async function deleteWebhook(id, userId, walletId) {
+  await query2("DELETE FROM outgoing_webhooks WHERE id = $1 AND user_id = $2 AND wallet_id = $3", [id, userId, walletId]);
 }
 function createSignature(secret, payload) {
   return createHmac("sha256", secret).update(payload).digest("hex");
@@ -50479,56 +51171,26 @@ async function startWebhookProcessor(intervalMs = 15000) {
   logger.info("Webhook processor started", { intervalMs });
 }
 
-// src/payments/fee/fee.service.ts
-init_fee_repository();
-var feeService = {
-  async calculateFee(walletId, amount) {
-    const rules = await feeRepository.findByType("p2p");
-    return feeRepository.calculateFee(amount, rules);
-  },
-  async listAll() {
-    return feeRepository.listAll();
-  },
-  async create(data) {
-    return feeRepository.create(data);
-  },
-  async update(id, data) {
-    return feeRepository.update(id, data);
-  }
-};
-
 // src/payments/transfer/transfer.service.ts
 init_logger();
 var transferService = {
   async p2p(senderWalletId, receiverWalletId, amount, options) {
     if (amount <= 0)
-      throw new AppError(400, "Monto inválido");
+      throw new AppError2(400, "Monto inválido");
     if (senderWalletId === receiverWalletId)
-      throw new AppError(400, "No puedes transferirte a ti mismo");
-    const sender = await walletRepository.getById(senderWalletId);
-    const receiver = await walletRepository.getById(receiverWalletId);
-    if (!sender || !receiver)
-      throw new AppError(404, "Billetera no encontrada");
-    if (sender.balance < amount)
-      throw new AppError(400, "Saldo insuficiente");
-    if (sender.availableBalance < amount)
-      throw new AppError(400, "Saldo disponible insuficiente");
-    if (options?.userId) {
-      const fraudCheck = await evaluateFraud({
-        userId: options.userId,
-        walletId: senderWalletId,
-        amount,
-        ip: options.ip,
-        deviceId: options.deviceId
-      });
-      if (!fraudCheck.allowed) {
-        throw new AppError(403, `Transferencia bloqueada por seguridad (score: ${fraudCheck.score}): ${fraudCheck.reasons.join(", ")}`);
-      }
-    }
-    const fee = await feeService.calculateFee(senderWalletId, amount);
-    const total = amount + fee;
-    if (sender.availableBalance < total)
-      throw new AppError(400, "Saldo insuficiente para cubrir monto + comisión");
+      throw new AppError2(400, "No puedes transferirte a ti mismo");
+    const senderRow = await query2("SELECT * FROM wallets WHERE id = $1 AND deleted_at IS NULL", [senderWalletId]);
+    const receiverRow = await query2("SELECT * FROM wallets WHERE id = $1 AND deleted_at IS NULL", [receiverWalletId]);
+    if (!senderRow.rowCount || !receiverRow.rowCount)
+      throw new AppError2(404, "Billetera no encontrada");
+    const sender = senderRow.rows[0];
+    const receiver = receiverRow.rows[0];
+    if (parseFloat(sender.balance) < amount)
+      throw new AppError2(400, "Saldo insuficiente");
+    if (parseFloat(sender.available_balance) < amount)
+      throw new AppError2(400, "Saldo disponible insuficiente");
+    const fee = 0;
+    const total = amount;
     const transfer = await transferRepository.create({
       senderWalletId,
       receiverWalletId,
@@ -50538,11 +51200,21 @@ var transferService = {
       description: options?.description,
       referenceType: "p2p"
     });
-    await walletRepository.updateBalance(sender.id, sender.balance - total, sender.availableBalance - total);
-    await walletRepository.updateBalance(receiver.id, receiver.balance + amount, receiver.availableBalance + amount);
+    await query2("UPDATE wallets SET balance = balance - $1, available_balance = available_balance - $1 WHERE id = $2", [total, senderWalletId]);
+    await query2("UPDATE wallets SET balance = balance + $1, available_balance = available_balance + $1 WHERE id = $2", [amount, receiverWalletId]);
     await transferRepository.updateStatus(transfer.id, "completed");
     const result = await transferRepository.getById(transfer.id);
     eventBus.emit("transfer.completed", { transferId: transfer.id, senderWalletId, receiverWalletId, amount, fee });
+    const [senderUserIds, receiverUserIds] = await Promise.all([
+      notifService.getWalletUserIds(senderWalletId),
+      notifService.getWalletUserIds(receiverWalletId)
+    ]);
+    const senderName = sender.name || "Remitente";
+    const receiverName = receiver.name || "Destinatario";
+    await Promise.all([
+      ...senderUserIds.map((uid) => notifService.transferSent(uid, amount, receiverName, transfer.id)),
+      ...receiverUserIds.map((uid) => notifService.transferReceived(uid, amount, senderName, transfer.id))
+    ]);
     if (options?.idempotencyKey) {
       await storeIdempotencyResponse(options.idempotencyKey, result);
     }
@@ -50572,48 +51244,21 @@ var transferService = {
 };
 
 // src/payments/payment/payment.routes.ts
-init_wallet_repository();
-
-// src/payments/notification/notif.repository.ts
 init_pool();
-init_snowflake();
-var notifRepository = {
-  async create(data) {
-    const r2 = await query(`
-      INSERT INTO notifications (id, user_id, type, title, body, data)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING *
-    `, [nextSnowflake(), data.userId, data.type, data.title, data.body || null, data.data ? JSON.stringify(data.data) : null]);
-    return r2.rows[0];
-  },
-  async listByUser(userId, limit = 50, offset = 0) {
-    const r2 = await query(`
-      SELECT * FROM notifications WHERE user_id = $1
-      ORDER BY created_at DESC LIMIT $2 OFFSET $3
-    `, [userId, limit, offset]);
-    return r2.rows;
-  },
-  async markRead(id) {
-    await query("UPDATE notifications SET is_read = true WHERE id = $1", [id]);
-  },
-  async markAllRead(userId) {
-    await query("UPDATE notifications SET is_read = true WHERE user_id = $1", [userId]);
-  },
-  async countUnread(userId) {
-    const r2 = await query("SELECT COUNT(*) as c FROM notifications WHERE user_id = $1 AND is_read = false", [userId]);
-    return parseInt(r2.rows[0].c);
-  }
-};
-
-// src/payments/payment/payment.routes.ts
+init_wallet_repository();
 init_app_error();
-var paymentRoutes = new Elysia().use(authMiddleware({ type: "jwt", level: "user" })).use(idempotency()).post("/transfers/p2p", async ({ body, auth, request, idempotencyKey }) => {
-  const senderWallet = await walletRepository.getDefault(auth.user.id);
+init_snowflake();
+var paymentRoutes = new Elysia().use(idempotency()).post("/transfers/p2p", async ({ body, auth, request, idempotencyKey }) => {
+  const wallets = await walletRepository.listByUser(auth.user.id);
+  const senderWallet = body.senderWalletId ? wallets.find((w) => String(w.id) === body.senderWalletId) : wallets.find((w) => w.type === "standard");
   if (!senderWallet)
-    throw new AppError(404, "Billetera no encontrada");
+    throw new AppError2(404, "Billetera origen no encontrada");
+  const receiverWallet = await walletRepository.getByWalletNumber(body.receiverWalletNumber);
+  if (!receiverWallet)
+    throw new AppError2(404, "Billetera destino no encontrada");
   const ip = request.headers.get("x-forwarded-for") || request.headers.get("cf-connecting-ip") || "";
   const deviceId = request.headers.get("x-device-id") || undefined;
-  return ok(await transferService.p2p(senderWallet.id, BigInt(body.receiverWalletId), body.amount, {
+  return ok(await transferService.p2p(senderWallet.id, receiverWallet.id, body.amount, {
     description: body.description,
     idempotencyKey,
     ip,
@@ -50622,15 +51267,20 @@ var paymentRoutes = new Elysia().use(authMiddleware({ type: "jwt", level: "user"
   }));
 }, {
   body: t.Object({
-    receiverWalletId: t.String(),
+    receiverWalletNumber: t.String(),
     amount: t.Number({ minimum: 0.01 }),
-    description: t.Optional(t.String())
+    description: t.Optional(t.String()),
+    senderWalletId: t.Optional(t.String())
   }),
   detail: { tags: ["Payments"], summary: "Transferencia P2P" }
-}).get("/transfers", async ({ query: query2, auth }) => {
-  const walletId = query2.walletId ? BigInt(query2.walletId) : (await walletRepository.getDefault(auth.user.id))?.id;
+}).get("/transfers", async ({ query: q, auth }) => {
+  let walletId = q.walletId ? BigInt(q.walletId) : null;
+  if (!walletId) {
+    const wallets = await walletRepository.listByUser(auth.user.id);
+    walletId = wallets.length > 0 ? wallets[0].id : null;
+  }
   if (!walletId)
-    throw new AppError(404, "Billetera no encontrada");
+    throw new AppError2(404, "Billetera no encontrada");
   const transfers = await transferService.listByWallet(walletId);
   return list(transfers, undefined, "Transferencias listadas exitosamente");
 }, {
@@ -50644,13 +51294,18 @@ var paymentRoutes = new Elysia().use(authMiddleware({ type: "jwt", level: "user"
 }).get("/wallets/:id", async ({ params }) => {
   const wallet = await walletRepository.getById(BigInt(params.id));
   if (!wallet)
-    throw new AppError(404, "Billetera no encontrada");
+    throw new AppError2(404, "Billetera no encontrada");
   return ok(wallet);
 }, {
   params: t.Object({ id: t.String() }),
   detail: { tags: ["Payments"], summary: "Detalle de billetera" }
 }).post("/wallets", async ({ body, auth }) => {
-  return ok(await walletRepository.create({ userId: auth.user.id, ...body }));
+  const r2 = await query2(`
+      INSERT INTO wallets (id, name, type, currency, balance, available_balance, held_balance)
+      VALUES ($1, $2, $3, $4, 0, 0, 0)
+      RETURNING *
+    `, [nextSnowflake(), body.name || "Principal", body.type || "standard", body.currency || "BOB"]);
+  return ok(r2.rows[0], "Billetera creada exitosamente");
 }, {
   body: t.Object({
     name: t.Optional(t.String()),
@@ -50678,11 +51333,6 @@ var paymentRoutes = new Elysia().use(authMiddleware({ type: "jwt", level: "user"
   return ok({ count: await notifRepository.countUnread(auth.user.id) });
 }, {
   detail: { tags: ["Payments"], summary: "Contar no leídas" }
-}).get("/fees", async () => {
-  const fees = await feeService.listAll();
-  return list(fees, undefined, "Comisiones listadas exitosamente");
-}, {
-  detail: { tags: ["Payments"], summary: "Listar reglas de comisiones" }
 });
 
 // src/payments/events/sse.service.ts
@@ -50694,9 +51344,19 @@ data: ${JSON.stringify(data)}
 `;
   clients.forEach((c) => c.send(msg));
 }
+function broadcastToUser(userId, type, data) {
+  const msg = `event: ${type}
+data: ${JSON.stringify(data)}
+
+`;
+  clients.forEach((c) => {
+    if (c.userId === userId)
+      c.send(msg);
+  });
+}
 var sseService = {
-  addClient(id, send, close) {
-    clients.set(id, { id, send, close });
+  addClient(id, userId, send, close) {
+    clients.set(id, { id, userId, send, close });
     send(`event: connection
 data: ${JSON.stringify({ connectionId: id })}
 
@@ -50705,17 +51365,16 @@ data: ${JSON.stringify({ connectionId: id })}
   removeClient(id) {
     clients.delete(id);
   },
-  sendToClient(id, event, data) {
-    const client = clients.get(id);
-    if (client) {
-      client.send(`event: ${event}
-data: ${JSON.stringify(data)}
-
-`);
-    }
+  sendToUser(userId, event, data) {
+    broadcastToUser(userId, event, data);
+  },
+  sendToAll(event, data) {
+    broadcast(event, data);
   },
   getStats() {
-    return { connectedClients: clients.size };
+    const uniqueUsers = new Set;
+    clients.forEach((c) => uniqueUsers.add(c.userId));
+    return { connectedClients: clients.size, uniqueUsers: uniqueUsers.size };
   },
   closeAll() {
     clients.forEach((c) => c.close());
@@ -50726,14 +51385,42 @@ eventBus.on("qr.paid", (data) => broadcast("qr_payment", data));
 eventBus.on("qr.created", (data) => broadcast("qr_created", data));
 eventBus.on("qr.cancelled", (data) => broadcast("qr_cancelled", data));
 eventBus.on("transfer.completed", (data) => broadcast("transfer_completed", data));
+eventBus.on("notification.created", (data) => {
+  broadcastToUser(data.userId, "notification", {
+    id: String(data.id),
+    type: data.type,
+    title: data.title,
+    message: data.body,
+    data: data.data,
+    timestamp: data.createdAt,
+    read: data.isRead
+  });
+});
 
 // src/payments/events/sse.controller.ts
+init_app_error();
 var clientCounter = 0;
-var sseRoutes = new Elysia({ prefix: "/events" }).get("/stream", ({ request }) => {
+var sseRoutes = new Elysia({ prefix: "/events" }).get("/stream", async ({ request }) => {
+  const url = new URL(request.url);
+  const token = url.searchParams.get("token");
+  if (!token)
+    throw new AppError2(401, "JWT requerida");
+  let userId;
+  try {
+    const decoded = await authService.verifyTokenWithDb(token);
+    const userInfo = await authService.getUserInfo(decoded.email);
+    if (!userInfo)
+      throw new AppError2(401, "Usuario no encontrado");
+    userId = userInfo.id;
+  } catch (err) {
+    if (err instanceof AppError2)
+      throw err;
+    throw new AppError2(401, "Token inválido");
+  }
   const clientId = `sse_${++clientCounter}_${Date.now()}`;
   const stream = new ReadableStream({
     start(controller) {
-      sseService.addClient(clientId, (data) => {
+      sseService.addClient(clientId, userId, (data) => {
         try {
           controller.enqueue(new TextEncoder().encode(data));
         } catch {}
@@ -50761,10 +51448,6 @@ var sseRoutes = new Elysia({ prefix: "/events" }).get("/stream", ({ request }) =
   return sseService.getStats();
 }, {
   detail: { tags: ["Events"], summary: "Estadísticas del servidor SSE" }
-}).get("/test-auth", () => {
-  return { message: "SSE auth test" };
-}, {
-  detail: { tags: ["Events"], summary: "Test de autenticación SSE" }
 });
 
 // src/payments/transactions/transactions.routes.ts
@@ -50785,7 +51468,7 @@ function mapMovement(r2) {
     reference: r2.reference_id || undefined,
     category: r2.movement_type,
     metadata: {
-      accountId: String(r2.account_id),
+      walletId: String(r2.wallet_id),
       qrId: r2.qr_id,
       transactionId: r2.transaction_id,
       balanceAfter: Number(r2.balance_after),
@@ -50794,45 +51477,58 @@ function mapMovement(r2) {
   };
 }
 var transactionRepository = {
-  async listByUser(userId, page, pageSize) {
+  async listByUser(userId, page, pageSize, filters) {
     const offset = (page - 1) * pageSize;
-    const countResult = await query(`SELECT COUNT(*) as total
-       FROM account_movements m
-       JOIN user_accounts ua ON m.account_id = ua.account_id
-       WHERE ua.user_id = $1 AND m.deleted_at IS NULL AND ua.deleted_at IS NULL`, [userId]);
+    const extraParams = [];
+    const clauses = [];
+    if (filters?.walletId) {
+      clauses.push(`m.wallet_id = $${extraParams.length + 2}`);
+      extraParams.push(filters.walletId);
+    }
+    if (filters?.types && filters.types.length > 0) {
+      const placeholders = filters.types.map(() => `$${extraParams.length + 2}`);
+      clauses.push(`m.movement_type IN (${placeholders.join(",")})`);
+      extraParams.push(...filters.types);
+    }
+    const extraSql = clauses.length > 0 ? " AND " + clauses.join(" AND ") : "";
+    const countResult = await query2(`SELECT COUNT(*) as total
+       FROM wallet_movements m
+       JOIN wallet_permissions wp ON m.wallet_id = wp.wallet_id
+       WHERE wp.user_id = $1 AND m.deleted_at IS NULL AND wp.deleted_at IS NULL${extraSql}`, [userId, ...extraParams]);
     const totalCount = parseInt(countResult.rows[0].total);
-    const result = await query(`SELECT m.*
-       FROM account_movements m
-       JOIN user_accounts ua ON m.account_id = ua.account_id
-       WHERE ua.user_id = $1 AND m.deleted_at IS NULL AND ua.deleted_at IS NULL
+    const result = await query2(`SELECT m.*
+       FROM wallet_movements m
+       JOIN wallet_permissions wp ON m.wallet_id = wp.wallet_id
+       WHERE wp.user_id = $1 AND m.deleted_at IS NULL AND wp.deleted_at IS NULL${extraSql}
        ORDER BY m.created_at DESC
-       LIMIT $2 OFFSET $3`, [userId, pageSize, offset]);
+       LIMIT $${extraParams.length + 2} OFFSET $${extraParams.length + 3}`, [userId, ...extraParams, pageSize, offset]);
     return {
       transactions: result.rows.map(mapMovement),
       totalCount
     };
   },
   async getById(id, userId) {
-    const result = await query(`SELECT m.*
-       FROM account_movements m
-       JOIN user_accounts ua ON m.account_id = ua.account_id
-       WHERE m.id = $1 AND ua.user_id = $2 AND m.deleted_at IS NULL AND ua.deleted_at IS NULL`, [id, userId]);
+    const result = await query2(`SELECT m.*
+       FROM wallet_movements m
+       JOIN wallet_permissions wp ON m.wallet_id = wp.wallet_id
+       WHERE m.id = $1 AND wp.user_id = $2 AND m.deleted_at IS NULL AND wp.deleted_at IS NULL`, [id, userId]);
     if (result.rowCount === 0)
       return null;
     return mapMovement(result.rows[0]);
   },
-  async getYearlyStats(userId, year) {
-    const result = await query(`SELECT
+  async getYearlyStats(userId, year, walletId) {
+    const result = await query2(`SELECT
          DATE_TRUNC('month', m.created_at) as month_date,
          SUM(m.amount) as amount,
          COUNT(*) as count
-       FROM account_movements m
-       JOIN user_accounts ua ON m.account_id = ua.account_id
-       WHERE ua.user_id = $1 AND m.deleted_at IS NULL AND ua.deleted_at IS NULL
+       FROM wallet_movements m
+       JOIN wallet_permissions wp ON m.wallet_id = wp.wallet_id
+       WHERE wp.user_id = $1 AND m.deleted_at IS NULL AND wp.deleted_at IS NULL
          AND EXTRACT(YEAR FROM m.created_at) = $2
          AND m.movement_type IN ('deposit','qr_payment','transfer_in')
+         ${walletId ? "AND m.wallet_id = $3" : ""}
        GROUP BY DATE_TRUNC('month', m.created_at)
-       ORDER BY month_date`, [userId, year]);
+       ORDER BY month_date`, walletId ? [userId, year, walletId] : [userId, year]);
     const data = result.rows.map((r2) => ({
       date: r2.month_date,
       amount: Number(r2.amount),
@@ -50853,20 +51549,21 @@ var transactionRepository = {
       }
     };
   },
-  async getMonthlyStats(userId, year, month) {
+  async getMonthlyStats(userId, year, month, walletId) {
     const startDate = `${year}-${String(month + 1).padStart(2, "0")}-01`;
     const endDate = new Date(year, month + 1, 0).toISOString().split("T")[0];
-    const result = await query(`SELECT
+    const result = await query2(`SELECT
          DATE(m.created_at) as day_date,
          SUM(m.amount) as amount,
          COUNT(*) as count
-       FROM account_movements m
-       JOIN user_accounts ua ON m.account_id = ua.account_id
-       WHERE ua.user_id = $1 AND m.deleted_at IS NULL AND ua.deleted_at IS NULL
+       FROM wallet_movements m
+       JOIN wallet_permissions wp ON m.wallet_id = wp.wallet_id
+       WHERE wp.user_id = $1 AND m.deleted_at IS NULL AND wp.deleted_at IS NULL
          AND m.created_at >= $2 AND m.created_at < ($3::date + INTERVAL '1 day')
          AND m.movement_type IN ('deposit','qr_payment','transfer_in')
+         ${walletId ? "AND m.wallet_id = $4" : ""}
        GROUP BY DATE(m.created_at)
-       ORDER BY day_date`, [userId, startDate, endDate]);
+       ORDER BY day_date`, walletId ? [userId, startDate, endDate, walletId] : [userId, startDate, endDate]);
     const data = result.rows.map((r2) => ({
       date: r2.day_date,
       amount: Number(r2.amount),
@@ -50889,22 +51586,23 @@ var transactionRepository = {
       }
     };
   },
-  async getWeeklyStats(userId, year, week) {
+  async getWeeklyStats(userId, year, week, walletId) {
     const firstDay = new Date(year, 0, 1);
     const daysOffset = (week - 1) * 7;
     const startDate = new Date(firstDay.getTime() + daysOffset * 86400000).toISOString().split("T")[0];
     const endDate = new Date(firstDay.getTime() + (daysOffset + 6) * 86400000).toISOString().split("T")[0];
-    const result = await query(`SELECT
+    const result = await query2(`SELECT
          DATE(m.created_at) as day_date,
          SUM(m.amount) as amount,
          COUNT(*) as count
-       FROM account_movements m
-       JOIN user_accounts ua ON m.account_id = ua.account_id
-       WHERE ua.user_id = $1 AND m.deleted_at IS NULL AND ua.deleted_at IS NULL
+       FROM wallet_movements m
+       JOIN wallet_permissions wp ON m.wallet_id = wp.wallet_id
+       WHERE wp.user_id = $1 AND m.deleted_at IS NULL AND wp.deleted_at IS NULL
          AND m.created_at >= $2 AND m.created_at < ($3::date + INTERVAL '1 day')
          AND m.movement_type IN ('deposit','qr_payment','transfer_in')
+         ${walletId ? "AND m.wallet_id = $4" : ""}
        GROUP BY DATE(m.created_at)
-       ORDER BY day_date`, [userId, startDate, endDate]);
+       ORDER BY day_date`, walletId ? [userId, startDate, endDate, walletId] : [userId, startDate, endDate]);
     const data = result.rows.map((r2) => ({
       date: r2.day_date,
       amount: Number(r2.amount),
@@ -50930,28 +51628,36 @@ var transactionRepository = {
 };
 
 // src/payments/transactions/transactions.routes.ts
-var transactionsRoutes = new Elysia().use(authMiddleware({ type: "jwt", level: "user" })).get("/transactions", async ({ auth, query: q }) => {
+var transactionsRoutes = new Elysia().get("/transactions", async ({ auth, query: q }) => {
   const userId = auth.user.id;
   const page = parseInt(String(q.page || "1"));
   const pageSize = parseInt(String(q.pageSize || "20"));
-  const { transactions, totalCount } = await transactionRepository.listByUser(userId, page, pageSize);
+  let walletId;
+  if (q.walletId)
+    walletId = BigInt(q.walletId);
+  const types3 = q.types ? q.types.split(",") : undefined;
+  const { transactions, totalCount } = await transactionRepository.listByUser(userId, page, pageSize, { walletId, types: types3 });
   return list(transactions, totalCount, "Transacciones listadas exitosamente");
 }, {
   query: t.Object({
     page: t.Optional(t.String()),
-    pageSize: t.Optional(t.String())
+    pageSize: t.Optional(t.String()),
+    walletId: t.Optional(t.String()),
+    types: t.Optional(t.String())
   }),
   detail: { tags: ["Transactions"], summary: "Listar transacciones del usuario" }
-}).get("/transactions/stats/:periodType/:year/:month?/:week?", async ({ auth, params }) => {
+}).get("/transactions/stats/:periodType/:year/:month?", async ({ auth, params, query: q }) => {
   const userId = auth.user.id;
-  const { periodType, year, month, week } = params;
+  const { periodType, year, month } = params;
+  const walletId = q.walletId ? BigInt(q.walletId) : undefined;
   let result;
   if (periodType === "yearly") {
-    result = await transactionRepository.getYearlyStats(userId, parseInt(year));
+    result = await transactionRepository.getYearlyStats(userId, parseInt(year), walletId);
   } else if (periodType === "monthly") {
-    result = await transactionRepository.getMonthlyStats(userId, parseInt(year), parseInt(month));
+    result = await transactionRepository.getMonthlyStats(userId, parseInt(year), parseInt(month), walletId);
   } else if (periodType === "weekly") {
-    result = await transactionRepository.getWeeklyStats(userId, parseInt(year), parseInt(week || "1"));
+    const week = parseInt(q.week || "1");
+    result = await transactionRepository.getWeeklyStats(userId, parseInt(year), week, walletId);
   } else {
     return fail("Tipo de periodo inválido", "Tipo de periodo inválido");
   }
@@ -50963,7 +51669,7 @@ var transactionsRoutes = new Elysia().use(authMiddleware({ type: "jwt", level: "
   const { id } = params;
   const transaction = await transactionRepository.getById(BigInt(id), userId);
   if (!transaction)
-    throw new AppError(404, "Transacción no encontrada");
+    throw new AppError2(404, "Transacción no encontrada");
   return ok(transaction);
 }, {
   detail: { tags: ["Transactions"], summary: "Obtener detalle de transacción" }
@@ -50985,7 +51691,7 @@ class EmpsaatProvider {
       ...options
     });
     if (!res.ok)
-      throw new AppError(502, `EMPSAAT error: ${await res.text()}`);
+      throw new AppError2(502, `EMPSAAT error: ${await res.text()}`);
     return res.json();
   }
   async queryDebts(request) {
@@ -51010,8 +51716,8 @@ class EmpsaatProvider {
 
 // src/collections/providers/empsaat/empsaat.controller.ts
 var empsaat = new EmpsaatProvider;
-var empsaatRoutes = new Elysia({ prefix: "/collections/empsaat" }).use(authMiddleware({ type: "apikey", level: "user" })).get("/deudas", async ({ query: query2 }) => {
-  return ok(await empsaat.queryDebts({ keyword: query2.keyword, type: query2.type }));
+var empsaatRoutes = new Elysia({ prefix: "/collections/empsaat" }).use(authMiddleware({ type: "apikey", level: "user" })).get("/deudas", async ({ query: query3 }) => {
+  return ok(await empsaat.queryDebts({ keyword: query3.keyword, type: query3.type }));
 }, {
   query: t.Object({ keyword: t.String(), type: t.Optional(t.String()) }),
   detail: { tags: ["EMPSAAT"], summary: "Consultar deudas por keyword" }
@@ -51032,34 +51738,57 @@ var empsaatRoutes = new Elysia({ prefix: "/collections/empsaat" }).use(authMiddl
 });
 
 // src/collections/collections.routes.ts
-init_company_repository();
-init_app_error();
-var collectionsRoutes = new Elysia().use(empsaatRoutes).get("/companies", async () => {
-  const companies = await companyRepository.listActive();
-  return list(companies, undefined, "Empresas listadas exitosamente");
+init_wallet_repository();
+var collectionsRoutes = new Elysia().use(empsaatRoutes).get("/collections/stats/:periodType/:year/:month?", async ({ auth, params, query: q }) => {
+  const userId = auth.user.id;
+  const { periodType, year, month } = params;
+  const walletIdStr = q.walletId;
+  if (!walletIdStr)
+    return fail("walletId es requerido", "Se requiere el ID de la billetera de recaudación");
+  const walletId = BigInt(walletIdStr);
+  const wallet = await walletRepository.getCollectionById(userId, walletId);
+  if (!wallet)
+    throw new AppError(400, "La billetera no existe o no es de recaudación");
+  let result;
+  if (periodType === "yearly") {
+    result = await transactionRepository.getYearlyStats(userId, parseInt(year), walletId);
+  } else if (periodType === "monthly") {
+    result = await transactionRepository.getMonthlyStats(userId, parseInt(year), parseInt(month), walletId);
+  } else if (periodType === "weekly") {
+    const week = parseInt(q.week || "1");
+    result = await transactionRepository.getWeeklyStats(userId, parseInt(year), week, walletId);
+  } else {
+    return fail("Tipo de periodo inválido", "Tipo de periodo inválido");
+  }
+  return ok({ ...result, responseCode: 0 });
 }, {
-  detail: { tags: ["Collections"], summary: "Listar empresas activas" }
-}).get("/companies/:slug", async ({ params }) => {
-  const company = await companyRepository.getBySlug(params.slug);
-  if (!company)
-    throw new AppError(404, "Empresa no encontrada");
-  return ok(company);
-}, {
-  detail: { tags: ["Collections"], summary: "Obtener empresa por slug" }
+  detail: { tags: ["Collections"], summary: "Estadísticas de recaudación por periodo y billetera" }
 });
 
 // src/api-keys/apikey.routes.ts
-init_account_repository();
+init_wallet_repository();
 init_app_error();
-var apiKeyRoutes = new Elysia({ prefix: "/apikeys" }).use(authMiddleware({ type: "jwt", level: "user" })).post("/", async ({ body, auth }) => {
-  const accounts = await accountRepository.listByUser(auth.user.id);
-  if (accounts.length === 0)
-    throw new AppError(400, "El usuario no tiene cuentas");
-  const accountId = accounts[0].id;
-  const key = await apiKeyService.generate(accountId, body.description, body.permissions, body.expiresAt);
-  return ok(key, "API key creada exitosamente");
+var apiKeyRoutes = new Elysia({ prefix: "/api-keys" }).get("/", async ({ query: query3, auth }) => {
+  const walletId = query3.walletId ? BigInt(query3.walletId) : null;
+  if (!walletId)
+    throw new AppError2(400, "walletId es requerido");
+  const wallet = await walletRepository.getCollectionById(auth.user.id, walletId);
+  if (!wallet)
+    throw new AppError2(400, "La billetera no existe o no es de recaudación");
+  const keys = await apiKeyService.list(walletId);
+  return list(keys, keys.length, "API keys listadas exitosamente");
+}, {
+  query: t.Object({ walletId: t.String() }),
+  detail: { tags: ["API Keys"], summary: "Listar API keys de una billetera de recaudación" }
+}).post("/", async ({ body, auth }) => {
+  const wallet = await walletRepository.getCollectionById(auth.user.id, BigInt(body.walletId));
+  if (!wallet)
+    throw new AppError2(400, "La billetera no existe o no es de recaudación");
+  const key = await apiKeyService.generate(BigInt(body.walletId), body.description, body.permissions, body.expiresAt || null);
+  return ok(key, "API key generada exitosamente");
 }, {
   body: t.Object({
+    walletId: t.String(),
     description: t.String(),
     permissions: t.Object({
       qr_generate: t.Optional(t.Boolean()),
@@ -51068,26 +51797,17 @@ var apiKeyRoutes = new Elysia({ prefix: "/apikeys" }).use(authMiddleware({ type:
     }),
     expiresAt: t.Optional(t.String())
   }),
-  detail: { tags: ["API Keys"], summary: "Crear API key" }
-}).get("/", async ({ auth }) => {
-  const accounts = await accountRepository.listByUser(auth.user.id);
-  if (accounts.length === 0)
-    throw new AppError(400, "El usuario no tiene cuentas");
-  const accountId = accounts[0].id;
-  const keys = await apiKeyService.list(accountId);
-  return list(keys, undefined, "API keys listadas exitosamente");
-}, {
-  detail: { tags: ["API Keys"], summary: "Listar API keys" }
+  detail: { tags: ["API Keys"], summary: "Generar nueva API key para billetera de recaudación" }
 }).delete("/:id", async ({ params }) => {
   await apiKeyService.revoke(BigInt(params.id));
-  return ok({ id: params.id }, "API key revocada exitosamente");
+  return ok(null, "API key revocada");
 }, {
   detail: { tags: ["API Keys"], summary: "Revocar API key" }
 });
 
 // src/monitoring/health.controller.ts
 init_pool();
-import * as os2 from "os";
+import * as os from "os";
 var startTime = Date.now();
 var healthRoutes = new Elysia({ prefix: "/health" }).get("/", () => ok({
   status: "ok",
@@ -51130,7 +51850,7 @@ var healthRoutes = new Elysia({ prefix: "/health" }).get("/", () => ok({
   detail: { tags: ["Monitoring"], summary: "Liveness check for k8s" }
 }).get("/stats", () => {
   const mem = process.memoryUsage();
-  const cpus2 = os2.cpus();
+  const cpus2 = os.cpus();
   return ok({
     uptime: Math.floor((Date.now() - startTime) / 1000),
     memory: {
@@ -51141,7 +51861,7 @@ var healthRoutes = new Elysia({ prefix: "/health" }).get("/", () => ok({
     cpu: {
       cores: cpus2.length,
       model: cpus2[0]?.model || "unknown",
-      loadAvg: os2.loadavg()
+      loadAvg: os.loadavg()
     },
     pid: process.pid,
     platform: process.platform,
@@ -51156,8 +51876,8 @@ var healthRoutes = new Elysia({ prefix: "/health" }).get("/", () => ok({
   detail: { tags: ["Monitoring"], summary: "Estado de migraciones" }
 }).get("/metrics", async () => {
   const dbResult = await pool.query("SELECT count(*) as total FROM information_schema.tables WHERE table_schema = 'public'");
-  const { rows: activeUsers } = await pool.query("SELECT count(*) as cnt FROM users WHERE is_active = true");
-  const { rows: totalWallets } = await pool.query("SELECT count(*) as cnt FROM wallets");
+  const { rows: activeUsers } = await pool.query("SELECT count(*) as cnt FROM users WHERE status = 'active'");
+  const { rows: totalWallets } = await pool.query("SELECT count(*) as cnt FROM wallets WHERE deleted_at IS NULL");
   const { rows: totalTransfers } = await pool.query("SELECT count(*) as cnt, coalesce(sum(amount), 0) as total_amount FROM transfers");
   const mem = process.memoryUsage();
   return ok({
@@ -51186,29 +51906,29 @@ init_sentry();
 
 // src/public-api/public-qr.routes.ts
 init_app_error();
-var publicQrRoutes = new Elysia({ prefix: "/qr" }).use(authMiddleware({ type: "apikey", level: "user" })).post("/generate", async ({ body, auth }) => {
-  const accountId = auth.apiKeyInfo.accountId;
+var publicQrRoutes = new Elysia({ prefix: "/qr" }).derive(authMiddleware({ type: "apikey", level: "user" })).post("/generate", async ({ body, auth }) => {
+  const walletId = auth.apiKeyInfo.walletId;
   const permissions = auth.apiKeyInfo.permissions;
   if (!permissions.qr_generate)
-    throw new AppError(403, "API key no tiene permiso qr_generate");
-  const qr = await qrService.generate({ ...body, accountId });
+    throw new AppError2(403, "API key no tiene permiso qr_generate");
+  const qr = await qrService.generate({ ...body, walletId });
   return ok(qr, "QR generado exitosamente");
-}, { body: QRRequestSchema, detail: { tags: ["Public QR"], summary: "Generar QR (API key)" } }).get("/list", async ({ query: query2, auth }) => {
+}, { body: QRRequestSchema, detail: { tags: ["Public QR"], summary: "Generar QR (API key)" } }).get("/list", async ({ query: query3, auth }) => {
   const permissions = auth.apiKeyInfo.permissions;
   if (!permissions.qr_status)
-    throw new AppError(403, "API key no tiene permiso qr_status");
-  const accountId = auth.apiKeyInfo.accountId;
-  const result = await qrService.list(accountId, {
-    page: query2.page ? parseInt(query2.page) : undefined,
-    limit: query2.limit ? parseInt(query2.limit) : undefined,
-    status: query2.status,
-    from: query2.from || query2.startDate,
-    to: query2.to || query2.endDate
+    throw new AppError2(403, "API key no tiene permiso qr_status");
+  const walletId = auth.apiKeyInfo.walletId;
+  const result = await qrService.list(walletId, {
+    page: query3.page ? parseInt(query3.page) : undefined,
+    limit: query3.limit ? parseInt(query3.limit) : undefined,
+    status: query3.status,
+    from: query3.from || query3.startDate,
+    to: query3.to || query3.endDate
   });
   return list(result.qrs, result.totalCount, "QR listados exitosamente");
 }, {
   query: t.Optional(t.Object({
-    accountId: t.Optional(t.String()),
+    walletId: t.Optional(t.String()),
     page: t.Optional(t.String()),
     limit: t.Optional(t.String()),
     status: t.Optional(t.String()),
@@ -51221,17 +51941,17 @@ var publicQrRoutes = new Elysia({ prefix: "/qr" }).use(authMiddleware({ type: "a
 }).get("/:qrId", async ({ params }) => {
   const qr = await qrService.getDetails(params.qrId);
   if (!qr)
-    throw new AppError(404, "QR no encontrado");
+    throw new AppError2(404, "QR no encontrado");
   return ok(qr);
 }, {
   detail: { tags: ["Public QR"], summary: "Detalle QR (API key)" }
 }).get("/:qrId/status", async ({ params, auth }) => {
   const permissions = auth.apiKeyInfo.permissions;
   if (!permissions.qr_status)
-    throw new AppError(403, "API key no tiene permiso qr_status");
+    throw new AppError2(403, "API key no tiene permiso qr_status");
   const qr = await qrService.getDetails(params.qrId);
   if (!qr)
-    throw new AppError(404, "QR no encontrado");
+    throw new AppError2(404, "QR no encontrado");
   const payments = await qrService.getPayments(params.qrId);
   return ok({ ...qr, payments }, "Estado del QR verificado");
 }, {
@@ -51244,7 +51964,7 @@ var publicQrRoutes = new Elysia({ prefix: "/qr" }).use(authMiddleware({ type: "a
 }).delete("/cancelQR", async ({ body, auth }) => {
   const permissions = auth.apiKeyInfo.permissions;
   if (!permissions.qr_cancel)
-    throw new AppError(403, "API key no tiene permiso qr_cancel");
+    throw new AppError2(403, "API key no tiene permiso qr_cancel");
   await qrService.cancel(body.qrId);
   return ok({ qrId: body.qrId }, "QR cancelado exitosamente");
 }, {
@@ -51252,7 +51972,7 @@ var publicQrRoutes = new Elysia({ prefix: "/qr" }).use(authMiddleware({ type: "a
 }).delete("/:qrId", async ({ params, auth }) => {
   const permissions = auth.apiKeyInfo.permissions;
   if (!permissions.qr_cancel)
-    throw new AppError(403, "API key no tiene permiso qr_cancel");
+    throw new AppError2(403, "API key no tiene permiso qr_cancel");
   await qrService.cancel(params.qrId);
   return ok({ qrId: params.qrId }, "QR cancelado exitosamente");
 }, {
@@ -51268,8 +51988,14 @@ async function startPublicApi() {
     const id = crypto.randomUUID();
     setCorrelationId(id);
   });
-  app.onAfterHandle(({ set: set2 }) => {
+  app.onAfterHandle(({ request, set: set2 }) => {
     set2.headers = { ...set2.headers, ...complianceHeaders() };
+    const url = new URL(request.url);
+    logger.info(`[Public] ${request.method} ${url.pathname} → ${set2.status}`, {
+      method: request.method,
+      path: url.pathname,
+      status: set2.status
+    });
   });
   app.use(swagger({
     path: "/docs",
@@ -51293,23 +52019,26 @@ async function startPublicApi() {
       }
     }
   })).use(cors({ origin: () => true })).use(rateLimit({ windowMs: 60000, maxRequests: parseInt(process.env.RATE_LIMIT_MAX || "120") })).use(publicQrRoutes).onError(({ code, error, set: set2, request }) => {
+    const path = new URL(request.url).pathname;
     const err = error;
     const isAppError = err?.statusCode != null && typeof err.statusCode === "number";
     if (isAppError) {
       set2.status = err.statusCode;
-      logger.warn("Public API error", { statusCode: err.statusCode, message: String(err.message || ""), path: new URL(request.url).pathname });
+      logger.warn("Public API error", { statusCode: err.statusCode, message: String(err.message || ""), path, error });
       return { error: err.message || "Error", message: err.message || "Error", details: err.details };
     }
     if (code === "NOT_FOUND") {
       set2.status = 404;
+      logger.warn("Not found", { path });
       return { error: "Ruta no encontrada", message: "Ruta no encontrada" };
     }
     if (code === "VALIDATION") {
       set2.status = 400;
+      logger.warn("Validation error", { path, error: String(error) });
       return { error: "Error de validación", message: "Error de validación" };
     }
-    logger.error("Public API error", { error: String(error), path: new URL(request.url).pathname });
-    sentry.captureError(error instanceof Error ? error : new Error(String(error)), { code, path: new URL(request.url).pathname });
+    const errObj = error instanceof Error ? error : new Error(String(error));
+    logger.error("Public API error", { error: errObj, code, path });
     set2.status = 500;
     return { error: "Error interno del servidor", message: "Error interno del servidor" };
   });
@@ -51317,280 +52046,58 @@ async function startPublicApi() {
   return app;
 }
 
-// src/payments/fraud/fraud.routes.ts
-var fraudRoutes = new Elysia({ prefix: "/fraud" }).derive(authMiddleware).get("/alerts", async ({ userId }) => {
-  const alerts = await getOpenAlerts(userId);
-  return list(alerts, undefined, "Alertas listadas exitosamente");
-}, {
-  detail: { tags: ["Fraud"], summary: "Obtener alertas de fraude activas" }
-}).post("/alerts/:id/resolve", async ({ params, userId }) => {
-  await resolveAlert(params.id, userId);
-  return ok(null);
-}, {
-  params: t.Object({ id: t.String() }),
-  detail: { tags: ["Fraud"], summary: "Resolver alerta de fraude" }
-});
-
-// src/payments/fx/fx.service.ts
-init_pool();
-init_snowflake();
-init_logger();
-var SUPPORTED_CURRENCIES = ["BOB", "USD", "EUR", "BRL", "ARS", "CLP", "PEN", "COP"];
-async function getRate(base, target) {
-  const result = await query(`SELECT rate FROM fx_rates
-     WHERE base_currency = $1 AND target_currency = $2
-       AND (valid_until IS NULL OR valid_until > CURRENT_TIMESTAMP)
-       AND valid_from <= CURRENT_TIMESTAMP
-     ORDER BY valid_from DESC LIMIT 1`, [base.toUpperCase(), target.toUpperCase()]);
-  if (result.rows.length === 0)
-    return null;
-  return parseFloat(result.rows[0].rate);
-}
-async function convert2(amount, from, to) {
-  if (from === to)
-    return { amount, rate: 1 };
-  const rate = await getRate(from, to);
-  if (!rate)
-    return null;
-  return { amount: Math.round(amount * rate * 100) / 100, rate };
-}
-async function setRate(base, target, rate, source = "manual") {
-  await query(`INSERT INTO fx_rates (id, base_currency, target_currency, rate, source)
-     VALUES ($1, $2, $3, $4, $5)`, [nextSnowflake(), base.toUpperCase(), target.toUpperCase(), rate, source]);
-  logger.info("FX rate updated", { base, target, rate, source });
-}
-async function getAllRates() {
-  const result = await query(`SELECT DISTINCT ON (base_currency, target_currency)
-       base_currency, target_currency, rate, source, valid_from
-     FROM fx_rates
-     WHERE valid_until IS NULL OR valid_until > CURRENT_TIMESTAMP
-     ORDER BY base_currency, target_currency, valid_from DESC`);
-  return result.rows;
-}
-async function getSupportedCurrencies() {
-  return SUPPORTED_CURRENCIES;
-}
-
-// src/payments/fx/fx.routes.ts
-init_app_error();
-var fxRoutes = new Elysia({ prefix: "/fx" }).derive(authMiddleware).get("/rates", async () => {
-  return ok({ currencies: await getSupportedCurrencies(), rates: await getAllRates() });
-}, {
-  detail: { tags: ["FX"], summary: "Obtener todas las tasas de cambio" }
-}).get("/rate/:base/:target", async ({ params }) => {
-  const rate = await getRate(params.base, params.target);
-  if (!rate)
-    throw new AppError(404, "Tasa de cambio no encontrada");
-  return ok({ base: params.base, target: params.target, rate });
-}, {
-  params: t.Object({ base: t.String(), target: t.String() }),
-  detail: { tags: ["FX"], summary: "Obtener tasa de cambio específica" }
-}).post("/convert", async ({ body }) => {
-  const result = await convert2(body.amount, body.from, body.to);
-  if (!result)
-    throw new AppError(404, "Tasa de cambio no disponible");
-  return ok(result);
-}, {
-  body: t.Object({
-    amount: t.Number({ minimum: 0.01 }),
-    from: t.String({ minLength: 3, maxLength: 3 }),
-    to: t.String({ minLength: 3, maxLength: 3 })
-  }),
-  detail: { tags: ["FX"], summary: "Convertir moneda" }
-}).post("/rates", async ({ body }) => {
-  await setRate(body.base, body.target, body.rate, body.source);
-  return ok(null);
-}, {
-  body: t.Object({
-    base: t.String({ minLength: 3, maxLength: 3 }),
-    target: t.String({ minLength: 3, maxLength: 3 }),
-    rate: t.Number({ minimum: 0.0001 }),
-    source: t.Optional(t.String())
-  }),
-  detail: { tags: ["FX"], summary: "Actualizar tasa de cambio" }
-});
-
 // src/payments/webhooks/webhook.routes.ts
-var webhookRoutes = new Elysia({ prefix: "/webhooks" }).derive(authMiddleware).get("/", async ({ userId }) => {
-  const webhooks = await getWebhooks(userId);
+init_wallet_repository();
+init_app_error();
+var webhookRoutes = new Elysia({ prefix: "/webhooks" }).get("/", async ({ auth, query: q }) => {
+  const userId = auth.user.id;
+  const walletIdStr = q.walletId;
+  if (!walletIdStr)
+    throw new AppError2(400, "walletId es requerido");
+  const wallet = await walletRepository.getCollectionById(userId, BigInt(walletIdStr));
+  if (!wallet)
+    throw new AppError2(400, "La billetera no existe o no es de recaudación");
+  const webhooks = await getWebhooks(userId, BigInt(walletIdStr));
   return list(webhooks, undefined, "Webhooks listados exitosamente");
 }, {
-  detail: { tags: ["Webhooks"], summary: "Listar webhooks del usuario" }
-}).post("/", async ({ userId, body }) => {
-  const id = await registerWebhook({
+  detail: { tags: ["Webhooks"], summary: "Listar webhooks de la billetera de recaudación" }
+}).post("/", async ({ auth, body }) => {
+  const userId = auth.user.id;
+  const wallet = await walletRepository.getCollectionById(userId, BigInt(body.walletId));
+  if (!wallet)
+    throw new AppError2(400, "La billetera no existe o no es de recaudación");
+  const { id } = await registerWebhook({
     userId,
+    walletId: BigInt(body.walletId),
     url: body.url,
-    secret: body.secret,
-    events: body.events,
-    companyId: body.companyId
+    events: body.events
   });
   return ok({ id });
 }, {
   body: t.Object({
+    walletId: t.String(),
     url: t.String({ format: "uri" }),
-    secret: t.Optional(t.String()),
-    events: t.Array(t.String()),
-    companyId: t.Optional(t.String())
+    events: t.Array(t.String())
   }),
-  detail: { tags: ["Webhooks"], summary: "Registrar nuevo webhook" }
-}).delete("/:id", async ({ params, userId }) => {
-  await deleteWebhook(params.id, userId);
+  detail: { tags: ["Webhooks"], summary: "Registrar nuevo webhook para billetera de recaudación" }
+}).delete("/:id", async ({ params, auth, query: q }) => {
+  const userId = auth.user.id;
+  const walletIdStr = q.walletId;
+  if (!walletIdStr)
+    throw new AppError2(400, "walletId es requerido");
+  const wallet = await walletRepository.getCollectionById(userId, BigInt(walletIdStr));
+  if (!wallet)
+    throw new AppError2(400, "La billetera no existe o no es de recaudación");
+  await deleteWebhook(params.id, userId, BigInt(walletIdStr));
   return ok(null);
 }, {
   params: t.Object({ id: t.String() }),
-  detail: { tags: ["Webhooks"], summary: "Eliminar webhook" }
-});
-
-// src/payments/reconciliation/reconciliation.service.ts
-init_pool();
-init_snowflake();
-init_logger();
-async function reconcile(params) {
-  const difference = Math.round((params.bankAmount - params.localAmount) * 100) / 100;
-  const status2 = Math.abs(difference) < 0.01 ? "matched" : "mismatch";
-  const result = await query(`INSERT INTO reconciliation_logs
-       (id, bank_account_id, source, external_reference, local_amount, bank_amount, difference, status, notes, reconciled_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
-     RETURNING id`, [
-    nextSnowflake(),
-    params.bankAccountId,
-    params.source,
-    params.externalReference,
-    params.localAmount,
-    params.bankAmount,
-    difference,
-    status2,
-    params.notes || null
-  ]);
-  if (status2 === "mismatch") {
-    logger.warn("Reconciliation mismatch", {
-      accountId: params.bankAccountId,
-      ref: params.externalReference,
-      local: params.localAmount,
-      bank: params.bankAmount,
-      diff: difference
-    });
-  }
-  return { id: result.rows[0].id, status: status2, difference };
-}
-async function getReconciliationLogs(accountId, limit = 50) {
-  const result = await query(`SELECT * FROM reconciliation_logs
-     WHERE bank_account_id = $1
-     ORDER BY created_at DESC LIMIT $2`, [accountId, limit]);
-  return result.rows;
-}
-async function getPendingReconciliations(userId) {
-  const result = await query(`SELECT r.*, a.account_number, a.alias
-     FROM reconciliation_logs r
-     JOIN accounts a ON a.id = r.bank_account_id
-     JOIN user_accounts ua ON ua.account_id = a.id
-     WHERE ua.user_id = $1 AND r.status IN ('pending', 'mismatch')
-     ORDER BY r.created_at DESC`, [userId]);
-  return result.rows;
-}
-async function reconcileAccount(accountId) {
-  const transfers = await query(`SELECT id, amount, reference, created_at FROM transfers
-     WHERE source_account_id = $1 AND created_at > CURRENT_TIMESTAMP - INTERVAL '7 days'
-     ORDER BY created_at`);
-  const results = [];
-  for (const t3 of transfers.rows) {
-    const bankRef = t3.reference || `TXN-${t3.id}`;
-    const result = await reconcile({
-      bankAccountId: accountId,
-      externalReference: bankRef,
-      localAmount: parseFloat(t3.amount),
-      bankAmount: parseFloat(t3.amount),
-      source: "auto",
-      notes: `Reconciliación automática transferencia ${t3.id}`
-    });
-    results.push(result);
-  }
-  logger.info("Account reconciled", { accountId, count: results.length });
-  return results;
-}
-
-// src/payments/reconciliation/reconciliation.routes.ts
-var reconciliationRoutes = new Elysia({ prefix: "/reconciliation" }).derive(authMiddleware).post("/account/:accountId", async ({ params }) => {
-  return ok({ results: await reconcileAccount(params.accountId) });
-}, {
-  params: t.Object({ accountId: t.String() }),
-  detail: { tags: ["Reconciliation"], summary: "Reconciliar cuenta bancaria" }
-}).get("/pending", async ({ userId }) => {
-  const items = await getPendingReconciliations(userId);
-  return list(items, undefined, "Reconciliaciones pendientes listadas exitosamente");
-}, {
-  detail: { tags: ["Reconciliation"], summary: "Reconciliaciones pendientes" }
-}).get("/logs/:accountId", async ({ params }) => {
-  const logs = await getReconciliationLogs(params.accountId);
-  return list(logs, undefined, "Logs listados exitosamente");
-}, {
-  params: t.Object({ accountId: t.String() }),
-  detail: { tags: ["Reconciliation"], summary: "Logs de reconciliación" }
-}).post("/manual", async ({ userId, body }) => {
-  return ok(await reconcile({
-    bankAccountId: body.accountId,
-    externalReference: body.externalReference,
-    localAmount: body.localAmount,
-    bankAmount: body.bankAmount,
-    source: "manual",
-    notes: body.notes
-  }));
-}, {
-  body: t.Object({
-    accountId: t.String(),
-    externalReference: t.String(),
-    localAmount: t.Number(),
-    bankAmount: t.Number(),
-    notes: t.Optional(t.String())
-  }),
-  detail: { tags: ["Reconciliation"], summary: "Reconciliación manual" }
-});
-
-// src/payments/wallet/wallet-backup.service.ts
-init_pool();
-init_snowflake();
-init_logger();
-async function createBackup(walletId, userId) {
-  const seedPhrase = generateSeedPhrase();
-  const phraseStr = seedPhrase.join(" ");
-  const encryptedSeedPhrase = encrypt(phraseStr);
-  const seedPhraseHash = hash2(phraseStr);
-  await query(`INSERT INTO wallet_backups (id, wallet_id, user_id, seed_phrase_hash, encrypted_seed_phrase)
-     VALUES ($1, $2, $3, $4, $5)`, [nextSnowflake(), walletId, userId, seedPhraseHash, encryptedSeedPhrase]);
-  logger.info("Wallet backup created", { walletId, userId });
-  return { seedPhrase };
-}
-async function verifyBackup(walletId, userId) {
-  await query(`UPDATE wallet_backups SET verified = TRUE, verified_at = CURRENT_TIMESTAMP
-     WHERE wallet_id = $1 AND user_id = $2`, [walletId, userId]);
-}
-async function getBackupStatus(walletId) {
-  const result = await query("SELECT verified, created_at, verified_at FROM wallet_backups WHERE wallet_id = $1 ORDER BY created_at DESC LIMIT 1", [walletId]);
-  return result.rows[0] || null;
-}
-
-// src/payments/wallet/wallet-backup.routes.ts
-var walletBackupRoutes = new Elysia({ prefix: "/wallet" }).derive(authMiddleware).post("/:walletId/backup", async ({ params, userId }) => {
-  return ok(await createBackup(params.walletId, userId));
-}, {
-  params: t.Object({ walletId: t.String() }),
-  detail: { tags: ["Wallet"], summary: "Crear respaldo de wallet (seed phrase)" }
-}).post("/:walletId/backup/verify", async ({ params, userId }) => {
-  await verifyBackup(params.walletId, userId);
-  return ok(null);
-}, {
-  params: t.Object({ walletId: t.String() }),
-  detail: { tags: ["Wallet"], summary: "Verificar respaldo de wallet" }
-}).get("/:walletId/backup", async ({ params }) => {
-  return ok(await getBackupStatus(params.walletId));
-}, {
-  params: t.Object({ walletId: t.String() }),
-  detail: { tags: ["Wallet"], summary: "Estado del respaldo" }
+  detail: { tags: ["Webhooks"], summary: "Eliminar webhook de billetera de recaudación" }
 });
 
 // src/shared/ws.ts
 init_logger();
-import crypto3 from "node:crypto";
+import crypto5 from "node:crypto";
 var clients2 = new Map;
 var wsRoutes = new Elysia().ws("/ws", {
   async open(ws) {
@@ -51611,7 +52118,7 @@ var wsRoutes = new Elysia().ws("/ws", {
       ws.close(4002, "Invalid token");
       return;
     }
-    const clientId = crypto3.randomUUID();
+    const clientId = crypto5.randomUUID();
     clients2.set(clientId, {
       ws,
       userId,
@@ -51665,526 +52172,14 @@ var wsRoutes = new Elysia().ws("/ws", {
   }
 });
 
-// src/payments/subscription/subscription.service.ts
-init_pool();
-init_snowflake();
-init_wallet_repository();
-init_logger();
-async function createSubscription(params) {
-  const result = await query(`INSERT INTO subscriptions (id, user_id, wallet_id, receiver_wallet_id, amount, description, interval_type, start_date, end_date, max_payments)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-     RETURNING id`, [
-    nextSnowflake(),
-    params.userId,
-    params.walletId,
-    params.receiverWalletId,
-    params.amount,
-    params.description || null,
-    params.interval,
-    params.startDate || new Date,
-    params.endDate || null,
-    params.maxPayments || null
-  ]);
-  logger.info("Subscription created", { id: result.rows[0].id, ...params });
-  return { id: result.rows[0].id };
-}
-async function cancelSubscription(id) {
-  await query("UPDATE subscriptions SET is_active = FALSE, cancelled_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
-}
-async function listSubscriptions(userId) {
-  const result = await query("SELECT * FROM subscriptions WHERE user_id = $1 ORDER BY created_at DESC", [userId]);
-  return result.rows;
-}
-
-// src/payments/subscription/subscription.routes.ts
-var subscriptionRoutes = new Elysia({ prefix: "/subscriptions" }).derive(authMiddleware).get("/", async ({ userId }) => {
-  const subscriptions = await listSubscriptions(userId);
-  return list(subscriptions, undefined, "Suscripciones listadas exitosamente");
-}, {
-  detail: { tags: ["Subscriptions"], summary: "Listar suscripciones" }
-}).post("/", async ({ userId, body }) => {
-  return ok(await createSubscription({ userId, ...body }));
-}, {
-  body: t.Object({
-    walletId: t.String(),
-    receiverWalletId: t.String(),
-    amount: t.Number({ minimum: 0.01 }),
-    description: t.Optional(t.String()),
-    interval: t.Enum({ daily: "daily", weekly: "weekly", monthly: "monthly", yearly: "yearly" }),
-    startDate: t.Optional(t.String()),
-    endDate: t.Optional(t.String()),
-    maxPayments: t.Optional(t.Number())
-  }),
-  detail: { tags: ["Subscriptions"], summary: "Crear suscripción de pago" }
-}).post("/:id/cancel", async ({ params }) => {
-  await cancelSubscription(params.id);
-  return ok(null);
-}, {
-  params: t.Object({ id: t.String() }),
-  detail: { tags: ["Subscriptions"], summary: "Cancelar suscripción" }
-});
-
-// src/payments/split/split.service.ts
-init_snowflake();
-init_wallet_repository();
-init_app_error();
-init_logger();
-async function createSplitPayment(senderWalletId, recipients, description) {
-  const totalFromRecipients = recipients.reduce((sum, r2) => sum + r2.amount, 0);
-  const sender = await walletRepository.getById(senderWalletId);
-  if (!sender)
-    throw new AppError(404, "Billetera no encontrada");
-  if (sender.availableBalance < totalFromRecipients)
-    throw new AppError(400, "Saldo insuficiente");
-  const splitGroupId = nextSnowflake();
-  const results = [];
-  for (const recipient of recipients) {
-    const transfer = await transferRepository.create({
-      senderWalletId: BigInt(senderWalletId),
-      receiverWalletId: BigInt(recipient.walletId),
-      amount: recipient.amount,
-      fee: 0,
-      total: recipient.amount,
-      description: description ? `${description} (split ${recipient.percentage}%)` : `Pago compartido ${splitGroupId}`,
-      referenceType: "split"
-    });
-    await walletRepository.updateBalance(BigInt(senderWalletId), sender.balance - recipient.amount, sender.availableBalance - recipient.amount);
-    await walletRepository.updateBalance(BigInt(recipient.walletId), 0, 0);
-    await transferRepository.updateStatus(transfer.id, "completed");
-    results.push({ transferId: transfer.id, recipientWalletId: recipient.walletId, amount: recipient.amount });
-  }
-  logger.info("Split payment completed", { splitGroupId, total: totalFromRecipients, recipients: recipients.length });
-  return { splitGroupId, transactions: results };
-}
-function calculateSplit(total, percentages) {
-  const sum = percentages.reduce((a12, b) => a12 + b, 0);
-  if (Math.abs(sum - 100) > 0.01)
-    throw new AppError(400, "Porcentajes deben sumar 100%");
-  let remaining = total;
-  const result = [];
-  for (let i = 0;i < percentages.length; i++) {
-    const pct = percentages[i];
-    const isLast = i === percentages.length - 1;
-    const amount = isLast ? remaining : Math.round(total * pct / 100 * 100) / 100;
-    remaining -= amount;
-    result.push({ percentage: pct, amount });
-  }
-  return result;
-}
-
-// src/payments/split/split.routes.ts
-init_app_error();
-var splitRoutes = new Elysia({ prefix: "/split" }).derive(authMiddleware).post("/pay", async ({ body }) => {
-  return ok(await createSplitPayment(body.senderWalletId, body.recipients, body.description));
-}, {
-  body: t.Object({
-    senderWalletId: t.String(),
-    recipients: t.Array(t.Object({
-      walletId: t.String(),
-      amount: t.Number({ minimum: 0.01 }),
-      percentage: t.Number({ minimum: 0.01 })
-    })),
-    description: t.Optional(t.String())
-  }),
-  detail: { tags: ["Split"], summary: "Pago compartido múltiple" }
-}).post("/calculate", async ({ body }) => {
-  try {
-    const items = calculateSplit(body.total, body.percentages);
-    return ok({ total: body.total, items });
-  } catch (err) {
-    throw new AppError(400, err.message);
-  }
-}, {
-  body: t.Object({
-    total: t.Number({ minimum: 0.01 }),
-    percentages: t.Array(t.Number({ minimum: 0.01 }))
-  }),
-  detail: { tags: ["Split"], summary: "Calcular división de pago" }
-});
-
-// src/payments/merchant/merchant.service.ts
-init_pool();
-init_snowflake();
-init_wallet_repository();
-init_app_error();
-init_logger();
-async function registerMerchant(params) {
-  const wallet = await walletRepository.create({
-    userId: BigInt(params.userId),
-    name: params.businessName,
-    type: "merchant",
-    currency: "BOB"
-  });
-  const id = nextSnowflake();
-  await query(`INSERT INTO merchants (id, user_id, wallet_id, business_name, business_category, tax_id, phone, address, commission_rate)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-     ON CONFLICT (user_id) DO UPDATE SET business_name = $4, is_active = TRUE`, [
-    id,
-    params.userId,
-    wallet.id,
-    params.businessName,
-    params.businessCategory,
-    params.taxId,
-    params.phone,
-    params.address || null,
-    params.commissionRate || 0.5
-  ]);
-  logger.info("Merchant registered", { merchantId: id, businessName: params.businessName });
-  return { merchantId: id, walletId: wallet.id };
-}
-async function processMerchantPayment(params) {
-  const merchant = await query("SELECT * FROM merchants WHERE id = $1 AND is_active = TRUE AND is_verified = TRUE", [params.merchantId]);
-  if (merchant.rows.length === 0)
-    throw new AppError(404, "Comercio no encontrado o inactivo");
-  const m2 = merchant.rows[0];
-  const commission = Math.round(params.amount * parseFloat(m2.commission_rate) * 100) / 1e4;
-  const netAmount = params.amount - commission;
-  const customer = await walletRepository.getById(BigInt(params.customerWalletId));
-  if (!customer || customer.availableBalance < params.amount)
-    throw new AppError(400, "Saldo insuficiente");
-  const transfer = await transferRepository.create({
-    senderWalletId: BigInt(params.customerWalletId),
-    receiverWalletId: m2.wallet_id,
-    amount: params.amount,
-    fee: commission,
-    total: params.amount,
-    description: params.description || `Pago a ${m2.business_name}`,
-    referenceType: "merchant_payment"
-  });
-  await transferRepository.updateStatus(transfer.id, "completed");
-  await walletRepository.updateBalance(BigInt(params.customerWalletId), customer.balance - params.amount, customer.availableBalance - params.amount);
-  logger.info("Merchant payment processed", {
-    merchantId: params.merchantId,
-    amount: params.amount,
-    commission,
-    netAmount,
-    transferId: transfer.id
-  });
-  return { transferId: transfer.id, merchantName: m2.business_name, amount: params.amount, commission, netAmount };
-}
-async function generateMerchantQR(merchantId) {
-  const merchant = await query("SELECT * FROM merchants WHERE id = $1", [merchantId]);
-  if (merchant.rows.length === 0)
-    throw new AppError(404, "Comercio no encontrado");
-  const m2 = merchant.rows[0];
-  const qrData = JSON.stringify({
-    type: "merchant",
-    merchantId: String(merchantId),
-    businessName: m2.business_name,
-    walletId: String(m2.wallet_id)
-  });
-  const { default: QRCode } = await Promise.resolve().then(() => __toESM(require_server(), 1));
-  const qrImage = await QRCode.toDataURL(qrData);
-  return { qrData, qrImage, businessName: m2.business_name };
-}
-async function listMerchants(userId) {
-  const result = await query("SELECT id, user_id, wallet_id, business_name, business_category, tax_id, phone, address, commission_rate, is_verified, is_active, created_at FROM merchants WHERE user_id = $1 ORDER BY created_at DESC", [userId]);
-  return result.rows;
-}
-async function getMerchantById(merchantId) {
-  const result = await query("SELECT id, user_id, wallet_id, business_name, business_category, tax_id, phone, address, commission_rate, is_verified, is_active, created_at FROM merchants WHERE id = $1", [merchantId]);
-  return result.rows[0] || null;
-}
-
-// src/payments/merchant/merchant.routes.ts
-init_app_error();
-var merchantRoutes = new Elysia({ prefix: "/merchants" }).derive(authMiddleware).get("/", async ({ userId }) => {
-  const merchants = await listMerchants(userId);
-  return list(merchants, undefined, "Comercios listados exitosamente");
-}, {
-  detail: { tags: ["Merchant"], summary: "Listar mis comercios" }
-}).get("/:id", async ({ params }) => {
-  const merchant = await getMerchantById(params.id);
-  if (!merchant)
-    throw new AppError(404, "Comercio no encontrado");
-  return ok(merchant);
-}, {
-  params: t.Object({ id: t.String() }),
-  detail: { tags: ["Merchant"], summary: "Detalle de comercio" }
-}).post("/register", async ({ userId, body }) => {
-  return ok(await registerMerchant({ userId, ...body }));
-}, {
-  body: t.Object({
-    businessName: t.String({ minLength: 3 }),
-    businessCategory: t.String(),
-    taxId: t.String(),
-    phone: t.String(),
-    address: t.Optional(t.String()),
-    commissionRate: t.Optional(t.Number())
-  }),
-  detail: { tags: ["Merchant"], summary: "Registrar comercio" }
-}).get("/:id/qr", async ({ params }) => {
-  return ok(await generateMerchantQR(params.id));
-}, {
-  params: t.Object({ id: t.String() }),
-  detail: { tags: ["Merchant"], summary: "Generar QR de comercio" }
-}).post("/pay", async ({ body }) => {
-  return ok(await processMerchantPayment(body));
-}, {
-  body: t.Object({
-    merchantId: t.String(),
-    customerWalletId: t.String(),
-    amount: t.Number({ minimum: 0.01 }),
-    description: t.Optional(t.String())
-  }),
-  detail: { tags: ["Merchant"], summary: "Pagar en comercio" }
-});
-
-// src/payments/push/push.service.ts
-init_pool();
-init_logger();
-init_app_error();
-async function sendPush(userId, payload) {
-  const devices = await query(`SELECT fcm_token, apns_token, platform FROM devices
-     WHERE user_id = $1 AND is_active = TRUE
-       AND (fcm_token IS NOT NULL OR apns_token IS NOT NULL)`, [userId]);
-  let sent = 0;
-  for (const device of devices.rows) {
-    if (device.fcm_token) {
-      await sendFCM(device.fcm_token, payload).catch((e) => logger.error("FCM send failed", { error: e.message, userId }));
-      sent++;
-    }
-    if (device.apns_token) {
-      await sendAPNS(device.apns_token, payload).catch((e) => logger.error("APNS send failed", { error: e.message, userId }));
-      sent++;
-    }
-  }
-  return sent;
-}
-async function sendFCM(token, payload) {
-  const serverKey = process.env.FCM_SERVER_KEY;
-  if (!serverKey) {
-    logger.warn("FCM_SERVER_KEY not configured");
-    return;
-  }
-  const res = await fetch("https://fcm.googleapis.com/fcm/send", {
-    method: "POST",
-    headers: {
-      Authorization: `key=${serverKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      to: token,
-      notification: {
-        title: payload.title,
-        body: payload.body,
-        sound: payload.sound || "default",
-        badge: payload.badge || 1
-      },
-      data: payload.data || {},
-      priority: "high"
-    })
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new AppError(502, `FCM error ${res.status}: ${text}`);
-  }
-}
-async function sendAPNS(token, payload) {
-  const keyId = process.env.APNS_KEY_ID;
-  const teamId = process.env.APNS_TEAM_ID;
-  const keyFile = process.env.APNS_KEY_FILE;
-  if (!keyId || !teamId || !keyFile) {
-    logger.warn("APNS not configured");
-    return;
-  }
-  const res = await fetch(`https://api.push.apple.com/3/device/${token}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${await generateAPNSToken(keyId, teamId, keyFile)}`,
-      "apns-topic": "bo.pagui.app"
-    },
-    body: JSON.stringify({
-      aps: {
-        alert: { title: payload.title, body: payload.body },
-        sound: payload.sound || "default",
-        badge: payload.badge || 1
-      },
-      data: payload.data || {}
-    })
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new AppError(502, `APNS error ${res.status}: ${text}`);
-  }
-}
-async function generateAPNSToken(keyId, teamId, keyFile) {
-  const { readFileSync: readFileSync2 } = await import("node:fs");
-  const { createSign } = await import("node:crypto");
-  const key = readFileSync2(keyFile);
-  const now = Math.floor(Date.now() / 1000);
-  const payload = `{ "iss": "${teamId}", "iat": ${now} }`;
-  const token = createSign("ES256").update(payload).end().sign({
-    key,
-    format: "pem"
-  }, "base64");
-  return `${teamId}.${keyId}.${token}`;
-}
-async function registerDeviceToken(userId, token, platform) {
-  const column = platform === "ios" ? "apns_token" : "fcm_token";
-  await query(`UPDATE devices SET ${column} = $1 WHERE user_id = $2 AND is_active = TRUE ORDER BY last_seen_at DESC LIMIT 1`, [token, userId]);
-  logger.info("Device push token registered", { platform, userId });
-}
-
-// src/payments/push/push.routes.ts
-var pushRoutes = new Elysia({ prefix: "/push" }).derive(authMiddleware).post("/register", async ({ userId, body }) => {
-  await registerDeviceToken(userId, body.token, body.platform);
-  return ok(null);
-}, {
-  body: t.Object({
-    token: t.String(),
-    platform: t.Enum({ ios: "ios", android: "android" })
-  }),
-  detail: { tags: ["Push"], summary: "Registrar token de push notification" }
-}).post("/test", async ({ userId, body }) => {
-  const sent = await sendPush(userId, body);
-  return ok({ sent });
-}, {
-  body: t.Object({
-    title: t.String(),
-    body: t.String(),
-    data: t.Optional(t.Record(t.String(), t.String()))
-  }),
-  detail: { tags: ["Push"], summary: "Enviar push de prueba" }
-});
-
-// src/payments/cash/cash.service.ts
-init_pool();
-init_snowflake();
-init_wallet_repository();
-init_app_error();
-init_logger();
-async function registerAgent(params) {
-  const wallet = await walletRepository.create({
-    userId: BigInt(params.userId),
-    name: params.name,
-    type: "agent",
-    currency: "BOB"
-  });
-  const id = nextSnowflake();
-  await query(`INSERT INTO cash_agents (id, user_id, wallet_id, name, phone, address, lat, lng, operating_hours)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`, [
-    id,
-    params.userId,
-    wallet.id,
-    params.name,
-    params.phone,
-    params.address,
-    params.lat,
-    params.lng,
-    params.operatingHours || null
-  ]);
-  logger.info("Cash agent registered", { agentId: id, name: params.name });
-  return { agentId: id, walletId: wallet.id };
-}
-async function processCashTransaction(params) {
-  const agent = await query("SELECT wallet_id, name FROM cash_agents WHERE id = $1 AND is_active = TRUE", [params.agentId]);
-  if (agent.rows.length === 0)
-    throw new AppError(404, "Agente no encontrado o inactivo");
-  const fee = params.direction === "cash_in" ? 0 : Math.round(params.amount * 0.01 * 100) / 100;
-  const total = params.direction === "cash_out" ? params.amount + fee : params.amount;
-  if (params.direction === "cash_in") {
-    const senderWallet = await walletRepository.getById(BigInt(params.userWalletId));
-    if (!senderWallet)
-      throw new AppError(404, "Billetera no encontrada");
-    const transfer = await transferRepository.create({
-      senderWalletId: BigInt(agent.rows[0].wallet_id),
-      receiverWalletId: BigInt(params.userWalletId),
-      amount: params.amount,
-      fee,
-      total,
-      description: `Cash-in en ${agent.rows[0].name}`,
-      referenceType: "cash_in"
-    });
-    await transferRepository.updateStatus(transfer.id, "completed");
-    await walletRepository.updateBalance(BigInt(params.userWalletId), senderWallet.balance + params.amount, senderWallet.availableBalance + params.amount);
-    logger.info("Cash-in processed", { agentId: params.agentId, amount: params.amount });
-    return { transferId: transfer.id, direction: "cash_in" };
-  } else {
-    const senderWallet = await walletRepository.getById(BigInt(params.userWalletId));
-    if (!senderWallet || senderWallet.availableBalance < total)
-      throw new AppError(400, "Saldo insuficiente");
-    const transfer = await transferRepository.create({
-      senderWalletId: BigInt(params.userWalletId),
-      receiverWalletId: BigInt(agent.rows[0].wallet_id),
-      amount: params.amount,
-      fee,
-      total,
-      description: `Cash-out en ${agent.rows[0].name}`,
-      referenceType: "cash_out"
-    });
-    await transferRepository.updateStatus(transfer.id, "completed");
-    await walletRepository.updateBalance(BigInt(params.userWalletId), senderWallet.balance - total, senderWallet.availableBalance - total);
-    logger.info("Cash-out processed", { agentId: params.agentId, amount: params.amount, fee });
-    return { transferId: transfer.id, direction: "cash_out", fee };
-  }
-}
-async function getNearbyAgents(params) {
-  const radius = params.radiusKm || 5;
-  const result = await query(`SELECT id, name, address, phone, lat, lng, operating_hours,
-            (6371 * acos(cos(radians($1)) * cos(radians(lat))
-            * cos(radians(lng) - radians($2)) + sin(radians($1))
-            * sin(radians(lat)))) AS distance_km
-     FROM cash_agents
-     WHERE is_active = TRUE
-     AND (6371 * acos(cos(radians($1)) * cos(radians(lat))
-             * cos(radians(lng) - radians($2)) + sin(radians($1))
-             * sin(radians(lat)))) < $3
-     ORDER BY distance_km ASC
-     LIMIT 20`, [params.lat, params.lng, radius]);
-  return result.rows;
-}
-
-// src/payments/cash/cash.routes.ts
-var cashRoutes = new Elysia({ prefix: "/cash" }).derive(authMiddleware).post("/agents/register", async ({ userId, body }) => {
-  return ok(await registerAgent({ userId, ...body }));
-}, {
-  body: t.Object({
-    name: t.String({ minLength: 3 }),
-    phone: t.String(),
-    address: t.String(),
-    lat: t.Number(),
-    lng: t.Number(),
-    operatingHours: t.Optional(t.String())
-  }),
-  detail: { tags: ["Cash"], summary: "Registrar agente de cash" }
-}).post("/transaction", async ({ userId, body }) => {
-  return ok(await processCashTransaction({ userId, ...body }));
-}, {
-  body: t.Object({
-    agentId: t.String(),
-    userWalletId: t.String(),
-    amount: t.Number({ minimum: 0.01 }),
-    direction: t.Enum({ cash_in: "cash_in", cash_out: "cash_out" }),
-    reference: t.String()
-  }),
-  detail: { tags: ["Cash"], summary: "Cash-in o Cash-out" }
-}).get("/agents/nearby", async ({ query: query2 }) => {
-  const agents = await getNearbyAgents({
-    lat: parseFloat(query2.lat),
-    lng: parseFloat(query2.lng),
-    radiusKm: parseFloat(query2.radius || "5")
-  });
-  return list(agents, undefined, "Agentes listados exitosamente");
-}, {
-  query: t.Object({
-    lat: t.String(),
-    lng: t.String(),
-    radius: t.Optional(t.String())
-  }),
-  detail: { tags: ["Cash"], summary: "Agentes cercanos" }
-});
-
 // src/payments/offline/nfc-offline.service.ts
 init_pool();
 init_snowflake();
-init_wallet_repository();
 init_logger();
 init_app_error();
-import crypto4 from "node:crypto";
+import crypto6 from "node:crypto";
 async function createNFCOfflinePayload(params) {
-  const nonce = crypto4.randomUUID().replace(/-/g, "").slice(0, 16);
+  const nonce = crypto6.randomUUID().replace(/-/g, "").slice(0, 16);
   const timestamp = Date.now();
   const nfcId = nextSnowflake();
   const payload = `${nfcId}:${params.senderWalletId}:${params.receiverWalletId}:${params.amount}:${timestamp}:${nonce}`;
@@ -52214,19 +52209,22 @@ async function processNFCTransaction(tx) {
   const expected = `${tx.nfcId}:${tx.senderWalletId}:${tx.receiverWalletId}:${tx.amount}:${tx.timestamp}:${tx.nonce}`;
   if (hash2(expected) !== tx.signature) {
     logger.warn("NFC invalid signature", { nfcId: tx.nfcId });
-    throw new AppError(401, "Firma NFC inválida");
+    throw new AppError2(401, "Firma NFC inválida");
   }
   const age = Date.now() - tx.timestamp;
   if (age > 300000) {
-    throw new AppError(400, "Transacción NFC expirada (más de 5 min)");
+    throw new AppError2(400, "Transacción NFC expirada (más de 5 min)");
   }
-  const existing = await query("SELECT id FROM transfers WHERE reference = $1", [`nfc-${tx.nfcId}`]);
+  const existing = await query2("SELECT id FROM transfers WHERE reference = $1", [`nfc-${tx.nfcId}`]);
   if (existing.rows.length > 0) {
-    throw new AppError(409, "Transacción NFC ya procesada");
+    throw new AppError2(409, "Transacción NFC ya procesada");
   }
-  const sender = await walletRepository.getById(tx.senderWalletId);
-  if (!sender || sender.availableBalance < tx.amount) {
-    throw new AppError(400, "Saldo insuficiente");
+  const senderResult = await query2("SELECT * FROM wallets WHERE id = $1 AND deleted_at IS NULL", [tx.senderWalletId]);
+  if (!senderResult.rowCount)
+    throw new AppError2(400, "Saldo insuficiente");
+  const sender = senderResult.rows[0];
+  if (parseFloat(sender.available_balance) < tx.amount) {
+    throw new AppError2(400, "Saldo insuficiente");
   }
   const transfer = await transferRepository.create({
     senderWalletId: tx.senderWalletId,
@@ -52238,7 +52236,7 @@ async function processNFCTransaction(tx) {
     reference: `nfc-${tx.nfcId}`,
     referenceType: "nfc_offline"
   });
-  await walletRepository.updateBalance(tx.senderWalletId, sender.balance - tx.amount, sender.availableBalance - tx.amount);
+  await query2("UPDATE wallets SET balance = balance - $1, available_balance = available_balance - $1 WHERE id = $2", [tx.amount, tx.senderWalletId]);
   await transferRepository.updateStatus(transfer.id, "completed");
   logger.info("NFC offline payment processed", {
     nfcId: tx.nfcId,
@@ -52249,7 +52247,7 @@ async function processNFCTransaction(tx) {
 }
 
 // src/payments/offline/nfc-offline.routes.ts
-var nfcRoutes = new Elysia({ prefix: "/nfc" }).derive(authMiddleware).post("/prepare", async ({ body }) => {
+var nfcRoutes = new Elysia({ prefix: "/nfc" }).post("/prepare", async ({ body }) => {
   return ok(await createNFCOfflinePayload(body));
 }, {
   body: t.Object({
@@ -52283,57 +52281,67 @@ var nfcRoutes = new Elysia({ prefix: "/nfc" }).derive(authMiddleware).post("/pre
 
 // src/shared/kyc/kyc.service.ts
 init_pool();
-init_snowflake();
 init_logger();
 async function submitKYC(params) {
-  const id = nextSnowflake();
-  await query(`INSERT INTO user_profiles (id, user_id, full_name, document_type, document_number, birth_date, nationality, address, kyc_level, kyc_submitted_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'basic', CURRENT_TIMESTAMP)
-     ON CONFLICT (user_id) DO UPDATE SET
-       full_name = $3, document_type = $4, document_number = $5,
-       birth_date = $6, nationality = $7, address = $8,
-       kyc_level = CASE WHEN user_profiles.kyc_level = 'none' THEN 'basic' ELSE user_profiles.kyc_level END,
-       kyc_submitted_at = CURRENT_TIMESTAMP`, [
-    id,
-    params.userId,
-    params.fullName,
+  const uc = await query2("SELECT tenant_id FROM tenant_users WHERE user_id = $1 AND role = $2 LIMIT 1", [params.userId, "owner"]);
+  if (!uc.rowCount) {
+    throw new Error("No se encontró un cliente asociado a este usuario");
+  }
+  const tenantId = uc.rows[0].tenant_id;
+  await query2(`UPDATE tenants SET
+       document_type = $1, document_number = $2, date_of_birth = $3,
+       nationality = $4, address = $5,
+       kyc_level = CASE WHEN kyc_level = 'none' THEN 'basic' ELSE kyc_level END,
+       kyc_submitted_at = CURRENT_TIMESTAMP
+     WHERE id = $6`, [
     params.documentType,
     params.documentNumber,
     params.birthDate,
     params.nationality,
-    params.address
+    params.address,
+    tenantId
   ]);
-  logger.info("KYC submitted", { userId: params.userId, level: "basic" });
-  return { kycId: id, level: "basic" };
+  logger.info("KYC submitted", { userId: params.userId, tenantId, level: "basic" });
+  return { kycId: tenantId, level: "basic" };
 }
-async function approveKYC(userId, level = "verified") {
-  await query(`UPDATE user_profiles SET kyc_level = $1, kyc_verified_at = CURRENT_TIMESTAMP, kyc_verified_by = 'system'
-     WHERE user_id = $2`, [level, userId]);
-  logger.info("KYC approved", { userId, level });
-  if (level === "premium") {
-    await query("UPDATE wallets SET daily_limit = 50000, monthly_limit = 500000 WHERE user_id = $1", [userId]);
-  } else if (level === "verified") {
-    await query("UPDATE wallets SET daily_limit = 10000, monthly_limit = 100000 WHERE user_id = $1", [userId]);
+async function approveKYC(userId, level2 = "verified") {
+  const uc = await query2("SELECT tenant_id FROM tenant_users WHERE user_id = $1 LIMIT 1", [userId]);
+  if (!uc.rowCount)
+    throw new Error("Cliente no encontrado");
+  const tenantId = uc.rows[0].tenant_id;
+  await query2(`UPDATE tenants SET kyc_level = $1, kyc_verified_at = CURRENT_TIMESTAMP WHERE id = $2`, [level2, tenantId]);
+  logger.info("KYC approved", { userId, tenantId, level: level2 });
+  if (level2 === "premium") {
+    await query2("UPDATE wallets SET max_daily = 50000, max_monthly = 500000 WHERE tenant_id = $1", [tenantId]);
+  } else if (level2 === "verified") {
+    await query2("UPDATE wallets SET max_daily = 10000, max_monthly = 100000 WHERE tenant_id = $1", [tenantId]);
   }
 }
 async function rejectKYC(userId, reason) {
-  await query(`UPDATE user_profiles SET kyc_level = 'none', kyc_rejection_reason = $1 WHERE user_id = $2`, [reason, userId]);
+  const uc = await query2("SELECT tenant_id FROM tenant_users WHERE user_id = $1 LIMIT 1", [userId]);
+  if (!uc.rowCount)
+    throw new Error("Cliente no encontrado");
+  const tenantId = uc.rows[0].tenant_id;
+  await query2(`UPDATE tenants SET kyc_level = 'none', kyc_rejection_reason = $1 WHERE id = $2`, [reason, tenantId]);
   logger.info("KYC rejected", { userId, reason });
 }
 async function getKYCStatus(userId) {
-  const result = await query("SELECT kyc_level FROM user_profiles WHERE user_id = $1", [userId]);
+  const result = await query2(`SELECT t.kyc_level FROM tenants t
+     JOIN tenant_users tu ON ut.tenant_id = t.id
+     WHERE ut.user_id = $1 AND ut.deleted_at IS NULL`, [userId]);
   return result.rows[0]?.kyc_level || "none";
 }
 async function getPendingKYC(limit = 50) {
-  const result = await query(`SELECT up.*, u.email FROM user_profiles up
-     JOIN users u ON u.id = up.user_id
-     WHERE up.kyc_level = 'basic' AND up.kyc_verified_at IS NULL
-     ORDER BY up.kyc_submitted_at ASC LIMIT $1`, [limit]);
+  const result = await query2(`SELECT t.*, u.email FROM tenants t
+     JOIN tenant_users tu ON ut.tenant_id = t.id
+     JOIN users u ON u.id = ut.user_id
+     WHERE t.kyc_level = 'basic' AND t.kyc_verified_at IS NULL
+     ORDER BY t.kyc_submitted_at ASC LIMIT $1`, [limit]);
   return result.rows;
 }
 
 // src/shared/kyc/kyc.routes.ts
-var kycRoutes = new Elysia({ prefix: "/kyc" }).derive(authMiddleware).post("/submit", async ({ userId, body }) => {
+var kycRoutes = new Elysia({ prefix: "/kyc" }).post("/submit", async ({ auth: { user: { id: userId } }, body }) => {
   return ok(await submitKYC({ userId, ...body }));
 }, {
   body: t.Object({
@@ -52348,7 +52356,7 @@ var kycRoutes = new Elysia({ prefix: "/kyc" }).derive(authMiddleware).post("/sub
     documentBackBase64: t.Optional(t.String())
   }),
   detail: { tags: ["KYC"], summary: "Enviar documentación KYC" }
-}).get("/status", async ({ userId }) => {
+}).get("/status", async ({ auth: { user: { id: userId } } }) => {
   return ok({ level: await getKYCStatus(userId) });
 }, {
   detail: { tags: ["KYC"], summary: "Estado KYC" }
@@ -52373,116 +52381,10 @@ var kycRoutes = new Elysia({ prefix: "/kyc" }).derive(authMiddleware).post("/sub
   detail: { tags: ["KYC"], summary: "KYC pendientes (admin)" }
 });
 
-// src/shared/compliance/retention.service.ts
-init_pool();
-init_logger();
-var POLICIES = [
-  { table: "audit_logs", retentionDays: 365, deleteBeforeColumn: "created_at" },
-  { table: "auth_tokens", retentionDays: 90, deleteBeforeColumn: "created_at" },
-  { table: "idempotency_keys", retentionDays: 30, deleteBeforeColumn: "created_at" },
-  { table: "outgoing_webhook_jobs", retentionDays: 30, deleteBeforeColumn: "created_at" },
-  { table: "payment_sync_status", retentionDays: 90, deleteBeforeColumn: "created_at" },
-  { table: "reconciliation_logs", retentionDays: 365, deleteBeforeColumn: "created_at" },
-  { table: "notifications", retentionDays: 180, deleteBeforeColumn: "created_at" },
-  { table: "fraud_alerts", retentionDays: 730, deleteBeforeColumn: "created_at", archiveBeforeDelete: true }
-];
-async function applyRetentionPolicies(dryRun = false) {
-  let totalDeleted = 0;
-  let totalArchived = 0;
-  const details = [];
-  for (const policy of POLICIES) {
-    const column = policy.deleteBeforeColumn || "created_at";
-    try {
-      let archived = 0;
-      const cutoffParam = `${policy.retentionDays} days`;
-      if (policy.archiveBeforeDelete && !dryRun) {
-        const archiveResult = await query(`CREATE TABLE IF NOT EXISTS ${policy.table}_archive AS SELECT * FROM ${policy.table} WHERE ${column} < CURRENT_TIMESTAMP - $1::interval`, [cutoffParam]);
-        archived = archiveResult.rowCount || 0;
-        totalArchived += archived;
-      }
-      if (!dryRun) {
-        const result = await query(`DELETE FROM ${policy.table} WHERE ${column} < CURRENT_TIMESTAMP - $1::interval`, [cutoffParam]);
-        const deleted = result.rowCount || 0;
-        totalDeleted += deleted;
-        details.push({ table: policy.table, deleted, archived });
-        if (deleted > 0) {
-          logger.info("Retention cleanup", { table: policy.table, deletedRecords: deleted });
-        }
-      } else {
-        const result = await query(`SELECT COUNT(*) as count FROM ${policy.table} WHERE ${column} < CURRENT_TIMESTAMP - $1::interval`, [cutoffParam]);
-        const toDelete = parseInt(result.rows[0]?.count || "0");
-        details.push({ table: policy.table, deleted: toDelete, archived: 0 });
-      }
-    } catch (err) {
-      logger.error("Retention policy failed", { table: policy.table, error: String(err) });
-      details.push({ table: policy.table, deleted: 0, archived: 0 });
-    }
-  }
-  return { deleted: totalDeleted, archived: totalArchived, details };
-}
-async function getRetentionStatus() {
-  const results = [];
-  for (const policy of POLICIES) {
-    try {
-      const result = await query(`SELECT COUNT(*) as count FROM ${policy.table}`);
-      results.push({
-        table: policy.table,
-        policyDays: policy.retentionDays,
-        currentRecords: parseInt(result.rows[0]?.count || "0")
-      });
-    } catch {
-      results.push({ table: policy.table, policyDays: policy.retentionDays, currentRecords: -1 });
-    }
-  }
-  return results;
-}
-
-// src/shared/audit/audit.service.ts
-init_pool();
-init_snowflake();
-init_logger();
-async function logAudit(params) {
-  try {
-    await query(`INSERT INTO audit_logs (id, user_id, action, resource_type, resource_id, details, ip_address, user_agent)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, [
-      nextSnowflake(),
-      params.userId || null,
-      params.action,
-      params.resourceType || null,
-      params.resourceId || null,
-      params.details ? JSON.stringify(params.details) : null,
-      params.ip || null,
-      params.userAgent || null
-    ]);
-  } catch (err) {
-    logger.error("Audit log failed", { error: String(err), action: params.action });
-  }
-}
-
-// src/shared/compliance/compliance.routes.ts
-var complianceRoutes = new Elysia({ prefix: "/compliance" }).derive(authMiddleware).get("/pci", async () => {
-  return ok(await logComplianceCheck());
-}, {
-  detail: { tags: ["Compliance"], summary: "Verificar compliance PCI-DSS" }
-}).post("/retention/run", async () => {
-  await logAudit({ action: "compliance.check", details: { type: "retention_run" } });
-  return ok(await applyRetentionPolicies(false));
-}, {
-  detail: { tags: ["Compliance"], summary: "Ejecutar limpieza por retención" }
-}).get("/retention/dry-run", async () => {
-  return ok(await applyRetentionPolicies(true));
-}, {
-  detail: { tags: ["Compliance"], summary: "Simular limpieza (sin borrar)" }
-}).get("/retention/status", async () => {
-  return ok(await getRetentionStatus());
-}, {
-  detail: { tags: ["Compliance"], summary: "Estado de retención por tabla" }
-});
-
 // src/payments/settlement/settlement.service.ts
 init_app_error();
-init_account_repository();
-init_baneco_adapter();
+init_wallet_repository();
+init_pool();
 init_logger();
 var settlementService = {
   async processPending() {
@@ -52499,28 +52401,27 @@ var settlementService = {
   async process(settlementId) {
     const settlement = await settlementRepository.getById(settlementId);
     if (!settlement)
-      throw new AppError(404, "Settlement no encontrado");
+      throw new AppError2(404, "Settlement no encontrado");
     if (settlement.status !== "pending")
       return;
-    const businessAccount = await accountRepository.getById(settlement.fromAccountId);
-    if (!businessAccount)
-      throw new AppError(404, "Cuenta empresarial no encontrada");
-    const businessCred = await bankCredentialRepository.getById(businessAccount.bankCredentialId);
-    if (!businessCred)
-      throw new AppError(400, "Credencial empresarial no configurada");
-    const businessRow = businessCred;
-    const adapter = new BanecoAdapter(businessRow.api_base_url, businessRow.encryption_key);
-    const token = await adapter.getToken(businessRow.username, businessRow.password);
+    const businessConfig = await query2(`
+      SELECT * FROM collection_config WHERE is_active = true LIMIT 1
+    `);
+    if (!businessConfig.rowCount)
+      throw new AppError2(400, "Configuración de recaudación no encontrada");
+    const config = businessConfig.rows[0];
+    const adapter = new BanecoAdapter(config.api_base_url, config.encryption_key);
+    const token = await adapter.getToken(config.username, config.password);
     let clientAccountNumber;
-    if (settlement.toBankCredentialId) {
-      const clientCred = await bankCredentialRepository.getById(settlement.toBankCredentialId);
-      if (!clientCred)
-        throw new AppError(400, "Credencial del cliente no encontrada");
-      clientAccountNumber = clientCred.accountNumber;
+    if (settlement.configId) {
+      const clientConfig = await query2("SELECT * FROM collection_config WHERE id = $1 AND is_active = true", [settlement.configId]);
+      if (!clientConfig.rowCount)
+        throw new AppError2(400, "Configuración del cliente no encontrada");
+      clientAccountNumber = clientConfig.rows[0].account_number;
     } else {
       const iathingsAcct = process.env.IATHINGS_CLIENT_ACCOUNT_NUMBER;
       if (!iathingsAcct) {
-        throw new AppError(500, "IATHINGS_CLIENT_ACCOUNT_NUMBER no configurado en variables de entorno");
+        throw new AppError2(500, "IATHINGS_CLIENT_ACCOUNT_NUMBER no configurado en variables de entorno");
       }
       clientAccountNumber = iathingsAcct;
     }
@@ -52531,8 +52432,8 @@ var settlementService = {
       modifyAmount: false,
       currency: settlement.currency
     });
-    const movement = await accountRepository.createMovement({
-      accountId: settlement.fromAccountId,
+    const movement = await walletRepository.createMovement({
+      walletId: settlement.fromWalletId,
       movementType: "settlement",
       amount: settlement.netAmount,
       balanceBefore: 0,
@@ -52546,7 +52447,7 @@ var settlementService = {
     });
     await settlementRepository.updateStatus(settlementId, "completed", {
       reference,
-      accountMovementId: movement.id
+      walletMovementId: movement.id
     });
     logger.info("Settlement completed", { settlementId, reference, netAmount: settlement.netAmount });
   },
@@ -52560,16 +52461,814 @@ var settlementService = {
 };
 
 // src/payments/settlement/settlement.routes.ts
-var settlementRoutes = new Elysia({ prefix: "/settlements" }).derive(authMiddleware).get("/", async ({ user }) => {
+var settlementRoutes = new Elysia({ prefix: "/settlements" }).get("/", async ({ auth: { user } }) => {
   const { settlements, totalCount } = await settlementService.listByUser(user.id, {
     page: 1,
     limit: 50
   });
   return { success: true, data: { settlements, totalCount } };
-}).get("/pending", async ({ user }) => {
+}).get("/pending", async ({ auth: { user } }) => {
   const total = await settlementService.getPendingTotal(user.id);
   const { settlements } = await settlementService.listByUser(user.id, { status: "pending" });
   return { success: true, data: { pendingTotal: total, settlements } };
+});
+
+// src/collection/collection.routes.ts
+import crypto7 from "node:crypto";
+
+// src/banking/credential/bank-credential.repository.ts
+init_pool();
+init_snowflake();
+var bankCredentialRepository = {
+  async create(data) {
+    const r2 = await query2(`
+      INSERT INTO baneco_credentials (id, bank_id, account_holder, account_number, merchant_id,
+        username, password, encryption_key, environment, api_base_url, user_id, is_active)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true)
+      RETURNING *
+    `, [
+      nextSnowflake(),
+      data.bankId,
+      data.accountHolder,
+      data.accountNumber,
+      data.merchantId || `MERCH-${nextSnowflake().toString().slice(-8)}`,
+      data.username,
+      data.password,
+      data.encryptionKey,
+      data.environment,
+      data.apiBaseUrl,
+      data.userId || null
+    ]);
+    return r2.rows[0];
+  },
+  async getById(id) {
+    const r2 = await query2("SELECT * FROM baneco_credentials WHERE id = $1 AND deleted_at IS NULL", [id]);
+    return r2.rowCount ? r2.rows[0] : null;
+  },
+  async list(filters = {}) {
+    const conditions = ["bc.deleted_at IS NULL"];
+    const params = [];
+    let pc = 0;
+    if (filters.environment) {
+      pc++;
+      conditions.push(`bc.environment = $${pc}`);
+      params.push(filters.environment);
+    }
+    if (filters.userId) {
+      pc++;
+      conditions.push(`bc.user_id = $${pc}`);
+      params.push(filters.userId);
+    }
+    if (filters.isActive !== undefined) {
+      pc++;
+      conditions.push(`bc.is_active = $${pc}`);
+      params.push(filters.isActive);
+    }
+    const where = "WHERE " + conditions.join(" AND ");
+    const r2 = await query2(`SELECT bc.* FROM baneco_credentials bc ${where} ORDER BY bc.created_at DESC`, params);
+    return r2.rows;
+  },
+  async update(id, data) {
+    const sets = [];
+    const params = [];
+    let pc = 0;
+    const map4 = {
+      accountHolder: "account_holder",
+      accountNumber: "account_number",
+      merchantId: "merchant_id",
+      apiBaseUrl: "api_base_url",
+      encryptionKey: "encryption_key",
+      isActive: "is_active"
+    };
+    for (const [k, v] of Object.entries(data)) {
+      if (v === undefined)
+        continue;
+      pc++;
+      sets.push(`${map4[k] || k.replace(/([A-Z])/g, "_$1").toLowerCase()} = $${pc}`);
+      params.push(v);
+    }
+    if (sets.length) {
+      await query2(`UPDATE baneco_credentials SET ${sets.join(", ")} WHERE id = $${pc + 1}`, [...params, id]);
+    }
+  },
+  async delete(id) {
+    await query2("UPDATE baneco_credentials SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
+  }
+};
+
+// src/collection/bank-account.repository.ts
+init_pool();
+init_snowflake();
+var COLS2 = `id, user_id as "userId", bank_code as "bankCode", account_holder as "accountHolder", account_number as "accountNumber", holder_document as "holderDocument", is_active as "isActive", created_at as "createdAt", deleted_at as "deletedAt"`;
+var bankAccountRepository = {
+  async create(data) {
+    const r2 = await query2(`
+      INSERT INTO bank_accounts (id, user_id, bank_code, account_holder, account_number, holder_document)
+      VALUES ($1, $2, $3, $4, $5, $6) RETURNING ${COLS2}
+    `, [nextSnowflake(), data.userId, data.bankCode, data.accountHolder, data.accountNumber, data.holderDocument || ""]);
+    return r2.rows[0];
+  },
+  async listByUser(userId) {
+    const r2 = await query2(`SELECT ${COLS2} FROM bank_accounts WHERE user_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC`, [userId]);
+    return r2.rows;
+  },
+  async getById(id) {
+    const r2 = await query2(`SELECT ${COLS2} FROM bank_accounts WHERE id = $1 AND deleted_at IS NULL`, [id]);
+    return r2.rowCount ? r2.rows[0] : null;
+  },
+  async delete(id) {
+    await query2("UPDATE bank_accounts SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
+  }
+};
+
+// src/collection/collection.routes.ts
+init_app_error();
+var collectionRoutes = new Elysia().get("/baneco-credentials", async ({ auth }) => {
+  const creds = await bankCredentialRepository.list({ userId: auth.user.id, isActive: true });
+  return list(creds, creds.length, "Credenciales listadas");
+}, {
+  detail: { tags: ["Collection"], summary: "Listar credenciales Baneco" }
+}).post("/baneco-credentials", async ({ auth, body }) => {
+  const { query: query3 } = await Promise.resolve().then(() => (init_pool(), exports_pool));
+  const tenant = await query3(`
+      SELECT t.environment FROM tenants t
+      JOIN tenant_users tu ON t.id = tu.tenant_id
+      WHERE tu.user_id = $1 AND t.deleted_at IS NULL AND tu.deleted_at IS NULL
+      LIMIT 1
+    `, [auth.user.id]);
+  const isProd = tenant.rowCount && tenant.rows[0].environment === "production";
+  const apiBaseUrl = isProd ? process.env.BANECO_PROD_API_URL || "https://apimkt.baneco.com.bo/ApiGateway" : process.env.BANECO_SANDBOX_API_URL || "https://apimktdesa.baneco.com.bo/ApiGateway";
+  const cred = await bankCredentialRepository.create({
+    bankId: 1n,
+    accountHolder: body.accountHolder,
+    accountNumber: body.accountNumber,
+    username: body.username,
+    password: body.password,
+    encryptionKey: crypto7.randomBytes(16).toString("hex").toUpperCase(),
+    environment: isProd ? "prod" : "test",
+    apiBaseUrl,
+    userId: auth.user.id
+  });
+  return ok(cred, "Credencial creada");
+}, {
+  body: t.Object({
+    accountHolder: t.String(),
+    accountNumber: t.String(),
+    username: t.String(),
+    password: t.String()
+  }),
+  detail: { tags: ["Collection"], summary: "Crear credencial Baneco" }
+}).delete("/baneco-credentials/:id", async ({ params }) => {
+  await bankCredentialRepository.delete(BigInt(params.id));
+  return ok(null, "Credencial eliminada");
+}, {
+  detail: { tags: ["Collection"], summary: "Eliminar credencial Baneco" }
+}).post("/baneco-credentials/test", async ({ body }) => {
+  if (!body.username || !body.password || !body.encryptionKey) {
+    throw new AppError2(400, "Faltan campos requeridos");
+  }
+  return ok({ success: true }, "Conexión exitosa");
+}, {
+  body: t.Object({
+    username: t.String(),
+    password: t.String(),
+    encryptionKey: t.String()
+  }),
+  detail: { tags: ["Collection"], summary: "Probar conexión Baneco" }
+}).get("/banks", async () => {
+  const { query: query3 } = await Promise.resolve().then(() => (init_pool(), exports_pool));
+  const r2 = await query3("SELECT code, name FROM banks WHERE is_active = true ORDER BY name");
+  return list(r2.rows, r2.rows.length);
+}, {
+  detail: { tags: ["Collection"], summary: "Listar bancos disponibles" }
+}).get("/bank-accounts", async ({ auth }) => {
+  const accounts = await bankAccountRepository.listByUser(auth.user.id);
+  return list(accounts, accounts.length, "Cuentas listadas");
+}, {
+  detail: { tags: ["Collection"], summary: "Listar cuentas bancarias" }
+}).post("/bank-accounts", async ({ auth, body }) => {
+  const account = await bankAccountRepository.create({
+    userId: auth.user.id,
+    bankCode: body.bankCode,
+    accountHolder: body.accountHolder,
+    accountNumber: body.accountNumber,
+    holderDocument: body.holderDocument || ""
+  });
+  return ok(account, "Cuenta guardada");
+}, {
+  body: t.Object({
+    bankCode: t.String(),
+    accountHolder: t.String(),
+    accountNumber: t.String(),
+    holderDocument: t.Optional(t.String())
+  }),
+  detail: { tags: ["Collection"], summary: "Crear cuenta bancaria" }
+}).delete("/bank-accounts/:id", async ({ params }) => {
+  await bankAccountRepository.delete(BigInt(params.id));
+  return ok(null, "Cuenta eliminada");
+}, {
+  detail: { tags: ["Collection"], summary: "Eliminar cuenta bancaria" }
+}).get("/collection/config", async ({ auth }) => {
+  const config = await collectionService.getConfig(auth.user.id);
+  return ok(config || null);
+}, {
+  detail: { tags: ["Collection"], summary: "Obtener configuración de recaudación" }
+}).post("/collection/config", async ({ auth, body }) => {
+  let wallet = await walletService.getCollectionAccount(auth.user.id);
+  if (!wallet)
+    throw new AppError2(404, "Primero crea una billetera de recaudación");
+  const config = await collectionService.upsertConfig(auth.user.id, {
+    walletId: wallet.id,
+    useDefault: body.useDefault,
+    banecoCredentialId: body.banecoCredentialId ? BigInt(body.banecoCredentialId) : null,
+    bankAccountId: body.bankAccountId ? BigInt(body.bankAccountId) : null,
+    collectionType: body.collectionType ?? "gateway",
+    commissionRate: body.commissionRate ?? 0
+  });
+  return ok(config, "Configuración guardada");
+}, {
+  body: t.Object({
+    useDefault: t.Optional(t.Boolean()),
+    banecoCredentialId: t.Optional(t.String()),
+    bankAccountId: t.Optional(t.String()),
+    autoTransferFreq: t.Optional(t.String()),
+    collectionType: t.Optional(t.String()),
+    commissionRate: t.Optional(t.Number())
+  }),
+  detail: { tags: ["Collection"], summary: "Guardar configuración de recaudación" }
+});
+
+// src/collection/liquidation.service.ts
+init_wallet_repository();
+init_snowflake();
+init_app_error();
+init_pool();
+var liquidationService = {
+  async createManual(userId, bankAccountId, amount) {
+    const wallet = await walletService.getCollectionAccount(userId);
+    if (!wallet)
+      throw new AppError2(404, "No tienes billetera de recaudación");
+    const balance = Number(wallet.balance || 0);
+    if (amount > balance)
+      throw new AppError2(400, "El monto excede el saldo disponible");
+    if (amount < 0.01)
+      throw new AppError2(400, "El monto mínimo es 0.01 BOB");
+    const movement = await walletRepository.createMovement({
+      walletId: wallet.id,
+      movementType: "withdrawal",
+      amount,
+      balanceBefore: balance,
+      balanceAfter: balance - amount,
+      description: `Retiro manual a cuenta bancaria #${bankAccountId}`,
+      currency: "BOB",
+      referenceId: String(bankAccountId),
+      referenceType: "manual_liquidation",
+      status: "completed"
+    });
+    const settlementId = nextSnowflake();
+    const reference = `MANUAL-${settlementId}`;
+    await query2(`
+      INSERT INTO settlements (id, wallet_movement_id, from_wallet_id, user_id, gross_amount, commission, commission_rate, net_amount, currency, status, reference, settled_at)
+      VALUES ($1, $2, $3, $4, $5, 0, 0, $5, 'BOB', 'completed', $6, CURRENT_TIMESTAMP)
+    `, [settlementId, movement.id, wallet.id, userId, amount, reference]);
+    return { settlementId: String(settlementId), movementId: String(movement.id), amount };
+  },
+  async listByUser(userId, page = 1, limit = 50) {
+    return settlementRepository.listByUser(userId, { page, limit });
+  }
+};
+
+// src/collection/liquidation.routes.ts
+init_app_error();
+var liquidationRoutes = new Elysia().post("/liquidations/manual", async ({ auth, body }) => {
+  const bankAccount = await bankAccountRepository.getById(BigInt(body.bankAccountId));
+  if (!bankAccount)
+    throw new AppError2(404, "Cuenta bancaria no encontrada");
+  const result = await liquidationService.createManual(auth.user.id, BigInt(body.bankAccountId), body.amount);
+  return ok(result, "Retiro procesado exitosamente");
+}, {
+  body: t.Object({
+    bankAccountId: t.String(),
+    amount: t.Number()
+  }),
+  detail: { tags: ["Liquidations"], summary: "Retiro manual a cuenta bancaria" }
+}).get("/liquidations", async ({ auth, query: { page, limit } }) => {
+  const result = await liquidationService.listByUser(auth.user.id, Number(page) || 1, Number(limit) || 50);
+  return ok(result, "Historial de retiros");
+}, {
+  detail: { tags: ["Liquidations"], summary: "Listar retiros" }
+});
+
+// src/collection/direct-transaction.routes.ts
+init_direct_transaction_service();
+var directTransactionRoutes = new Elysia().get("/direct-transactions", async ({ auth, query: { page, limit } }) => {
+  const result = await directTransactionService.listByUser(auth.user.id, Number(page) || 1, Number(limit) || 50);
+  return ok(result, "Transacciones directas");
+}, {
+  detail: { tags: ["Collection"], summary: "Listar transacciones Baneco Direct" }
+}).get("/direct-transactions/pending", async ({ auth }) => {
+  const total = await directTransactionService.getPendingTotal(auth.user.id);
+  const { items } = await directTransactionService.listByUser(auth.user.id, 1, 50);
+  return ok({ pendingTotal: total, items: items.filter((i) => !i.commissionPaid) }, "Comisiones pendientes");
+}, {
+  detail: { tags: ["Collection"], summary: "Comisiones pendientes por cobrar" }
+}).put("/direct-transactions/:id/pay", async ({ params }) => {
+  await directTransactionService.markAsPaid(BigInt(params.id));
+  return ok(null, "Comisión marcada como cobrada");
+}, {
+  detail: { tags: ["Collection"], summary: "Marcar comisión como cobrada" }
+});
+
+// src/admin/admin.routes.ts
+init_pool();
+init_user_service();
+init_tenant_repository();
+init_wallet_repository();
+init_app_error();
+init_snowflake();
+init_dist();
+var adminRoutes = new Elysia({ prefix: "/admin" }).get("/stats", async () => {
+  const [users, tenants, wallets] = await Promise.all([
+    query2(`SELECT
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE status = 'active') as active,
+        COUNT(*) FILTER (WHERE status = 'inactive') as inactive
+      FROM users WHERE deleted_at IS NULL`),
+    query2(`SELECT
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE status = 'active') as active,
+        COUNT(*) FILTER (WHERE status = 'inactive') as inactive,
+        COUNT(*) FILTER (WHERE environment = 'sandbox') as sandbox,
+        COUNT(*) FILTER (WHERE environment = 'production') as production
+      FROM tenants WHERE deleted_at IS NULL`),
+    query2(`SELECT
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE status = 'active') as active,
+        COUNT(*) FILTER (WHERE status = 'inactive') as inactive
+      FROM wallets WHERE deleted_at IS NULL`)
+  ]);
+  return ok({
+    users: users.rows[0],
+    tenants: tenants.rows[0],
+    wallets: wallets.rows[0]
+  });
+}, {
+  detail: { tags: ["Admin"], summary: "Dashboard stats" }
+}).get("/users", async ({ query: q }) => {
+  const result = await userService.list({
+    page: q.page ? parseInt(q.page) : undefined,
+    limit: q.limit ? parseInt(q.limit) : undefined,
+    search: q.search,
+    status: q.status
+  });
+  return list(result.users, result.totalCount, "Usuarios listados");
+}, {
+  query: t.Optional(t.Object({
+    page: t.Optional(t.String()),
+    limit: t.Optional(t.String()),
+    search: t.Optional(t.String()),
+    status: t.Optional(t.String())
+  })),
+  detail: { tags: ["Admin"], summary: "Listar usuarios" }
+}).post("/users", async ({ body }) => {
+  const user = await userService.create({
+    email: body.email,
+    password: body.password,
+    fullName: body.fullName,
+    phone: body.phone,
+    address: body.address,
+    role: body.role ?? Role.User
+  });
+  return ok(user, "Usuario creado");
+}, {
+  body: t.Object({
+    email: t.String(),
+    password: t.String(),
+    fullName: t.String(),
+    phone: t.Optional(t.String()),
+    address: t.Optional(t.String()),
+    role: t.Optional(t.Number())
+  }),
+  detail: { tags: ["Admin"], summary: "Crear usuario" }
+}).put("/users/:id", async ({ params, body }) => {
+  const user = await userService.update(BigInt(params.id), body);
+  return ok(user, "Usuario actualizado");
+}, {
+  body: t.Object({
+    fullName: t.Optional(t.String()),
+    phone: t.Optional(t.String()),
+    address: t.Optional(t.String()),
+    status: t.Optional(t.String())
+  }),
+  detail: { tags: ["Admin"], summary: "Actualizar usuario" }
+}).put("/users/:id/status", async ({ params, body }) => {
+  const user = await userService.update(BigInt(params.id), { status: body.status });
+  return ok(user, `Usuario ${body.status === "active" ? "activado" : "desactivado"}`);
+}, {
+  body: t.Object({ status: t.String() }),
+  detail: { tags: ["Admin"], summary: "Activar/desactivar usuario" }
+}).get("/users/:id", async ({ params }) => {
+  const user = await userService.getById(BigInt(params.id));
+  if (!user)
+    throw new AppError2(404, "Usuario no encontrado");
+  const tenantR = await query2(`
+      SELECT t.id, t.full_name as "fullName", t.environment
+      FROM tenant_users tu JOIN tenants t ON t.id = tu.tenant_id
+      WHERE tu.user_id = $1 AND tu.deleted_at IS NULL AND t.deleted_at IS NULL
+    `, [user.id]);
+  const walletR = await query2(`
+      SELECT w.id, w.wallet_number as "walletNumber", w.name, w.type, w.balance, w.status
+      FROM wallets w
+      JOIN wallet_permissions wp ON w.id = wp.wallet_id AND wp.deleted_at IS NULL
+      WHERE wp.user_id = $1 AND w.deleted_at IS NULL
+    `, [user.id]);
+  return ok({ ...user, tenants: tenantR.rows, wallets: walletR.rows }, "Usuario encontrado");
+}, {
+  detail: { tags: ["Admin"], summary: "Detalle de usuario" }
+}).get("/tenants", async ({ query: q }) => {
+  const page = Math.max(1, parseInt(q.page || "1"));
+  const limit = Math.min(100, Math.max(1, parseInt(q.limit || "20")));
+  const offset = (page - 1) * limit;
+  const conditions = ["t.deleted_at IS NULL"];
+  const params = [];
+  let pc = 0;
+  if (q.search) {
+    pc++;
+    conditions.push(`(t.full_name ILIKE $${pc} OR t.email ILIKE $${pc})`);
+    params.push(`%${q.search}%`);
+  }
+  if (q.status) {
+    pc++;
+    conditions.push(`t.status = $${pc}`);
+    params.push(q.status);
+  }
+  if (q.environment) {
+    pc++;
+    conditions.push(`t.environment = $${pc}`);
+    params.push(q.environment);
+  }
+  const where = "WHERE " + conditions.join(" AND ");
+  const countR = await query2(`SELECT COUNT(*) as total FROM tenants t ${where}`, params);
+  const totalCount = parseInt(countR.rows[0].total);
+  const rows = await query2(`
+      SELECT t.id, t.full_name as "fullName", t.email, t.phone,
+        t.document_type as "documentType", t.document_number as "documentNumber",
+        t.status, t.environment, t.created_at as "createdAt",
+        (SELECT u.email FROM tenant_users tu JOIN users u ON u.id = tu.user_id WHERE tu.tenant_id = t.id AND tu.deleted_at IS NULL LIMIT 1) as "ownerEmail"
+      FROM tenants t ${where}
+      ORDER BY t.created_at DESC LIMIT $${pc + 1} OFFSET $${pc + 2}
+    `, [...params, limit, offset]);
+  return list({ items: rows.rows, pagination: { page, limit, totalPages: Math.ceil(totalCount / limit), total: totalCount } }, totalCount, "Clientes listados");
+}, {
+  query: t.Optional(t.Object({
+    page: t.Optional(t.String()),
+    limit: t.Optional(t.String()),
+    search: t.Optional(t.String()),
+    status: t.Optional(t.String()),
+    environment: t.Optional(t.String())
+  })),
+  detail: { tags: ["Admin"], summary: "Listar clientes" }
+}).get("/tenants/:id", async ({ params }) => {
+  const tenant = await tenantRepository.getById(BigInt(params.id));
+  if (!tenant)
+    throw new AppError2(404, "Cliente no encontrado");
+  const walletsR = await query2(`SELECT COUNT(*) as total, COALESCE(SUM(balance), 0) as totalBalance FROM wallets WHERE tenant_id = $1 AND deleted_at IS NULL`, [tenant.id]);
+  return ok({
+    ...tenant,
+    walletCount: parseInt(walletsR.rows[0].total),
+    totalBalance: parseFloat(walletsR.rows[0].totalBalance)
+  }, "Cliente encontrado");
+}, {
+  detail: { tags: ["Admin"], summary: "Detalle de cliente" }
+}).post("/tenants", async ({ body }) => {
+  const tenant = await tenantRepository.create({
+    id: nextSnowflake(),
+    fullName: body.fullName,
+    email: body.email,
+    phone: body.phone,
+    documentType: body.documentType,
+    documentNumber: body.documentNumber,
+    environment: body.environment || "production"
+  });
+  if (body.ownerUserId) {
+    await tenantRepository.setTenant(BigInt(body.ownerUserId), tenant.id, "owner");
+  }
+  return ok(tenant, "Cliente creado");
+}, {
+  body: t.Object({
+    fullName: t.String(),
+    email: t.Optional(t.String()),
+    phone: t.Optional(t.String()),
+    documentType: t.Optional(t.String()),
+    documentNumber: t.Optional(t.String()),
+    environment: t.Optional(t.String()),
+    ownerUserId: t.Optional(t.String())
+  }),
+  detail: { tags: ["Admin"], summary: "Crear cliente" }
+}).put("/tenants/:id", async ({ params, body }) => {
+  const tenant = await tenantRepository.update(BigInt(params.id), body);
+  if (!tenant)
+    throw new AppError2(404, "Cliente no encontrado");
+  return ok(tenant, "Cliente actualizado");
+}, {
+  body: t.Object({
+    fullName: t.Optional(t.String()),
+    email: t.Optional(t.String()),
+    phone: t.Optional(t.String()),
+    documentType: t.Optional(t.String()),
+    documentNumber: t.Optional(t.String()),
+    address: t.Optional(t.String()),
+    status: t.Optional(t.String()),
+    environment: t.Optional(t.String())
+  }),
+  detail: { tags: ["Admin"], summary: "Actualizar cliente" }
+}).put("/tenants/:id/status", async ({ params, body }) => {
+  const tenant = await tenantRepository.update(BigInt(params.id), { status: body.status });
+  if (!tenant)
+    throw new AppError2(404, "Cliente no encontrado");
+  return ok(tenant, `Cliente ${body.status === "active" ? "activado" : "desactivado"}`);
+}, {
+  body: t.Object({ status: t.String() }),
+  detail: { tags: ["Admin"], summary: "Activar/desactivar cliente" }
+}).put("/tenants/:id/environment", async ({ params, body }) => {
+  if (!["sandbox", "production"].includes(body.environment)) {
+    throw new AppError2(400, "Entorno inválido. Use sandbox o production");
+  }
+  const tenant = await tenantRepository.update(BigInt(params.id), { environment: body.environment });
+  if (!tenant)
+    throw new AppError2(404, "Cliente no encontrado");
+  return ok(tenant, `Entorno cambiado a ${body.environment}`);
+}, {
+  body: t.Object({ environment: t.String() }),
+  detail: { tags: ["Admin"], summary: "Cambiar entorno sandbox/production" }
+}).get("/wallets", async ({ query: q }) => {
+  const page = Math.max(1, parseInt(q.page || "1"));
+  const limit = Math.min(100, Math.max(1, parseInt(q.limit || "20")));
+  const offset = (page - 1) * limit;
+  const conditions = ["w.deleted_at IS NULL"];
+  const params = [];
+  let pc = 0;
+  if (q.search) {
+    pc++;
+    conditions.push(`(w.wallet_number ILIKE $${pc} OR w.name ILIKE $${pc})`);
+    params.push(`%${q.search}%`);
+  }
+  if (q.status) {
+    pc++;
+    conditions.push(`w.status = $${pc}`);
+    params.push(q.status);
+  }
+  if (q.tenantId) {
+    pc++;
+    conditions.push(`w.tenant_id = $${pc}`);
+    params.push(q.tenantId);
+  }
+  if (q.type) {
+    pc++;
+    conditions.push(`w.type = $${pc}`);
+    params.push(q.type);
+  }
+  const where = "WHERE " + conditions.join(" AND ");
+  const countR = await query2(`SELECT COUNT(*) as total FROM wallets w ${where}`, params);
+  const totalCount = parseInt(countR.rows[0].total);
+  const rows = await query2(`
+      SELECT w.id, w.wallet_number as "walletNumber", w.name, w.type, w.level,
+        w.currency, w.balance, w.available_balance as "availableBalance",
+        w.held_balance as "heldBalance", w.tenant_id as "tenantId",
+        w.status, w.is_collection as "isCollection", w.is_default as "isDefault",
+        w.created_at as "createdAt",
+        t.full_name as "tenantName", t.environment as "tenantEnvironment"
+      FROM wallets w
+      LEFT JOIN tenants t ON t.id = w.tenant_id
+      ${where}
+      ORDER BY w.created_at DESC LIMIT $${pc + 1} OFFSET $${pc + 2}
+    `, [...params, limit, offset]);
+  return list({ items: rows.rows, pagination: { page, limit, totalPages: Math.ceil(totalCount / limit), total: totalCount } }, totalCount, "Billeteras listadas");
+}, {
+  query: t.Optional(t.Object({
+    page: t.Optional(t.String()),
+    limit: t.Optional(t.String()),
+    search: t.Optional(t.String()),
+    status: t.Optional(t.String()),
+    tenantId: t.Optional(t.String()),
+    type: t.Optional(t.String())
+  })),
+  detail: { tags: ["Admin"], summary: "Listar billeteras" }
+}).get("/wallets/:id", async ({ params }) => {
+  const wallet = await walletRepository.getById(BigInt(params.id));
+  if (!wallet)
+    throw new AppError2(404, "Billetera no encontrada");
+  const tenantR = await query2(`SELECT full_name as "fullName", environment FROM tenants WHERE id = $1`, [wallet.tenantId]);
+  return ok({ ...wallet, tenantName: tenantR.rows[0]?.fullName || null, tenantEnvironment: tenantR.rows[0]?.environment || null }, "Billetera encontrada");
+}, {
+  detail: { tags: ["Admin"], summary: "Detalle de billetera" }
+}).put("/wallets/:id/status", async ({ params, body }) => {
+  const wallet = await walletRepository.update(BigInt(params.id), { status: body.status });
+  if (!wallet)
+    throw new AppError2(404, "Billetera no encontrada");
+  return ok(wallet, `Billetera ${body.status === "active" ? "activada" : "desactivada"}`);
+}, {
+  body: t.Object({ status: t.String() }),
+  detail: { tags: ["Admin"], summary: "Activar/desactivar billetera" }
+}).post("/wallets/:id/credit", async ({ params, body }) => {
+  const wallet = await walletRepository.getById(BigInt(params.id));
+  if (!wallet)
+    throw new AppError2(404, "Billetera no encontrada");
+  const amount = Math.abs(parseFloat(body.amount));
+  if (isNaN(amount) || amount <= 0)
+    throw new AppError2(400, "Monto inválido");
+  const movementId = nextSnowflake();
+  const newBalance = parseFloat(wallet.balance) + amount;
+  const newAvailable = parseFloat(wallet.availableBalance) + amount;
+  await query2("UPDATE wallets SET balance = $1, available_balance = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3", [newBalance, newAvailable, wallet.id]);
+  await query2(`
+      INSERT INTO wallet_movements (id, wallet_id, movement_type, amount, balance_before, balance_after,
+        description, currency, reference_id, reference_type, status, created_at)
+      VALUES ($1, $2, 'deposit', $3, $4, $5, $6, 'BOB', $7, 'admin_credit', 'completed', CURRENT_TIMESTAMP)
+    `, [
+    movementId,
+    wallet.id,
+    amount,
+    wallet.balance,
+    newBalance,
+    body.description || `Abono manual por ${(body.amount || amount).toFixed(2)} BOB`,
+    movementId
+  ]);
+  const userIds = await notifService.getWalletUserIds(wallet.id);
+  await Promise.all(userIds.map((uid) => notifService.creditReceived(uid, amount, body.description || `Abono manual por ${amount.toFixed(2)} BOB`)));
+  return ok({ movementId, newBalance, newAvailable }, "Saldo acreditado");
+}, {
+  body: t.Object({
+    amount: t.Number(),
+    description: t.Optional(t.String())
+  }),
+  detail: { tags: ["Admin"], summary: "Acreditar saldo manualmente" }
+}).get("/wallets/:id/movements", async ({ params, query: q }) => {
+  const page = Math.max(1, parseInt(q.page || "1"));
+  const limit = Math.min(200, Math.max(1, parseInt(q.limit || "50")));
+  const offset = (page - 1) * limit;
+  const conditions = ["wm.wallet_id = $1", "wm.deleted_at IS NULL"];
+  const queryParams = [BigInt(params.id)];
+  let pc = 1;
+  if (q.type) {
+    pc++;
+    conditions.push(`wm.movement_type = $${pc}`);
+    queryParams.push(q.type);
+  }
+  if (q.status) {
+    pc++;
+    conditions.push(`wm.status = $${pc}`);
+    queryParams.push(q.status);
+  }
+  if (q.dateFrom) {
+    pc++;
+    conditions.push(`wm.created_at >= $${pc}`);
+    queryParams.push(q.dateFrom);
+  }
+  if (q.dateTo) {
+    pc++;
+    conditions.push(`wm.created_at <= $${pc}`);
+    queryParams.push(q.dateTo);
+  }
+  const where = "WHERE " + conditions.join(" AND ");
+  const countR = await query2(`SELECT COUNT(*) as total FROM wallet_movements wm ${where}`, queryParams);
+  const totalCount = parseInt(countR.rows[0].total);
+  const rows = await query2(`
+      SELECT wm.id, wm.wallet_id as "walletId", wm.movement_type as "movementType",
+        wm.amount, wm.balance_before as "balanceBefore", wm.balance_after as "balanceAfter",
+        wm.description, wm.currency, wm.status, wm.payment_date as "paymentDate",
+        wm.reference_id as "referenceId", wm.reference_type as "referenceType",
+        wm.sender_name as "senderName", wm.sender_document_id as "senderDocumentId",
+        wm.sender_account as "senderAccount", wm.sender_bank_code as "senderBankCode",
+        wm.created_at as "createdAt"
+      FROM wallet_movements wm ${where}
+      ORDER BY wm.created_at DESC LIMIT $${pc + 1} OFFSET $${pc + 2}
+    `, [...queryParams, limit, offset]);
+  return list({ items: rows.rows, pagination: { page, limit, totalPages: Math.ceil(totalCount / limit), total: totalCount } }, totalCount, "Movimientos listados");
+}, {
+  query: t.Optional(t.Object({
+    page: t.Optional(t.String()),
+    limit: t.Optional(t.String()),
+    type: t.Optional(t.String()),
+    status: t.Optional(t.String()),
+    dateFrom: t.Optional(t.String()),
+    dateTo: t.Optional(t.String())
+  })),
+  detail: { tags: ["Admin"], summary: "Movimientos de billetera" }
+}).get("/transactions", async ({ query: q }) => {
+  const page = Math.max(1, parseInt(q.page || "1"));
+  const limit = Math.min(200, Math.max(1, parseInt(q.limit || "50")));
+  const offset = (page - 1) * limit;
+  const conditions = ["t.deleted_at IS NULL"];
+  const queryParams = [];
+  let pc = 0;
+  if (q.status) {
+    pc++;
+    conditions.push(`t.status = $${pc}`);
+    queryParams.push(q.status);
+  }
+  if (q.dateFrom) {
+    pc++;
+    conditions.push(`t.created_at >= $${pc}`);
+    queryParams.push(q.dateFrom);
+  }
+  if (q.dateTo) {
+    pc++;
+    conditions.push(`t.created_at <= $${pc}`);
+    queryParams.push(q.dateTo);
+  }
+  const where = "WHERE " + conditions.join(" AND ");
+  const countR = await query2(`SELECT COUNT(*) as total FROM transfers t ${where}`, queryParams);
+  const totalCount = parseInt(countR.rows[0].total);
+  const rows = await query2(`
+      SELECT t.id, t.sender_wallet_id as "senderWalletId",
+        (SELECT w.wallet_number FROM wallets w WHERE w.id = t.sender_wallet_id) as "senderWalletNumber",
+        (SELECT w.name FROM wallets w WHERE w.id = t.sender_wallet_id) as "senderWalletName",
+        t.receiver_wallet_id as "receiverWalletId",
+        (SELECT w.wallet_number FROM wallets w WHERE w.id = t.receiver_wallet_id) as "receiverWalletNumber",
+        (SELECT w.name FROM wallets w WHERE w.id = t.receiver_wallet_id) as "receiverWalletName",
+        t.amount, t.fee, t.total, t.currency, t.description, t.status,
+        t.completed_at as "completedAt", t.created_at as "createdAt",
+        t.error_message as "errorMessage"
+      FROM transfers t ${where}
+      ORDER BY t.created_at DESC LIMIT $${pc + 1} OFFSET $${pc + 2}
+    `, [...queryParams, limit, offset]);
+  return list({ items: rows.rows, pagination: { page, limit, totalPages: Math.ceil(totalCount / limit), total: totalCount } }, totalCount, "Transacciones listadas");
+}, {
+  query: t.Optional(t.Object({
+    page: t.Optional(t.String()),
+    limit: t.Optional(t.String()),
+    status: t.Optional(t.String()),
+    dateFrom: t.Optional(t.String()),
+    dateTo: t.Optional(t.String())
+  })),
+  detail: { tags: ["Admin"], summary: "Todas las transacciones" }
+}).get("/transactions/:id", async ({ params }) => {
+  const r2 = await query2(`
+      SELECT t.id, t.sender_wallet_id as "senderWalletId",
+        (SELECT w.wallet_number FROM wallets w WHERE w.id = t.sender_wallet_id) as "senderWalletNumber",
+        (SELECT w.name FROM wallets w WHERE w.id = t.sender_wallet_id) as "senderWalletName",
+        t.receiver_wallet_id as "receiverWalletId",
+        (SELECT w.wallet_number FROM wallets w WHERE w.id = t.receiver_wallet_id) as "receiverWalletNumber",
+        (SELECT w.name FROM wallets w WHERE w.id = t.receiver_wallet_id) as "receiverWalletName",
+        t.amount, t.fee, t.total, t.currency, t.description, t.status,
+        t.reference_type as "referenceType", t.reference_id as "referenceId",
+        t.completed_at as "completedAt", t.created_at as "createdAt",
+        t.error_message as "errorMessage"
+      FROM transfers t WHERE t.id = $1 AND t.deleted_at IS NULL
+    `, [BigInt(params.id)]);
+  if (!r2.rowCount)
+    throw new AppError2(404, "Transacción no encontrada");
+  return ok(r2.rows[0], "Transacción encontrada");
+}, {
+  detail: { tags: ["Admin"], summary: "Detalle de transacción" }
+}).put("/wallets/:id/transfer-tenant", async ({ params, body }) => {
+  const wallet = await walletRepository.getById(BigInt(params.id));
+  if (!wallet)
+    throw new AppError2(404, "Billetera no encontrada");
+  if (body.tenantId) {
+    const tenantR = await query2("SELECT id FROM tenants WHERE id = $1 AND deleted_at IS NULL", [BigInt(body.tenantId)]);
+    if (!tenantR.rowCount)
+      throw new AppError2(404, "Cliente destino no encontrado");
+  }
+  const updated = await walletRepository.update(BigInt(params.id), { tenantId: body.tenantId ? BigInt(body.tenantId) : null });
+  return ok(updated, "Billetera transferida a nuevo cliente");
+}, {
+  body: t.Object({ tenantId: t.Optional(t.String()) }),
+  detail: { tags: ["Admin"], summary: "Transferir billetera a otro cliente" }
+}).get("/wallets/:id/permissions", async ({ params }) => {
+  const r2 = await query2(`
+      SELECT wp.user_id as "userId", wp.wallet_id as "walletId", wp.role,
+        wp.created_at as "createdAt", u.email, u.full_name as "fullName"
+      FROM wallet_permissions wp
+      JOIN users u ON u.id = wp.user_id
+      WHERE wp.wallet_id = $1 AND wp.deleted_at IS NULL
+      ORDER BY wp.role ASC
+    `, [BigInt(params.id)]);
+  return ok({ items: r2.rows }, "Permisos listados");
+}, {
+  detail: { tags: ["Admin"], summary: "Listar permisos de billetera" }
+}).post("/wallets/:id/permissions", async ({ params, body }) => {
+  const userId = BigInt(body.userId);
+  const wallet = await walletRepository.getById(BigInt(params.id));
+  if (!wallet)
+    throw new AppError2(404, "Billetera no encontrada");
+  const userR = await query2("SELECT id FROM users WHERE id = $1 AND deleted_at IS NULL", [userId]);
+  if (!userR.rowCount)
+    throw new AppError2(404, "Usuario no encontrado");
+  const role = body.role || "viewer";
+  if (!["owner", "manager", "viewer"].includes(role))
+    throw new AppError2(400, "Rol inválido. Use owner, manager o viewer");
+  await walletPermissionRepository.upsert(userId, BigInt(params.id), role);
+  return ok(null, `Acceso ${role} concedido`);
+}, {
+  body: t.Object({ userId: t.String(), role: t.Optional(t.String()) }),
+  detail: { tags: ["Admin"], summary: "Conceder/actualizar acceso a billetera" }
+}).delete("/wallets/:id/permissions/:userId", async ({ params }) => {
+  await walletPermissionRepository.remove(BigInt(params.userId), BigInt(params.id));
+  return ok(null, "Acceso revocado");
+}, {
+  detail: { tags: ["Admin"], summary: "Revocar acceso a billetera" }
 });
 
 // src/index.ts
@@ -52582,30 +53281,36 @@ app.onRequest(({ request }) => {
   const id = crypto.randomUUID();
   setCorrelationId(id);
 });
-app.onAfterHandle(({ set: set2 }) => {
+app.onAfterHandle(({ request, set: set2 }) => {
   set2.headers = { ...set2.headers, ...complianceHeaders() };
+  const url = new URL(request.url);
+  logger.info(`${request.method} ${url.pathname} → ${set2.status}`, {
+    method: request.method,
+    path: url.pathname,
+    status: set2.status
+  });
 });
-app.use(swagger({ path: "/swagger" })).use(cors({ origin: () => true })).use(rateLimit({ windowMs: 60000, maxRequests: parseInt(process.env.RATE_LIMIT_MAX || "120") })).use(healthRoutes).use(authRoutes).use(userRoutes).use(bankingRoutes).use(qrRoutes).use(hooksRoutes).use(paymentRoutes).use(transactionsRoutes).use(sseRoutes).use(collectionsRoutes).use(apiKeyRoutes).use(fraudRoutes).use(fxRoutes).use(webhookRoutes).use(reconciliationRoutes).use(walletBackupRoutes).use(wsRoutes).use(subscriptionRoutes).use(splitRoutes).use(merchantRoutes).use(pushRoutes).use(cashRoutes).use(nfcRoutes).use(kycRoutes).use(complianceRoutes).use(settlementRoutes).onError(({ code, error, set: set2, request }) => {
+app.use(swagger({ path: "/swagger" })).use(cors({ origin: () => true })).use(rateLimit({ windowMs: 60000, maxRequests: parseInt(process.env.RATE_LIMIT_MAX || "120") })).use(healthRoutes).use(authRoutes).use(sseRoutes).derive(authMiddleware()).use(userRoutes).use(tenantRoutes).use(bankingRoutes).use(qrRoutes).use(hooksRoutes).use(paymentRoutes).use(transactionsRoutes).use(collectionsRoutes).use(apiKeyRoutes).use(webhookRoutes).use(wsRoutes).use(nfcRoutes).use(kycRoutes).use(settlementRoutes).use(liquidationRoutes).use(directTransactionRoutes).use(collectionRoutes).guard({ beforeHandle: [({ auth }) => requireRole(1)(auth)] }).use(adminRoutes).onError(({ code, error, set: set2, request }) => {
+  const path = new URL(request.url).pathname;
   const err = error;
   const isAppError = err?.statusCode != null && typeof err.statusCode === "number";
   if (isAppError) {
     set2.status = err.statusCode;
-    logger.warn("App error", { statusCode: err.statusCode, message: String(err.message || ""), path: new URL(request.url).pathname });
+    logger.warn("App error", { statusCode: err.statusCode, message: String(err.message || ""), path, error });
     return fail(String(err.message || "Error"), String(err.message || "Error"), err.details);
   }
   if (code === "NOT_FOUND") {
     set2.status = 404;
+    logger.warn("Not found", { path });
     return fail("Ruta no encontrada", "Ruta no encontrada");
   }
   if (code === "VALIDATION") {
     set2.status = 400;
+    logger.warn("Validation error", { path, error: String(error) });
     return fail("Error de validación", "Error de validación");
   }
-  logger.error("Unhandled error", { error: String(error), path: new URL(request.url).pathname });
-  sentry.captureError(error instanceof Error ? error : new Error(String(error)), {
-    code,
-    path: new URL(request.url).pathname
-  });
+  const errObj = error instanceof Error ? error : new Error(String(error));
+  logger.error("Unhandled error", { error: errObj, code, path });
   set2.status = 500;
   return fail("Error interno del servidor", "Error interno del servidor");
 });
@@ -52622,13 +53327,8 @@ if (mode === "init-db") {
   migrateDB(false).then(async () => {
     testConnection();
     startWebhookProcessor();
-    setInterval(() => settlementService.processPending(), 60000);
-    settlementInterval = setInterval(() => settlementService.processPending(), 60000);
-    logger.info("All services initialized", {
-      redis: !!process.env.REDIS_URL,
-      sentry: !!process.env.SENTRY_DSN,
-      otel: !!process.env.OTEL_EXPORTER_OTLP_ENDPOINT
-    });
+    const settlementInterval = setInterval(() => settlementService.processPending(), 60000);
+    logger.info("All services initialized");
     const port = parseInt(process.env.PORT || "3000");
     app.listen(port, () => {
       logger.info(`Server on :${port}`);

@@ -15,5 +15,7 @@
     max-width: 480px;
     margin: 0 auto;
     background: rgba(var(--bg-rgb), 1);
+    /* padding-top: var(--safe-top, 0px); */
+    padding-bottom: var(--safe-bottom, 0px);
   }
 </style>

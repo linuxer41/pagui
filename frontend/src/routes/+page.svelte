@@ -4,23 +4,20 @@
   import { auth } from '$lib/stores/auth'
   import { balanceStore } from '$lib/stores/balance'
   import api from '$lib/api'
-  import EmptyState from '$lib/components/EmptyState.svelte'
-  import Skeleton from '$lib/components/Skeleton.svelte'
   import PullToRefresh from '$lib/components/PullToRefresh.svelte'
   import BalanceCard from '$lib/components/composite/BalanceCard.svelte'
   import QuickActions from '$lib/components/composite/QuickActions.svelte'
-  import TransactionRow from '$lib/components/composite/TransactionRow.svelte'
-  import { onSSEEvent, type AccountBalanceUpdateEvent } from '$lib/services/sseService'
-  import { ChevronRight } from '@lucide/svelte'
-  import PiggyBank from '@lucide/svelte/icons/piggy-bank'
+  import TransactionList from '$lib/components/composite/TransactionList.svelte'
+  import { onSSEEvent, type WalletBalanceUpdateEvent } from '$lib/services/sseService'
+  import { Bell, Headset } from '@lucide/svelte'
+  import IconButton from '$lib/components/ui/IconButton.svelte'
 
   let balance = $state(0)
   let availableBalance = $state(0)
-  let accounts: any[] = $state([])
+  let balancePulse = $state(false)
+  let wallets: any[] = $state([])
   let transactions: any[] = $state([])
   let loading = $state(true)
-  let balanceVisible = $state(true)
-  let balancePulse = $state(false)
 
   let userName = $derived($auth?.user?.fullName || $auth?.user?.email?.split('@')[0] || 'Usuario')
   let userInitial = $derived(userName.charAt(0).toUpperCase())
@@ -31,7 +28,11 @@
     return 'Buenas noches'
   })())
 
+  let unreadCount = $state(0)
   let unsubBalance: (() => void) | null = null
+
+  let showModal = $state(false)
+  let selectedTx: any = $state(null)
 
   onMount(async () => {
     balanceStore.subscribe(v => {
@@ -45,25 +46,29 @@
       }
     })
 
-    unsubBalance = onSSEEvent('account_balance_update', (data: AccountBalanceUpdateEvent) => {
+    unsubBalance = onSSEEvent('wallet_balance_update', (data: WalletBalanceUpdateEvent) => {
       balanceStore.setBalances(data.newBalance, data.newAvailableBalance, data.currency)
     })
 
     try {
       const [balRes, txRes] = await Promise.allSettled([
-        api.getAccounts(),
+        api.getWallets(),
         api.getRecentTransactions(10),
       ])
       if (balRes.status === 'fulfilled' && balRes.value.success) {
-        accounts = balRes.value.data || []
-        if (accounts.length > 0) {
-          balance = Number(accounts[0].balance) || 0
-          availableBalance = Number(accounts[0].available_balance) || 0
+        wallets = balRes.value.data || []
+        if (wallets.length > 0) {
+          balance = Number(wallets[0].balance) || 0
+          availableBalance = Number(wallets[0].availableBalance) || 0
         }
       }
       if (txRes.status === 'fulfilled' && txRes.value.success) {
-        transactions = Array.isArray(txRes.value.data) ? txRes.value.data : (txRes.value.data as any)?.data || []
+        transactions = Array.isArray(txRes.value.data) ? txRes.value.data : []
       }
+    } catch {}
+    try {
+      const notifRes = await api.getUnreadNotificationCount()
+      if (notifRes.success) unreadCount = notifRes.data.count
     } catch {}
     finally { loading = false }
   })
@@ -73,23 +78,34 @@
     balanceStore.cleanup()
   })
 
+  function closeDetail() { showModal = false; selectedTx = null }
+
+  function symbol(cur?: string) { return cur === 'BOB' ? 'Bs' : '$' }
+  function fmt(n: number) { return n.toLocaleString('es-ES', { minimumFractionDigits: 2 }) }
+  function fmtDate(s: string) {
+    const d = new Date(s)
+    return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  }
+
   async function handleRefresh() {
+    loading = true
     try {
       const [balRes, txRes] = await Promise.allSettled([
-        api.getAccounts(),
+        api.getWallets(),
         api.getRecentTransactions(10),
       ])
       if (balRes.status === 'fulfilled' && balRes.value.success) {
-        accounts = balRes.value.data || []
-        if (accounts.length > 0) {
-          balance = Number(accounts[0].balance) || 0
-          availableBalance = Number(accounts[0].available_balance) || 0
+        wallets = balRes.value.data || []
+        if (wallets.length > 0) {
+          balance = Number(wallets[0].balance) || 0
+          availableBalance = Number(wallets[0].available_balance) || 0
         }
       }
       if (txRes.status === 'fulfilled' && txRes.value.success) {
-        transactions = Array.isArray(txRes.value.data) ? txRes.value.data : (txRes.value.data as any)?.data || []
+        transactions = Array.isArray(txRes.value.data) ? txRes.value.data : []
       }
     } catch {}
+    finally { loading = false }
   }
 </script>
 
@@ -100,51 +116,84 @@
       <span class="header-greeting">{greeting}</span>
       <h1 class="header-name">{userName}</h1>
     </div>
-    <button class="avatar-btn" onclick={() => goto('/profile')} aria-label="Perfil">
-      <span class="avatar-initials">{userInitial}</span>
-    </button>
+    <div class="header-actions">
+      <IconButton onclick={() => goto('/notifications')} label="Notificaciones">
+        <Bell size={20} />
+        {#if unreadCount > 0}
+          <span class="notif-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+        {/if}
+      </IconButton>
+      <IconButton onclick={() => goto('/support')} label="Soporte">
+        <Headset size={20} />
+      </IconButton>
+    </div>
   </header>
 
   <div class="home-content">
-    <BalanceCard balance={balance} currency="BOB" cardType="Débito" />
+    <BalanceCard wallets={wallets} />
 
     <div class="home-section">
       <QuickActions
         onSend={() => goto('/transfers/p2p')}
-        onReceive={() => goto('/qr')}
         onScan={() => goto('/qr?mode=pay')}
-        onCash={() => goto('/cash')}
+        onNfc={() => goto('/nfc')}
+        onRecaudar={() => goto('/collections')}
       />
     </div>
 
-    <div class="home-section">
-      <div class="section-header">
-        <span class="section-title">Últimos movimientos</span>
-        <button class="see-all-btn" onclick={() => goto('/transactions')}>
-          Ver todo <ChevronRight size={14} />
-        </button>
-      </div>
-      {#if loading}
-        <Skeleton width="100%" height="58px" radius="lg" count={3} gap="space-2" />
-      {:else if transactions.length === 0}
-        <EmptyState icon={PiggyBank} title="Sin movimientos" message="Aún no hay actividad en tu cuenta" />
-      {:else}
-        <div class="tx-list">
-          {#each transactions.slice(0, 5) as tx (tx.id)}
-            <TransactionRow tx={tx} />
-          {/each}
-        </div>
-      {/if}
-    </div>
+    <TransactionList
+      {transactions}
+      {loading}
+      max={5}
+      showSeeAll={true}
+      onSeeAll={() => goto('/transactions')}
+      onSelect={(tx) => { selectedTx = tx; showModal = true }}
+      emptyTitle="Sin movimientos"
+      emptyMessage="Aún no hay actividad en tu cuenta"
+    />
   </div>
 </div>
 </PullToRefresh>
+
+{#if showModal && selectedTx}
+  <div class="modal-overlay" role="presentation" onclick={closeDetail} onkeydown={(e) => e.key === 'Escape' && closeDetail()}>
+    <div class="modal-box" role="dialog" tabindex="0" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
+      <div class="modal-header">
+        <span class="modal-title">Detalles</span>
+        <button class="modal-close" onclick={closeDetail}>&times;</button>
+      </div>
+      <div class="modal-detail">
+        <div class="detail-hero" class:income={selectedTx.type === 'incoming'} class:expense={selectedTx.type === 'outgoing'}>
+          {selectedTx.type === 'incoming' ? '+' : '-'}{symbol(selectedTx.metadata?.currency as string)}{fmt(selectedTx.amount)}
+        </div>
+        <div class="detail-section">
+          <span class="detail-section-title">Información general</span>
+          {#if selectedTx.from}<div class="detail-row"><span class="detail-label">De</span><span class="detail-value">{selectedTx.from}</span></div>{/if}
+          {#if selectedTx.to}<div class="detail-row"><span class="detail-label">Para</span><span class="detail-value">{selectedTx.to}</span></div>{/if}
+          <div class="detail-row"><span class="detail-label">Tipo</span><span class="detail-value">{selectedTx.category || '—'}</span></div>
+          <div class="detail-row"><span class="detail-label">Estado</span><span class="detail-value">{selectedTx.status}</span></div>
+        </div>
+        <div class="detail-section">
+          <span class="detail-section-title">Transacción</span>
+          <div class="detail-row"><span class="detail-label">ID</span><span class="detail-value code">{selectedTx.id}</span></div>
+          {#if selectedTx.reference}<div class="detail-row"><span class="detail-label">Referencia</span><span class="detail-value code">{selectedTx.reference}</span></div>{/if}
+          {#if selectedTx.metadata?.qrId}<div class="detail-row"><span class="detail-label">ID QR</span><span class="detail-value code">{selectedTx.metadata.qrId as string}</span></div>{/if}
+          {#if selectedTx.metadata?.walletId}<div class="detail-row"><span class="detail-label">Wallet</span><span class="detail-value code">{selectedTx.metadata.walletId as string}</span></div>{/if}
+        </div>
+        <div class="detail-section">
+          <span class="detail-section-title">Fechas</span>
+          <div class="detail-row"><span class="detail-label">Fecha</span><span class="detail-value">{fmtDate(selectedTx.date)}</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <style>
   .home {
     display: flex;
     flex-direction: column;
-    min-height: 100dvh;
+    flex: 1;
   }
   .home-header {
     display: flex;
@@ -157,6 +206,15 @@
   .header-name {
     font-size: var(--text-2xl); font-weight: 800; color: rgba(var(--text-primary-rgb), 1);
     letter-spacing: var(--tracking-tight); line-height: 1.2; margin: 0;
+  }
+  .header-actions { display: flex; align-items: center; gap: var(--space-2); }
+  .notif-badge {
+    position: absolute; top: 4px; right: 4px;
+    min-width: 18px; height: 18px; border-radius: var(--radius-full);
+    background: var(--color-error-foreground);
+    color: white; font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 4px; line-height: 1;
   }
   .avatar-btn {
     width: 44px; height: 44px; border-radius: var(--radius-full);
@@ -178,20 +236,20 @@
     flex-direction: column;
     gap: var(--space-3);
   }
-  .section-header {
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .section-title {
-    font-size: var(--text-sm); font-weight: 600; color: var(--foreground);
-  }
-  .see-all-btn {
-    display: flex; align-items: center; gap: 2px;
-    background: none; border: none;
-    font-size: var(--text-sm); font-weight: 600;
-    color: var(--primary); cursor: pointer;
-    padding: var(--space-1) var(--space-2);
-    border-radius: var(--radius-md);
-  }
-  .see-all-btn:active { background: rgba(var(--surface-rgb), 1); }
-  .tx-list { display: flex; flex-direction: column; gap: 1px; }
+  .modal-detail { display: flex; flex-direction: column; gap: var(--space-5); padding: var(--space-6); }
+  .detail-hero { text-align: center; font-size: var(--text-2xl); font-weight: 800; padding: var(--space-4); border-radius: var(--radius-xl); }
+  .detail-hero.income { background: rgba(var(--success-rgb), 0.15); color: rgba(var(--success-rgb), 1); }
+  .detail-hero.expense { background: rgba(var(--error-rgb), 0.15); color: rgba(var(--error-rgb), 1); }
+  .detail-section { display: flex; flex-direction: column; gap: var(--space-2); }
+  .detail-section-title { font-size: var(--text-xs); font-weight: 600; color: rgba(var(--text-tertiary-rgb), 1); text-transform: uppercase; letter-spacing: 0.5px; }
+  .detail-row { display: flex; justify-content: space-between; align-items: center; padding: var(--space-2) var(--space-3); background: rgba(var(--surface-rgb), 1); border-radius: var(--radius-lg); gap: var(--space-2); }
+  .detail-label { font-size: var(--text-sm); color: rgba(var(--text-secondary-rgb), 1); flex-shrink: 0; }
+  .detail-value { font-size: var(--text-sm); font-weight: 600; color: rgba(var(--text-primary-rgb), 1); text-align: right; word-break: break-word; }
+  .detail-value.code { font-family: var(--font-mono); color: var(--primary); }
+  .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: var(--space-4); }
+  .modal-box { background: rgba(var(--surface-rgb), 1); border-radius: var(--radius-xl); max-width: 480px; width: 100%; max-height: 90vh; overflow-y: auto; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; padding: var(--space-4) var(--space-6); border-bottom: 1px solid rgba(var(--border-rgb), 0.3); }
+  .modal-title { font-size: var(--text-lg); font-weight: 700; color: rgba(var(--text-primary-rgb), 1); }
+  .modal-close { background: none; border: none; color: rgba(var(--text-tertiary-rgb), 1); font-size: 1.5rem; cursor: pointer; padding: var(--space-1); line-height: 1; border-radius: var(--radius-sm); }
+  .modal-close:hover { color: rgba(var(--text-primary-rgb), 1); }
 </style>

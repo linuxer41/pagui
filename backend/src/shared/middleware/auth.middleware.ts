@@ -27,8 +27,8 @@ interface JWTAuthData {
 interface APIKeyAuthData {
   type: 'apikey'
   apiKeyInfo: {
-    accountId: bigint
-    bankCredentialId: bigint | null
+    walletId: bigint
+    banecoCredentialId: bigint | null
     permissions: Record<string, boolean>
     apiKey: string
   }
@@ -44,51 +44,50 @@ export function authMiddleware<T extends 'jwt' | 'apikey' | 'all'>(
     T extends 'apikey' ? { auth: APIKeyAuthData } :
     { auth: AuthData }
 
-  return new Elysia({ name: 'auth' })
-    .derive({ as: 'scoped' }, async (ctx): Promise<ReturnType> => {
-      const authHeader = ctx.headers.authorization
-      const apiKeyHeader = ctx.headers['x-api-key']
+  return async (ctx: { headers: Record<string, string | undefined> }): Promise<ReturnType> => {
+    const authHeader = ctx.headers.authorization
+    const apiKeyHeader = ctx.headers['x-api-key']
 
-      if (authHeader?.startsWith('Bearer ') && (options.type === 'jwt' || options.type === 'all')) {
-        const token = authHeader.substring(7)
-        try {
-          const decoded = await authService.verifyTokenWithDb(token)
-          const userInfo = await authService.getUserInfo(decoded.email)
-          if (!userInfo) throw new AppError(401, 'Usuario no encontrado')
-          if (options.level === 'admin' && userInfo.role !== Role.Admin && userInfo.role !== Role.Super) {
-            throw new AppError(403, 'Se requiere rol de administrador')
-          }
-          return { auth: { type: 'jwt' as const, user: userInfo as { id: bigint; email: string; role: number } } } as ReturnType
-        } catch (err) {
-          if (err instanceof AppError) throw err
-          throw new AppError(401, 'Error en autenticación')
+    if (authHeader?.startsWith('Bearer ') && (options.type === 'jwt' || options.type === 'all')) {
+      const token = authHeader.substring(7)
+      try {
+        const decoded = await authService.verifyTokenWithDb(token)
+        const userInfo = await authService.getUserInfo(decoded.email)
+        if (!userInfo) throw new AppError(401, 'Usuario no encontrado')
+        if (options.level === 'admin' && userInfo.role !== Role.Admin && userInfo.role !== Role.Super) {
+          throw new AppError(403, 'Se requiere rol de administrador')
         }
+        return { auth: { type: 'jwt' as const, user: userInfo as { id: bigint; email: string; role: number } } } as ReturnType
+      } catch (err) {
+        if (err instanceof AppError) throw err
+        throw new AppError(401, 'Error en autenticación')
       }
+    }
 
-      if (apiKeyHeader && (options.type === 'apikey' || options.type === 'all')) {
-        const verification = await apiKeyService.verifyApiKey(apiKeyHeader)
-        if (verification.isValid && verification.accountId) {
-          if (options.level === 'admin' && !verification.permissions?.qr_generate) {
-            throw new AppError(403, 'Se requieren permisos de administrador')
-          }
-          return {
-            auth: {
-              type: 'apikey' as const,
-              apiKeyInfo: {
-                accountId: verification.accountId,
-                bankCredentialId: verification.bankCredentialId || null,
-                permissions: verification.permissions || {},
-                apiKey: apiKeyHeader,
-              },
+    if (apiKeyHeader && (options.type === 'apikey' || options.type === 'all')) {
+      const verification = await apiKeyService.verifyApiKey(apiKeyHeader)
+      if (verification.isValid && verification.walletId) {
+        if (options.level === 'admin' && !verification.permissions?.qr_generate) {
+          throw new AppError(403, 'Se requieren permisos de administrador')
+        }
+        return {
+          auth: {
+            type: 'apikey' as const,
+            apiKeyInfo: {
+              walletId: verification.walletId,
+              banecoCredentialId: verification.banecoCredentialId || null,
+              permissions: verification.permissions || {},
+              apiKey: apiKeyHeader,
             },
-          } as ReturnType
-        }
-        throw new AppError(401, 'API key inválida')
+          },
+        } as ReturnType
       }
+      throw new AppError(401, 'API key inválida')
+    }
 
-      const msg = options.type === 'jwt' ? 'JWT requerida' :
-                  options.type === 'apikey' ? 'API key requerida' :
-                  'Autenticación requerida'
-      throw new AppError(401, msg)
-    })
+    const msg = options.type === 'jwt' ? 'JWT requerida' :
+                options.type === 'apikey' ? 'API key requerida' :
+                'Autenticación requerida'
+    throw new AppError(401, msg)
+  }
 }

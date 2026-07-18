@@ -428,6 +428,23 @@ JWT_EXPIRES_IN=15m
 JWT_REFRESH_SECRET=tu-refresh-secret-key
 ```
 
+### **Configuración de WhatsApp (Evolution GO)**
+
+El envío de OTP por WhatsApp usa [Evolution GO](https://github.com/evolution-foundation/evolution-go).
+
+```bash
+# .env
+WHATSAPP_API_URL=http://localhost:8080          # URL del servidor Evolution GO
+WHATSAPP_API_KEY=tu-api-key                     # API Key global o token de instancia
+```
+
+**Formato del mensaje:** se envía un texto plano con formato WhatsApp (`*negrita*`).
+
+**Flujo:**
+1. `POST /send/text` al Evolution GO con header `apikey`
+2. Body: `{ "number": "59171307408", "text": "mensaje" }`
+3. Si no hay URL configurada, el OTP se loggea pero no se envía
+
 ---
 
 ## 🚨 **Solución de Problemas**

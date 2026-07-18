@@ -2,9 +2,7 @@
   import { goto } from '$app/navigation';
   import { auth } from '$lib/stores/auth';
   import { theme } from '$lib/stores/theme';
-  import { ArrowLeftRight, Bell, Code, CreditCard, DollarSign, Globe, History, Key, Moon, RefreshCw, Repeat, ShieldAlert, ShieldCheck, Smartphone, Store, Sun, User, Wallet, Webhook } from '@lucide/svelte';
-  import PillButton from '$lib/components/ui/PillButton.svelte';
-  import { getRoleLabel } from '$lib/helpers';
+  import { User, Globe, Moon, Sun, ShieldCheck, Fingerprint, LogOut, Key } from '@lucide/svelte';
 
   const languages = [{ value: 'es', label: 'Español' }, { value: 'en', label: 'English' }];
   function handleThemeToggle() { theme.toggle(); }
@@ -14,7 +12,7 @@
     name: $auth.user?.fullName || 'Usuario',
     email: $auth.user?.email || 'usuario@ejemplo.com',
     phone: '+591 77712345',
-    role: getRoleLabel($auth.user?.role),
+    role: $auth.wallets?.[0]?.userRole || 'Usuario',
     status: $auth.user?.status || 'active',
     lastLogin: new Date().toISOString(),
     memberSince: '2023-01-15T10:30:00',
@@ -22,7 +20,20 @@
   };
 
   let fileInput: HTMLInputElement | undefined;
-  function openImageUpload() { fileInput?.click(); }
+  async function openImageUpload() {
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog')
+      const selected = await open({
+        multiple: false,
+        filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }]
+      })
+      if (selected) {
+        userProfile.avatarUrl = URL.createObjectURL(new Blob())
+      }
+    } catch {
+      fileInput?.click()
+    }
+  }
   function handleImageUpload(event: Event) {
     const target = event.target as HTMLInputElement;
     const file = target.files?.[0];
@@ -39,46 +50,24 @@
     <div class="profile-info"><h2 class="profile-name">{userProfile.name}</h2><span class="profile-role">{userProfile.role}</span></div>
   </div>
 
-  <div class="menu-group"><div class="menu-title">Acceso rápido</div>
-    <button class="menu-item" onclick={() => goto('/transactions')}><div class="menu-icon" style="background:rgba(var(--info-rgb),0.15);color:rgba(var(--info-rgb),1)"><History size={18} /></div><div class="menu-text"><span class="menu-label">Historial de transacciones</span><span class="menu-desc">Todas tus transacciones en un solo lugar</span></div></button>
-    <button class="menu-item" onclick={() => goto('/wallet')}><div class="menu-icon" style="background:rgba(var(--success-rgb),0.15);color:rgba(var(--success-rgb),1)"><Wallet size={18} /></div><div class="menu-text"><span class="menu-label">Mis Billeteras</span><span class="menu-desc">Gestiona tus wallets y respaldos</span></div></button>
-  </div>
   <div class="menu-group"><div class="menu-title">Cuenta</div>
-    <button class="menu-item" onclick={() => goto('/profile/account-details')}><div class="menu-icon"><User size={18} /></div><div class="menu-text"><span class="menu-label">Información personal</span><span class="menu-desc">Ver y editar detalles de tu cuenta</span></div></button>
-    <button class="menu-item" onclick={() => goto('/profile/cuentas')}><div class="menu-icon" style="background:rgba(var(--success-rgb),0.15);color:rgba(var(--success-rgb),1)"><CreditCard size={18} /></div><div class="menu-text"><span class="menu-label">Mis Cuentas</span><span class="menu-desc">Ver saldos y detalles de tus cuentas</span></div></button>
-    <button class="menu-item" onclick={() => goto('/payment-methods')}><div class="menu-icon" style="background:rgba(var(--primary-rgb), 0.15);color:var(--primary)"><CreditCard size={18} /></div><div class="menu-text"><span class="menu-label">Métodos de retiro</span><span class="menu-desc">Configura a qué bancos retirar tu dinero</span></div></button>
-  </div>
-  <div class="menu-group"><div class="menu-title">Pagos y Transferencias</div>
-    <button class="menu-item" onclick={() => goto('/transfers')}><div class="menu-icon"><ArrowLeftRight size={18} /></div><div class="menu-text"><span class="menu-label">Transferencias</span><span class="menu-desc">P2P, pagos compartidos, suscripciones</span></div></button>
-    <button class="menu-item" onclick={() => goto('/merchants')}><div class="menu-icon" style="background:rgba(var(--success-rgb),0.15);color:rgba(var(--success-rgb),1)"><Store size={18} /></div><div class="menu-text"><span class="menu-label">Comercios</span><span class="menu-desc">Registra tu comercio y recibe pagos QR</span></div></button>
-    <button class="menu-item" onclick={() => goto('/subscriptions')}><div class="menu-icon" style="background:rgba(var(--warning-rgb),0.15);color:rgba(var(--warning-rgb),1)"><Repeat size={18} /></div><div class="menu-text"><span class="menu-label">Suscripciones</span><span class="menu-desc">Pagos recurrentes automáticos</span></div></button>
-    <button class="menu-item" onclick={() => goto('/cash')}><div class="menu-icon" style="background:rgba(var(--info-rgb),0.15);color:rgba(var(--info-rgb),1)"><DollarSign size={18} /></div><div class="menu-text"><span class="menu-label">Cash in / Cash out</span><span class="menu-desc">Deposita o retira efectivo con agentes</span></div></button>
-    <button class="menu-item" onclick={() => goto('/nfc')}><div class="menu-icon" style="background:rgba(var(--secondary-rgb),0.15);color:rgba(var(--secondary-rgb),1)"><Smartphone size={18} /></div><div class="menu-text"><span class="menu-label">Pagos NFC</span><span class="menu-desc">Pagos sin contacto sin internet</span></div></button>
-  </div>
-  <div class="menu-group"><div class="menu-title">Seguridad</div>
+    <button class="menu-item" onclick={() => goto('/profile/account-details')}><div class="menu-icon"><User size={18} /></div><div class="menu-text"><span class="menu-label">Ver detalles</span><span class="menu-desc">Información de tu cuenta</span></div></button>
+    <button class="menu-item" onclick={handleLogout}><div class="menu-icon" style="background:rgba(var(--error-rgb),0.15);color:rgba(var(--error-rgb),1)"><LogOut size={18} /></div><div class="menu-text"><span class="menu-label">Cerrar sesión</span><span class="menu-desc">Salir de tu cuenta actual</span></div></button>
     <button class="menu-item" onclick={() => goto('/profile/cambiar-clave')}><div class="menu-icon" style="background:rgba(var(--warning-rgb),0.15);color:rgba(var(--warning-rgb),1)"><Key size={18} /></div><div class="menu-text"><span class="menu-label">Cambiar contraseña</span><span class="menu-desc">Actualiza tu contraseña de acceso</span></div></button>
-    <button class="menu-item" onclick={() => goto('/profile/api-keys')}><div class="menu-icon" style="background:rgba(var(--info-rgb),0.15);color:rgba(var(--info-rgb),1)"><Code size={18} /></div><div class="menu-text"><span class="menu-label">API Keys</span><span class="menu-desc">Gestiona tus claves de integración</span></div></button>
-    <button class="menu-item" onclick={() => goto('/kyc')}><div class="menu-icon" style="background:rgba(var(--success-rgb),0.15);color:rgba(var(--success-rgb),1)"><ShieldCheck size={18} /></div><div class="menu-text"><span class="menu-label">Verificación KYC</span><span class="menu-desc">Verifica tu identidad para aumentar límites</span></div></button>
-    <button class="menu-item" onclick={() => goto('/notifications')}><div class="menu-icon" style="background:rgba(var(--error-rgb),0.15);color:rgba(var(--error-rgb),1)"><Bell size={18} /></div><div class="menu-text"><span class="menu-label">Notificaciones</span><span class="menu-desc">Centro de notificaciones</span></div></button>
-    <button class="menu-item" onclick={() => goto('/payment-methods')}><div class="menu-icon" style="background:rgba(var(--primary-rgb), 0.15);color:var(--primary)"><CreditCard size={18} /></div><div class="menu-text"><span class="menu-label">Métodos de Pago</span><span class="menu-desc">Gestiona tus cuentas y tarjetas</span></div></button>
-  </div>
-  <div class="menu-group"><div class="menu-title">Herramientas</div>
-    <button class="menu-item" onclick={() => goto('/fx')}><div class="menu-icon" style="background:rgba(var(--info-rgb),0.15);color:rgba(var(--info-rgb),1)"><ArrowLeftRight size={18} /></div><div class="menu-text"><span class="menu-label">Tasas de cambio</span><span class="menu-desc">Conversión de moneda y FX rates</span></div></button>
-    <button class="menu-item" onclick={() => goto('/fraud')}><div class="menu-icon" style="background:rgba(var(--error-rgb),0.15);color:rgba(var(--error-rgb),1)"><ShieldAlert size={18} /></div><div class="menu-text"><span class="menu-label">Alertas de seguridad</span><span class="menu-desc">Alertas de fraude y actividad sospechosa</span></div></button>
-    <button class="menu-item" onclick={() => goto('/webhooks')}><div class="menu-icon" style="background:rgba(var(--secondary-rgb),0.15);color:rgba(var(--secondary-rgb),1)"><Webhook size={18} /></div><div class="menu-text"><span class="menu-label">Webhooks</span><span class="menu-desc">Integración con servicios externos</span></div></button>
-    <button class="menu-item" onclick={() => goto('/reconciliation')}><div class="menu-icon" style="background:rgba(var(--warning-rgb),0.15);color:rgba(var(--warning-rgb),1)"><RefreshCw size={18} /></div><div class="menu-text"><span class="menu-label">Reconciliación</span><span class="menu-desc">Reconciliación de cuentas bancarias</span></div></button>
+    <button class="menu-item" onclick={() => goto('/kyc')}><div class="menu-icon" style="background:rgba(var(--primary-rgb),0.15);color:var(--primary)"><ShieldCheck size={18} /></div><div class="menu-text"><span class="menu-label">Verificación KYC</span><span class="menu-desc">Completa tu verificación de identidad</span></div></button>
+    <button class="menu-item"><div class="menu-icon" style="background:rgba(var(--info-rgb),0.15);color:rgba(var(--info-rgb),1)"><Fingerprint size={18} /></div><div class="menu-text"><span class="menu-label">Autenticación con huella</span><span class="menu-desc">Configurar acceso biométrico</span></div></button>
   </div>
   <div class="menu-group"><div class="menu-title">Preferencias</div>
     <button class="menu-item" onclick={handleThemeToggle}><div class="menu-icon" style="background:rgba(var(--secondary-rgb),0.15);color:rgba(var(--secondary-rgb),1)">{#if $theme === 'dark'}<Sun size={18} />{:else}<Moon size={18} />{/if}</div><div class="menu-text"><span class="menu-label">Tema</span><span class="menu-desc">{$theme === 'dark' ? 'Cambiar a claro' : 'Cambiar a oscuro'}</span></div><div class="theme-toggle" class:dark={$theme === 'dark'}><div class="theme-knob" class:dark={$theme === 'dark'}></div></div></button>
     <div class="menu-item"><div class="menu-icon" style="background:rgba(var(--primary-rgb), 0.1);color:var(--primary)"><Globe size={18} /></div><div class="menu-text"><span class="menu-label">Idioma</span><span class="menu-desc">Selecciona tu idioma preferido</span></div><div class="lang-group"><button class="lang-btn active" aria-label="Español">ES</button><button class="lang-btn disabled" disabled aria-label="English">EN</button></div></div>
   </div>
-  <div class="footer"><div class="footer-links"><button class="footer-link" onclick={() => goto('/support')}>Soporte</button><span class="footer-dot">•</span><button class="footer-link" onclick={() => goto('/terms')}>Términos</button><span class="footer-dot">•</span><button class="footer-link" onclick={() => goto('/privacy')}>Privacidad</button></div><PillButton label="Cerrar sesión" onClick={handleLogout} /><p class="footer-version">Pagui • Versión 1.0.0</p></div>
+  <div class="footer"><div class="footer-links"><button class="footer-link" onclick={() => goto('/support')}>Soporte</button><span class="footer-dot">•</span><button class="footer-link" onclick={() => goto('/terms')}>Términos</button><span class="footer-dot">•</span><button class="footer-link" onclick={() => goto('/privacy')}>Privacidad</button></div><p class="footer-version">Pagui • Versión 1.0.0</p></div>
 </div>
 <input type="file" bind:this={fileInput} accept="image/*" onchange={handleImageUpload} style="display:none" />
 
 <style>
-  .page { max-width: 480px; margin: 0 auto; width: 100%; padding: var(--space-4); padding-bottom: calc(80px + var(--nav-bottom)); display: flex; flex-direction: column; gap: var(--space-5); }
-  .profile-card { display: flex; align-items: center; gap: var(--space-4); padding: var(--space-5); background: rgba(var(--surface-rgb), 1); border-radius: var(--radius-2xl); border: 1px solid rgba(var(--border-rgb), 0.5); }
+  .page { max-width: 480px; margin: 0 auto; width: 100%; padding: var(--space-4); padding-bottom: calc(80px + var(--safe-bottom, 0px)); display: flex; flex-direction: column; gap: var(--space-5); }
+  .profile-card { display: flex; align-items: center; gap: var(--space-4); }
   .avatar-wrap { width: 72px; height: 72px; border-radius: 50%; padding: 3px; flex-shrink: 0; border: none; cursor: pointer; background: rgba(var(--primary-rgb), 0.3); position: relative; }
   .avatar-wrap:active { opacity: 0.8; }
   .avatar-circle { width: 100%; height: 100%; border-radius: 50%; background: rgba(var(--bg-rgb), 1); color: var(--primary); display: flex; align-items: center; justify-content: center; overflow: hidden; }

@@ -33,8 +33,7 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  padding-top: constant(safe-area-inset-top);
-  padding-top: env(safe-area-inset-top);
+  padding-top: calc(var(--safe-top, 0px) + var(--space-4));
 }
 .header-content {
   display: flex;

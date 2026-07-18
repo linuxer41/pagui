@@ -1,168 +1,116 @@
-# Sistema de Pagos QR Multiempresa
+# PAGUI Wallet
 
-Sistema para generación y gestión de códigos QR de pago basado en las especificaciones del Banco Económico con soporte multiempresa y multibanco.
+Sistema de pagos, cobranzas y billeteras digitales multi-tenant.
 
-## Características
+## Arquitectura Lógica (Modelo Tenant-Centric)
 
-- **Multiempresa**: Cada empresa tiene su propia cuenta y configuración
-- **Multibanco**: Soporte para diferentes bancos (Banco Económico, BNB y BISA)
-- **API Keys**: Generación de API keys para integración con sistemas externos
-- **Monitoreo**: Seguimiento de transacciones y actividad
-- **Seguridad**: Autenticación JWT y API key con permisos granulares
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        TENANT (Cliente)                      │
+│  KYC · documentos · niveles · configs · límites             │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │                   Wallets                             │   │
+│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐           │   │
+│  │  │ Wallet A │  │ Wallet B │  │ Wallet C │  ...      │   │
+│  │  └──────────┘  └──────────┘  └──────────┘           │   │
+│  └──────────────────────────────────────────────────────┘   │
+└───────────────────────┬─────────────────────────────────────┘
+                        │ tenant_users (rol: owner/manager/viewer)
+           ┌────────────┼────────────┐
+           ▼            ▼            ▼
+       ┌──────┐    ┌──────┐    ┌──────┐
+       │ User │    │ User │    │ User │  ← Solo autenticación
+       │(owner│    │(mgr) │    │(view)│    (login, JWT, rol
+       └──────┘    └──────┘    └──────┘     del sistema)
+                        │
+                        ▼
+              wallet_permissions
+              (acceso granular a wallets
+               específicas dentro del tenant)
+```
+
+### Principios
+
+1. **User** — existe **solo para autenticarse** (login, JWT, rol del sistema Super/User/Manager). No tiene KYC, no tiene datos de cliente.
+2. **Tenant** — es la **entidad central**. Cada tenant es un cliente del sistema con su propia configuración:
+   - KYC completo (nivel, documentos, fotos, biometría)
+   - Datos personales/comerciales
+   - Estado y niveles de verificación
+3. **tenant_users** — relaciona un user a un tenant con un rol (`owner`/`manager`/`viewer`). Un user pertenece a **exactamente un tenant** (PK = `user_id`).
+4. **Wallet** — pertenece al tenant (`wallets.tenant_id`). Un tenant puede tener múltiples wallets.
+5. **wallet_permissions** — otorga acceso de un user a una wallet específica dentro del tenant. Un user puede acceder a varios wallets con distintos roles.
+6. **KYC, límites, configs** — todo vive en `tenants` y `wallets.tenant_id`, nunca en `users`.
+
+### Flujo de Registro
+
+1. Admin registra un **Tenant** (cliente) con sus datos
+2. Se crea el **User** asociado (login del cliente)
+3. Se vincula vía **tenant_users** como `owner`
+4. Se crea la **Wallet** principal del tenant
+5. Se otorga permiso al user vía **wallet_permissions**
+6. Admin puede agregar users adicionales (`manager`/`viewer`) con acceso selectivo a wallets
 
 ## Estructura del Proyecto
 
-El proyecto está dividido en dos partes principales:
-
-- **Backend**: API REST desarrollada con Bun y Elysia.js
-- **Frontend**: Aplicación web desarrollada con Svelte
+```
+/
+├── backend/          API REST (Bun + Elysia.js)
+│   ├── schema.sql    Definición completa de la BD
+│   ├── migrations/   Migraciones versionadas
+│   └── src/
+│       ├── identity/       Dominio Identity (auth, users, tenants, KYC)
+│       ├── banking/        Dominio Banking (wallets, cuentas)
+│       ├── payments/       Dominio Payments (transferencias, QR, fees)
+│       ├── collections/    Dominio Collections (cobranzas, empresas)
+│       └── scripts/        seed-db.ts (datos iniciales)
+├── frontend/         App SvelteKit (panel de administración)
+└── page/             App Svelte SSR (página pública)
+```
 
 ## Requisitos
 
-- [Bun](https://bun.sh/) v1.0.0 o superior
-- [Node.js](https://nodejs.org/) v18 o superior
-- [PostgreSQL](https://www.postgresql.org/) v14 o superior
+- [Bun](https://bun.sh/) v1.0+
+- [PostgreSQL](https://www.postgresql.org/) v14+
 
 ## Instalación
 
-### 1. Clonar el repositorio
-
-```bash
-git clone <url-del-repositorio>
-cd payments
-```
-
-### 2. Configurar la base de datos
-
-1. Crear una base de datos en PostgreSQL:
-
-```bash
-createdb payments
-```
-
-2. Crear los archivos de variables de entorno:
-
-```bash
-cd backend
-bun run create-env
-```
-
-Esto creará automáticamente los archivos `.env` tanto para el backend como para el frontend con la configuración predeterminada, incluyendo los datos de conexión a los bancos.
-
-3. (Opcional) Editar el archivo `.env` del backend si necesitas personalizar la configuración.
-
-### 3. Instalar dependencias e inicializar el backend
-
 ```bash
 cd backend
 bun install
-bun run init-db   # Inicializa el esquema de la base de datos
-bun run seed-db   # Carga los datos iniciales con la configuración de los bancos
-bun run dev       # Inicia el servidor en modo desarrollo
-```
+bun run init-db   # Crea esquema completo
+bun run seed-db   # Carga datos demo
+bun run dev       # Dev server :3000
 
-Si encuentras algún error relacionado con la base de datos, verifica que:
-- PostgreSQL esté en ejecución
-- Las credenciales en el archivo `.env` sean correctas
-- La base de datos `payments` exista
-
-### 4. Instalar dependencias y ejecutar el frontend
-
-```bash
 cd frontend
 bun install
-bun run dev
+bun run dev       # Dev server :5173
 ```
 
-## Uso
+## Comandos Backend
 
-### Acceso al sistema
+| Comando | Descripción |
+|---------|-------------|
+| `bun run dev` | Servidor desarrollo :3000 |
+| `bun run build` | Build → dist/ |
+| `bun test` | Tests (unit + API) |
+| `bun run init-db` | Reset + schema |
+| `bun run seed-db` | Init + seed demo |
 
-1. Abre tu navegador en `http://localhost:5173`
-2. Inicia sesión con las credenciales del Banco Económico:
-   - Usuario: `1649710`
-   - Contraseña: `1234`
+## Endpoints Clave
 
-### Generación de QR
+| Ruta | Descripción |
+|------|-------------|
+| `POST /auth/login` | Login (email + password) |
+| `POST /transfers/p2p` | Transferencia P2P |
+| `POST /wallets` | Crear wallet |
+| `POST /kyc/submit` | Enviar documentación KYC |
+| `GET /tenants` | Listar tenants del user |
+| `POST /webhooks` | Registrar webhook |
 
-1. Navega a la sección "Generación de QR"
-2. Selecciona el banco con el que deseas generar el QR (Banco Económico, BNB o BISA)
-3. Completa el formulario con los datos requeridos:
-   - Número de Cuenta: Se cargará automáticamente según el banco seleccionado
-   - Moneda: Selecciona BOB o USD según necesites
-   - Monto: Ingresa el monto deseado
-   - Fecha de vencimiento: Selecciona la fecha de expiración del QR
-4. Haz clic en "Generar QR"
-5. El código QR generado se mostrará en pantalla y podrás descargarlo
+## Seed Demo
 
-### Administración de API Keys
+El seed crea 4 tenants con 8 wallets, 12 transferencias P2P, 8 pagos QR, 41 movimientos y balances realistas distribuidos en 60 días. Incluye usuarios dependientes (contador, asistente, tesorero, auditor) con acceso granular a wallets.
 
-1. Navega a la sección "API Keys"
-2. Puedes crear nuevas API keys con permisos específicos
-3. Las API keys pueden ser revocadas en cualquier momento
+## Variables de Entorno
 
-## API REST
-
-La documentación de la API está disponible en:
-
-```
-http://localhost:3000/swagger
-```
-
-## Datos de configuración de los bancos
-
-El sistema viene preconfigurado con los siguientes bancos:
-
-### Banco Económico
-- **Código**: 1016
-- **Usuario**: 1649710
-- **Contraseña**: 1234
-- **Llave de encriptación**: 6F09E3167E1D40829207B01041A65B12
-- **Cuenta para abonos**: 1041070599
-- **URL API**: https://apimktdesa.baneco.com.bo/ApiGateway/
-
-### Banco Nacional de Bolivia (BNB)
-- **Código**: 1001
-- **Llave de encriptación**: 6F09E3167E1D40829207B01041A65B12 (misma del Banco Económico)
-- **Cuenta para abonos**: 10010000001
-- **URL API**: https://api-sandbox.bnb.com.bo/
-
-### Banco BISA
-- **Código**: 1003
-- **Llave de encriptación**: 6F09E3167E1D40829207B01041A65B12 (misma del Banco Económico)
-- **Cuenta para abonos**: 10030000001
-- **URL API**: https://api-test.grupobisa.com/
-
-Estos datos se configuran automáticamente al ejecutar el script `seed-db`.
-
-## Variables de entorno
-
-### Backend (.env)
-
-| Variable | Descripción | Valor predeterminado |
-|----------|-------------|----------------------|
-| DB_USER | Usuario de PostgreSQL | postgres |
-| DB_PASSWORD | Contraseña de PostgreSQL | postgres |
-| DB_HOST | Host de PostgreSQL | localhost |
-| DB_PORT | Puerto de PostgreSQL | 5432 |
-| DB_NAME | Nombre de la base de datos | payments |
-| JWT_SECRET | Clave secreta para firmar tokens JWT | cambiar_por_secreto_seguro |
-| JWT_EXPIRATION | Tiempo de expiración de tokens JWT | 24h |
-| PORT | Puerto del servidor | 3000 |
-| HOST | Host del servidor | 0.0.0.0 |
-| ENCRYPTION_KEY | Clave para encriptación AES | 6F09E3167E1D40829207B01041A65B12 |
-| BANECO_API_URL | URL de la API del Banco Económico | https://apimktdesa.baneco.com.bo/ApiGateway/ |
-| BANECO_USERNAME | Usuario para la API del Banco Económico | 1649710 |
-| BANECO_PASSWORD | Contraseña para la API del Banco Económico | 1234 |
-| BANECO_ACCOUNT | Cuenta para abonos del Banco Económico | 1041070599 |
-| CORS_ORIGIN | Origen permitido para CORS | http://localhost:5173 |
-
-### Frontend (.env)
-
-| Variable | Descripción | Valor predeterminado |
-|----------|-------------|----------------------|
-| VITE_API_URL | URL base de la API | http://localhost:3000/api |
-
-## Licencia
-
-Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para más detalles. 
+Ver `backend/.env` después de ejecutar `bun run create-env`.

@@ -1,6 +1,5 @@
 import { query } from '../../shared/database/pool'
 import { nextSnowflake } from '../../shared/snowflake'
-import { walletRepository } from '../wallet/wallet.repository'
 import { transferRepository } from '../transfer/transfer.repository'
 import { logger } from '../../shared/logger'
 import { AppError } from '../../shared/errors/app-error'
@@ -68,8 +67,10 @@ export async function processNFCTransaction(tx: NFCTransaction) {
     throw new AppError(409, 'Transacción NFC ya procesada')
   }
 
-  const sender = await walletRepository.getById(tx.senderWalletId)
-  if (!sender || sender.availableBalance < tx.amount) {
+  const senderResult = await query('SELECT * FROM wallets WHERE id = $1 AND deleted_at IS NULL', [tx.senderWalletId])
+  if (!senderResult.rowCount) throw new AppError(400, 'Saldo insuficiente')
+  const sender = senderResult.rows[0] as any
+  if (parseFloat(sender.available_balance) < tx.amount) {
     throw new AppError(400, 'Saldo insuficiente')
   }
 
@@ -84,11 +85,8 @@ export async function processNFCTransaction(tx: NFCTransaction) {
     referenceType: 'nfc_offline',
   })
 
-  await walletRepository.updateBalance(
-    tx.senderWalletId,
-    sender.balance - tx.amount,
-    sender.availableBalance - tx.amount
-  )
+  await query('UPDATE wallets SET balance = balance - $1, available_balance = available_balance - $1 WHERE id = $2',
+    [tx.amount, tx.senderWalletId])
   await transferRepository.updateStatus(transfer.id, 'completed')
 
   logger.info('NFC offline payment processed', {

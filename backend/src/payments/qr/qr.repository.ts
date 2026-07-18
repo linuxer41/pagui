@@ -5,8 +5,8 @@ export interface QrRow {
   id: bigint
   qrId: string
   transactionId: string
-  accountId: bigint
-  bankCredentialId: bigint | null
+  walletId: bigint
+  banecoCredentialId: bigint | null
   userId: bigint | null
   amount: number
   currency: string
@@ -16,41 +16,40 @@ export interface QrRow {
   singleUse: boolean
   modifyAmount: boolean
   status: string
-  walletId: bigint | null
   createdAt: Date
   updatedAt: Date
 }
 
 export const qrRepository = {
   async create(data: {
-    qrId: string; transactionId: string; accountId: bigint; bankCredentialId?: bigint
+    qrId: string; transactionId: string; walletId: bigint; banecoCredentialId?: bigint
     userId?: bigint; amount: number; currency?: string; description?: string; dueDate: string
-    qrImage?: string; singleUse?: boolean; modifyAmount?: boolean; walletId?: bigint
+    qrImage?: string; singleUse?: boolean; modifyAmount?: boolean
   }): Promise<QrRow> {
     const r = await query(`
-      INSERT INTO qr_codes (id, qr_id, transaction_id, account_id, bank_credential_id, user_id,
-        amount, currency, description, due_date, qr_image, single_use, modify_amount, wallet_id)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+      INSERT INTO qr_codes (id, qr_id, transaction_id, wallet_id, baneco_credential_id, user_id,
+        amount, currency, description, due_date, qr_image, single_use, modify_amount)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
       RETURNING id, qr_id as "qrId", transaction_id as "transactionId",
-        account_id as "accountId", bank_credential_id as "bankCredentialId", user_id as "userId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
         single_use as "singleUse", modify_amount as "modifyAmount",
-        status, wallet_id as "walletId",
+        status,
         created_at as "createdAt", updated_at as "updatedAt"
-    `, [nextSnowflake(), data.qrId, data.transactionId, data.accountId, data.bankCredentialId || null,
+    `, [nextSnowflake(), data.qrId, data.transactionId, data.walletId, data.banecoCredentialId || null,
       data.userId || null,
       data.amount, data.currency || 'BOB', data.description || null, data.dueDate, data.qrImage || null,
-      data.singleUse !== false, data.modifyAmount === true, data.walletId || null])
+      data.singleUse !== false, data.modifyAmount === true])
     return r.rows[0] as QrRow
   },
 
   async getByQrId(qrId: string): Promise<QrRow | null> {
     const r = await query(`
       SELECT id, qr_id as "qrId", transaction_id as "transactionId",
-        account_id as "accountId", bank_credential_id as "bankCredentialId", user_id as "userId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
         single_use as "singleUse", modify_amount as "modifyAmount",
-        status, wallet_id as "walletId",
+        status,
         created_at as "createdAt", updated_at as "updatedAt"
       FROM qr_codes WHERE qr_id = $1 AND deleted_at IS NULL
     `, [qrId])
@@ -60,19 +59,19 @@ export const qrRepository = {
   async getById(id: bigint): Promise<QrRow | null> {
     const r = await query(`
       SELECT id, qr_id as "qrId", transaction_id as "transactionId",
-        account_id as "accountId", bank_credential_id as "bankCredentialId", user_id as "userId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
         single_use as "singleUse", modify_amount as "modifyAmount",
-        status, wallet_id as "walletId",
+        status,
         created_at as "createdAt", updated_at as "updatedAt"
       FROM qr_codes WHERE id = $1 AND deleted_at IS NULL
     `, [id])
     return r.rowCount ? r.rows[0] as QrRow : null
   },
 
-  async listByAccount(accountId: bigint, filters: { page?: number; limit?: number; status?: string; from?: string; to?: string } = {}): Promise<{ qrs: QrRow[]; totalCount: number }> {
+  async listByAccount(walletId: bigint, filters: { page?: number; limit?: number; status?: string; from?: string; to?: string } = {}): Promise<{ qrs: QrRow[]; totalCount: number }> {
     const page = filters.page || 1; const limit = filters.limit || 20; const offset = (page - 1) * limit
-    const conditions: string[] = ['account_id = $1', 'deleted_at IS NULL']; const params: unknown[] = [accountId]; let pc = 1
+    const conditions: string[] = ['wallet_id = $1', 'deleted_at IS NULL']; const params: unknown[] = [walletId]; let pc = 1
     if (filters.status) { pc++; conditions.push(`status = $${pc}`); params.push(filters.status) }
     if (filters.from) { pc++; conditions.push(`created_at >= $${pc}`); params.push(filters.from) }
     if (filters.to) { pc++; conditions.push(`created_at <= $${pc}`); params.push(filters.to) }
@@ -80,10 +79,10 @@ export const qrRepository = {
     const c = await query(`SELECT COUNT(*) as t FROM qr_codes ${where}`, params)
     const r = await query(`
       SELECT id, qr_id as "qrId", transaction_id as "transactionId",
-        account_id as "accountId", bank_credential_id as "bankCredentialId", user_id as "userId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
         single_use as "singleUse", modify_amount as "modifyAmount",
-        status, wallet_id as "walletId",
+        status,
         created_at as "createdAt", updated_at as "updatedAt"
       FROM qr_codes ${where} ORDER BY created_at DESC LIMIT $${pc + 1} OFFSET $${pc + 2}
     `, [...params, limit, offset])
@@ -98,10 +97,10 @@ export const qrRepository = {
     const c = await query(`SELECT COUNT(*) as t FROM qr_codes ${where}`, params)
     const r = await query(`
       SELECT id, qr_id as "qrId", transaction_id as "transactionId",
-        account_id as "accountId", bank_credential_id as "bankCredentialId", user_id as "userId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
         single_use as "singleUse", modify_amount as "modifyAmount",
-        status, wallet_id as "walletId",
+        status,
         created_at as "createdAt", updated_at as "updatedAt"
       FROM qr_codes ${where} ORDER BY created_at DESC LIMIT $${pc + 1} OFFSET $${pc + 2}
     `, [...params, limit, offset])
@@ -118,7 +117,7 @@ export const qrRepository = {
 
   async getPayments(qrId: string): Promise<any[]> {
     const r = await query(`
-      SELECT * FROM account_movements WHERE qr_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC
+      SELECT * FROM wallet_movements WHERE qr_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC
     `, [qrId])
     return r.rows
   },

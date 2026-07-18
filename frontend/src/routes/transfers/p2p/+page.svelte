@@ -1,23 +1,33 @@
 <script lang="ts">
+  import { get } from 'svelte/store'
   import { goto } from '$app/navigation'
+  import { auth } from '$lib/stores/auth'
   import api from '$lib/api'
   import Section from '$lib/components/Section.svelte'
-  import { Send, CheckCircle2, AlertCircle, ArrowUpRight } from '@lucide/svelte'
+  import { Send, CheckCircle2, AlertCircle, ArrowUpRight, Wallet } from '@lucide/svelte'
   import PageLayout from '$lib/components/layouts/PageLayout.svelte'
   import PillButton from '$lib/components/ui/PillButton.svelte'
   import OutlineButton from '$lib/components/ui/OutlineButton.svelte'
-  import AmountField from '$lib/components/ui/AmountField.svelte'
   import TextField from '$lib/components/ui/TextField.svelte'
 
-  let receiverWalletId = ''
-  let amount = 0
-  let description = ''
-  let loading = false
-  let error = ''
-  let success = false
+  let wallets: any[] = $state([])
+  let selectedWallet: any = $state(null)
+  let receiverWalletNumber = $state('')
+  let amount = $state(0)
+  let description = $state('')
+  let loading = $state(false)
+  let error = $state('')
+  let success = $state(false)
+
+  $effect(() => {
+    const s: any = get(auth)
+    wallets = s.wallets || []
+    if (!selectedWallet && wallets.length > 0) selectedWallet = wallets[0]
+  })
 
   async function handleTransfer() {
-    if (!receiverWalletId || !amount || amount <= 0) {
+    if (!selectedWallet) { error = 'Selecciona una billetera origen'; return }
+    if (!receiverWalletNumber || !amount || amount <= 0) {
       error = 'Completa todos los campos'
       return
     }
@@ -25,7 +35,8 @@
     error = ''
     try {
       const res = await api.transferP2P({
-        receiverWalletId,
+        senderWalletId: String(selectedWallet.id),
+        receiverWalletNumber,
         amount,
         description: description || undefined
       }, crypto.randomUUID().slice(0, 32))
@@ -43,7 +54,7 @@
 
   function reset() {
     success = false
-    receiverWalletId = ''
+    receiverWalletNumber = ''
     amount = 0
     description = ''
     error = ''
@@ -95,8 +106,31 @@
       </div>
     {/if}
 
-    <Section>
-      <TextField label="Billetera destino" bind:value={receiverWalletId} placeholder="ID de la billetera receptora" />
+    <Section label="Origen">
+      {#if wallets.length > 1}
+        <div class="wallet-list">
+          {#each wallets as w}
+            <button class="wallet-option" class:selected={selectedWallet?.id === w.id} onclick={() => selectedWallet = w}>
+              <div class="wallet-option-info">
+                <span class="wallet-option-name">{w.name || 'Billetera'}</span>
+                <span class="wallet-option-number">{w.walletNumber}</span>
+              </div>
+              <span class="wallet-option-balance">Bs {Number(w.balance || 0).toFixed(2)}</span>
+            </button>
+          {/each}
+        </div>
+      {:else if wallets.length === 1}
+        <div class="wallet-single">
+          <Wallet size={18} />
+          <span>{wallets[0].name || 'Billetera'}</span>
+          <span class="wallet-single-number">{wallets[0].walletNumber}</span>
+          <span class="wallet-single-balance">Bs {Number(wallets[0].balance || 0).toFixed(2)}</span>
+        </div>
+      {/if}
+    </Section>
+
+    <Section label="Destino">
+      <TextField label="N° billetera" bind:value={receiverWalletNumber} placeholder="Número de billetera destino" />
       <TextField label="Descripción (opcional)" bind:value={description} placeholder="¿Para qué es?" />
     </Section>
 
@@ -152,6 +186,28 @@
     margin: 0 var(--space-4);
     animation: fadeIn 0.3s;
   }
+  :global(.section-label) { font-size: var(--text-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: rgba(var(--text-tertiary-rgb), 1); margin-bottom: var(--space-2); }
+  .wallet-list { display: flex; flex-direction: column; gap: var(--space-2); }
+  .wallet-option {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: var(--space-3); border-radius: var(--radius-lg);
+    border: 1.5px solid rgba(var(--border-rgb), 0.5);
+    background: rgba(var(--surface-rgb), 0.5); cursor: pointer;
+    transition: all 0.15s; text-align: left; width: 100%;
+  }
+  .wallet-option.selected { border-color: var(--primary); background: rgba(var(--primary-rgb), 0.06); }
+  .wallet-option-info { display: flex; flex-direction: column; gap: 2px; }
+  .wallet-option-name { font-size: var(--text-sm); font-weight: 600; color: rgba(var(--text-primary-rgb), 1); }
+  .wallet-option-number { font-size: var(--text-xs); color: rgba(var(--text-tertiary-rgb), 1); font-family: monospace; }
+  .wallet-option-balance { font-size: var(--text-sm); font-weight: 700; color: var(--primary); }
+  .wallet-single {
+    display: flex; align-items: center; gap: var(--space-2);
+    padding: var(--space-3); border-radius: var(--radius-lg);
+    background: rgba(var(--surface-rgb), 0.5);
+    font-size: var(--text-sm); color: rgba(var(--text-primary-rgb), 1);
+  }
+  .wallet-single-number { font-family: monospace; color: rgba(var(--text-tertiary-rgb), 1); }
+  .wallet-single-balance { margin-left: auto; font-weight: 700; color: var(--primary); }
   .info-note {
     display: flex; align-items: center; justify-content: center;
     gap: var(--space-2); padding: var(--space-3);

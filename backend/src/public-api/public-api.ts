@@ -20,8 +20,12 @@ export async function startPublicApi() {
     setCorrelationId(id)
   })
 
-  app.onAfterHandle(({ set }) => {
+  app.onAfterHandle(({ request, set }) => {
     set.headers = { ...set.headers, ...complianceHeaders() }
+    const url = new URL(request.url)
+    logger.info(`[Public] ${request.method} ${url.pathname} → ${set.status}`, {
+      method: request.method, path: url.pathname, status: set.status,
+    })
   })
 
   app
@@ -51,23 +55,26 @@ export async function startPublicApi() {
     .use(rateLimit({ windowMs: 60_000, maxRequests: parseInt(process.env.RATE_LIMIT_MAX || '120') }))
     .use(publicQrRoutes)
     .onError(({ code, error, set, request }) => {
+      const path = new URL(request.url).pathname
       const err = error as Record<string, unknown>
       const isAppError = err?.statusCode != null && typeof err.statusCode === 'number'
       if (isAppError) {
         set.status = err.statusCode as number
-        logger.warn('Public API error', { statusCode: err.statusCode, message: String(err.message || ''), path: new URL(request.url).pathname })
+        logger.warn('Public API error', { statusCode: err.statusCode, message: String(err.message || ''), path, error })
         return { error: err.message as string || 'Error', message: err.message as string || 'Error', details: err.details }
       }
       if (code === 'NOT_FOUND') {
         set.status = 404
+        logger.warn('Not found', { path })
         return { error: 'Ruta no encontrada', message: 'Ruta no encontrada' }
       }
       if (code === 'VALIDATION') {
         set.status = 400
+        logger.warn('Validation error', { path, error: String(error) })
         return { error: 'Error de validación', message: 'Error de validación' }
       }
-      logger.error('Public API error', { error: String(error), path: new URL(request.url).pathname })
-      sentry.captureError(error instanceof Error ? error : new Error(String(error)), { code, path: new URL(request.url).pathname })
+      const errObj = error instanceof Error ? error : new Error(String(error))
+      logger.error('Public API error', { error: errObj, code, path })
       set.status = 500
       return { error: 'Error interno del servidor', message: 'Error interno del servidor' }
     })

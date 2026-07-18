@@ -95,10 +95,10 @@ export const healthRoutes = new Elysia({ prefix: '/health' })
       'SELECT count(*) as total FROM information_schema.tables WHERE table_schema = \'public\''
     )
     const { rows: activeUsers } = await pool.query(
-      'SELECT count(*) as cnt FROM users WHERE is_active = true'
+      'SELECT count(*) as cnt FROM users WHERE status = \'active\''
     )
     const { rows: totalWallets } = await pool.query(
-      'SELECT count(*) as cnt FROM wallets'
+      'SELECT count(*) as cnt FROM wallets WHERE deleted_at IS NULL'
     )
     const { rows: totalTransfers } = await pool.query(
       'SELECT count(*) as cnt, coalesce(sum(amount), 0) as total_amount FROM transfers'

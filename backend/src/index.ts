@@ -8,12 +8,14 @@ import { migrateDB } from './shared/database/migrate'
 import { AppError } from './shared/errors/app-error'
 import { logger, setCorrelationId } from './shared/logger'
 import { rateLimit } from './shared/middleware/rate-limit'
+import { authMiddleware } from './shared/middleware/auth.middleware'
 import { sentry } from './shared/sentry'
 import { complianceHeaders } from './shared/compliance/pci.service'
 import { fail } from '@pagui/shared'
 
 import { authRoutes } from './identity/auth.routes'
 import { userRoutes } from './identity/user.routes'
+import { tenantRoutes } from './identity/tenants/tenant.routes'
 import { bankingRoutes } from './banking/banking.routes'
 import { qrRoutes } from './payments/qr/qr.routes'
 import { hooksRoutes } from './payments/payment/hooks.routes'
@@ -26,23 +28,18 @@ import { healthRoutes } from './monitoring/health.controller'
 import { startPublicApi } from './public-api/public-api'
 import { paymentQueueService } from './payments/sync/payment-queue.service'
 import { sseService } from './payments/events/sse.service'
-import { fraudRoutes } from './payments/fraud/fraud.routes'
-import { fxRoutes } from './payments/fx/fx.routes'
 import { webhookRoutes } from './payments/webhooks/webhook.routes'
 import { startWebhookProcessor } from './payments/webhooks/webhook.service'
-import { reconciliationRoutes } from './payments/reconciliation/reconciliation.routes'
-import { walletBackupRoutes } from './payments/wallet/wallet-backup.routes'
 import { wsRoutes } from './shared/ws'
-import { subscriptionRoutes } from './payments/subscription/subscription.routes'
-import { splitRoutes } from './payments/split/split.routes'
-import { merchantRoutes } from './payments/merchant/merchant.routes'
-import { pushRoutes } from './payments/push/push.routes'
-import { cashRoutes } from './payments/cash/cash.routes'
 import { nfcRoutes } from './payments/offline/nfc-offline.routes'
 import { kycRoutes } from './shared/kyc/kyc.routes'
-import { complianceRoutes } from './shared/compliance/compliance.routes'
 import { settlementRoutes } from './payments/settlement/settlement.routes'
 import { settlementService } from './payments/settlement/settlement.service'
+import { collectionRoutes } from './collection/collection.routes'
+import { liquidationRoutes } from './collection/liquidation.routes'
+import { directTransactionRoutes } from './collection/direct-transaction.routes'
+import { adminRoutes } from './admin/admin.routes'
+import { requireRole } from './shared/middleware/auth.middleware'
 
 sentry.init()
 
@@ -53,8 +50,12 @@ app.onRequest(({ request }) => {
   setCorrelationId(id)
 })
 
-app.onAfterHandle(({ set }) => {
+app.onAfterHandle(({ request, set }) => {
   set.headers = { ...set.headers, ...complianceHeaders() }
+  const url = new URL(request.url)
+  logger.info(`${request.method} ${url.pathname} → ${set.status}`, {
+    method: request.method, path: url.pathname, status: set.status,
+  })
 })
 
 app.use(swagger({ path: '/swagger' }))
@@ -62,51 +63,48 @@ app.use(swagger({ path: '/swagger' }))
   .use(rateLimit({ windowMs: 60_000, maxRequests: parseInt(process.env.RATE_LIMIT_MAX || '120') }))
   .use(healthRoutes)
   .use(authRoutes)
+  .use(sseRoutes)
+  .derive(authMiddleware())
   .use(userRoutes)
+  .use(tenantRoutes)
   .use(bankingRoutes)
   .use(qrRoutes)
   .use(hooksRoutes)
   .use(paymentRoutes)
   .use(transactionsRoutes)
-  .use(sseRoutes)
   .use(collectionsRoutes)
   .use(apiKeyRoutes)
-  .use(fraudRoutes)
-  .use(fxRoutes)
   .use(webhookRoutes)
-  .use(reconciliationRoutes)
-  .use(walletBackupRoutes)
   .use(wsRoutes)
-  .use(subscriptionRoutes)
-  .use(splitRoutes)
-  .use(merchantRoutes)
-  .use(pushRoutes)
-  .use(cashRoutes)
   .use(nfcRoutes)
   .use(kycRoutes)
-  .use(complianceRoutes)
   .use(settlementRoutes)
+  .use(liquidationRoutes)
+  .use(directTransactionRoutes)
+  .use(collectionRoutes)
+  .guard({ beforeHandle: [({ auth }: any) => requireRole(1)(auth)] })
+  .use(adminRoutes)
   .onError(({ code, error, set, request }) => {
+    const path = new URL(request.url).pathname
     const err = error as Record<string, unknown>
     const isAppError = err?.statusCode != null && typeof err.statusCode === 'number'
     if (isAppError) {
       set.status = err.statusCode as number
-      logger.warn('App error', { statusCode: err.statusCode, message: String(err.message || ''), path: new URL(request.url).pathname })
+      logger.warn('App error', { statusCode: err.statusCode, message: String(err.message || ''), path, error })
       return fail(String(err.message || 'Error'), String(err.message || 'Error'), err.details)
     }
     if (code === 'NOT_FOUND') {
       set.status = 404
+      logger.warn('Not found', { path })
       return fail('Ruta no encontrada', 'Ruta no encontrada')
     }
     if (code === 'VALIDATION') {
       set.status = 400
+      logger.warn('Validation error', { path, error: String(error) })
       return fail('Error de validación', 'Error de validación')
     }
-    logger.error('Unhandled error', { error: String(error), path: new URL(request.url).pathname })
-    sentry.captureError(error instanceof Error ? error : new Error(String(error)), {
-      code,
-      path: new URL(request.url).pathname,
-    })
+    const errObj = error instanceof Error ? error : new Error(String(error))
+    logger.error('Unhandled error', { error: errObj, code, path })
     set.status = 500
     return fail('Error interno del servidor', 'Error interno del servidor')
   })
@@ -126,11 +124,7 @@ if (mode === 'init-db') {
     testConnection()
     startWebhookProcessor()
     const settlementInterval = setInterval(() => settlementService.processPending(), 60_000)
-    logger.info('All services initialized', {
-      redis: !!process.env.REDIS_URL,
-      sentry: !!process.env.SENTRY_DSN,
-      otel: !!process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
-    })
+    logger.info('All services initialized')
     const port = parseInt(process.env.PORT || '3000')
     app.listen(port, () => {
       logger.info(`Server on :${port}`)

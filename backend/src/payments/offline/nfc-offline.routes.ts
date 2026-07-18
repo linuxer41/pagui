@@ -1,10 +1,8 @@
 import { Elysia, t } from 'elysia'
-import { authMiddleware } from '../../shared/middleware/auth.middleware'
 import { createNFCOfflinePayload, processNFCTransaction } from './nfc-offline.service'
 import { ok } from '../../shared/response'
 
 export const nfcRoutes = new Elysia({ prefix: '/nfc' })
-  .derive(authMiddleware)
   .post('/prepare', async ({ body }) => {
     return ok(await createNFCOfflinePayload(body))
   }, {

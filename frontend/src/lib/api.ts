@@ -1,5 +1,4 @@
 import { auth } from './stores/auth';
-import { company } from './stores/company';
 import { get } from 'svelte/store';
 import { goto } from '$app/navigation';
 import { API_URL } from './config';
@@ -120,23 +119,25 @@ export interface TransactionsListData {
   };
 }
 
-export interface Account {
+export interface Wallet {
   id: string;
-  accountNumber: string;
-  accountType: string;
+  walletNumber: string;
+  name: string;
+  type: string;
+  level: string;
   currency: string;
   balance: number;
   availableBalance: number;
-  thirdBankCredentialId?: number;
-  userEmail: string;
-  userFullName: string;
-  userPhone?: string;
-  userAddress?: string;
+  heldBalance: number;
+  tenantId: string | null;
+  status: string;
+  isDefault: boolean;
+  isCollection: boolean;
 }
 
-export interface AccountMovement {
+export interface WalletMovement {
   id: string;
-  accountId: string;
+  walletId: string;
   transactionId: string;
   amount: number;
   currency: string;
@@ -147,11 +148,11 @@ export interface AccountMovement {
   reference?: string;
 }
 
-export interface AccountStats {
-  account: {
+export interface WalletStats {
+  wallet: {
     id: number;
-    accountNumber: string;
-    accountType: string;
+    walletNumber: string;
+    type: string;
     currency: string;
     balance: number;
     availableBalance: number;
@@ -162,7 +163,7 @@ export interface AccountStats {
   thisMonth: { amount: number; growthPercentage: number };
   recentMovements: {
     id: number;
-    accountId: number;
+    walletId: number;
     movementType: string;
     amount: number;
     description: string;
@@ -193,17 +194,19 @@ export interface LoginData {
   refreshToken: string;
   expiresIn: string;
   user: UserProfile;
-  accounts: import('./stores/auth').Account[];
-  company?: Record<string, unknown>;
+  wallets: import('./stores/auth').Wallet[];
 }
 
 export interface ApiKey {
   id: number;
-  name: string;
-  key: string;
+  apiKey: string;
+  walletId: number;
+  description: string | null;
+  permissions: Record<string, boolean>;
+  expiresAt: string | null;
+  status: string;
   createdAt: string;
-  lastUsedAt?: string;
-  isActive: boolean;
+  updatedAt: string;
 }
 
 export interface HealthStatus {
@@ -217,35 +220,6 @@ export interface HealthApiStatus {
   status: string;
   database: string;
   timestamp: string;
-}
-
-export interface Wallet {
-  id: string;
-  name: string;
-  type: string;
-  currency: string;
-  balance: number;
-  availableBalance: number;
-}
-
-export interface Subscription {
-  id: string;
-  amount: number;
-  intervalType: string;
-  description?: string;
-  isActive: boolean;
-  startDate: string;
-  endDate?: string;
-  lastProcessedAt?: string;
-}
-
-export interface Merchant {
-  id: string;
-  businessName: string;
-  businessCategory: string;
-  taxId: string;
-  isVerified: boolean;
-  isActive: boolean;
 }
 
 export interface NFCData {
@@ -262,22 +236,6 @@ export interface NFCData {
   qrData: string;
 }
 
-export interface FraudAlert {
-  id: string;
-  type: string;
-  severity: string;
-  message: string;
-  createdAt: string;
-  resolvedAt?: string;
-}
-
-export interface FXRate {
-  base: string;
-  target: string;
-  rate: number;
-  updatedAt: string;
-}
-
 export interface Webhook {
   id: string;
   url: string;
@@ -285,14 +243,6 @@ export interface Webhook {
   isActive: boolean;
   lastSentAt?: string;
   lastError?: string;
-}
-
-export interface ReconciliationItem {
-  id: string;
-  accountId: string;
-  status: string;
-  discrepancy?: number;
-  createdAt: string;
 }
 
 export interface KYCStatus {
@@ -310,26 +260,13 @@ export interface Notification {
   createdAt: string;
 }
 
-export interface FeeRule {
-  id: string;
-  name: string;
-  percentage: number;
-  minAmount?: number;
-  maxAmount?: number;
-}
-
-export interface SplitPayResult {
-  splitGroupId: string;
-  transactions: { transferId: string; recipientWalletId: string; amount: number }[];
-}
-
 export interface TransferResult {
   transferId: string;
   status: string;
 }
 
 // ---- ApiClient ----
-const publicEndpoints = ['/auth/login', '/auth/register', '/auth/forgot-password', '/auth/reset-password'];
+const publicEndpoints = ['/auth/login', '/auth/otp/login', '/auth/otp/complete', '/auth/send-otp', '/auth/register', '/auth/forgot-password', '/auth/reset-password'];
 
 function createAuthProvider() {
   return new JwtAuthProvider(() => {
@@ -367,9 +304,23 @@ class ApiClient extends BaseApiClient {
   async login(email: string, password: string): Promise<ApiResponse<LoginData>> {
     const raw: ApiResponse<LoginData> = await super.request('/auth/login', 'POST', { email, password }, { retryOnUnauthorized: false })
     const d = raw.data
-    auth.login(d.accessToken, d.user, d.refreshToken, (d as any)?.accounts || [])
-    if (d.company) company.setCompany(d.company as any)
+    auth.login(d.accessToken, d.user, d.refreshToken, (d as any)?.wallets || [])
     return raw
+  }
+
+  async loginWithOTP(phone: string, code: string): Promise<ApiResponse<LoginData & { needsRegistration?: boolean; tempToken?: string }>> {
+    return super.request('/auth/otp/login', 'POST', { phone, code }, { retryOnUnauthorized: false })
+  }
+
+  async completeOTPRegistration(phone: string, name: string, documentId: string, tempToken: string): Promise<ApiResponse<LoginData>> {
+    const raw: ApiResponse<LoginData> = await super.request('/auth/otp/complete', 'POST', { phone, name, documentId, tempToken }, { retryOnUnauthorized: false })
+    const d = raw.data
+    auth.login(d.accessToken, d.user, d.refreshToken, (d as any)?.wallets || [])
+    return raw
+  }
+
+  async sendOTP(phone: string): Promise<ApiResponse<{ code: string }>> {
+    return super.request('/auth/send-otp', 'POST', { phone }, { retryOnUnauthorized: false })
   }
 
   async refreshToken(): Promise<boolean> {
@@ -378,7 +329,7 @@ class ApiClient extends BaseApiClient {
       if (!authStore.refreshToken) return false;
       const raw: ApiResponse<LoginData> = await super.request('/auth/refresh', 'POST', { refreshToken: authStore.refreshToken }, { retryOnUnauthorized: false });
       const d = raw.data;
-      auth.login(d.accessToken, authStore.user!, d.refreshToken, authStore.accounts || []);
+      auth.login(d.accessToken, authStore.user!, d.refreshToken, authStore.wallets || []);
       return true;
     } catch {
       return false;
@@ -415,6 +366,7 @@ class ApiClient extends BaseApiClient {
     if (qrData.dueDate) apiData.dueDate = qrData.dueDate;
     if (typeof qrData.singleUse !== 'undefined') apiData.singleUse = qrData.singleUse;
     if (typeof qrData.modifyAmount !== 'undefined') apiData.modifyAmount = qrData.modifyAmount;
+    if (qrData.walletId) apiData.walletId = qrData.walletId;
     return this.post('/qr/generate', apiData, options);
   }
 
@@ -449,13 +401,22 @@ class ApiClient extends BaseApiClient {
     return this.get(endpoint, options);
   }
 
-  simulatePayment(qrId: string, amount?: number, options?: Record<string, unknown>): Promise<ApiResponse<null>> {
-    return this.post('/qr/simulatePayment', { qrId, ...(amount !== undefined ? { amount } : {}) }, options);
+  async getTransactionsByPeriod(periodType: 'weekly' | 'monthly' | 'yearly', year: number, month?: number, week?: number, walletId?: string | number, options?: Record<string, unknown>): Promise<ApiResponse<TransactionsResponse>> {
+    const base = `/transactions/stats/${periodType}/${year}${periodType === 'monthly' && month !== undefined ? `/${month}` : ''}`;
+    const params: string[] = []
+    if (periodType === 'weekly' && week !== undefined) params.push(`week=${week}`)
+    if (walletId !== undefined) params.push(`walletId=${walletId}`)
+    const qs = params.length > 0 ? `?${params.join('&')}` : ''
+    return this.get(`${base}${qs}`, options);
   }
 
-  async getTransactionsByPeriod(periodType: 'weekly' | 'monthly' | 'yearly', year: number, month?: number, week?: number, options?: Record<string, unknown>): Promise<ApiResponse<TransactionsResponse>> {
-    const endpoint = `/transactions/stats/${periodType}/${year}${month !== undefined ? `/${month}` : ''}${week !== undefined ? `/${week}` : ''}`;
-    return this.get(endpoint, options);
+  async getCollectionsStats(periodType: 'weekly' | 'monthly' | 'yearly', year: number, month?: number, week?: number, walletId?: string | number): Promise<ApiResponse<TransactionsResponse>> {
+    const base = `/collections/stats/${periodType}/${year}${periodType === 'monthly' && month !== undefined ? `/${month}` : ''}`;
+    const params: string[] = []
+    if (periodType === 'weekly' && week !== undefined) params.push(`week=${week}`)
+    if (walletId !== undefined) params.push(`walletId=${walletId}`)
+    const qs = params.length > 0 ? `?${params.join('&')}` : ''
+    return this.get(`${base}${qs}`);
   }
 
   async listTransactions(filters: Record<string, unknown> = {}, options?: Record<string, unknown>): Promise<ApiResponse<TransactionsListData>> {
@@ -474,11 +435,11 @@ class ApiClient extends BaseApiClient {
   getRecentTransactions(limit: number = 3, options?: Record<string, unknown>): Promise<ApiResponse<TransactionsListData>> {
     return this.listTransactions({ page: 1, pageSize: limit }, options);
   }
+  listApiKeys(walletId: string): Promise<ApiResponse<ApiKey[]>> { return this.get(`/api-keys?walletId=${walletId}`); }
 
-  listApiKeys(options?: Record<string, unknown>): Promise<ApiResponse<ApiKey[]>> { return this.get('/apikeys', options); }
-  generateApiKey(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<ApiKey>> { return this.post('/apikeys', data, options); }
-  revokeApiKey(id: number, options?: Record<string, unknown>): Promise<ApiResponse<null>> { return this.delete(`/apikeys/${id}`, undefined, options); }
+  generateApiKey(data: Record<string, unknown>): Promise<ApiResponse<ApiKey>> { return this.post('/api-keys', data); }
 
+  revokeApiKey(id: number): Promise<ApiResponse<null>> { return this.delete(`/api-keys/${id}`); }
   listUsers(options?: Record<string, unknown>): Promise<ApiResponse<UserProfile[]>> { return this.get('/users', options); }
   createUser(userData: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<UserProfile>> { return this.post('/users', userData, options); }
 
@@ -499,18 +460,16 @@ class ApiClient extends BaseApiClient {
     return this.put('/users/profile', profileData, options);
   }
 
-  listBanks(options?: Record<string, unknown>): Promise<ApiResponse<unknown[]>> { return this.get('/admin/banks', options); }
-
   checkServerHealth(): Promise<ApiResponse<HealthStatus>> { return this.get('/', {}); }
   checkSystemHealth(): Promise<ApiResponse<HealthStatus>> { return this.get('/health', {}); }
   checkApiHealth(): Promise<ApiResponse<HealthApiStatus>> { return this.get('/health/api', {}); }
 
-  getAccounts(options?: Record<string, unknown>): Promise<ApiResponse<Account[]>> { return this.get('/accounts/', options); }
-  getAccount(accountId: string, options?: Record<string, unknown>): Promise<ApiResponse<Account>> { return this.get(`/accounts/${accountId}`, options); }
-  getAccountMovements(accountId: string, page: number = 1, pageSize: number = 20, options?: Record<string, unknown>): Promise<ApiResponse<AccountMovement[]>> {
-    return this.get(`/accounts/${accountId}/movements?page=${page}&pageSize=${pageSize}`, options);
+  getWallets(options?: Record<string, unknown>): Promise<ApiResponse<Wallet[]>> { return this.get('/wallets/', options); }
+  getWallet(walletId: string, options?: Record<string, unknown>): Promise<ApiResponse<Wallet>> { return this.get(`/wallets/${walletId}`, options); }
+  getWalletMovements(walletId: string, page: number = 1, pageSize: number = 20, options?: Record<string, unknown>): Promise<ApiResponse<WalletMovement[]>> {
+    return this.get(`/wallets/${walletId}/movements?page=${page}&pageSize=${pageSize}`, options);
   }
-  getAccountStats(accountId: string, options?: Record<string, unknown>): Promise<ApiResponse<AccountStats>> { return this.get(`/accounts/${accountId}/stats`, options); }
+  getWalletStats(walletId: string, options?: Record<string, unknown>): Promise<ApiResponse<WalletStats>> { return this.get(`/wallets/${walletId}/stats`, options); }
 
   getSSEStats(options?: Record<string, unknown>): Promise<ApiResponse<{ connectedClients: number }>> { return this.get('/events/stats', options); }
 
@@ -521,45 +480,13 @@ class ApiClient extends BaseApiClient {
   listWallets(options?: Record<string, unknown>): Promise<ApiResponse<Wallet[]>> { return this.get('/wallets', options); }
   createWallet(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<Wallet>> { return this.post('/wallets', data, options); }
 
-  listSubscriptions(options?: Record<string, unknown>): Promise<ApiResponse<Subscription[]>> { return this.get('/subscriptions', options); }
-  createSubscription(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<Subscription>> { return this.post('/subscriptions', data, options); }
-  cancelSubscription(id: string, options?: Record<string, unknown>): Promise<ApiResponse<null>> { return this.post(`/subscriptions/${id}/cancel`, {}, options); }
-
-  splitPay(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<SplitPayResult>> { return this.post('/split/pay', data, options); }
-  splitCalculate(total: number, percentages: number[], options?: Record<string, unknown>): Promise<ApiResponse<{ items: { walletId: string; amount: number; percentage: number }[] }>> { return this.post('/split/calculate', { total, percentages }, options); }
-
-  registerMerchant(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<Merchant>> { return this.post('/merchants/register', data, options); }
-  getMerchantQR(merchantId: string, options?: Record<string, unknown>): Promise<ApiResponse<{ qrData: string; qrImage: string }>> { return this.get(`/merchants/${merchantId}/qr`, options); }
-  merchantPay(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<TransferResult>> { return this.post('/merchants/pay', data, options); }
-
-  registerCashAgent(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<{ agentId: string; walletId: string }>> { return this.post('/cash/agents/register', data, options); }
-  cashTransaction(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<TransferResult>> { return this.post('/cash/transaction', data, options); }
-  getNearbyAgents(lat: number, lng: number, radius?: number, options?: Record<string, unknown>): Promise<ApiResponse<{ data: unknown[] }>> {
-    return this.get(`/cash/agents/nearby?lat=${lat}&lng=${lng}&radius=${radius || 5}`, options);
-  }
-
   prepareNFC(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<NFCData>> { return this.post('/nfc/prepare', data, options); }
   processNFC(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<TransferResult>> { return this.post('/nfc/process', data, options); }
+  listWebhooks(walletId: string): Promise<ApiResponse<Webhook[]>> { return this.get(`/webhooks?walletId=${walletId}`); }
 
-  createWalletBackup(walletId: string, options?: Record<string, unknown>): Promise<ApiResponse<{ seedPhrase: string }>> { return this.post(`/wallet/${walletId}/backup`, {}, options); }
-  verifyWalletBackup(walletId: string, options?: Record<string, unknown>): Promise<ApiResponse<null>> { return this.post(`/wallet/${walletId}/backup/verify`, {}, options); }
-  getWalletBackupStatus(walletId: string, options?: Record<string, unknown>): Promise<ApiResponse<{ status: string; verified: boolean }>> { return this.get(`/wallet/${walletId}/backup`, options); }
+  registerWebhook(data: Record<string, unknown>): Promise<ApiResponse<Webhook>> { return this.post('/webhooks', data); }
 
-  getFraudAlerts(options?: Record<string, unknown>): Promise<ApiResponse<FraudAlert[]>> { return this.get('/fraud/alerts', options); }
-  resolveFraudAlert(alertId: string, options?: Record<string, unknown>): Promise<ApiResponse<null>> { return this.post(`/fraud/alerts/${alertId}/resolve`, {}, options); }
-
-  getFXRates(options?: Record<string, unknown>): Promise<ApiResponse<{ rates: FXRate[]; currencies: string[] }>> { return this.get('/fx/rates', options); }
-  getFXRate(base: string, target: string, options?: Record<string, unknown>): Promise<ApiResponse<FXRate>> { return this.get(`/fx/rate/${base}/${target}`, options); }
-  convertCurrency(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<{ result: number }>> { return this.post('/fx/convert', data, options); }
-
-  listWebhooks(options?: Record<string, unknown>): Promise<ApiResponse<Webhook[]>> { return this.get('/webhooks', options); }
-  registerWebhook(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<Webhook>> { return this.post('/webhooks', data, options); }
-  deleteWebhook(id: string, options?: Record<string, unknown>): Promise<ApiResponse<null>> { return this.delete(`/webhooks/${id}`, undefined, options); }
-
-  getPendingReconciliations(options?: Record<string, unknown>): Promise<ApiResponse<ReconciliationItem[]>> { return this.get('/reconciliation/pending', options); }
-  reconcileAccount(accountId: string, options?: Record<string, unknown>): Promise<ApiResponse<null>> { return this.post(`/reconciliation/account/${accountId}`, {}, options); }
-  getReconciliationLogs(accountId: string, options?: Record<string, unknown>): Promise<ApiResponse<ReconciliationItem[]>> { return this.get(`/reconciliation/logs/${accountId}`, options); }
-
+  deleteWebhook(id: string, walletId: string): Promise<ApiResponse<null>> { return this.delete(`/webhooks/${id}?walletId=${walletId}`); }
   submitKYC(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<null>> { return this.post('/kyc/submit', data, options); }
   getKYCStatus(options?: Record<string, unknown>): Promise<ApiResponse<KYCStatus>> { return this.get('/kyc/status', options); }
 
@@ -571,33 +498,41 @@ class ApiClient extends BaseApiClient {
     return this.post('/auth/register', data);
   }
 
-  getPCIStatus(options?: Record<string, unknown>): Promise<ApiResponse<unknown>> { return this.get('/compliance/pci', options); }
-  runDataRetention(dryRun: boolean = false, options?: Record<string, unknown>): Promise<ApiResponse<unknown>> {
-    if (dryRun) return this.get('/compliance/retention/dry-run', options);
-    return this.post('/compliance/retention/run', {}, options);
-  }
-  getRetentionStatus(options?: Record<string, unknown>): Promise<ApiResponse<unknown>> { return this.get('/compliance/retention/status', options); }
-
   listNotifications(options?: Record<string, unknown>): Promise<ApiResponse<Notification[]>> { return this.get('/notifications', options); }
   markNotificationRead(id: string, options?: Record<string, unknown>): Promise<ApiResponse<null>> { return this.post(`/notifications/${id}/read`, {}, options); }
   markAllNotificationsRead(options?: Record<string, unknown>): Promise<ApiResponse<null>> { return this.post('/notifications/read-all', {}, options); }
   getUnreadNotificationCount(options?: Record<string, unknown>): Promise<ApiResponse<{ count: number }>> { return this.get('/notifications/unread-count', options); }
 
-  registerPushToken(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<null>> { return this.post('/push/register', data, options); }
-
-  listFees(options?: Record<string, unknown>): Promise<ApiResponse<FeeRule[]>> { return this.get('/fees', options); }
-
   getHealthStats(options?: Record<string, unknown>): Promise<ApiResponse<HealthStatus>> { return this.get('/health/stats', options); }
   getHealthMetrics(options?: Record<string, unknown>): Promise<ApiResponse<unknown>> { return this.get('/health/metrics', options); }
   getHealthMigrations(options?: Record<string, unknown>): Promise<ApiResponse<unknown>> { return this.get('/health/migrations', options); }
 
-  listBankCredentials(options?: Record<string, unknown>): Promise<ApiResponse<any[]>> { return this.get('/bank-credentials', options); }
-  createBankCredential(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<any>> { return this.post('/bank-credentials', data, options); }
-  deleteBankCredential(id: string, options?: Record<string, unknown>): Promise<ApiResponse<null>> { return this.delete(`/bank-credentials/${id}`, options); }
-  testBankCredential(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<ApiResponse<{ success: boolean }>> { return this.post('/bank-credentials/test', data, options); }
-
   listSettlements(options?: Record<string, unknown>): Promise<ApiResponse<{ settlements: any[]; totalCount: number }>> { return this.get('/settlements', options); }
   getPendingSettlements(options?: Record<string, unknown>): Promise<ApiResponse<{ pendingTotal: number; settlements: any[] }>> { return this.get('/settlements/pending', options); }
+
+  createCollectionWallet(): Promise<ApiResponse<any>> { return this.post('/wallets/collection'); }
+  getCollectionWallet(): Promise<ApiResponse<any>> { return this.get('/wallets/collection'); }
+  setCollectionWallet(id: string): Promise<ApiResponse<any>> { return this.put(`/wallets/${id}/set-collection`); }
+
+  saveCollectionConfig(data: Record<string, unknown>): Promise<ApiResponse<any>> { return this.post('/collection/config', data); }
+  getCollectionConfig(): Promise<ApiResponse<any>> { return this.get('/collection/config'); }
+  listBanecoCredentials(): Promise<ApiResponse<any[]>> { return this.get('/baneco-credentials'); }
+  createBanecoCredential(data: Record<string, unknown>): Promise<ApiResponse<any>> { return this.post('/baneco-credentials', data); }
+  deleteBanecoCredential(id: string): Promise<ApiResponse<null>> { return this.delete(`/baneco-credentials/${id}`); }
+  testBanecoCredential(data: Record<string, unknown>): Promise<ApiResponse<{ success: boolean }>> { return this.post('/baneco-credentials/test', data); }
+  listBanks(): Promise<ApiResponse<{code: string; name: string}[]>> { return this.get('/banks'); }
+  listBankAccounts(): Promise<ApiResponse<any[]>> { return this.get('/bank-accounts'); }
+  createBankAccount(data: Record<string, unknown>): Promise<ApiResponse<any>> { return this.post('/bank-accounts', data); }
+  deleteBankAccount(id: string): Promise<ApiResponse<null>> { return this.delete(`/bank-accounts/${id}`); }
+
+  createManualLiquidation(data: { bankAccountId: string; amount: number }): Promise<ApiResponse<any>> { return this.post('/liquidations/manual', data); }
+  listLiquidations(): Promise<ApiResponse<{ settlements: any[]; totalCount: number }>> { return this.get('/liquidations'); }
+
+  listDirectTransactions(): Promise<ApiResponse<{ items: any[]; totalCount: number }>> { return this.get('/direct-transactions'); }
+  getPendingDirectCommissions(): Promise<ApiResponse<{ pendingTotal: number; items: any[] }>> { return this.get('/direct-transactions/pending'); }
+  markDirectCommissionPaid(id: string): Promise<ApiResponse<null>> { return this.put(`/direct-transactions/${id}/pay`); }
+
+  listTenants(): Promise<ApiResponse<any[]>> { return this.get('/tenants'); }
 }
 
 const api = new ApiClient();

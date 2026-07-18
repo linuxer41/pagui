@@ -2,16 +2,16 @@ import { Elysia, t } from 'elysia'
 import { qrService } from './qr.service'
 import { qrRepository } from './qr.repository'
 import { QRRequestSchema } from '../../common/qr.schema'
-import { authMiddleware } from '../../shared/middleware/auth.middleware'
-import { accountRepository } from '../../banking/account/account.repository'
+
+import { walletRepository } from '../../banking/wallet/wallet.repository'
 import { AppError } from '../../shared/errors/app-error'
 import { ok, list } from '../../shared/response'
 
 export const qrRoutes = new Elysia({ prefix: '/qr' })
-  .use(authMiddleware({ type: 'jwt', level: 'user' }))
 
   .post('/generate', async ({ body, auth }: any) => {
-    const qr = await qrService.generate({ ...body, userId: auth.user.id })
+    const walletId = body.walletId ? BigInt(body.walletId) : undefined
+    const qr = await qrService.generate({ ...body, walletId, userId: auth.user.id })
     return ok(qr, 'QR generado exitosamente')
   }, { body: QRRequestSchema, detail: { tags: ['QR'], summary: 'Generar QR de pago' } })
 
@@ -24,7 +24,7 @@ export const qrRoutes = new Elysia({ prefix: '/qr' })
     return list(result.qrs, result.totalCount, 'QR listados exitosamente')
   }, {
     query: t.Optional(t.Object({
-      accountId: t.Optional(t.String()), page: t.Optional(t.String()),
+      walletId: t.Optional(t.String()), page: t.Optional(t.String()),
       limit: t.Optional(t.String()), status: t.Optional(t.String()),
       from: t.Optional(t.String()), to: t.Optional(t.String()),
       startDate: t.Optional(t.String()), endDate: t.Optional(t.String()),

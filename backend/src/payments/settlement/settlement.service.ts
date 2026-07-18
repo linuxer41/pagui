@@ -1,7 +1,7 @@
 import { AppError } from '../../shared/errors/app-error'
 import { settlementRepository } from './settlement.repository'
-import { accountRepository } from '../../banking/account/account.repository'
-import { bankCredentialRepository } from '../../banking/credential/bank-credential.repository'
+import { walletRepository } from '../../banking/wallet/wallet.repository'
+import { query } from '../../shared/database/pool'
 import { BanecoAdapter } from '../../banking/integration/baneco.adapter'
 import { logger } from '../../shared/logger'
 
@@ -23,22 +23,21 @@ export const settlementService = {
     if (!settlement) throw new AppError(404, 'Settlement no encontrado')
     if (settlement.status !== 'pending') return
 
-    const businessAccount = await accountRepository.getById(settlement.fromAccountId)
-    if (!businessAccount) throw new AppError(404, 'Cuenta empresarial no encontrada')
+    const businessConfig = await query(`
+      SELECT * FROM collection_config WHERE is_active = true LIMIT 1
+    `)
+    if (!businessConfig.rowCount) throw new AppError(400, 'Configuración de recaudación no encontrada')
+    const config = businessConfig.rows[0] as any
 
-    const businessCred = await bankCredentialRepository.getById(businessAccount.bankCredentialId)
-    if (!businessCred) throw new AppError(400, 'Credencial empresarial no configurada')
-
-    const businessRow = businessCred as any
-    const adapter = new BanecoAdapter(businessRow.api_base_url, businessRow.encryption_key)
-    const token = await adapter.getToken(businessRow.username, businessRow.password)
+    const adapter = new BanecoAdapter(config.api_base_url, config.encryption_key)
+    const token = await adapter.getToken(config.username, config.password)
 
     let clientAccountNumber: string
 
-    if (settlement.toBankCredentialId) {
-      const clientCred = await bankCredentialRepository.getById(settlement.toBankCredentialId)
-      if (!clientCred) throw new AppError(400, 'Credencial del cliente no encontrada')
-      clientAccountNumber = clientCred.accountNumber
+    if (settlement.configId) {
+      const clientConfig = await query('SELECT * FROM collection_config WHERE id = $1 AND is_active = true', [settlement.configId])
+      if (!clientConfig.rowCount) throw new AppError(400, 'Configuración del cliente no encontrada')
+      clientAccountNumber = clientConfig.rows[0].account_number
     } else {
       const iathingsAcct = process.env.IATHINGS_CLIENT_ACCOUNT_NUMBER
       if (!iathingsAcct) {
@@ -54,8 +53,8 @@ export const settlementService = {
       singleUse: true, modifyAmount: false, currency: settlement.currency,
     })
 
-    const movement = await accountRepository.createMovement({
-      accountId: settlement.fromAccountId,
+    const movement = await walletRepository.createMovement({
+      walletId: settlement.fromWalletId,
       movementType: 'settlement',
       amount: settlement.netAmount,
       balanceBefore: 0, balanceAfter: 0,
@@ -69,7 +68,7 @@ export const settlementService = {
 
     await settlementRepository.updateStatus(settlementId, 'completed', {
       reference,
-      accountMovementId: movement.id,
+      walletMovementId: movement.id,
     })
 
     logger.info('Settlement completed', { settlementId, reference, netAmount: settlement.netAmount })

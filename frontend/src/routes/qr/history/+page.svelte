@@ -185,7 +185,7 @@ import PageLayout from '$lib/components/layouts/PageLayout.svelte';
         <QrCode size={48} />
         <h3>No hay QRs generados</h3>
         <p>Aún no has generado ningún código QR</p>
-        <button class="generate-button" on:click={() => goto('/qr/generate')}>
+        <button class="generate-button" on:click={() => goto('/qr')}>
           Generar mi primer QR
         </button>
       </div>

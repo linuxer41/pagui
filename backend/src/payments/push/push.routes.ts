@@ -1,11 +1,9 @@
 import { Elysia, t } from 'elysia'
-import { authMiddleware } from '../../shared/middleware/auth.middleware'
 import { registerDeviceToken, sendPush } from './push.service'
 import { ok } from '../../shared/response'
 
 export const pushRoutes = new Elysia({ prefix: '/push' })
-  .derive(authMiddleware)
-  .post('/register', async ({ userId, body }) => {
+  .post('/register', async ({ auth: { user: { id: userId } }, body }) => {
     await registerDeviceToken(userId, body.token, body.platform)
     return ok(null)
   }, {
@@ -15,7 +13,7 @@ export const pushRoutes = new Elysia({ prefix: '/push' })
     }),
     detail: { tags: ['Push'], summary: 'Registrar token de push notification' },
   })
-  .post('/test', async ({ userId, body }) => {
+  .post('/test', async ({ auth: { user: { id: userId } }, body }) => {
     const sent = await sendPush(userId, body)
     return ok({ sent })
   }, {

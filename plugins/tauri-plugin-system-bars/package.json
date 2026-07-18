@@ -1,0 +1,16 @@
+{
+  "name": "tauri-plugin-system-bars",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Control Android system bars (status bar, navigation bar) from Tauri v2",
+  "type": "module",
+  "main": "./guest-js/index.ts",
+  "types": "./guest-js/index.ts",
+  "exports": {
+    ".": "./guest-js/index.ts"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@tauri-apps/api": "^2.0.0"
+  }
+}

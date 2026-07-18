@@ -1,0 +1,35 @@
+# --- Artefactos de Rust y Cargo ---
+target/
+**/target/
+Cargo.lock
+
+# --- Dependencias de Node / Frontend ---
+node_modules/
+**/node_modules/
+.eslintcache
+*.log
+
+# --- Archivos de empaquetado (npm/pnpm/yarn) ---
+.pnpm-store/
+.yarn/
+dist/
+lib/
+
+
+# --- Configuración móvil (Si el plugin soporta iOS/Android) ---
+**/gen/android/.gradle/
+**/gen/android/app/build/
+**/gen/apple/build/
+*.podspec.json
+
+/android/build/
+/android/.tauri/
+
+# --- Archivos del sistema y editores ---
+.DS_Store
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln

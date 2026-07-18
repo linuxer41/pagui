@@ -1,11 +1,9 @@
 import { Elysia, t } from 'elysia'
-import { authMiddleware } from '../middleware/auth.middleware'
 import { submitKYC, getKYCStatus, approveKYC, rejectKYC, getPendingKYC } from './kyc.service'
 import { ok, list } from '../response'
 
 export const kycRoutes = new Elysia({ prefix: '/kyc' })
-  .derive(authMiddleware)
-  .post('/submit', async ({ userId, body }) => {
+  .post('/submit', async ({ auth: { user: { id: userId } }, body }) => {
     return ok(await submitKYC({ userId, ...body }))
   }, {
     body: t.Object({
@@ -21,7 +19,7 @@ export const kycRoutes = new Elysia({ prefix: '/kyc' })
     }),
     detail: { tags: ['KYC'], summary: 'Enviar documentación KYC' },
   })
-  .get('/status', async ({ userId }) => {
+  .get('/status', async ({ auth: { user: { id: userId } } }) => {
     return ok({ level: await getKYCStatus(userId) })
   }, {
     detail: { tags: ['KYC'], summary: 'Estado KYC' },

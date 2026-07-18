@@ -1,1002 +1,301 @@
 <script lang="ts">
-  import { auth } from '$lib/stores/auth';
-  import { onMount } from 'svelte';
-  import { goto } from '$app/navigation';
-  import PillButton from '$lib/components/ui/PillButton.svelte';
-  import api from '$lib/api';
-  import { get } from 'svelte/store';
-  import { 
-    PlusCircle,
-    Trash2,
-    Copy,
-    AlertCircle,
-    Eye,
-    EyeOff,
-    Check,
-    RefreshCw,
-    BookOpen,
-    Key,
-    Calendar,
-    CheckCircle,
-    XCircle,
-    Clock
-  } from '@lucide/svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
-  import Skeleton from '$lib/components/Skeleton.svelte';
-  import PageLayout from '$lib/components/layouts/PageLayout.svelte';
-  
-  // Estado de las API keys
-  let apiKeys: any[] = [];
-  let loading = true;
-  let error: string | null = null;
-  
-  // Estado para la nueva API key
-  let newApiKey: any = null;
-  let newKeyName = "";
-  let newKeyPermissions = {
-    qr_generate: true,
-    qr_status: true,
-    qr_cancel: false
-  };
-  let newKeyExpiry = "";
-  let isCreating = false;
-  let showNewKey = true;
-  
-  // Debug: Log cuando cambie newApiKey
-  $: if (newApiKey) {
-    console.log('Estado newApiKey actualizado:', newApiKey);
-  }
-  
-  // Estado para confirmación de eliminación
-  let deletingKeyId: any = null;
-  
-  // Estado para mostrar documentación
-  // let showDocumentation = false; // Removed - documentation moved to separate page
-  
-  // Cargar API keys al montar el componente
-  onMount(async () => {
-    await loadApiKeys();
-  });
-  
-  // Función para cargar API keys
-  async function loadApiKeys() {
+  import { onMount } from 'svelte'
+  import { goto } from '$app/navigation'
+  import api from '$lib/api'
+  import PageLayout from '$lib/components/layouts/PageLayout.svelte'
+  import { Calendar, Clock, Copy, Eye, EyeOff, Key, PlusCircle, Trash2, AlertCircle, Receipt, Check, X, FileText } from '@lucide/svelte'
+  import WalletInfo from '$lib/components/composite/WalletInfo.svelte'
+  import IconButton from '$lib/components/ui/IconButton.svelte'
+
+  let wallet: any = $state(null)
+  let hasWallet = $state<boolean | null>(null)
+  let loading = $state(true)
+  let error = $state('')
+
+  let apiKeys: any[] = $state([])
+  let keysLoading = $state(false)
+
+  let showCreate = $state(false)
+  let newKeyName = $state('')
+  let creating = $state(false)
+  let newKeyResult: any = $state(null)
+  let showKeyValue = $state(false)
+  let copied = $state(false)
+
+  let deletingId = $state<number | null>(null)
+
+  onMount(() => load())
+
+  async function load() {
+    loading = true; error = ''
     try {
-      loading = true;
-      error = null;
-      
-      const authStore = get(auth);
-      if (!authStore.token) {
-        throw new Error('No hay token de autenticación');
+      const res = await api.getCollectionWallet()
+      if (res.success) {
+        hasWallet = !!res.data
+        wallet = res.data
+        if (wallet?.id) loadKeys()
       }
-      
-      const response = await api.listApiKeys({ token: authStore.token });
-      
-      if (response.success) {
-        apiKeys = response.data || [];
+    } catch (e: any) { error = e.message }
+    finally { loading = false }
+  }
+
+  async function loadKeys() {
+    if (!wallet?.id) return
+    keysLoading = true
+    try {
+      const res = await api.listApiKeys(String(wallet.id))
+      if (res.success) apiKeys = (res.data as any[]) || []
+    } catch {}
+    finally { keysLoading = false }
+  }
+
+  async function createKey() {
+    if (!newKeyName.trim() || !wallet?.id) return
+    creating = true
+    try {
+      const res = await api.generateApiKey({
+        walletId: String(wallet.id),
+        description: newKeyName.trim(),
+        permissions: { qr_generate: true, qr_status: true, qr_cancel: false },
+      })
+      if (res.success) {
+        newKeyResult = res.data
+        showKeyValue = true
+        copied = false
+        newKeyName = ''
+        showCreate = false
+        loadKeys()
       } else {
-        throw new Error(response.message || 'Error cargando API keys');
+        error = res.message || 'Error al crear API key'
       }
-    } catch (err: any) {
-      error = err.message || 'Error desconocido';
-      console.error('Error cargando API keys:', err);
-    } finally {
-      loading = false;
-    }
+    } catch (e: any) { error = e.message }
+    finally { creating = false }
   }
-  
-  // Función para crear nueva API key
-  async function createApiKey() {
-    if (!newKeyName.trim()) return;
-    
+
+  async function deleteKey(id: number) {
     try {
-      isCreating = true;
-      error = null;
-      
-      const authStore = get(auth);
-      if (!authStore.token) {
-        throw new Error('No hay token de autenticación');
+      const res = await api.revokeApiKey(id)
+      if (res.success) {
+        apiKeys = apiKeys.filter((k: any) => k.id !== id)
       }
-      
-      const keyData = {
-        description: newKeyName,
-        permissions: newKeyPermissions,
-        expiresAt: newKeyExpiry || undefined
-      };
-      
-      const response = await api.generateApiKey(keyData, { token: authStore.token });
-      
-      console.log('Respuesta de la API:', response); // Debug
-      
-      if (response.success) {
-        newApiKey = response.data;
-        console.log('Nueva API key asignada:', newApiKey); // Debug
-        
-        // Limpiar formulario
-        newKeyName = "";
-        newKeyPermissions = {
-          qr_generate: true,
-          qr_status: true,
-          qr_cancel: false
-        };
-        newKeyExpiry = "";
-        
-        // Recargar lista
-        await loadApiKeys();
-        
-        // Scroll hacia arriba para mostrar la nueva API key
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      } else {
-        throw new Error(response.message || 'Error creando API key');
-      }
-    } catch (err: any) {
-      error = err.message || 'Error desconocido';
-      console.error('Error creando API key:', err);
-    } finally {
-      isCreating = false;
-    }
+    } catch {}
+    finally { deletingId = null }
   }
-  
-  // Función para confirmar eliminación
-  function confirmDelete(id: any) {
-    deletingKeyId = id;
+
+  function copyKey(val: string) {
+    navigator.clipboard.writeText(val)
+    copied = true
+    setTimeout(() => copied = false, 2000)
   }
-  
-  // Función para eliminar API key
-  async function deleteApiKey(id: any) {
-    try {
-      const authStore = get(auth);
-      if (!authStore.token) {
-        throw new Error('No hay token de autenticación');
-      }
-      
-      const response = await api.revokeApiKey(id, { token: authStore.token });
-      
-      if (response.success) {
-        // Recargar lista
-        await loadApiKeys();
-      } else {
-        throw new Error(response.message || 'Error eliminando API key');
-      }
-    } catch (err: any) {
-      error = err.message || 'Error desconocido';
-      console.error('Error eliminando API key:', err);
-    } finally {
-      deletingKeyId = null;
-    }
+
+  function formatDate(d: string) {
+    if (!d) return ''
+    try { return new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) }
+    catch { return d }
   }
-  
-  // Función para cancelar eliminación
-  function cancelDelete() {
-    deletingKeyId = null;
+
+  function isExpired(k: any) {
+    return k.expiresAt && new Date(k.expiresAt) < new Date()
   }
-  
-  // Función para copiar al portapapeles
-  async function copyToClipboard(text: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-      // Aquí podrías mostrar un toast de confirmación
-    } catch (err) {
-      console.error('Error copiando al portapapeles:', err);
-    }
-  }
-  
-  // Función para cerrar el panel de nueva API key
-  function closeNewKeyPanel() {
-    newApiKey = null;
-  }
-  
-  // Función para alternar permisos
-  function togglePermission(permission: keyof typeof newKeyPermissions) {
-    newKeyPermissions[permission] = !newKeyPermissions[permission];
-    newKeyPermissions = { ...newKeyPermissions };
-  }
-  
-  // Formatear fecha
-  function formatDate(dateString: string) {
-    try {
-      const date = new Date(dateString);
-      return new Intl.DateTimeFormat('es-ES', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      }).format(date);
-    } catch (e) {
-      return dateString;
-    }
-  }
-  
-  // Obtener estado de la API key
-  function getApiKeyStatus(apiKey: any) {
-    if (apiKey.status === 'active') {
-      return { text: 'Activa', icon: CheckCircle, color: 'rgba(var(--success-rgb), 1)' };
-    } else if (apiKey.status === 'expired') {
-      return { text: 'Expirada', icon: XCircle, color: 'rgba(var(--error-rgb), 1)' };
-    } else if (apiKey.status === 'revoked') {
-      return { text: 'Revocada', icon: XCircle, color: 'rgba(var(--error-rgb), 1)' };
-    } else {
-      return { text: 'Desconocido', icon: Clock, color: 'rgba(var(--text-secondary-rgb), 1)' };
-    }
-  }
-  
-  // Verificar si la API key está expirada
-  function isExpired(apiKey: any) {
-    if (!apiKey.expiresAt) return false;
-    return new Date(apiKey.expiresAt) < new Date();
+
+  function permissionTags(perms: Record<string, boolean>) {
+    const tags: string[] = []
+    if (perms?.qr_generate) tags.push('QR: Generar')
+    if (perms?.qr_status) tags.push('QR: Estado')
+    if (perms?.qr_cancel) tags.push('QR: Cancelar')
+    if (tags.length === 0) tags.push('Sin permisos')
+    return tags
   }
 </script>
 
-<svelte:head>
-  <title>API Keys | Pagui</title>
-</svelte:head>
-
 <PageLayout title="API Keys">
-  <div class="page-intro">
-    <div class="intro-icon">
-      <Key size={24} />
-    </div>
-    <div class="intro-content">
-      <p>
-        Las API Keys te permiten integrar tu cuenta con aplicaciones externas 
-        de manera segura. Mantén estas claves en privado y nunca las compartas públicamente.
-      </p>
-      <button class="doc-button" on:click={() => goto('/profile/api-keys/documentation')}>
-        <BookOpen size={16} />
-        Ver Documentación
-      </button>
-    </div>
-  </div>
-  
-  <!-- Documentation moved to /profile/api-keys/documentation -->
-  
+  {#snippet actions()}
+    <IconButton onclick={() => goto('/docs/api-keys')} label="Documentación">
+      <FileText size={20} />
+    </IconButton>
+  {/snippet}
+  <p class="page-desc">Crea y gestiona claves de API para integrar Pagui con tus sistemas externos de forma segura.</p>
+  <div class="content">
   {#if error}
-    <div class="error-message">
-      <AlertCircle size={20} />
-      <span>{error}</span>
-      <button class="retry-button" on:click={loadApiKeys}>
-        <RefreshCw size={16} />
-        Reintentar
-      </button>
-    </div>
+    <div class="error-msg"><AlertCircle size={16} /><span>{error}</span></div>
   {/if}
-  
-  {#if newApiKey}
-    <div class="new-key-panel">
-      <div class="new-key-header">
-        <h2>¡Nueva API key creada!</h2>
-        <p class="warning">
-          <AlertCircle size={16} />
-          Guárdala ahora. No podrás verla completa otra vez.
-        </p>
-      </div>
-      
-      <div class="new-key-details">
-        <div class="key-name">{newApiKey.description}</div>
-        <div class="key-value-container">
-          <div class="key-value">
-            {#if showNewKey}
-              <span class="key-text">{newApiKey.apiKey}</span>
-            {:else}
-              <span class="key-text">••••••••••••••••••••••••</span>
-            {/if}
-          </div>
-          
-          <button class="icon-button toggle-visibility" on:click={() => showNewKey = !showNewKey}>
-            {#if showNewKey}
-              <EyeOff size={18} />
-            {:else}
-              <Eye size={18} />
-            {/if}
-          </button>
-          
-          <button class="icon-button copy-button" on:click={() => copyToClipboard(newApiKey.apiKey)}>
-            <Copy size={18} />
-          </button>
-        </div>
-        
-        <div class="key-info">
-          <div class="key-created">
-            <Calendar size={14} />
-            Creada el {formatDate(newApiKey.createdAt)}
-          </div>
-          {#if newApiKey.expiresAt}
-            <div class="key-expires">
-              <Clock size={14} />
-              Expira el {formatDate(newApiKey.expiresAt)}
-            </div>
-          {/if}
-        </div>
-        
-        <div class="new-key-actions">
-          <PillButton label="Entendido" onClick={closeNewKeyPanel} fullWidth />
-        </div>
-      </div>
+
+  {#if loading}
+    <div class="loading">Cargando...</div>
+
+  {:else if hasWallet === false}
+    <div class="onboarding">
+      <div class="onboarding-icon"><Key size={32} /></div>
+      <h2 class="onboarding-title">Sin billetera de recaudación</h2>
+      <p class="onboarding-desc">Activa una billetera de recaudación para poder generar API keys.</p>
+      <button class="cta-btn" onclick={() => goto('/collections')}>Ir a Cobros</button>
     </div>
+
   {:else}
-    <div class="create-key-section">
-      <h2>Crear nueva API key</h2>
-      
-      <div class="create-key-form">
-        <div class="form-field">
-          <label for="keyName">Nombre descriptivo</label>
-          <input 
-            type="text" 
-            id="keyName" 
-            placeholder="Ej: Integración con mi tienda"
-            bind:value={newKeyName}
-          />
-        </div>
-        
-        <div class="form-field">
-          <label for="keyExpiry">Fecha de expiración (opcional)</label>
-          <input 
-            type="datetime-local" 
-            id="keyExpiry"
-            bind:value={newKeyExpiry}
-          />
-        </div>
-        
-        <div class="permissions-section">
-          <span>Permisos</span>
-          <div class="permissions-grid">
-            <div class="permission-category">
-              <h4>Permisos QR</h4>
-              <label class="permission-checkbox">
-                <input 
-                  type="checkbox" 
-                  bind:checked={newKeyPermissions.qr_generate}
-                />
-                <span>Generar códigos QR</span>
-              </label>
-              <label class="permission-checkbox">
-                <input 
-                  type="checkbox" 
-                  bind:checked={newKeyPermissions.qr_status}
-                />
-                <span>Consultar estado de QR</span>
-              </label>
-              <label class="permission-checkbox">
-                <input 
-                  type="checkbox" 
-                  bind:checked={newKeyPermissions.qr_cancel}
-                />
-                <span>Cancelar códigos QR</span>
-              </label>
-            </div>
-          </div>
-        </div>
-        
-        <PillButton 
-          label="Crear API Key" 
-          onClick={createApiKey} 
-          disabled={isCreating || !newKeyName.trim()}
-          loading={isCreating}
-          fullWidth
-        />
-      </div>
-    </div>
-  {/if}
-  
-  <div class="api-keys-list">
-    <div class="list-header">
-      <h2>Tus API keys</h2>
-      <button class="refresh-button" on:click={loadApiKeys} disabled={loading}>
-        <RefreshCw size={16} />
-        Actualizar
+    <WalletInfo {wallet} />
+
+    <div class="section-header">
+      <h2 class="section-title">API Keys activas</h2>
+      <button class="add-btn" onclick={() => { showCreate = !showCreate; newKeyResult = null }}>
+        <PlusCircle size={16} /><span>{showCreate ? 'Cancelar' : 'Nueva'}</span>
       </button>
     </div>
-    
-    {#if loading}
-      <Skeleton width="100%" height="120px" radius="lg" count={3} gap="space-2" />
+
+    {#if newKeyResult}
+      <div class="new-key-card">
+        <div class="new-key-header">
+          <Check size={18} />
+          <span>API key creada</span>
+        </div>
+        <div class="new-key-body">
+          <div class="key-name">{newKeyResult.description}</div>
+          <div class="key-value-wrap">
+            <code class="key-value">{showKeyValue ? newKeyResult.apiKey : '••••••••••••••••••••••••••••••••••••••••'}</code>
+            <button class="icon-btn" onclick={() => showKeyValue = !showKeyValue}>
+              {#if showKeyValue}<EyeOff size={16} />{:else}<Eye size={16} />{/if}
+            </button>
+            <button class="icon-btn" onclick={() => copyKey(newKeyResult.apiKey)}>
+              {#if copied}<Check size={16} style="color:var(--success-color)" />{:else}<Copy size={16} />{/if}
+            </button>
+          </div>
+          <p class="warning-msg"><AlertCircle size={14} />Guarda esta clave ahora, no podrás verla después.</p>
+          <button class="close-btn" onclick={() => newKeyResult = null}>Entendido</button>
+        </div>
+      </div>
+    {/if}
+
+    {#if showCreate}
+      <div class="create-section">
+        <div class="field">
+          <label class="field-label">Nombre descriptivo</label>
+          <input class="field-input" type="text" bind:value={newKeyName} placeholder="Ej: Integración POS" />
+        </div>
+        <button class="cta-btn" onclick={createKey} disabled={!newKeyName.trim() || creating}>
+          {creating ? 'Creando...' : 'Generar API key'}
+        </button>
+      </div>
+    {/if}
+
+    {#if keysLoading}
+      <div class="loading-sm">Cargando keys...</div>
     {:else if apiKeys.length === 0}
-      <EmptyState icon={Key} title="No tienes API keys creadas" message="Crea tu primera API key para comenzar a integrar aplicaciones" />
+      <div class="empty-state">
+        <Key size={24} />
+        <span>No hay API keys activas</span>
+        <span class="empty-desc">Crea una API key para integrar tu billetera de recaudación.</span>
+      </div>
     {:else}
-      {#each apiKeys as apiKey (apiKey.id)}
-        <div class="api-key-card">
-          <div class="api-key-header">
-            <div class="api-key-info">
-              <div class="api-key-name" title={apiKey.description}>{apiKey.description}</div>
-              <div class="api-key-status">
-                {#if isExpired(apiKey)}
-                  <Clock size={14} />
-                  <span class="expired">Expirada</span>
-                {:else}
-                  {@const status = getApiKeyStatus(apiKey)}
-                  <svelte:component this={status.icon} size={14} />
-                  <span style="color: {status.color}">{status.text}</span>
-                {/if}
+      <div class="keys-list">
+        {#each apiKeys as k (k.id)}
+          <div class="key-card">
+            <div class="key-card-header">
+              <div class="key-card-info">
+                <span class="key-card-name">{k.description || 'Sin nombre'}</span>
+                <span class="key-card-status" class:expired={isExpired(k)}>
+                  {#if isExpired(k)}
+                    <Clock size={14} /> Expirada
+                  {:else if k.status === 'active'}
+                    <Check size={14} /> Activa
+                  {:else}
+                    <X size={14} /> {k.status}
+                  {/if}
+                </span>
               </div>
+              {#if deletingId === k.id}
+                <div class="delete-confirm">
+                  <span>¿Eliminar?</span>
+                  <button class="confirm-yes" onclick={() => deleteKey(k.id)}>Sí</button>
+                  <button class="confirm-no" onclick={() => deletingId = null}>No</button>
+                </div>
+              {:else}
+                <button class="delete-btn" onclick={() => deletingId = k.id}><Trash2 size={16} /></button>
+              {/if}
             </div>
-            
-            {#if deletingKeyId === apiKey.id}
-              <div class="delete-confirmation">
-                <span>¿Eliminar?</span>
-                <button class="confirm-button" on:click={() => deleteApiKey(apiKey.id)}>Sí</button>
-                <button class="cancel-button" on:click={cancelDelete}>No</button>
+            <div class="key-card-value">
+              <code>{k.apiKey.substring(0, 10)}••••••••••••</code>
+              <button class="copy-mini" onclick={() => copyKey(k.apiKey)}><Copy size={14} /></button>
+            </div>
+            <div class="key-card-meta">
+              <span><Calendar size={14} /> {formatDate(k.createdAt)}</span>
+              {#if k.expiresAt}
+                <span class:expired={isExpired(k)}><Clock size={14} /> Expira: {formatDate(k.expiresAt)}</span>
+              {/if}
+            </div>
+            {#if k.permissions}
+              <div class="perm-tags">
+                {#each permissionTags(k.permissions) as tag}
+                  <span class="perm-tag">{tag}</span>
+                {/each}
               </div>
-            {:else}
-              <button class="delete-button" on:click={() => confirmDelete(apiKey.id)}>
-                <Trash2 size={16} />
-              </button>
             {/if}
           </div>
-          
-          <div class="api-key-details">
-            <div class="api-key-value">
-              <span class="key-prefix">{apiKey.apiKey.substring(0, 10)}</span>••••••••••••••
-              <button class="copy-mini" on:click={() => copyToClipboard(apiKey.apiKey)}>
-                <Copy size={14} />
-              </button>
-            </div>
-            
-            <div class="api-key-dates">
-              <div class="date-item">
-                <span class="date-label">Creada:</span>
-                <span class="date-value">{formatDate(apiKey.createdAt)}</span>
-              </div>
-              
-              {#if apiKey.expiresAt}
-                <div class="date-item">
-                  <span class="date-label">Expira:</span>
-                  <span class="date-value {isExpired(apiKey) ? 'expired' : ''}">
-                    {formatDate(apiKey.expiresAt)}
-                  </span>
-                </div>
-              {/if}
-              
-              {#if apiKey.lastUsed}
-                <div class="date-item">
-                  <span class="date-label">Último uso:</span>
-                  <span class="date-value">{formatDate(apiKey.lastUsed)}</span>
-                </div>
-              {/if}
-            </div>
-            
-            <div class="api-key-permissions">
-              <span class="permissions-label">Permisos:</span>
-              <div class="permission-tags">
-                {#if apiKey.permissions?.qr_generate}
-                  <span class="permission-tag qr-generate">QR: Generar</span>
-                {/if}
-                {#if apiKey.permissions?.qr_status}
-                  <span class="permission-tag qr-status">QR: Estado</span>
-                {/if}
-                {#if apiKey.permissions?.qr_cancel}
-                  <span class="permission-tag qr-cancel">QR: Cancelar</span>
-                {/if}
-              </div>
-            </div>
-          </div>
-        </div>
-      {/each}
+        {/each}
+      </div>
     {/if}
-  </div>
+  {/if}
 </PageLayout>
 
 <style>
-  .page-intro {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--space-4);
-    background: rgba(var(--surface-rgb), 1);
-    padding: var(--space-6);
-    border-radius: var(--radius-lg);
-    margin-bottom: var(--space-6);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  }
-  
-  .intro-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: var(--radius-md);
-    background: rgba(16, 185, 129, 0.1);
-    color: #10b981;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-  
-  .intro-content {
-    flex: 1;
-  }
-  
-  .page-intro p {
-    margin: 0 0 var(--space-2) 0;
-    font-size: 0.95rem;
-    color: rgba(var(--text-secondary-rgb), 1);
-    line-height: 1.5;
-  }
-  
-  .doc-button {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--primary);
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: var(--radius-md);
-    font-size: 0.9rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  
-  .doc-button:hover {
-    background: #CC6A00;
-  }
-  
-  /* Documentation styles moved to separate page */
-  
-  .error-message {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    background: rgba(239, 68, 68, 0.1);
-    color: #ef4444;
-    padding: var(--space-4);
-    border-radius: var(--radius-md);
-    margin-bottom: var(--space-6);
-    border: 1px solid rgba(239, 68, 68, 0.2);
-  }
-  
-  .retry-button {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: #ef4444;
-    color: white;
-    border: none;
-    padding: 6px 12px;
-    border-radius: var(--radius-sm);
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  
-  .retry-button:hover {
-    background: #dc2626;
-  }
-  
-  .create-key-section, .api-keys-list, .new-key-panel {
-    background: rgba(var(--surface-rgb), 1);
-    border-radius: var(--radius-lg);
-    padding: var(--space-6);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    margin-bottom: var(--space-6);
-  }
-  
-  .create-key-section h2, .api-keys-list h2, .new-key-header h2 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin: 0 0 var(--space-4);
-    color: rgba(var(--text-primary-rgb), 1);
-  }
-  
-  .list-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--space-4);
-  }
-  
-  .refresh-button {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: rgba(var(--surface-rgb), 1);
-    border: 1px solid rgba(var(--border-rgb), 1);
-    color: rgba(var(--text-secondary-rgb), 1);
-    padding: 8px 16px;
-    border-radius: var(--radius-md);
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  
-  .refresh-button:hover:not(:disabled) {
-    background: rgba(var(--surface-alt-rgb), 1);
-    color: rgba(var(--text-primary-rgb), 1);
-  }
-  
-  .refresh-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  
-  .create-key-form {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-  }
-  
-  .form-field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  
-  .form-field label {
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: rgba(var(--text-secondary-rgb), 1);
-  }
-  
-  .form-field input {
-    padding: 12px;
-    border-radius: var(--radius-md);
-    border: 1px solid rgba(var(--border-rgb), 1);
-    background: var(--background);
-    font-size: 1rem;
-    color: rgba(var(--text-primary-rgb), 1);
-  }
-  
-  .form-field input:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 2px rgba(58, 102, 255, 0.1);
-  }
-  
-  .permissions-section {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-  }
-  
-  .permissions-section label {
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: rgba(var(--text-secondary-rgb), 1);
-  }
-  
-  .permissions-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: var(--space-4);
-    max-width: 400px;
-  }
-  
-  .permission-category {
-    background: var(--background);
-    padding: var(--space-4);
-    border-radius: var(--radius-md);
-    border: 1px solid rgba(var(--border-rgb), 1);
-  }
-  
-  .permission-category h4 {
-    font-size: 0.9rem;
-    font-weight: 600;
-    margin: 0 0 var(--space-2);
-    color: rgba(var(--text-primary-rgb), 1);
-  }
-  
-  .permission-checkbox {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    margin-bottom: var(--space-1);
-    cursor: pointer;
-  }
-  
-  .permission-checkbox input[type="checkbox"] {
-    margin: 0;
-  }
-  
-  .permission-checkbox span {
-    font-size: 0.85rem;
-    color: rgba(var(--text-secondary-rgb), 1);
-  }
-  
-  .new-key-panel {
-    border: 2px solid #10b981;
-    animation: pulse 2s infinite;
-  }
-  
-  .new-key-header {
-    margin-bottom: var(--space-4);
-  }
-  
-  .warning {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--warning-color, #f59e0b);
-    font-weight: 500;
-    margin: var(--space-2) 0 0;
-  }
-  
-  .new-key-details {
-    background: var(--background);
-    padding: var(--space-4);
-    border-radius: var(--radius-md);
-  }
-  
-  .key-name {
-    font-weight: 600;
-    margin-bottom: var(--space-1);
-    color: rgba(var(--text-primary-rgb), 1);
-  }
-  
-  .key-value-container {
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
-    margin-bottom: var(--space-2);
-  }
-  
-  .key-value {
-    flex: 1;
-    font-family: monospace;
-    padding: 10px;
-    background: rgba(var(--surface-rgb), 1);
-    border-radius: var(--radius-sm);
-    border: 1px solid rgba(var(--border-rgb), 1);
-    font-size: 0.9rem;
-    color: rgba(var(--text-primary-rgb), 1);
-    overflow-x: auto;
-    white-space: nowrap;
-  }
-  
-  .key-info {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    margin-bottom: var(--space-4);
-  }
-  
-  .key-created, .key-expires {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.85rem;
-    color: rgba(var(--text-secondary-rgb), 1);
-  }
-  
-  .new-key-actions {
-    display: flex;
-    justify-content: flex-end;
-  }
-  
-  .icon-button {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--background);
-    border: 1px solid rgba(var(--border-rgb), 1);
-    color: rgba(var(--text-secondary-rgb), 1);
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-  
-  .icon-button:hover {
-    background: rgba(var(--surface-alt-rgb), 1);
-    border-color: var(--primary);
-  }
-  
-  .toggle-visibility {
-    color: var(--primary);
-  }
-  
-  .copy-button {
-    color: rgba(var(--text-secondary-rgb), 1);
-  }
-  
+  .content { display: flex; flex-direction: column; gap: var(--space-4); }
+  .page-desc { font-size: var(--text-sm); color: rgba(var(--text-tertiary-rgb), 1); margin: 0 0 var(--space-2); line-height: 1.5; }
+  .error-msg { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3); background: rgba(var(--error-rgb), 0.1); color: rgba(var(--error-rgb), 1); border-radius: var(--radius-lg); font-size: var(--text-sm); }
+  .loading { text-align: center; padding: var(--space-8); color: var(--muted-foreground); }
 
-  
-  
-  .api-key-card {
-    background: var(--background);
-    border-radius: var(--radius-md);
-    padding: var(--space-4);
-    margin-bottom: var(--space-4);
-    border: 1px solid rgba(var(--border-rgb), 1);
-  }
-  
-  .api-key-card:last-child {
-    margin-bottom: 0;
-  }
-  
-  .api-key-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: var(--space-2);
-  }
-  
-  .api-key-info {
-    flex: 1;
-  }
-  
-  .api-key-name {
-    font-weight: 600;
-    color: rgba(var(--text-primary-rgb), 1);
-    margin-bottom: var(--space-1);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 300px;
-  }
-  
-  .api-key-status {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.85rem;
-  }
-  
-  .expired {
-    color: var(--error-color, #ef4444);
-  }
-  
-  .delete-button {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(239, 68, 68, 0.1);
-    border: none;
-    color: #ef4444;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-  
-  .delete-button:hover {
-    background: rgba(239, 68, 68, 0.2);
-  }
-  
-  .delete-confirmation {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  
-  .delete-confirmation span {
-    font-size: 0.85rem;
-    color: #ef4444;
-  }
-  
-  .confirm-button, .cancel-button {
-    padding: 4px 8px;
-    border-radius: var(--radius-sm);
-    border: none;
-    font-size: 0.8rem;
-    cursor: pointer;
-  }
-  
-  .confirm-button {
-    background: #ef4444;
-    color: white;
-  }
-  
-  .cancel-button {
-    background: rgba(var(--border-rgb), 1);
-    color: rgba(var(--text-secondary-rgb), 1);
-  }
-  
-  .api-key-value {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    font-family: monospace;
-    font-size: 0.9rem;
-    color: rgba(var(--text-secondary-rgb), 1);
-    margin-bottom: var(--space-2);
-    background: rgba(var(--surface-rgb), 1);
-    padding: var(--space-2);
-    border-radius: var(--radius-sm);
-    border: 1px solid rgba(var(--border-rgb), 1);
-  }
-  
-  .key-prefix {
-    color: rgba(var(--text-primary-rgb), 1);
-    font-weight: 500;
-  }
-  
-  .copy-mini {
-    background: none;
-    border: none;
-    color: rgba(var(--text-secondary-rgb), 1);
-    cursor: pointer;
-    padding: 4px;
-    border-radius: var(--radius-sm);
-    transition: all 0.2s;
-  }
-  
-  .copy-mini:hover {
-    background: rgba(var(--surface-alt-rgb), 1);
-    color: var(--primary);
-  }
-  
-  .api-key-dates {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-    font-size: 0.8rem;
-    color: rgba(var(--text-secondary-rgb), 1);
-    margin-bottom: var(--space-2);
-  }
-  
-  .date-item {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-  
-  .date-label {
-    opacity: 0.8;
-  }
-  
-  .api-key-permissions {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-  }
-  
-  .permissions-label {
-    font-size: 0.8rem;
-    color: rgba(var(--text-secondary-rgb), 1);
-    font-weight: 500;
-  }
-  
-  .permission-tags {
-    display: flex;
-    gap: var(--space-1);
-  }
-  
-  .permission-tag {
-    padding: 2px 8px;
-    border-radius: var(--radius-sm);
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: white;
-  }
-  
-  .permission-tag.qr-generate {
-    background: var(--primary);
-  }
-  
-  .permission-tag.qr-status {
-    background: var(--accent-color);
-  }
-  
-  .permission-tag.qr-cancel {
-    background: var(--success-color, #10b981);
-  }
-  
-  
-  @keyframes pulse {
-    0% {
-      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
-    }
-    70% {
-      box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
-    }
-    100% {
-      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
-    }
-  }
-  
-  @media (max-width: 600px) {
-    .api-key-dates {
-      flex-direction: column;
-      gap: 2px;
-    }
-    
-    .list-header {
-      flex-direction: column;
-      gap: var(--space-2);
-      align-items: flex-start;
-    }
-    
-    .api-key-name {
-      max-width: 200px;
-    }
-  }
-</style> 
+  .onboarding { display: flex; flex-direction: column; align-items: center; gap: var(--space-4); text-align: center; padding: var(--space-8) 0; }
+  .onboarding-icon { width: 64px; height: 64px; border-radius: var(--radius-2xl); background: rgba(var(--primary-rgb), 0.1); color: var(--primary); display: flex; align-items: center; justify-content: center; }
+  .onboarding-title { font-size: var(--text-xl); font-weight: 700; color: rgba(var(--text-primary-rgb), 1); margin: 0; }
+  .onboarding-desc { font-size: var(--text-sm); color: rgba(var(--text-tertiary-rgb), 1); max-width: 300px; margin: 0; }
+  .cta-btn { width: 100%; padding: var(--space-4); border: none; border-radius: var(--radius-xl); background: var(--primary); color: var(--primary-foreground); font-size: var(--text-base); font-weight: 700; cursor: pointer; }
+  .cta-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .section-header { display: flex; align-items: center; justify-content: space-between; }
+  .section-title { font-size: var(--text-sm); font-weight: 700; color: rgba(var(--text-primary-rgb), 1); margin: 0; }
+  .add-btn { display: flex; align-items: center; gap: var(--space-1); padding: var(--space-2) var(--space-3); border-radius: var(--radius-lg); border: none; background: rgba(var(--primary-rgb), 0.1); color: var(--primary); font-size: var(--text-sm); font-weight: 600; cursor: pointer; }
+
+  .new-key-card { background: rgba(var(--surface-rgb), 1); border: 2px solid rgba(16,185,129,0.5); border-radius: var(--radius-xl); overflow: hidden; box-shadow: 0 0 0 1px rgba(16,185,129,0.2); }
+  .new-key-header { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-4); background: rgba(16,185,129,0.1); color: rgba(16,185,129,1); font-weight: 700; font-size: var(--text-sm); }
+  .new-key-body { padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
+  .key-name { font-weight: 600; color: rgba(var(--text-primary-rgb), 1); }
+  .key-value-wrap { display: flex; align-items: center; gap: var(--space-2); }
+  .key-value { flex: 1; padding: var(--space-3); background: rgba(var(--bg-rgb), 1); border-radius: var(--radius-md); font-family: monospace; font-size: var(--text-xs); word-break: break-all; border: 1px solid rgba(var(--border-rgb), 0.3); }
+  .icon-btn { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: var(--radius-md); border: 1px solid rgba(var(--border-rgb), 0.3); background: none; color: rgba(var(--text-secondary-rgb), 1); cursor: pointer; flex-shrink: 0; }
+  .warning-msg { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); color: rgba(245,158,11,1); margin: 0; }
+  .close-btn { padding: var(--space-2) var(--space-4); border-radius: var(--radius-lg); background: rgba(var(--surface-rgb), 0.5); border: 1px solid rgba(var(--border-rgb), 0.3); color: rgba(var(--text-primary-rgb), 1); font-size: var(--text-sm); font-weight: 600; cursor: pointer; align-self: flex-end; }
+
+  .create-section { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); background: rgba(var(--surface-rgb), 1); border-radius: var(--radius-xl); border: 1px solid rgba(var(--border-rgb), 0.3); }
+  .field { display: flex; flex-direction: column; gap: var(--space-2); }
+  .field-label { font-size: var(--text-sm); font-weight: 600; color: rgba(var(--text-primary-rgb), 1); }
+  .field-input { padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); border: 1px solid rgba(var(--border-rgb), 0.3); background: rgba(var(--bg-rgb), 1); color: rgba(var(--text-primary-rgb), 1); font-size: var(--text-sm); outline: none; }
+  .field-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.15); }
+
+  .empty-state { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); padding: var(--space-8); color: var(--muted-foreground); text-align: center; }
+  .empty-state span:first-of-type { font-weight: 600; color: rgba(var(--text-secondary-rgb), 1); }
+  .empty-desc { font-size: var(--text-sm); }
+
+  .keys-list { display: flex; flex-direction: column; gap: var(--space-2); }
+  .key-card { background: rgba(var(--surface-rgb), 1); border-radius: var(--radius-xl); padding: var(--space-4); border: 1px solid rgba(var(--border-rgb), 0.3); display: flex; flex-direction: column; gap: var(--space-3); }
+  .key-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); }
+  .key-card-info { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+  .key-card-name { font-weight: 600; font-size: var(--text-sm); color: rgba(var(--text-primary-rgb), 1); }
+  .key-card-status { display: flex; align-items: center; gap: var(--space-1); font-size: var(--text-xs); font-weight: 500; color: rgba(16,185,129,1); }
+  .key-card-status.expired { color: rgba(var(--error-rgb), 1); }
+  .delete-btn { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: var(--radius-md); border: none; background: rgba(var(--error-rgb), 0.1); color: rgba(var(--error-rgb), 1); cursor: pointer; flex-shrink: 0; }
+  .delete-confirm { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); }
+  .delete-confirm span { color: rgba(var(--error-rgb), 1); font-weight: 600; }
+  .confirm-yes, .confirm-no { padding: var(--space-1) var(--space-3); border-radius: var(--radius-sm); border: none; font-size: var(--text-xs); font-weight: 600; cursor: pointer; }
+  .confirm-yes { background: rgba(var(--error-rgb), 1); color: white; }
+  .confirm-no { background: rgba(var(--border-rgb), 0.3); color: rgba(var(--text-secondary-rgb), 1); }
+
+  .key-card-value { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); background: rgba(var(--bg-rgb), 1); border-radius: var(--radius-md); border: 1px solid rgba(var(--border-rgb), 0.2); }
+  .key-card-value code { font-family: monospace; font-size: var(--text-xs); color: rgba(var(--text-secondary-rgb), 1); flex: 1; }
+  .copy-mini { display: flex; border: none; background: none; color: rgba(var(--text-secondary-rgb), 1); cursor: pointer; padding: 2px; }
+
+  .key-card-meta { display: flex; flex-wrap: wrap; gap: var(--space-3); font-size: var(--text-xs); color: rgba(var(--text-secondary-rgb), 1); }
+  .key-card-meta span { display: flex; align-items: center; gap: 4px; }
+  .key-card-meta span.expired { color: rgba(var(--error-rgb), 1); }
+
+  .perm-tags { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+  .perm-tag { padding: 2px 8px; border-radius: var(--radius-full); background: rgba(var(--primary-rgb), 0.1); color: var(--primary); font-size: 0.7rem; font-weight: 600; }
+
+  .loading-sm { text-align: center; padding: var(--space-4); color: var(--muted-foreground); font-size: var(--text-sm); }
+</style>

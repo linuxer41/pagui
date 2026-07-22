@@ -3,12 +3,12 @@ WORKDIR /app
 
 FROM base AS deps
 COPY backend/package.json backend/bun.lock ./
-COPY shared /app/shared
+COPY shared /shared
 RUN bun install --frozen-lockfile --production
 
 FROM base AS builder
 COPY backend/package.json backend/bun.lock ./
-COPY shared /app/shared
+COPY shared /shared
 RUN bun install --frozen-lockfile
 COPY backend/tsconfig.json ./
 COPY backend/src/ ./src/

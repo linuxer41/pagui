@@ -14605,6 +14605,7 @@ var init_logger = __esm(() => {
 // src/shared/database/pool.ts
 var exports_pool = {};
 __export(exports_pool, {
+  waitForConnection: () => waitForConnection,
   testConnection: () => testConnection,
   query: () => query2,
   pool: () => pool
@@ -14632,11 +14633,30 @@ async function testConnection() {
     logger.error("PostgreSQL connection error", { error: String(err) });
   }
 }
+async function waitForConnection(retries = 10, baseDelay = 2000) {
+  for (let i = 0;i < retries; i++) {
+    try {
+      const client = await pool.connect();
+      client.release();
+      logger.info("Database ready");
+      return;
+    } catch (err) {
+      if (i === retries - 1) {
+        logger.error("Database not reached after retries", { error: String(err) });
+        throw err;
+      }
+      const delay = baseDelay * (i + 1);
+      logger.warn("Waiting for database", { attempt: i + 1, retries, delay });
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+}
 var databaseUrl, pool;
 var init_pool = __esm(() => {
   init_esm();
   init_logger();
   databaseUrl = process.env.DATABASE_URL || "postgres://postgres:postgres@localhost:5432/payments";
+  logger.info("Database URL", { databaseUrl });
   pool = new Pool({
     connectionString: databaseUrl,
     max: 20,
@@ -27938,13 +27958,13 @@ var init_direct_transaction_service = __esm(() => {
   };
 });
 
-// src/scripts/seed-db.ts
-var exports_seed_db = {};
-__export(exports_seed_db, {
-  seedDatabase: () => seedDatabase
+// src/scripts/seed-minimal.ts
+var exports_seed_minimal = {};
+__export(exports_seed_minimal, {
+  seedMinimal: () => seedMinimal
 });
-async function seedDatabase() {
-  logger.info("Seeding database");
+async function seedMinimal() {
+  logger.info("Minimal seed started");
   const bankData = [
     { code: "001", name: "Mercantil Santa Cruz" },
     { code: "002", name: "BNB" },
@@ -27966,8 +27986,69 @@ async function seedDatabase() {
       ON CONFLICT (code) DO NOTHING
     `, [nextSnowflake(), b.code, b.name]);
   }
+  logger.info("Banks created");
+  const adminUser = await userService.create({
+    email: "admin@pagui.com",
+    password: "admin123",
+    fullName: "Administrador del Sistema",
+    phone: "76543210",
+    address: "La Paz, Bolivia",
+    role: Role.Super
+  });
+  logger.info("Admin user created", { email: adminUser.email });
+  const tenantId = nextSnowflake();
+  await tenantRepository.create({
+    id: tenantId,
+    fullName: "PAGUI Empresarial",
+    email: "admin@pagui.com",
+    documentType: "nit",
+    documentNumber: "1029547027",
+    environment: "production"
+  });
+  await tenantRepository.setTenant(adminUser.id, tenantId, "owner");
+  logger.info("Admin tenant created");
+  const wallet = await walletRepository.create({
+    walletNumber: "100013101",
+    name: "PAGUI Empresarial",
+    type: "business",
+    level: "gold",
+    tenantId,
+    isCollection: false,
+    isDefault: true
+  });
+  await walletPermissionRepository2.upsert(adminUser.id, wallet.id, "owner");
+  logger.info("Admin wallet created");
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let key = "pg_";
+  for (let i = 0;i < 40; i++)
+    key += chars.charAt(Math.floor(Math.random() * chars.length));
+  await query2(`
+    INSERT INTO api_keys (id, api_key, wallet_id, description, permissions, status)
+    VALUES ($1, $2, $3, $4, $5, 'active')
+    ON CONFLICT (api_key) DO NOTHING
+  `, [nextSnowflake(), key, wallet.id, "API Key admin", JSON.stringify({ qr_generate: true, qr_status: true, qr_cancel: true })]);
+  logger.info("API key created");
+  logger.info("Minimal seed completed");
+}
+var init_seed_minimal = __esm(() => {
+  init_dist();
+  init_pool();
+  init_snowflake();
+  init_user_service();
+  init_tenant_repository();
+  init_wallet_repository();
+  init_wallet_permission_repository();
+  init_logger();
+});
+
+// src/scripts/seed-test.ts
+var exports_seed_test = {};
+__export(exports_seed_test, {
+  seedTest: () => seedTest
+});
+async function seedTest() {
+  logger.info("Test seed started");
   const users = [
-    { email: "admin@pagui.com", password: "admin123", fullName: "Administrador del Sistema", phone: "76543210", address: "La Paz, Bolivia", role: Role.Super },
     { email: "usuario@example.com", password: "usuario123", fullName: "Usuario Demo", phone: "65432109", address: "Santa Cruz, Bolivia", role: Role.User },
     { email: "gerente@example.com", password: "gerente123", fullName: "Gerente Demo", phone: "55555555", address: "Cochabamba, Bolivia", role: Role.Manager },
     { email: "iathings@example.com", password: "iathings123", fullName: "IATHINGS EMPRESARIAL", phone: "77777777", address: "La Paz, Bolivia", role: Role.Manager }
@@ -27983,30 +28064,32 @@ async function seedDatabase() {
     }
   }
   const tenantConfigs = [
-    { fullName: "PAGUI Empresarial", email: "admin@pagui.com", userId: createdUsers[0]?.id, documentType: "nit", documentNumber: "1029547027", environment: "production" },
-    { fullName: "Usuario Demo", email: "usuario@example.com", userId: createdUsers[1]?.id, documentType: "ci", documentNumber: "12345678", environment: "production" },
-    { fullName: "Gerencia Demo", email: "gerente@example.com", userId: createdUsers[2]?.id, documentType: "ci", documentNumber: "87654321", environment: "production" },
-    { fullName: "IATHINGS EMPRESARIAL", email: "iathings@example.com", userId: createdUsers[3]?.id, documentType: "nit", documentNumber: "1029547028", environment: "production" }
+    { fullName: "Usuario Demo", email: "usuario@example.com", userId: createdUsers[0]?.id, documentType: "ci", documentNumber: "12345678", environment: "production" },
+    { fullName: "Gerencia Demo", email: "gerente@example.com", userId: createdUsers[1]?.id, documentType: "ci", documentNumber: "87654321", environment: "production" },
+    { fullName: "IATHINGS EMPRESARIAL", email: "iathings@example.com", userId: createdUsers[2]?.id, documentType: "nit", documentNumber: "1029547028", environment: "production" }
   ];
   for (const tc of tenantConfigs) {
     if (!tc.userId)
       continue;
     const tenantId = nextSnowflake();
-    await tenantRepository.create({
-      id: tenantId,
-      fullName: tc.fullName,
-      email: tc.email,
-      documentType: tc.documentType,
-      documentNumber: tc.documentNumber,
-      environment: tc.environment
-    });
-    await tenantRepository.setTenant(tc.userId, tenantId, "owner");
-    logger.info("Tenant created", { fullName: tc.fullName, tenantId });
+    try {
+      await tenantRepository.create({
+        id: tenantId,
+        fullName: tc.fullName,
+        email: tc.email,
+        documentType: tc.documentType,
+        documentNumber: tc.documentNumber,
+        environment: tc.environment
+      });
+      await tenantRepository.setTenant(tc.userId, tenantId, "owner");
+      logger.info("Tenant created", { fullName: tc.fullName, tenantId });
+    } catch (e) {
+      logger.warn("Tenant skipped", { fullName: tc.fullName, error: e.message });
+    }
   }
-  logger.info("Tenants created");
+  logger.info("Test tenants created");
   const storedTenants = await query2("SELECT id FROM tenants WHERE deleted_at IS NULL");
   const walletConfigs = [
-    { walletNumber: "100013101", name: "PAGUI Empresarial", type: "business", level: "gold", tenantIdx: 0 },
     { walletNumber: "100013102", name: "PAGUI Ahorros", type: "standard", level: "silver", tenantIdx: 0 },
     { walletNumber: "100013105", name: "PAGUI Inversiones", type: "business", level: "gold", tenantIdx: 0 },
     { walletNumber: "100011102", name: "Mi Cuenta Principal", type: "standard", level: "bronze", tenantIdx: 1 },
@@ -28020,22 +28103,25 @@ async function seedDatabase() {
     const tenant = storedTenants.rows[wc.tenantIdx];
     if (!tenant)
       continue;
-    const w = await walletRepository.create({
-      walletNumber: wc.walletNumber,
-      name: wc.name,
-      type: wc.type,
-      level: wc.level,
-      banecoCredentialId: wc.banecoCredentialId,
-      tenantId: tenant.id,
-      isCollection: wc.isCollection || false,
-      isDefault: true
-    });
-    createdWallets.push(w);
-    const ut = await query2("SELECT user_id FROM tenant_users WHERE tenant_id = $1 LIMIT 1", [tenant.id]);
-    if (ut.rowCount) {
-      await walletPermissionRepository2.upsert(ut.rows[0].user_id, w.id, "owner");
+    try {
+      const w = await walletRepository.create({
+        walletNumber: wc.walletNumber,
+        name: wc.name,
+        type: wc.type,
+        level: wc.level,
+        tenantId: tenant.id,
+        isCollection: wc.isCollection || false,
+        isDefault: true
+      });
+      createdWallets.push(w);
+      const ut = await query2("SELECT user_id FROM tenant_users WHERE tenant_id = $1 LIMIT 1", [tenant.id]);
+      if (ut.rowCount) {
+        await walletPermissionRepository2.upsert(ut.rows[0].user_id, w.id, "owner");
+      }
+      logger.info("Wallet created", { walletNumber: wc.walletNumber, type: wc.type, name: wc.name });
+    } catch (e) {
+      logger.warn("Wallet skipped", { walletNumber: wc.walletNumber, error: e.message });
     }
-    logger.info("Wallet created", { walletNumber: wc.walletNumber, type: wc.type, name: wc.name });
   }
   const walletsWithUsers = await query2(`
     SELECT w.id as wallet_id, wp.user_id FROM wallets w
@@ -28063,7 +28149,6 @@ async function seedDatabase() {
   }
   logger.info("API keys created");
   const W = createdWallets;
-  const txId = (prefix, n2) => `TXN${prefix}${nextSnowflake().toString().slice(-8)}`;
   async function addMovement(walletIdx, type, amount, opts = {}) {
     const w = W[walletIdx];
     if (!w)
@@ -28145,29 +28230,27 @@ async function seedDatabase() {
     `, [nextSnowflake(), fromW.id, toW.id, amount, `Transferencia P2P`, d]);
   }
   const initialDeposits = [
-    [0, 50000, "Depósito inicial PAGUI Empresarial", 60],
-    [1, 15000, "Depósito inicial Ahorros", 60],
-    [2, 1e5, "Depósito inicial Inversiones", 60],
-    [3, 8000, "Depósito inicial Cuenta Principal", 60],
-    [4, 25000, "Depósito inicial Gerencia", 60],
-    [5, 75000, "Depósito inicial IATHINGS", 60]
+    [0, 15000, "Depósito inicial Ahorros", 60],
+    [1, 1e5, "Depósito inicial Inversiones", 60],
+    [2, 8000, "Depósito inicial Cuenta Principal", 60],
+    [3, 25000, "Depósito inicial Gerencia", 60],
+    [4, 75000, "Depósito inicial IATHINGS", 60]
   ];
   for (const [wi, amt, desc, da] of initialDeposits) {
     await addMovement(wi, "deposit", amt, { description: desc, daysAgo: da });
   }
   logger.info("Initial deposits created");
-  await addTransfer(3, 1, 500, 50);
-  await addTransfer(5, 4, 1200, 45);
-  await addTransfer(0, 5, 1e4, 40);
-  await addTransfer(1, 3, 200, 35);
-  await addTransfer(4, 0, 3000, 30);
-  await addTransfer(3, 6, 150, 28);
-  await addTransfer(5, 7, 5000, 25);
-  await addTransfer(0, 7, 2500, 20);
-  await addTransfer(2, 0, 15000, 18);
-  await addTransfer(3, 1, 350, 14);
-  await addTransfer(4, 3, 800, 10);
-  await addTransfer(1, 2, 5000, 7);
+  const adminWallet = await query2("SELECT id FROM wallets WHERE wallet_number = '100013101' AND deleted_at IS NULL LIMIT 1");
+  const adminWalletId = adminWallet.rows[0]?.id;
+  if (adminWalletId) {
+    W.push({ id: adminWalletId });
+  }
+  await addTransfer(2, 0, 500, 50);
+  await addTransfer(4, 3, 1200, 45);
+  if (adminWalletId)
+    await addTransfer(5, 4, 1e4, 40);
+  await addTransfer(0, 2, 200, 35);
+  await addTransfer(3, adminWalletId ? 5 : 3, 3000, 30);
   logger.info("P2P transfers created");
   const qrPayments = [
     [6, 150, "Juan Pérez", "12345678", "Pago recibo luz", 15],
@@ -28190,11 +28273,12 @@ async function seedDatabase() {
     });
   }
   logger.info("QR payments created");
-  await addMovement(0, "fee", 5, { description: "Comisión transferencia", daysAgo: 40 });
-  await addMovement(3, "fee", 2.5, { description: "Comisión retiro", daysAgo: 28 });
-  await addMovement(5, "fee", 10, { description: "Comisión transferencia", daysAgo: 25 });
+  if (adminWalletId) {
+    await addMovement(5, "fee", 5, { description: "Comisión transferencia", daysAgo: 40 });
+  }
+  await addMovement(2, "fee", 2.5, { description: "Comisión retiro", daysAgo: 28 });
+  await addMovement(4, "fee", 10, { description: "Comisión transferencia", daysAgo: 25 });
   logger.info("Fee movements created");
-  logger.info("Transactions seeded");
   const dependentUsers = [
     { email: "contador@example.com", password: "contador123", fullName: "Contador Demo", phone: "66660001", role: Role.User },
     { email: "asistente@example.com", password: "asistente123", fullName: "Asistente Demo", phone: "66660002", role: Role.User }
@@ -28262,9 +28346,9 @@ async function seedDatabase() {
     }
     logger.info("Auditor linked to admin tenant as viewer");
   }
-  logger.info("Seed completed");
+  logger.info("Test seed completed");
 }
-var init_seed_db = __esm(() => {
+var init_seed_test = __esm(() => {
   init_dist();
   init_pool();
   init_snowflake();
@@ -53319,13 +53403,21 @@ if (mode === "init-db") {
   migrateDB(true).then(() => process.exit(0));
 } else if (mode === "seed") {
   migrateDB(true).then(async () => {
-    const { seedDatabase: seedDatabase2 } = await Promise.resolve().then(() => (init_seed_db(), exports_seed_db));
-    await seedDatabase2();
+    const { seedMinimal: seedMinimal2 } = await Promise.resolve().then(() => (init_seed_minimal(), exports_seed_minimal));
+    await seedMinimal2();
+    process.exit(0);
+  });
+} else if (mode === "seed:test") {
+  migrateDB(true).then(async () => {
+    const { seedMinimal: seedMinimal2 } = await Promise.resolve().then(() => (init_seed_minimal(), exports_seed_minimal));
+    await seedMinimal2();
+    const { seedTest: seedTest2 } = await Promise.resolve().then(() => (init_seed_test(), exports_seed_test));
+    await seedTest2();
     process.exit(0);
   });
 } else {
   migrateDB(false).then(async () => {
-    testConnection();
+    await waitForConnection();
     startWebhookProcessor();
     const settlementInterval = setInterval(() => settlementService.processPending(), 60000);
     logger.info("All services initialized");
@@ -53334,6 +53426,9 @@ if (mode === "init-db") {
       logger.info(`Server on :${port}`);
       startPublicApi();
     });
+  }).catch((err) => {
+    logger.error("Startup failed", { error: String(err) });
+    process.exit(1);
   });
 }
 process.on("SIGINT", () => {

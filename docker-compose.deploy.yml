@@ -1,0 +1,137 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: always
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-pagui}
+      POSTGRES_USER: ${POSTGRES_USER:-pagui}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    networks:
+      - pagui-net
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == ${SWARM_NODE:-stackforge-iathings}
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    volumes:
+      - redisdata:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    networks:
+      - pagui-net
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == ${SWARM_NODE:-stackforge-iathings}
+
+  backend:
+    image: ghcr.io/${GH_USER:-linuxer41}/pagui-backend:${TAG:-latest}
+    restart: always
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-15m}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN:-7d}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - SNOWFLAKE_WORKER_ID=${SNOWFLAKE_WORKER_ID:-1}
+      - NODE_ENV=production
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - PORT=${PORT:-3000}
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - SENTRY_DSN=${SENTRY_DSN:-}
+    networks:
+      - pagui-net
+    depends_on:
+      - postgres
+      - redis
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == ${SWARM_NODE:-stackforge-iathings}
+
+  webhook-worker:
+    image: ghcr.io/${GH_USER:-linuxer41}/pagui-backend:${TAG:-latest}
+    restart: always
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - NODE_ENV=production
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    command: ["bun", "run", "src/workers/webhook-worker.ts"]
+    networks:
+      - pagui-net
+    depends_on:
+      - postgres
+      - redis
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == ${SWARM_NODE:-stackforge-iathings}
+
+  sync-worker:
+    image: ghcr.io/${GH_USER:-linuxer41}/pagui-backend:${TAG:-latest}
+    restart: always
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - NODE_ENV=production
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    command: ["bun", "run", "src/workers/sync-worker.ts"]
+    networks:
+      - pagui-net
+    depends_on:
+      - postgres
+      - redis
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == ${SWARM_NODE:-stackforge-iathings}
+
+  frontend:
+    image: ghcr.io/${GH_USER:-linuxer41}/pagui-frontend:${TAG:-latest}
+    restart: always
+    environment:
+      VITE_API_URL: ${VITE_API_URL}
+    networks:
+      - pagui-net
+    depends_on:
+      - backend
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == ${SWARM_NODE:-stackforge-iathings}
+
+  page:
+    image: ghcr.io/${GH_USER:-linuxer41}/pagui-page:${TAG:-latest}
+    restart: always
+    environment:
+      VITE_API_URL: ${VITE_API_URL}
+      PORT: 3000
+      NODE_ENV: production
+    ports:
+      - "${PAGE_PORT:-4175}:3000"
+    networks:
+      - pagui-net
+    depends_on:
+      - backend
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == ${SWARM_NODE:-stackforge-iathings}
+
+networks:
+  pagui-net:
+    driver: overlay
+    attachable: true
+
+volumes:
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local

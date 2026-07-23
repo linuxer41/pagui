@@ -103,3 +103,41 @@ k6 run tests/load/api.scenario.ts   # 20→50→100 users, 30s stages
 - 25 tablas: roles, users, user_profiles, auth_tokens, devices, banks, bank_credentials, accounts, user_accounts, wallets, transfers, qr_codes, account_movements, payment_sync_status, fee_rules, notifications, companies, api_keys, idempotency_keys, fx_rates, fraud_alerts, reconciliation_logs, outgoing_webhooks, wallet_backups, subscriptions, merchants, cash_agents, nfc_pending, audit_logs, dead_letter_queue
 - Migrations versionadas en `backend/migrations/`
 - IDs Snowflake BIGINT generados en app (`shared/snowflake.ts`)
+
+---
+
+## Quotations (Cotizaciones)
+
+Sistema de cotizaciones HTML con CSS reutilizable para propuestas comerciales.
+
+### Estructura
+
+```
+quotations/
+├── css/
+│   └── cotizacion.css        ← CSS con variables y clases reutilizables
+├── cotizacion.html           ← Cotización específica (ej: Providencia)
+└── cotizacion-modelo.html    ← Plantilla genérica para nuevas cotizaciones
+```
+
+### Cómo crear una nueva cotización
+
+1. Copiar `cotizacion-modelo.html` a `cotizacion-[cliente].html`
+2. Personalizar variables en un `<style>`, ej:
+   ```css
+   :root { --primary: #1a365d; }
+   ```
+3. Rellenar secciones (header, fases, tablas, condiciones)
+4. El CSS (`css/cotizacion.css`) ya incluye:
+   - Variables CSS: `--primary`, `--text`, `--font`, `--page-max-width`, etc.
+   - Componentes: `.page`, `.header`, `.logo-box`, `.info-row`, `.highlight`, `.benefits`, `.benefit-card`, `.comparison`, `.terms`, `.footer`, `.signature-row`
+   - Utilidades: `.text-right`, `.font-bold`, `.savings`, `.mt-10`, `.mb-10`, etc.
+5. Abrir en navegador y exportar a PDF (Ctrl+P)
+
+### Productos iathings para cotizaciones
+
+| Producto | Descripción |
+|----------|-------------|
+| **Vendemas** | Sistema de gestión comercial (ventas, catálogos, clientes) |
+| **Pagui** | Plataforma de conexión bancaria (0.1% por transacción, respaldado por Banco Económico) |
+| **Factugest** | API de facturación electrónica autorizada por Impuestos Nacionales (desde Bs 120 por NIT) |

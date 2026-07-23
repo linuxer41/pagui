@@ -9,7 +9,9 @@
     "build": "bun build src/index.ts --target node --outdir ./dist",
     "lint": "eslint .",
     "init-db": "bun run src/index.ts init-db",
-    "seed-db": "bun run src/index.ts seed",
+    "seed": "bun run src/index.ts seed",
+    "seed:test": "bun run src/index.ts seed:test",
+    
     "setup-baneco": "bun run src/scripts/setup-bankeco-credentials.ts",
     "create-env": "bun run src/scripts/create-env.ts",
     "test": "bun test test/index.test.js",

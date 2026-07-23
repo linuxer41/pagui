@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cotización — [Nombre del Cliente]</title>
+<link rel="stylesheet" href="css/cotizacion.css">
+<style>
+  /*
+    PERSONALIZACIÓN POR CLIENTE:
+    Copiar y pegar en el <style> de cada cotización,
+    o modificar directamente en cotizacion.css si es global.
+
+    :root {
+      --primary: #1a365d;         ← color corporativo
+      --page-padding: 60px 70px;  ← márgenes internos
+      --page-max-width: 800px;    ← ancho máximo
+    }
+  */
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ═══ HEADER ═══ -->
+  <div class="header">
+    <div class="logos">
+      <!-- Placeholder logos: reemplazar logo-box por logo-img con <img> -->
+      <div class="logo-box">iathings</div>
+      <div class="logo-box">Vendemas</div>
+      <div class="logo-box">Pagui</div>
+      <!-- Ejemplo con imagen real:
+        <img class="logo-img" src="img/iathings-logo.png" alt="iathings">
+      -->
+    </div>
+    <div class="header-right">
+      <h1>COTIZACIÓN</h1>
+      <p>N° [000-2026]</p>
+      <p>[Fecha]</p>
+    </div>
+  </div>
+
+  <!-- ═══ DATOS DEL CLIENTE ═══ -->
+  <p><strong>[Nombre del Cliente]</strong> — [Fecha]</p>
+
+  <!--
+    Para datos estructurados usar:
+    <div class="info-row"><span class="label">Cliente</span><span class="value">...</span></div>
+    <div class="info-row"><span class="label">Atención</span><span class="value">...</span></div>
+    <div class="info-row"><span class="label">Validez</span><span class="value">...</span></div>
+  -->
+
+  <!-- ═══ SECCIONES ═══ -->
+  <!--
+    Cada sección usa <h2> para el título.
+    Variantes disponibles:
+    - <div class="highlight">...</div>       → para destacar información clave
+    - <table>...</table>                     → para desglose de precios
+    - <table class="comparison">...</table>  → tabla comparativa
+    - <div class="benefits">...</div>        → cards de beneficios
+    - <div class="terms">...</div>           → términos y condiciones
+  -->
+
+  <h2>Introducción</h2>
+  <p>Texto de presentación aquí...</p>
+
+  <div class="highlight">
+    <p><strong>Nota importante:</strong> Información destacada.</p>
+  </div>
+
+  <h2>1. [Nombre de Fase]</h2>
+  <p>Descripción de la fase...</p>
+
+  <table>
+    <thead>
+      <tr><th>Entregable</th><th>Importe</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>[Entregable 1]</td><td>Bs [0]</td></tr>
+      <tr><td>[Entregable 2]</td><td>Bs [0]</td></tr>
+      <tr class="total"><td>Total</td><td>Bs [0]</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ═══ COMPARATIVA DE VALOR ═══ -->
+  <h2>Comparativa de Valor</h2>
+  <table class="comparison">
+    <thead>
+      <tr><th>Concepto</th><th>Desde cero</th><th>Con iathings</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>[Concepto]</td><td>Bs [0]+</td><td class="savings">Incluido</td></tr>
+      <tr class="total"><td>Valor total</td><td>Bs [0]+</td><td>Bs [0]</td></tr>
+    </tbody>
+  </table>
+  <p class="savings text-right font-bold" style="font-size:14px;">
+    Ahorro estimado: Bs [0] ([0]%)
+  </p>
+
+  <!-- ═══ RESUMEN ═══ -->
+  <h2>Resumen de Inversión</h2>
+  <table class="summary-table">
+    <thead>
+      <tr><th>Concepto</th><th>Importe</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>[Fase 1]</td><td>Bs [0]</td></tr>
+      <tr class="total"><td>Inversión total</td><td>Bs [0]</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ═══ BENEFICIOS ═══ -->
+  <h2>Beneficios</h2>
+  <div class="benefits">
+    <div class="benefit-card">
+      <h4>[Beneficio 1]</h4>
+      <p>Descripción...</p>
+    </div>
+    <div class="benefit-card">
+      <h4>[Beneficio 2]</h4>
+      <p>Descripción...</p>
+    </div>
+  </div>
+
+  <!-- ═══ CONDICIONES ═══ -->
+  <h2>Condiciones</h2>
+  <div class="terms">
+    <p><strong>Forma de pago:</strong> [condiciones]</p>
+    <p><strong>Plazo de entrega:</strong> [días hábiles]</p>
+    <p><strong>Soporte:</strong> [detalle]</p>
+  </div>
+
+  <!-- ═══ FIRMAS ═══ -->
+  <div class="signature-row">
+    <div class="signature-line">Firma iathings</div>
+    <div class="signature-line">Firma Cliente</div>
+  </div>
+
+  <!-- ═══ FOOTER ═══ -->
+  <div class="footer">
+    <p><strong>iathings</strong> — Tecnología que impulsa tu negocio</p>
+    <p>Vendemas · Pagui · Soluciones Digitales</p>
+    <p>Sucre, Bolivia</p>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,7 +1,7 @@
 import { Elysia } from 'elysia'
 import { cors } from '@elysiajs/cors'
 import { swagger } from '@elysiajs/swagger'
-import { testConnection } from './shared/database/pool'
+import { waitForConnection } from './shared/database/pool'
 import { migrateDB } from './shared/database/migrate'
 
 ;(BigInt.prototype as any).toJSON = function () { return String(this) }
@@ -115,13 +115,21 @@ if (mode === 'init-db') {
   migrateDB(true).then(() => process.exit(0))
 } else if (mode === 'seed') {
   migrateDB(true).then(async () => {
-    const { seedDatabase } = await import('./scripts/seed-db')
-    await seedDatabase()
+    const { seedMinimal } = await import('./scripts/seed-minimal')
+    await seedMinimal()
+    process.exit(0)
+  })
+} else if (mode === 'seed:test') {
+  migrateDB(true).then(async () => {
+    const { seedMinimal } = await import('./scripts/seed-minimal')
+    await seedMinimal()
+    const { seedTest } = await import('./scripts/seed-test')
+    await seedTest()
     process.exit(0)
   })
 } else {
   migrateDB(false).then(async () => {
-    testConnection()
+    await waitForConnection()
     startWebhookProcessor()
     const settlementInterval = setInterval(() => settlementService.processPending(), 60_000)
     logger.info('All services initialized')
@@ -130,6 +138,9 @@ if (mode === 'init-db') {
       logger.info(`Server on :${port}`)
       startPublicApi()
     })
+  }).catch((err) => {
+    logger.error('Startup failed', { error: String(err) })
+    process.exit(1)
   })
 }
 

@@ -2,6 +2,7 @@ import { Pool, QueryResult, QueryResultRow } from 'pg'
 import { logger } from '../logger'
 
 const databaseUrl = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/payments'
+logger.info('Database URL', { databaseUrl })
 
 export const pool = new Pool({
   connectionString: databaseUrl,
@@ -35,5 +36,24 @@ export async function testConnection() {
     client.release()
   } catch (err) {
     logger.error('PostgreSQL connection error', { error: String(err) })
+  }
+}
+
+export async function waitForConnection(retries = 10, baseDelay = 2000): Promise<void> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const client = await pool.connect()
+      client.release()
+      logger.info('Database ready')
+      return
+    } catch (err) {
+      if (i === retries - 1) {
+        logger.error('Database not reached after retries', { error: String(err) })
+        throw err
+      }
+      const delay = baseDelay * (i + 1)
+      logger.warn('Waiting for database', { attempt: i + 1, retries, delay })
+      await new Promise(resolve => setTimeout(resolve, delay))
+    }
   }
 }

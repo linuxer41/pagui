@@ -127,6 +127,12 @@ if (mode === 'init-db') {
     await seedTest()
     process.exit(0)
   })
+} else if (mode === 'migrate') {
+  migrateDB(false).then(async () => {
+    const { runMigrations } = await import('./shared/database/migrate')
+    await runMigrations()
+    process.exit(0)
+  })
 } else {
   migrateDB(false).then(async () => {
     await waitForConnection()

@@ -514,6 +514,10 @@ class ApiClient extends BaseApiClient {
   getCollectionWallet(): Promise<ApiResponse<any>> { return this.get('/wallets/collection'); }
   setCollectionWallet(id: string): Promise<ApiResponse<any>> { return this.put(`/wallets/${id}/set-collection`); }
 
+  setupCollection(data: {
+    accountHolder: string; accountNumber: string; username: string; password: string; encryptionKey: string
+  }): Promise<ApiResponse<any>> { return this.post('/collection/setup', data); }
+
   saveCollectionConfig(data: Record<string, unknown>): Promise<ApiResponse<any>> { return this.post('/collection/config', data); }
   getCollectionConfig(): Promise<ApiResponse<any>> { return this.get('/collection/config'); }
   listBanecoCredentials(): Promise<ApiResponse<any[]>> { return this.get('/baneco-credentials'); }

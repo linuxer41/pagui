@@ -9,6 +9,7 @@
     "build": "bun build src/index.ts --target node --outdir ./dist",
     "lint": "eslint .",
     "init-db": "bun run src/index.ts init-db",
+    "migrate": "bun run src/index.ts migrate",
     "seed": "bun run src/index.ts seed",
     "seed:test": "bun run src/index.ts seed:test",
     
@@ -20,6 +21,8 @@
     "test:qr": "bun test test/qr/generation.test.js",
     "test:payment": "bun test test/payment/notification.test.js",
     "test:apikey": "bun run test/run-apikey-tests.js",
+    "test:e2e": "node tests/e2e.js",
+    "test:e2e:pro": "node tests/e2e_pro.js",
     "test:all": "bun run test/run-tests.js"
   },
   "dependencies": {

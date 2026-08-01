@@ -130,6 +130,17 @@ CREATE TABLE otp_codes (
 
 CREATE INDEX idx_otp_codes_phone ON otp_codes(phone);
 
+CREATE TABLE registration_requests (
+  id BIGINT PRIMARY KEY,
+  full_name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  company VARCHAR(255) NOT NULL,
+  phone VARCHAR(20) NOT NULL,
+  message TEXT,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE devices (
   id BIGINT PRIMARY KEY,
   user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -159,14 +170,13 @@ CREATE TABLE banks (
 
 CREATE TABLE baneco_credentials (
   id BIGINT PRIMARY KEY,
-  user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
-  bank_id BIGINT NOT NULL REFERENCES banks(id),
+  tenant_id BIGINT REFERENCES tenants(id) ON DELETE CASCADE,
   account_holder VARCHAR(100) NOT NULL,
   account_number VARCHAR(50) NOT NULL,
   merchant_id VARCHAR(50) NOT NULL,
   username VARCHAR(100) NOT NULL,
   password VARCHAR(255) NOT NULL,
-  encryption_key VARCHAR(255) NOT NULL,
+  encryption_key VARCHAR(255),
   environment VARCHAR(10) NOT NULL DEFAULT 'test' CHECK (environment IN ('test', 'prod')),
   api_base_url VARCHAR(255) NOT NULL,
   is_active BOOLEAN NOT NULL DEFAULT true,
@@ -177,7 +187,7 @@ CREATE TABLE baneco_credentials (
 
 CREATE TABLE bank_accounts (
   id BIGINT PRIMARY KEY,
-  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  tenant_id BIGINT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   bank_code VARCHAR(20) NOT NULL REFERENCES banks(code),
   account_holder VARCHAR(150) NOT NULL,
   account_number VARCHAR(50) NOT NULL,
@@ -299,7 +309,6 @@ CREATE TABLE payment_sync_status (
 
 CREATE TABLE collection_config (
   id BIGINT PRIMARY KEY,
-  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   wallet_id BIGINT NOT NULL REFERENCES wallets(id),
   use_default BOOLEAN NOT NULL DEFAULT true,
   baneco_credential_id BIGINT REFERENCES baneco_credentials(id),
@@ -310,7 +319,7 @@ CREATE TABLE collection_config (
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   is_active BOOLEAN NOT NULL DEFAULT true,
   deleted_at TIMESTAMPTZ,
-  UNIQUE(user_id)
+  UNIQUE(wallet_id)
 );
 
 CREATE TABLE direct_transactions (
@@ -541,3 +550,13 @@ CREATE TRIGGER trg_wallet_balance
 AFTER INSERT OR UPDATE OR DELETE ON wallet_movements
 FOR EACH ROW
 EXECUTE FUNCTION trigger_update_wallet_balance();
+
+-- ========================================
+-- Migrations tracking
+-- ========================================
+CREATE TABLE IF NOT EXISTS _migrations (
+  name VARCHAR(255) PRIMARY KEY,
+  checksum VARCHAR(64) NOT NULL DEFAULT '',
+  applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  duration_ms INT NOT NULL DEFAULT 0
+);

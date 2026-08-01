@@ -3,6 +3,7 @@ import { Role } from '@pagui/shared'
 import { walletService } from './wallet/wallet.service'
 import { collectionService } from '../collection/collection.service'
 import { tenantRepository } from '../identity/tenants/tenant.repository'
+import { walletPermissionRepository } from '../identity/wallet-permission/wallet-permission.repository'
 
 import { ok, list } from '../shared/response'
 import { AppError } from '../shared/errors/app-error'
@@ -64,7 +65,8 @@ export const bankingRoutes = new Elysia()
     const tenant = tenants[0]
     if (!tenant) throw new AppError(404, 'No tienes un cliente asociado')
     const wallet = await walletService.createCollection(tenant.id)
-    await collectionService.upsertConfig(auth.user.id, { walletId: wallet.id, useDefault: true })
+    await walletPermissionRepository.upsert(auth.user.id, wallet.id, 'owner')
+    await collectionService.upsertConfig(wallet.id, { useDefault: true })
     return ok(wallet, 'Billetera de recaudación creada exitosamente')
   }, {
     detail: { tags: ['Wallets'], summary: 'Crear billetera de recaudación' },

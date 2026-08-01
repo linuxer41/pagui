@@ -12,7 +12,7 @@ import { paymentQueueService } from '../sync/payment-queue.service'
 export const qrService = {
   async generate(data: {
     walletId?: bigint; amount: number; currency?: string; description?: string; dueDate?: string
-    singleUse?: boolean; modifyAmount?: boolean; userId?: bigint
+    singleUse?: boolean; modifyAmount?: boolean; transactionId?: string; userId?: bigint
   }): Promise<QrRow> {
     let targetWallet
     if (data.walletId) {
@@ -28,7 +28,9 @@ export const qrService = {
 
     const adapter = new BanecoAdapter(cred.api_base_url, cred.encryption_key)
     const token = await adapter.getToken(cred.username, cred.password)
-    const transactionId = `TXN${Date.now()}${Math.random().toString(36).slice(2, 8)}`.toUpperCase()
+    const transactionId = data.transactionId
+      ? String(data.transactionId)
+      : `TXN${Date.now()}${Math.random().toString(36).slice(2, 8)}`.toUpperCase()
 
     const result = await adapter.generateQr(token, transactionId, cred.account_number, data.amount, {
       description: data.description, dueDate: data.dueDate,
@@ -97,10 +99,10 @@ export const qrService = {
     if (qr.userId) {
       try {
         const clientConfigs = await query(`
-          SELECT * FROM collection_config WHERE user_id = $1 AND is_active = true LIMIT 1
-        `, [qr.userId])
+          SELECT * FROM collection_config WHERE wallet_id = $1 AND is_active = true LIMIT 1
+        `, [qr.walletId])
         if (!clientConfigs.rowCount) {
-          logger.warn('No collection config for user, skipping', { userId: qr.userId, qrId })
+          logger.warn('No collection config for wallet, skipping', { walletId: qr.walletId, qrId })
           return
         }
         const clientConfig = clientConfigs.rows[0] as any

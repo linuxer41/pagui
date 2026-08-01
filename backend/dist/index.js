@@ -14665,6 +14665,102 @@ var init_pool = __esm(() => {
   });
 });
 
+// src/shared/database/migrate.ts
+var exports_migrate = {};
+__export(exports_migrate, {
+  runMigrations: () => runMigrations,
+  migrateDB: () => migrateDB,
+  getMigrationStatus: () => getMigrationStatus
+});
+import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+async function migrateDB(forceReset = false) {
+  logger.info("Running migrations...", { forceReset });
+  if (!forceReset) {
+    logger.info("Skipping incremental migrations — schema.sql is the source of truth");
+    return;
+  }
+  logger.warn("Force reset: dropping all tables and re-applying schema.sql");
+  const schemaPath = join(__dirname2, "..", "..", "..", "schema.sql");
+  if (!existsSync(schemaPath)) {
+    throw new Error("schema.sql not found");
+  }
+  const schema = readFileSync(schemaPath, "utf-8");
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(schema);
+    await client.query("COMMIT");
+    logger.info("Schema applied successfully");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    logger.error("Schema migration failed", { error: String(err) });
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+async function runMigrations() {
+  const migrationsDir = join(__dirname2, "..", "..", "..", "migrations");
+  if (!existsSync(migrationsDir)) {
+    logger.info("No migrations directory found");
+    return;
+  }
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS _migrations (
+      name VARCHAR(255) PRIMARY KEY,
+      checksum VARCHAR(64) NOT NULL DEFAULT '',
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      duration_ms INT NOT NULL DEFAULT 0
+    )
+  `);
+  const files = readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort();
+  if (files.length === 0) {
+    logger.info("No pending migrations");
+    return;
+  }
+  for (const file2 of files) {
+    const name = file2.replace(".sql", "");
+    const existing = await pool.query("SELECT name FROM _migrations WHERE name = $1", [name]);
+    if (existing.rowCount) {
+      logger.info("Migration already applied", { name });
+      continue;
+    }
+    const start = Date.now();
+    const sql = readFileSync(join(migrationsDir, file2), "utf-8");
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(sql);
+      await client.query("INSERT INTO _migrations (name, checksum, duration_ms) VALUES ($1, $2, $3)", [name, "", Date.now() - start]);
+      await client.query("COMMIT");
+      logger.info("Migration applied", { name, durationMs: Date.now() - start });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      logger.error("Migration failed", { name, error: String(err) });
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+  logger.info("All migrations applied");
+}
+async function getMigrationStatus() {
+  try {
+    const { rows } = await pool.query("SELECT name, checksum, applied_at, duration_ms FROM _migrations ORDER BY applied_at");
+    return rows;
+  } catch {
+    return [];
+  }
+}
+var __dirname2;
+var init_migrate = __esm(() => {
+  init_pool();
+  init_logger();
+  __dirname2 = dirname(fileURLToPath(import.meta.url));
+});
+
 // src/shared/errors/app-error.ts
 var AppError2;
 var init_app_error = __esm(() => {
@@ -20512,19 +20608,19 @@ var require_node_gyp_build = __commonJS((exports, module) => {
     loaded from: ` + dir + `
 `);
     function resolve(dir2) {
-      var tuples = readdirSync(path.join(dir2, "prebuilds")).map(parseTuple);
+      var tuples = readdirSync2(path.join(dir2, "prebuilds")).map(parseTuple);
       var tuple = tuples.filter(matchTuple(platform, arch)).sort(compareTuples)[0];
       if (!tuple)
         return;
       var prebuilds = path.join(dir2, "prebuilds", tuple.name);
-      var parsed = readdirSync(prebuilds).map(parseTags);
+      var parsed = readdirSync2(prebuilds).map(parseTags);
       var candidates = parsed.filter(matchTags(runtime, abi));
       var winner = candidates.sort(compareTags(runtime))[0];
       if (winner)
         return path.join(prebuilds, winner.file);
     }
   };
-  function readdirSync(dir) {
+  function readdirSync2(dir) {
     try {
       return fs.readdirSync(dir);
     } catch (err) {
@@ -20532,7 +20628,7 @@ var require_node_gyp_build = __commonJS((exports, module) => {
     }
   }
   function getFirst(dir, filter) {
-    var files = readdirSync(dir).filter(filter);
+    var files = readdirSync2(dir).filter(filter);
     return files[0] && path.join(dir, files[0]);
   }
   function matchBuild(name) {
@@ -24698,6 +24794,14 @@ var init_tenant_repository = __esm(() => {
       WHERE tu.user_id = $1 AND t.deleted_at IS NULL AND tu.deleted_at IS NULL
     `, [userId]);
       return r2.rows;
+    },
+    async getTenantId(userId) {
+      const r2 = await query2(`
+      SELECT tenant_id FROM tenant_users
+      WHERE user_id = $1 AND deleted_at IS NULL
+      LIMIT 1
+    `, [userId]);
+      return r2.rowCount ? r2.rows[0].tenant_id : null;
     }
   };
 });
@@ -28123,16 +28227,15 @@ async function seedTest() {
       logger.warn("Wallet skipped", { walletNumber: wc.walletNumber, error: e.message });
     }
   }
-  const walletsWithUsers = await query2(`
-    SELECT w.id as wallet_id, wp.user_id FROM wallets w
-    JOIN wallet_permissions wp ON wp.wallet_id = w.id
-    WHERE w.is_collection = true AND wp.deleted_at IS NULL
+  const collectionWallets = await query2(`
+    SELECT id as wallet_id FROM wallets
+    WHERE is_collection = true AND deleted_at IS NULL
   `);
-  for (const row of walletsWithUsers.rows) {
+  for (const row of collectionWallets.rows) {
     await query2(`
-      INSERT INTO collection_config (id, user_id, wallet_id, use_default, is_active)
-      VALUES ($1, $2, $3, true, true) ON CONFLICT DO NOTHING
-    `, [nextSnowflake(), row.user_id, row.wallet_id]);
+      INSERT INTO collection_config (id, wallet_id, use_default, is_active)
+      VALUES ($1, $2, true, true) ON CONFLICT DO NOTHING
+    `, [nextSnowflake(), row.wallet_id]);
   }
   logger.info("Collection configs created");
   const storedWallets = await query2("SELECT id FROM wallets WHERE deleted_at IS NULL");
@@ -49069,50 +49172,7 @@ var swagger = ({
 
 // src/index.ts
 init_pool();
-
-// src/shared/database/migrate.ts
-init_pool();
-init_logger();
-import { readFileSync, existsSync } from "node:fs";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-var __dirname2 = dirname(fileURLToPath(import.meta.url));
-async function migrateDB(forceReset = false) {
-  logger.info("Running migrations...", { forceReset });
-  if (!forceReset) {
-    logger.info("Skipping incremental migrations — schema.sql is the source of truth");
-    return;
-  }
-  logger.warn("Force reset: dropping all tables and re-applying schema.sql");
-  const schemaPath = join(__dirname2, "..", "..", "..", "schema.sql");
-  if (!existsSync(schemaPath)) {
-    throw new Error("schema.sql not found");
-  }
-  const schema = readFileSync(schemaPath, "utf-8");
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    await client.query(schema);
-    await client.query("COMMIT");
-    logger.info("Schema applied successfully");
-  } catch (err) {
-    await client.query("ROLLBACK");
-    logger.error("Schema migration failed", { error: String(err) });
-    throw err;
-  } finally {
-    client.release();
-  }
-}
-async function getMigrationStatus() {
-  try {
-    const { rows } = await pool.query("SELECT name, checksum, applied_at, duration_ms FROM _migrations ORDER BY applied_at");
-    return rows;
-  } catch {
-    return [];
-  }
-}
-
-// src/index.ts
+init_migrate();
 init_logger();
 
 // src/shared/middleware/rate-limit.ts
@@ -49339,6 +49399,9 @@ var otpService = {
     logger.info("OTP generated", { phone });
     const msg = `Tu código de verificación PAGUI es: *${code}*`;
     await sendWhatsApp(phone, msg);
+    if (process.env.E2E_OTP_IN_RESPONSE === "true") {
+      return { code };
+    }
   },
   async verifyOTP(phone, code) {
     const r2 = await query2(`
@@ -49814,8 +49877,8 @@ var authRoutes = new Elysia({ prefix: "/auth" }).post("/login", async ({ body, s
   }),
   detail: { tags: ["Auth"], summary: "Completar registro con nombre y carnet" }
 }).post("/send-otp", async ({ body }) => {
-  await otpService.sendOTP(body.phone);
-  return ok(null, "OTP enviado por WhatsApp");
+  const result = await otpService.sendOTP(body.phone);
+  return ok(result || null, "OTP enviado por WhatsApp");
 }, {
   body: t.Object({ phone: t.String() }),
   detail: { tags: ["Auth"], summary: "Enviar OTP" }
@@ -50054,17 +50117,17 @@ init_dist();
 // src/collection/collection.service.ts
 init_pool();
 init_snowflake();
-var CFG_COLS = `id, user_id as "userId", wallet_id as "walletId", use_default as "useDefault",
+var CFG_COLS = `id, wallet_id as "walletId", use_default as "useDefault",
   baneco_credential_id as "banecoCredentialId", bank_account_id as "bankAccountId",
   collection_type as "collectionType", commission_rate as "commissionRate",
   is_active as "isActive", created_at as "createdAt", updated_at as "updatedAt", deleted_at as "deletedAt"`;
 var collectionService = {
-  async getConfig(userId) {
-    const r2 = await query2(`SELECT ${CFG_COLS} FROM collection_config WHERE user_id = $1 AND deleted_at IS NULL`, [userId]);
+  async getConfig(walletId) {
+    const r2 = await query2(`SELECT ${CFG_COLS} FROM collection_config WHERE wallet_id = $1 AND deleted_at IS NULL`, [walletId]);
     return r2.rowCount ? r2.rows[0] : null;
   },
-  async upsertConfig(userId, data) {
-    const existing = await collectionService.getConfig(userId);
+  async upsertConfig(walletId, data) {
+    const existing = await collectionService.getConfig(walletId);
     if (existing) {
       const r3 = await query2(`
         UPDATE collection_config
@@ -50076,23 +50139,22 @@ var collectionService = {
         data.banecoCredentialId ?? null,
         data.bankAccountId ?? null,
         data.collectionType ?? "gateway",
-        data.commissionRate ?? 0,
+        data.commissionRate ?? 0.1,
         existing.id
       ]);
       return r3.rows[0];
     }
     const r2 = await query2(`
-      INSERT INTO collection_config (id, user_id, wallet_id, use_default, baneco_credential_id, bank_account_id, collection_type, commission_rate, is_active)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true) RETURNING ${CFG_COLS}
+      INSERT INTO collection_config (id, wallet_id, use_default, baneco_credential_id, bank_account_id, collection_type, commission_rate, is_active)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, true) RETURNING ${CFG_COLS}
     `, [
       nextSnowflake(),
-      userId,
-      data.walletId ?? null,
+      walletId,
       data.useDefault ?? true,
       data.banecoCredentialId ?? null,
       data.bankAccountId ?? null,
       data.collectionType ?? "gateway",
-      data.commissionRate ?? 0
+      data.commissionRate ?? 0.1
     ]);
     return r2.rows[0];
   }
@@ -50100,6 +50162,7 @@ var collectionService = {
 
 // src/banking/banking.routes.ts
 init_tenant_repository();
+init_wallet_permission_repository();
 init_app_error();
 var bankingRoutes = new Elysia().get("/wallets", async ({ auth }) => {
   const isAdmin = auth.user.role === Role.Admin || auth.user.role === Role.Super;
@@ -50154,7 +50217,8 @@ var bankingRoutes = new Elysia().get("/wallets", async ({ auth }) => {
   if (!tenant)
     throw new AppError2(404, "No tienes un cliente asociado");
   const wallet = await walletService.createCollection(tenant.id);
-  await collectionService.upsertConfig(auth.user.id, { walletId: wallet.id, useDefault: true });
+  await walletPermissionRepository2.upsert(auth.user.id, wallet.id, "owner");
+  await collectionService.upsertConfig(wallet.id, { useDefault: true });
   return ok(wallet, "Billetera de recaudación creada exitosamente");
 }, {
   detail: { tags: ["Wallets"], summary: "Crear billetera de recaudación" }
@@ -50807,7 +50871,7 @@ var qrService = {
     const cred = await resolveCredentials(bcid);
     const adapter = new BanecoAdapter(cred.api_base_url, cred.encryption_key);
     const token = await adapter.getToken(cred.username, cred.password);
-    const transactionId = `TXN${Date.now()}${Math.random().toString(36).slice(2, 8)}`.toUpperCase();
+    const transactionId = data.transactionId ? String(data.transactionId) : `TXN${Date.now()}${Math.random().toString(36).slice(2, 8)}`.toUpperCase();
     const result = await adapter.generateQr(token, transactionId, cred.account_number, data.amount, {
       description: data.description,
       dueDate: data.dueDate,
@@ -50883,10 +50947,10 @@ var qrService = {
     if (qr.userId) {
       try {
         const clientConfigs = await query(`
-          SELECT * FROM collection_config WHERE user_id = $1 AND is_active = true LIMIT 1
-        `, [qr.userId]);
+          SELECT * FROM collection_config WHERE wallet_id = $1 AND is_active = true LIMIT 1
+        `, [qr.walletId]);
         if (!clientConfigs.rowCount) {
-          logger.warn("No collection config for user, skipping", { userId: qr.userId, qrId });
+          logger.warn("No collection config for wallet, skipping", { walletId: qr.walletId, qrId });
           return;
         }
         const clientConfig = clientConfigs.rows[0];
@@ -50991,6 +51055,7 @@ var QRRequestSchema = t.Object({
   dueDate: t.Optional(t.String()),
   singleUse: t.Optional(t.Boolean({ default: true })),
   modifyAmount: t.Optional(t.Boolean({ default: false })),
+  transactionId: t.Optional(t.String()),
   walletId: t.Optional(t.String())
 });
 
@@ -51328,10 +51393,9 @@ var transferService = {
 };
 
 // src/payments/payment/payment.routes.ts
-init_pool();
 init_wallet_repository();
+init_wallet_permission_repository();
 init_app_error();
-init_snowflake();
 var paymentRoutes = new Elysia().use(idempotency()).post("/transfers/p2p", async ({ body, auth, request, idempotencyKey }) => {
   const wallets = await walletRepository.listByUser(auth.user.id);
   const senderWallet = body.senderWalletId ? wallets.find((w) => String(w.id) === body.senderWalletId) : wallets.find((w) => w.type === "standard");
@@ -51384,16 +51448,19 @@ var paymentRoutes = new Elysia().use(idempotency()).post("/transfers/p2p", async
   params: t.Object({ id: t.String() }),
   detail: { tags: ["Payments"], summary: "Detalle de billetera" }
 }).post("/wallets", async ({ body, auth }) => {
-  const r2 = await query2(`
-      INSERT INTO wallets (id, name, type, currency, balance, available_balance, held_balance)
-      VALUES ($1, $2, $3, $4, 0, 0, 0)
-      RETURNING *
-    `, [nextSnowflake(), body.name || "Principal", body.type || "standard", body.currency || "BOB"]);
-  return ok(r2.rows[0], "Billetera creada exitosamente");
+  const wallet = await walletService.create({
+    type: body.type || "standard",
+    level: body.level,
+    name: body.name,
+    currency: body.currency || "BOB"
+  });
+  await walletPermissionRepository2.upsert(auth.user.id, wallet.id, "owner");
+  return ok(wallet, "Billetera creada exitosamente");
 }, {
   body: t.Object({
     name: t.Optional(t.String()),
     type: t.Optional(t.String()),
+    level: t.Optional(t.String()),
     currency: t.Optional(t.String())
   }),
   detail: { tags: ["Payments"], summary: "Crear billetera" }
@@ -51891,6 +51958,7 @@ var apiKeyRoutes = new Elysia({ prefix: "/api-keys" }).get("/", async ({ query: 
 
 // src/monitoring/health.controller.ts
 init_pool();
+init_migrate();
 import * as os from "os";
 var startTime = Date.now();
 var healthRoutes = new Elysia({ prefix: "/health" }).get("/", () => ok({
@@ -52558,7 +52626,7 @@ var settlementRoutes = new Elysia({ prefix: "/settlements" }).get("/", async ({ 
 });
 
 // src/collection/collection.routes.ts
-import crypto7 from "node:crypto";
+init_pool();
 
 // src/banking/credential/bank-credential.repository.ts
 init_pool();
@@ -52566,22 +52634,21 @@ init_snowflake();
 var bankCredentialRepository = {
   async create(data) {
     const r2 = await query2(`
-      INSERT INTO baneco_credentials (id, bank_id, account_holder, account_number, merchant_id,
-        username, password, encryption_key, environment, api_base_url, user_id, is_active)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true)
+      INSERT INTO baneco_credentials (id, account_holder, account_number, merchant_id,
+        username, password, encryption_key, environment, api_base_url, tenant_id, is_active)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true)
       RETURNING *
     `, [
       nextSnowflake(),
-      data.bankId,
       data.accountHolder,
       data.accountNumber,
       data.merchantId || `MERCH-${nextSnowflake().toString().slice(-8)}`,
       data.username,
       data.password,
-      data.encryptionKey,
+      data.encryptionKey || null,
       data.environment,
       data.apiBaseUrl,
-      data.userId || null
+      data.tenantId || null
     ]);
     return r2.rows[0];
   },
@@ -52598,10 +52665,10 @@ var bankCredentialRepository = {
       conditions.push(`bc.environment = $${pc}`);
       params.push(filters.environment);
     }
-    if (filters.userId) {
+    if (filters.tenantId) {
       pc++;
-      conditions.push(`bc.user_id = $${pc}`);
-      params.push(filters.userId);
+      conditions.push(`bc.tenant_id = $${pc}`);
+      params.push(filters.tenantId);
     }
     if (filters.isActive !== undefined) {
       pc++;
@@ -52643,17 +52710,17 @@ var bankCredentialRepository = {
 // src/collection/bank-account.repository.ts
 init_pool();
 init_snowflake();
-var COLS2 = `id, user_id as "userId", bank_code as "bankCode", account_holder as "accountHolder", account_number as "accountNumber", holder_document as "holderDocument", is_active as "isActive", created_at as "createdAt", deleted_at as "deletedAt"`;
+var COLS2 = `id, tenant_id as "tenantId", bank_code as "bankCode", account_holder as "accountHolder", account_number as "accountNumber", holder_document as "holderDocument", is_active as "isActive", created_at as "createdAt", deleted_at as "deletedAt"`;
 var bankAccountRepository = {
   async create(data) {
     const r2 = await query2(`
-      INSERT INTO bank_accounts (id, user_id, bank_code, account_holder, account_number, holder_document)
+      INSERT INTO bank_accounts (id, tenant_id, bank_code, account_holder, account_number, holder_document)
       VALUES ($1, $2, $3, $4, $5, $6) RETURNING ${COLS2}
-    `, [nextSnowflake(), data.userId, data.bankCode, data.accountHolder, data.accountNumber, data.holderDocument || ""]);
+    `, [nextSnowflake(), data.tenantId, data.bankCode, data.accountHolder, data.accountNumber, data.holderDocument || ""]);
     return r2.rows[0];
   },
-  async listByUser(userId) {
-    const r2 = await query2(`SELECT ${COLS2} FROM bank_accounts WHERE user_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC`, [userId]);
+  async listByTenant(tenantId) {
+    const r2 = await query2(`SELECT ${COLS2} FROM bank_accounts WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC`, [tenantId]);
     return r2.rows;
   },
   async getById(id) {
@@ -52666,32 +52733,44 @@ var bankAccountRepository = {
 };
 
 // src/collection/collection.routes.ts
+init_tenant_repository();
 init_app_error();
+init_snowflake();
+async function getTenantEnv(userId) {
+  const r2 = await query2(`
+    SELECT t.environment FROM tenants t
+    JOIN tenant_users tu ON t.id = tu.tenant_id
+    WHERE tu.user_id = $1 AND t.deleted_at IS NULL AND tu.deleted_at IS NULL
+    LIMIT 1
+  `, [userId]);
+  return r2.rowCount ? r2.rows[0].environment : "sandbox";
+}
+async function requireTenant(userId) {
+  const tenantId = await tenantRepository.getTenantId(userId);
+  if (!tenantId)
+    throw new AppError2(404, "No tienes un cliente asociado");
+  return tenantId;
+}
 var collectionRoutes = new Elysia().get("/baneco-credentials", async ({ auth }) => {
-  const creds = await bankCredentialRepository.list({ userId: auth.user.id, isActive: true });
+  const tenantId = await requireTenant(auth.user.id);
+  const creds = await bankCredentialRepository.list({ tenantId, isActive: true });
   return list(creds, creds.length, "Credenciales listadas");
 }, {
   detail: { tags: ["Collection"], summary: "Listar credenciales Baneco" }
 }).post("/baneco-credentials", async ({ auth, body }) => {
-  const { query: query3 } = await Promise.resolve().then(() => (init_pool(), exports_pool));
-  const tenant = await query3(`
-      SELECT t.environment FROM tenants t
-      JOIN tenant_users tu ON t.id = tu.tenant_id
-      WHERE tu.user_id = $1 AND t.deleted_at IS NULL AND tu.deleted_at IS NULL
-      LIMIT 1
-    `, [auth.user.id]);
-  const isProd = tenant.rowCount && tenant.rows[0].environment === "production";
+  const tenantId = await requireTenant(auth.user.id);
+  const env3 = await getTenantEnv(auth.user.id);
+  const isProd = env3 === "production";
   const apiBaseUrl = isProd ? process.env.BANECO_PROD_API_URL || "https://apimkt.baneco.com.bo/ApiGateway" : process.env.BANECO_SANDBOX_API_URL || "https://apimktdesa.baneco.com.bo/ApiGateway";
   const cred = await bankCredentialRepository.create({
-    bankId: 1n,
     accountHolder: body.accountHolder,
     accountNumber: body.accountNumber,
     username: body.username,
     password: body.password,
-    encryptionKey: crypto7.randomBytes(16).toString("hex").toUpperCase(),
+    encryptionKey: body.encryptionKey,
     environment: isProd ? "prod" : "test",
     apiBaseUrl,
-    userId: auth.user.id
+    tenantId
   });
   return ok(cred, "Credencial creada");
 }, {
@@ -52699,7 +52778,8 @@ var collectionRoutes = new Elysia().get("/baneco-credentials", async ({ auth }) 
     accountHolder: t.String(),
     accountNumber: t.String(),
     username: t.String(),
-    password: t.String()
+    password: t.String(),
+    encryptionKey: t.String()
   }),
   detail: { tags: ["Collection"], summary: "Crear credencial Baneco" }
 }).delete("/baneco-credentials/:id", async ({ params }) => {
@@ -52720,19 +52800,20 @@ var collectionRoutes = new Elysia().get("/baneco-credentials", async ({ auth }) 
   }),
   detail: { tags: ["Collection"], summary: "Probar conexión Baneco" }
 }).get("/banks", async () => {
-  const { query: query3 } = await Promise.resolve().then(() => (init_pool(), exports_pool));
-  const r2 = await query3("SELECT code, name FROM banks WHERE is_active = true ORDER BY name");
+  const r2 = await query2("SELECT code, name FROM banks WHERE is_active = true ORDER BY name");
   return list(r2.rows, r2.rows.length);
 }, {
   detail: { tags: ["Collection"], summary: "Listar bancos disponibles" }
 }).get("/bank-accounts", async ({ auth }) => {
-  const accounts = await bankAccountRepository.listByUser(auth.user.id);
+  const tenantId = await requireTenant(auth.user.id);
+  const accounts = await bankAccountRepository.listByTenant(tenantId);
   return list(accounts, accounts.length, "Cuentas listadas");
 }, {
   detail: { tags: ["Collection"], summary: "Listar cuentas bancarias" }
 }).post("/bank-accounts", async ({ auth, body }) => {
+  const tenantId = await requireTenant(auth.user.id);
   const account = await bankAccountRepository.create({
-    userId: auth.user.id,
+    tenantId,
     bankCode: body.bankCode,
     accountHolder: body.accountHolder,
     accountNumber: body.accountNumber,
@@ -52753,21 +52834,99 @@ var collectionRoutes = new Elysia().get("/baneco-credentials", async ({ auth }) 
 }, {
   detail: { tags: ["Collection"], summary: "Eliminar cuenta bancaria" }
 }).get("/collection/config", async ({ auth }) => {
-  const config = await collectionService.getConfig(auth.user.id);
+  const wallet = await walletService.getCollectionAccount(auth.user.id);
+  if (!wallet)
+    return ok(null);
+  const config = await collectionService.getConfig(wallet.id);
   return ok(config || null);
 }, {
   detail: { tags: ["Collection"], summary: "Obtener configuración de recaudación" }
+}).post("/collection/setup", async ({ auth, body }) => {
+  const { pool: pgPool } = await Promise.resolve().then(() => (init_pool(), exports_pool));
+  const env3 = await getTenantEnv(auth.user.id);
+  const isProd = env3 === "production";
+  const apiBaseUrl = isProd ? process.env.BANECO_PROD_API_URL || "https://apimkt.baneco.com.bo/ApiGateway" : process.env.BANECO_SANDBOX_API_URL || "https://apimktdesa.baneco.com.bo/ApiGateway";
+  const client = await pgPool.connect();
+  try {
+    await client.query("BEGIN");
+    const tenantId = await requireTenant(auth.user.id);
+    const credId = nextSnowflake();
+    await client.query(`
+        INSERT INTO baneco_credentials (id, tenant_id, account_holder, account_number, merchant_id,
+          username, password, encryption_key, environment, api_base_url, is_active)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true)
+      `, [
+      credId,
+      tenantId,
+      body.accountHolder,
+      body.accountNumber,
+      `MERCH-${credId.toString().slice(-8)}`,
+      body.username,
+      body.password,
+      body.encryptionKey,
+      isProd ? "prod" : "test",
+      apiBaseUrl
+    ]);
+    const walletId = nextSnowflake();
+    await client.query(`
+        INSERT INTO wallets (id, wallet_number, name, type, level, currency, balance,
+          available_balance, held_balance, tenant_id, status, is_default, is_collection,
+          baneco_credential_id, created_at, updated_at)
+        VALUES ($1, $2, $3, 'standard', 'bronze', 'BOB', 0, 0, 0,
+          $4, 'active', false, true, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `, [walletId, `400${credId.toString().slice(-9)}`, "Recaudaciones", tenantId, credId]);
+    const ut = await client.query("SELECT user_id FROM tenant_users WHERE tenant_id = $1 AND deleted_at IS NULL LIMIT 1", [tenantId]);
+    if (ut.rowCount) {
+      await client.query(`
+          INSERT INTO wallet_permissions (user_id, wallet_id, role, created_at)
+          VALUES ($1, $2, 'owner', CURRENT_TIMESTAMP)
+        `, [ut.rows[0].user_id, walletId]);
+    }
+    const cfgId = nextSnowflake();
+    await client.query(`
+        INSERT INTO collection_config (id, wallet_id, use_default, baneco_credential_id,
+          collection_type, commission_rate, is_active, created_at)
+        VALUES ($1, $2, false, $3, 'direct', $4, true, CURRENT_TIMESTAMP)
+        ON CONFLICT (wallet_id) DO UPDATE SET
+          baneco_credential_id = EXCLUDED.baneco_credential_id,
+          collection_type = 'direct',
+          commission_rate = EXCLUDED.commission_rate,
+          is_active = true,
+          deleted_at = NULL,
+          updated_at = CURRENT_TIMESTAMP
+      `, [cfgId, walletId, credId, body.commissionRate ?? 0.1]);
+    await client.query("COMMIT");
+    return ok({
+      credential: { id: credId, accountHolder: body.accountHolder, accountNumber: body.accountNumber, environment: isProd ? "prod" : "test" },
+      wallet: { id: walletId, name: "Recaudaciones", isCollection: true },
+      config: { id: cfgId, commissionRate: body.commissionRate ?? 0.1 }
+    }, "Recaudación configurada exitosamente");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}, {
+  body: t.Object({
+    accountHolder: t.String(),
+    accountNumber: t.String(),
+    username: t.String(),
+    password: t.String(),
+    encryptionKey: t.String(),
+    commissionRate: t.Optional(t.Number())
+  }),
+  detail: { tags: ["Collection"], summary: "Setup completo de recaudación con Baneco" }
 }).post("/collection/config", async ({ auth, body }) => {
-  let wallet = await walletService.getCollectionAccount(auth.user.id);
+  const wallet = await walletService.getCollectionAccount(auth.user.id);
   if (!wallet)
     throw new AppError2(404, "Primero crea una billetera de recaudación");
-  const config = await collectionService.upsertConfig(auth.user.id, {
-    walletId: wallet.id,
+  const config = await collectionService.upsertConfig(wallet.id, {
     useDefault: body.useDefault,
     banecoCredentialId: body.banecoCredentialId ? BigInt(body.banecoCredentialId) : null,
     bankAccountId: body.bankAccountId ? BigInt(body.bankAccountId) : null,
     collectionType: body.collectionType ?? "gateway",
-    commissionRate: body.commissionRate ?? 0
+    commissionRate: body.commissionRate ?? 0.1
   });
   return ok(config, "Configuración guardada");
 }, {
@@ -53413,6 +53572,12 @@ if (mode === "init-db") {
     await seedMinimal2();
     const { seedTest: seedTest2 } = await Promise.resolve().then(() => (init_seed_test(), exports_seed_test));
     await seedTest2();
+    process.exit(0);
+  });
+} else if (mode === "migrate") {
+  migrateDB(false).then(async () => {
+    const { runMigrations: runMigrations2 } = await Promise.resolve().then(() => (init_migrate(), exports_migrate));
+    await runMigrations2();
     process.exit(0);
   });
 } else {

@@ -106,4 +106,13 @@ export const tenantRepository = {
     `, [userId])
     return r.rows as (TenantRow & { userRole: string })[]
   },
+
+  async getTenantId(userId: bigint): Promise<bigint | null> {
+    const r = await query(`
+      SELECT tenant_id FROM tenant_users
+      WHERE user_id = $1 AND deleted_at IS NULL
+      LIMIT 1
+    `, [userId])
+    return r.rowCount ? (r.rows[0] as { tenant_id: string }).tenant_id as unknown as bigint : null
+  },
 }

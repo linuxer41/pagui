@@ -3,7 +3,7 @@ import { nextSnowflake } from '../shared/snowflake'
 
 export interface BankAccountRow {
   id: bigint
-  userId: bigint
+  tenantId: bigint
   bankCode: string
   accountHolder: string
   accountNumber: string
@@ -13,22 +13,22 @@ export interface BankAccountRow {
   deletedAt: Date | null
 }
 
-const COLS = `id, user_id as "userId", bank_code as "bankCode", account_holder as "accountHolder", account_number as "accountNumber", holder_document as "holderDocument", is_active as "isActive", created_at as "createdAt", deleted_at as "deletedAt"`
+const COLS = `id, tenant_id as "tenantId", bank_code as "bankCode", account_holder as "accountHolder", account_number as "accountNumber", holder_document as "holderDocument", is_active as "isActive", created_at as "createdAt", deleted_at as "deletedAt"`
 
 export const bankAccountRepository = {
   async create(data: {
-    userId: bigint; bankCode: string; accountHolder: string
+    tenantId: bigint; bankCode: string; accountHolder: string
     accountNumber: string; holderDocument?: string
   }): Promise<BankAccountRow> {
     const r = await query(`
-      INSERT INTO bank_accounts (id, user_id, bank_code, account_holder, account_number, holder_document)
+      INSERT INTO bank_accounts (id, tenant_id, bank_code, account_holder, account_number, holder_document)
       VALUES ($1, $2, $3, $4, $5, $6) RETURNING ${COLS}
-    `, [nextSnowflake(), data.userId, data.bankCode, data.accountHolder, data.accountNumber, data.holderDocument || ''])
+    `, [nextSnowflake(), data.tenantId, data.bankCode, data.accountHolder, data.accountNumber, data.holderDocument || ''])
     return r.rows[0] as BankAccountRow
   },
 
-  async listByUser(userId: bigint): Promise<BankAccountRow[]> {
-    const r = await query(`SELECT ${COLS} FROM bank_accounts WHERE user_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC`, [userId])
+  async listByTenant(tenantId: bigint): Promise<BankAccountRow[]> {
+    const r = await query(`SELECT ${COLS} FROM bank_accounts WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC`, [tenantId])
     return r.rows as BankAccountRow[]
   },
 

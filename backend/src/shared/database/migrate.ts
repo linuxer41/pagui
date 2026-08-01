@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { pool } from './pool'
@@ -34,6 +34,60 @@ export async function migrateDB(forceReset = false): Promise<void> {
   } finally {
     client.release()
   }
+}
+
+export async function runMigrations(): Promise<void> {
+  const migrationsDir = join(__dirname, '..', '..', '..', 'migrations')
+  if (!existsSync(migrationsDir)) {
+    logger.info('No migrations directory found')
+    return
+  }
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS _migrations (
+      name VARCHAR(255) PRIMARY KEY,
+      checksum VARCHAR(64) NOT NULL DEFAULT '',
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      duration_ms INT NOT NULL DEFAULT 0
+    )
+  `)
+
+  const files = readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort()
+  if (files.length === 0) {
+    logger.info('No pending migrations')
+    return
+  }
+
+  for (const file of files) {
+    const name = file.replace('.sql', '')
+    const existing = await pool.query('SELECT name FROM _migrations WHERE name = $1', [name])
+    if (existing.rowCount) {
+      logger.info('Migration already applied', { name })
+      continue
+    }
+
+    const start = Date.now()
+    const sql = readFileSync(join(migrationsDir, file), 'utf-8')
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      await client.query(sql)
+      await client.query(
+        'INSERT INTO _migrations (name, checksum, duration_ms) VALUES ($1, $2, $3)',
+        [name, '', Date.now() - start]
+      )
+      await client.query('COMMIT')
+      logger.info('Migration applied', { name, durationMs: Date.now() - start })
+    } catch (err) {
+      await client.query('ROLLBACK')
+      logger.error('Migration failed', { name, error: String(err) })
+      throw err
+    } finally {
+      client.release()
+    }
+  }
+
+  logger.info('All migrations applied')
 }
 
 export async function getMigrationStatus() {

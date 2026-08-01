@@ -2,418 +2,315 @@
 
 ## Descripción General
 
-Las API Keys son una forma de autenticación alternativa a los tokens JWT que permite a las aplicaciones integrarse con la API de manera segura. Cada API Key está asociada a una empresa específica y tiene permisos granulares para diferentes operaciones.
+Las API Keys son una forma de autenticación alternativa a los tokens JWT que permite a sistemas externos integrarse con Pagui de manera segura. Cada API Key está asociada a una **billetera de recaudación** específica y tiene permisos granulares para diferentes operaciones.
+
+La **API Pública** corre en un servidor independiente (puerto `PUBLIC_API_PORT`, por defecto `3001`) y se autentica **exclusivamente** con API Keys, separada del API interna que usa JWT.
 
 ## Estructura de una API Key
 
 ```json
 {
-  "id": 1,
-  "apiKey": "rJ4TWnSFDOHbfHqzL106g6Skzg2PHEc8",
+  "id": 2442123456789000001,
+  "apiKey": "pg_AbC3dEfGhIjKlMnOpQrStUvWxYz0123456789AbC",
+  "walletId": 2442123456789000002,
   "description": "API Key de demostración",
-  "companyId": 1,
   "permissions": {
-    "qr_codes": {
-      "create": true,
-      "read": true
-    },
-    "transactions": {
-      "read": true
-    }
+    "qr_generate": true,
+    "qr_status": true,
+    "qr_cancel": false
   },
-  "expiresAt": "2026-08-27T10:48:35.644Z",
+  "expiresAt": "2027-08-27T10:48:35.644Z",
   "status": "active",
-  "createdAt": "2025-08-27T10:48:35.644Z"
+  "createdAt": "2026-08-27T10:48:35.644Z",
+  "updatedAt": "2026-08-27T10:48:35.644Z"
 }
 ```
+
+- `apiKey`: prefijo `pg_` + 40 caracteres alfanuméricos. Se muestra **una sola vez** al crearla.
+- `status`: `active` | `REVOKED` | `EXPIRED`.
+- Las claves expiradas se marcan automáticamente como `EXPIRED`.
 
 ## Autenticación con API Keys
 
 Para usar una API Key, inclúyela en el encabezado `X-API-Key` de todas las peticiones:
 
 ```bash
-curl -H "X-API-Key: rJ4TWnSFDOHbfHqzL106g6Skzg2PHEc8" \
-     -H "Content-Type: application/json" \
-     https://api.example.com/api/qr/generate
+curl -X GET "http://localhost:3001/qr/list" \
+  -H "X-API-Key: pg_AbC3dEfGhIjKlMnOpQrStUvWxYz0123456789AbC"
 ```
+
+## API Pública
+
+- **URL base:** `http://localhost:3001` (configurable vía `PUBLIC_API_PORT`).
+- **Documentación interactiva (Swagger/OpenAPI):** `http://localhost:3001/docs`.
+- **Formato de respuesta:** `{ "success": true, "data": ..., "message": "..." }`.
+- **Paginación:** `{ "success": true, "data": [...], "totalCount": N, "message": "..." }`.
 
 ## Endpoints Disponibles
 
 ### 1. Generar Código QR
 
-**Endpoint:** `POST /api/qr/generate`
+**Endpoint:** `POST /qr/generate`
 
-**Permisos requeridos:** `qr_codes.create`
+**Permisos requeridos:** `qr_generate`
 
-**Descripción:** Genera un código QR para cobro usando la API Key.
+**Descripción:** Genera un código QR para cobro usando la API Key. El QR queda asociado a la billetera de recaudación de la API Key (el campo `walletId` del body es ignorado).
 
-**Ejemplo de uso:**
+**Body:**
+```json
+{
+  "amount": 150.50,
+  "currency": "BOB",
+  "description": "Pago de servicios",
+  "dueDate": "2026-12-31",
+  "singleUse": true,
+  "modifyAmount": false,
+  "transactionId": "TXN-2026-000123"
+}
+```
 
+| Campo | Tipo | Requerido | Default | Descripción |
+|-------|------|-----------|---------|-------------|
+| `amount` | number | ✅ | — | Monto a cobrar (mínimo 0.01) |
+| `currency` | string | ❌ | `BOB` | Moneda |
+| `description` | string | ❌ | — | Descripción del cobro |
+| `dueDate` | string | ❌ | `2025-12-31` | Fecha de vencimiento |
+| `singleUse` | boolean | ❌ | `true` | QR de un solo uso |
+| `modifyAmount` | boolean | ❌ | `false` | Permite modificar monto al pagar |
+| `transactionId` | string | ❌ | auto | **ID de referencia del cliente** para identificar el QR; si se omite, PAGUI genera uno automático (`TXN...`) |
+
+**Ejemplo:**
 ```bash
-curl -X POST "http://localhost:3000/api/qr/generate" \
-  -H "X-API-Key: rJ4TWnSFDOHbfHqzL106g6Skzg2PHEc8" \
+curl -X POST "http://localhost:3001/qr/generate" \
+  -H "X-API-Key: pg_AbC3dEfGhIjKlMnOpQrStUvWxYz0123456789AbC" \
   -H "Content-Type: application/json" \
   -d '{
-    "transactionId": "TXN-001-2025",
     "amount": 150.50,
-    "description": "Pago de servicios",
-    "dueDate": "2025-12-31",
-    "singleUse": true,
-    "modifyAmount": false
+    "description": "Pago de servicios"
   }'
 ```
 
 **Respuesta exitosa:**
-
 ```json
 {
   "success": true,
   "message": "QR generado exitosamente",
   "data": {
+    "id": 2442123456789000001,
     "qrId": "2412271016000000001",
-    "qrImage": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
-    "transactionId": "TXN-001-2025",
-    "amount": 150.50,
+    "transactionId": "TXN1714851234567x8k2m",
+    "walletId": 2442123456789000002,
+    "amount": 150.5,
     "currency": "BOB",
     "description": "Pago de servicios",
-    "dueDate": "2025-12-31",
+    "dueDate": "2025-12-31T00:00:00.000Z",
+    "qrImage": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
     "singleUse": true,
     "modifyAmount": false,
-    "status": "active"
+    "status": "active",
+    "createdAt": "2026-08-27T10:48:35.644Z"
   }
 }
 ```
 
-### 2. Verificar Estado de QR
+### 2. Listar Códigos QR
 
-**Endpoint:** `GET /api/qr/{qrId}/status`
+**Endpoint:** `GET /qr/list`
 
-**Permisos requeridos:** `qr_codes.read`
+**Permisos requeridos:** `qr_status`
 
-**Descripción:** Verifica el estado actual de un código QR.
+**Descripción:** Lista los códigos QR de la billetera de recaudación con filtros opcionales.
 
-**Ejemplo de uso:**
+**Query params (opcionales):**
+- `page`: página (default `1`)
+- `limit`: resultados por página (default `20`)
+- `status`: `active` | `used` | `cancelled` | `expired`
+- `from`: fecha inicial (YYYY-MM-DD)
+- `to`: fecha final (YYYY-MM-DD)
+- `startDate` / `endDate`: alias de `from` / `to`
 
+**Ejemplo:**
 ```bash
-curl -X GET "http://localhost:3000/api/qr/2412271016000000001/status" \
-  -H "X-API-Key: rJ4TWnSFDOHbfHqzL106g6Skzg2PHEc8"
+curl -X GET "http://localhost:3001/qr/list?status=active&limit=10" \
+  -H "X-API-Key: pg_AbC3dEfGhIjKlMnOpQrStUvWxYz0123456789AbC"
 ```
 
 **Respuesta exitosa:**
+```json
+{
+  "success": true,
+  "totalCount": 1,
+  "message": "QR listados exitosamente",
+  "data": [
+    {
+      "id": 2442123456789000001,
+      "qrId": "2412271016000000001",
+      "transactionId": "TXN1714851234567x8k2m",
+      "walletId": 2442123456789000002,
+      "amount": 150.5,
+      "currency": "BOB",
+      "status": "active",
+      "createdAt": "2026-08-27T10:48:35.644Z"
+    }
+  ]
+}
+```
 
+### 3. Verificar Estado de QR
+
+**Endpoint:** `GET /qr/{qrId}/status`
+
+**Permisos requeridos:** `qr_status`
+
+**Descripción:** Verifica el estado actual de un código QR e incluye el historial de pagos.
+
+**Estados posibles:** `active` (pendiente), `used` (pagado), `cancelled` (anulado), `expired` (expirado).
+
+**Ejemplo:**
+```bash
+curl -X GET "http://localhost:3001/qr/2412271016000000001/status" \
+  -H "X-API-Key: pg_AbC3dEfGhIjKlMnOpQrStUvWxYz0123456789AbC"
+```
+
+**Respuesta exitosa:**
 ```json
 {
   "success": true,
   "message": "Estado del QR verificado",
   "data": {
-    "statusQRCode": 0,
-    "payment": []
-  }
-}
-```
-
-**Códigos de estado:**
-- `0`: Activo, pendiente de pago
-- `1`: Pagado
-- `9`: Anulado
-- `10`: Expirado
-
-### 3. Obtener Estadísticas de Transacciones
-
-**Endpoint:** `GET /api/transactions/stats/{periodType}/{year}/{month?}/{week?}`
-
-**Permisos requeridos:** `transactions.read`
-
-**Descripción:** Obtiene estadísticas de transacciones por período.
-
-**Ejemplo de uso:**
-
-```bash
-# Estadísticas mensuales
-curl -X GET "http://localhost:3000/api/transactions/stats/monthly/2025/8" \
-  -H "X-API-Key: rJ4TWnSFDOHbfHqzL106g6Skzg2PHEc8"
-
-# Estadísticas semanales
-curl -X GET "http://localhost:3000/api/transactions/stats/weekly/2025/8/3" \
-  -H "X-API-Key: rJ4TWnSFDOHbfHqzL106g6Skzg2PHEc8"
-
-# Estadísticas anuales
-curl -X GET "http://localhost:3000/api/transactions/stats/yearly/2025" \
-  -H "X-API-Key: rJ4TWnSFDOHbfHqzL106g6Skzg2PHEc8"
-```
-
-**Respuesta exitosa:**
-
-```json
-{
-  "success": true,
-  "message": "Estadísticas obtenidas exitosamente",
-  "data": {
-    "period": "2025-08",
-    "totalTransactions": 45,
-    "totalAmount": 12500.75,
-    "pendingTransactions": 12,
-    "completedTransactions": 33,
-    "averageAmount": 277.79
-  }
-}
-```
-
-### 4. Listar Transacciones
-
-**Endpoint:** `GET /api/transactions`
-
-**Permisos requeridos:** `transactions.read`
-
-**Descripción:** Lista transacciones con filtros opcionales.
-
-**Ejemplo de uso:**
-
-```bash
-curl -X GET "http://localhost:3000/api/transactions?status=completed&startDate=2025-08-01&endDate=2025-08-31" \
-  -H "X-API-Key: rJ4TWnSFDOHbfHqzL106g6Skzg2PHEc8"
-```
-
-**Parámetros de consulta:**
-- `status`: Estado de la transacción (pending, completed, failed, cancelled)
-- `startDate`: Fecha de inicio (YYYY-MM-DD)
-- `endDate`: Fecha de fin (YYYY-MM-DD)
-- `type`: Tipo de transacción (incoming, outgoing)
-- `limit`: Límite de resultados (por defecto 50)
-- `offset`: Desplazamiento para paginación
-
-**Respuesta exitosa:**
-
-```json
-{
-  "success": true,
-  "message": "Transacciones listadas exitosamente",
-  "data": {
-    "transactions": [
+    "id": 2442123456789000001,
+    "qrId": "2412271016000000001",
+    "amount": 150.5,
+    "currency": "BOB",
+    "status": "used",
+    "payments": [
       {
-        "id": 1,
-        "qrId": "2412271016000000001",
-        "transactionId": "TXN-001-2025",
-        "amount": 150.50,
+        "id": 2442123456789000005,
+        "wallet_id": 2442123456789000002,
+        "qr_id": "2412271016000000001",
+        "amount": 150.5,
         "currency": "BOB",
-        "type": "incoming",
+        "movement_type": "qr_payment",
         "status": "completed",
-        "paymentDate": "2025-08-27T10:30:00Z",
-        "senderName": "Juan Pérez",
-        "description": "Pago de servicios"
+        "sender_name": "Juan Pérez",
+        "created_at": "2026-08-27T11:00:00.000Z"
       }
-    ],
-    "pagination": {
-      "total": 45,
-      "limit": 50,
-      "offset": 0,
-      "hasMore": false
-    }
+    ]
   }
+}
+```
+
+### 4. Detalle de QR
+
+**Endpoint:** `GET /qr/{qrId}`
+
+**Descripción:** Obtiene el detalle de un código QR (sin historial de pagos).
+
+**Ejemplo:**
+```bash
+curl -X GET "http://localhost:3001/qr/2412271016000000001" \
+  -H "X-API-Key: pg_AbC3dEfGhIjKlMnOpQrStUvWxYz0123456789AbC"
+```
+
+### 5. Pagos de un QR
+
+**Endpoint:** `GET /qr/{qrId}/payments`
+
+**Descripción:** Lista los pagos recibidos por un código QR.
+
+**Ejemplo:**
+```bash
+curl -X GET "http://localhost:3001/qr/2412271016000000001/payments" \
+  -H "X-API-Key: pg_AbC3dEfGhIjKlMnOpQrStUvWxYz0123456789AbC"
+```
+
+### 6. Cancelar QR
+
+**Permisos requeridos:** `qr_cancel`
+
+El QR solo puede cancelarse si su estado es `active`.
+
+**6a. Cancelar por body:**
+```bash
+curl -X DELETE "http://localhost:3001/qr/cancelQR" \
+  -H "X-API-Key: pg_AbC3dEfGhIjKlMnOpQrStUvWxYz0123456789AbC" \
+  -H "Content-Type: application/json" \
+  -d '{ "qrId": "2412271016000000001" }'
+```
+
+**6b. Cancelar por URL:**
+```bash
+curl -X DELETE "http://localhost:3001/qr/2412271016000000001" \
+  -H "X-API-Key: pg_AbC3dEfGhIjKlMnOpQrStUvWxYz0123456789AbC"
+```
+
+**Respuesta exitosa:**
+```json
+{
+  "success": true,
+  "message": "QR cancelado exitosamente",
+  "data": { "qrId": "2412271016000000001" }
 }
 ```
 
 ## Gestión de API Keys
 
-### Crear Nueva API Key
+Los endpoints de gestión requieren **JWT** (API interna, puerto `3000`). Solo el propietario de la billetera de recaudación puede gestionar sus claves.
+
+### Crear API Key
 
 **Endpoint:** `POST /api/api-keys`
 
-**Permisos requeridos:** JWT de administrador de empresa
-
-**Ejemplo de uso:**
-
-```bash
-curl -X POST "http://localhost:3000/api/api-keys" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "description": "API Key para integración móvil",
-    "permissions": {
-      "qr_codes": {
-        "create": true,
-        "read": true
-      },
-      "transactions": {
-        "read": true
-      }
-    },
-    "expiresAt": "2026-12-31T23:59:59Z"
-  }'
-```
-
-**Respuesta exitosa:**
-
+**Body:**
 ```json
 {
-  "success": true,
-  "message": "API Key creada exitosamente",
-  "data": {
-    "id": 2,
-    "apiKey": "nEwApIkEy1234567890abcdefghijklmnopqrstuvwxyz",
-    "description": "API Key para integración móvil",
-    "permissions": {
-      "qr_codes": {
-        "create": true,
-        "read": true
-      },
-      "transactions": {
-        "read": true
-      }
-    },
-    "expiresAt": "2026-12-31T23:59:59Z",
-    "status": "active"
-  }
+  "walletId": "2442123456789000002",
+  "description": "API Key para integración móvil",
+  "permissions": {
+    "qr_generate": true,
+    "qr_status": true,
+    "qr_cancel": false
+  },
+  "expiresAt": "2027-12-31T23:59:59Z"
 }
 ```
 
+| Campo | Tipo | Requerido | Descripción |
+|-------|------|-----------|-------------|
+| `walletId` | string | ✅ | ID de la billetera de recaudación |
+| `description` | string | ✅ | Descripción de la clave |
+| `permissions` | object | ✅ | Permisos granulares (`qr_generate`, `qr_status`, `qr_cancel`) |
+| `expiresAt` | string | ❌ | Fecha de expiración (ISO). Sin expiración si se omite |
+
+**Respuesta exitosa:** La clave completa (ver estructura arriba). Guarda `data.apiKey`, **no se vuelve a mostrar**.
+
 ### Listar API Keys
 
-**Endpoint:** `GET /api/api-keys`
+**Endpoint:** `GET /api/api-keys?walletId=2442123456789000002`
 
-**Permisos requeridos:** JWT de administrador de empresa
-
-**Ejemplo de uso:**
-
-```bash
-curl -X GET "http://localhost:3000/api/api-keys" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
-```
+**Descripción:** Lista las API keys activas de la billetera de recaudación.
 
 ### Revocar API Key
 
 **Endpoint:** `DELETE /api/api-keys/{apiKeyId}`
 
-**Permisos requeridos:** JWT de administrador de empresa
+**Descripción:** Revoca una API key. Una vez revocada deja de ser válida inmediatamente.
 
-**Ejemplo de uso:**
-
-```bash
-curl -X DELETE "http://localhost:3000/api/api-keys/2" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+**Respuesta exitosa:**
+```json
+{
+  "success": true,
+  "message": "API key revocada"
+}
 ```
 
 ## Permisos Disponibles
 
-### Estructura de Permisos
-
-```json
-{
-  "qr_codes": {
-    "create": true,    // Generar códigos QR
-    "read": true,      // Leer estado de QR
-    "update": false,   // Modificar QR (no implementado)
-    "delete": false    // Cancelar QR (no implementado)
-  },
-  "transactions": {
-    "read": true,      // Leer transacciones
-    "create": false,   // Crear transacciones (no implementado)
-    "update": false,   // Modificar transacciones (no implementado)
-    "delete": false    // Eliminar transacciones (no implementado)
-  },
-  "companies": {
-    "read": false,     // Leer información de empresa
-    "update": false    // Modificar empresa (no implementado)
-  }
-}
-```
-
-### Permisos por Rol
-
-| Rol | qr_codes.create | qr_codes.read | transactions.read | companies.read |
-|-----|----------------|---------------|-------------------|----------------|
-| COMPANY_ADMIN | ✅ | ✅ | ✅ | ✅ |
-| FINANCIAL_MANAGER | ❌ | ✅ | ✅ | ✅ |
-| OPERATOR | ✅ | ✅ | ❌ | ❌ |
-
-## Casos de Uso Comunes
-
-### 1. Integración de Aplicación Móvil
-
-```bash
-# Configurar API Key con permisos mínimos
-curl -X POST "http://localhost:3000/api/api-keys" \
-  -H "Authorization: Bearer ADMIN_JWT" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "description": "App móvil - Solo generación de QR",
-    "permissions": {
-      "qr_codes": {
-        "create": true,
-        "read": true
-      }
-    },
-    "expiresAt": "2026-12-31T23:59:59Z"
-  }'
-
-# Usar API Key para generar QR
-curl -X POST "http://localhost:3000/api/qr/generate" \
-  -H "X-API-Key: MOBILE_APP_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "transactionId": "MOBILE-TXN-001",
-    "amount": 75.00,
-    "description": "Pago desde app móvil"
-  }'
-```
-
-### 2. Dashboard de Monitoreo
-
-```bash
-# Configurar API Key para dashboard
-curl -X POST "http://localhost:3000/api/api-keys" \
-  -H "Authorization: Bearer ADMIN_JWT" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "description": "Dashboard - Solo lectura",
-    "permissions": {
-      "qr_codes": {
-        "read": true
-      },
-      "transactions": {
-        "read": true
-      }
-    },
-    "expiresAt": "2026-12-31T23:59:59Z"
-  }'
-
-# Obtener estadísticas para dashboard
-curl -X GET "http://localhost:3000/api/transactions/stats/monthly/2025/8" \
-  -H "X-API-Key: DASHBOARD_API_KEY"
-```
-
-### 3. Integración con Sistema de Facturación
-
-```bash
-# Configurar API Key para facturación
-curl -X POST "http://localhost:3000/api/api-keys" \
-  -H "Authorization: Bearer ADMIN_JWT" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "description": "Sistema de facturación",
-    "permissions": {
-      "qr_codes": {
-        "create": true,
-        "read": true
-      },
-      "transactions": {
-        "read": true
-      }
-    },
-    "expiresAt": "2026-12-31T23:59:59Z"
-  }'
-
-# Generar QR automáticamente al crear factura
-curl -X POST "http://localhost:3000/api/qr/generate" \
-  -H "X-API-Key: BILLING_SYSTEM_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "transactionId": "INV-2025-001",
-    "amount": 250.00,
-    "description": "Factura INV-2025-001",
-    "dueDate": "2025-09-30"
-  }'
-```
+| Permiso | Descripción |
+|---------|-------------|
+| `qr_generate` | Generar códigos QR para cobros |
+| `qr_status` | Consultar estado, listar QR y ver pagos |
+| `qr_cancel` | Cancelar códigos QR activos |
 
 ## Manejo de Errores
 
@@ -422,9 +319,9 @@ curl -X POST "http://localhost:3000/api/qr/generate" \
 | Código | Descripción | Solución |
 |--------|-------------|----------|
 | 401 | API Key inválida o expirada | Verificar que la API Key sea correcta y no haya expirado |
-| 403 | Permisos insuficientes | Verificar que la API Key tenga los permisos necesarios |
-| 404 | Recurso no encontrado | Verificar que el ID del recurso sea correcto |
-| 429 | Límite de rate limit excedido | Reducir la frecuencia de peticiones |
+| 403 | Permisos insuficientes | Verificar que la API Key tenga el permiso necesario (ej. `qr_generate`) |
+| 404 | Recurso no encontrado | Verificar que el `qrId` o ID sea correcto |
+| 429 | Límite de rate limit excedido | Reducir la frecuencia de peticiones (120 req/min por defecto) |
 | 500 | Error interno del servidor | Contactar al soporte técnico |
 
 ### Ejemplo de Respuesta de Error
@@ -432,164 +329,94 @@ curl -X POST "http://localhost:3000/api/qr/generate" \
 ```json
 {
   "success": false,
-  "message": "API Key no tiene permisos para generar QR",
-  "error": {
-    "code": "FORBIDDEN",
-    "details": "Se requieren permisos de qr_codes.create"
-  }
+  "error": "API key no tiene permiso qr_generate",
+  "message": "API key no tiene permiso qr_generate"
 }
 ```
 
 ## Seguridad y Mejores Prácticas
 
-### 1. Almacenamiento Seguro
-- Nunca almacenes API Keys en código fuente
-- Usa variables de entorno o gestores de secretos
-- Rota las API Keys regularmente
-
-### 2. Permisos Mínimos
-- Asigna solo los permisos necesarios
-- Revisa y actualiza permisos regularmente
-- Usa diferentes API Keys para diferentes propósitos
-
-### 3. Monitoreo
-- Revisa el uso de API Keys regularmente
-- Configura alertas para uso anómalo
-- Revoca API Keys no utilizadas
-
-### 4. Rate Limiting
-- Respeta los límites de peticiones
-- Implementa reintentos con backoff exponencial
-- Cachea respuestas cuando sea posible
+1. **Almacenamiento seguro:** nunca almacenes API Keys en código fuente; usa variables de entorno o gestores de secretos.
+2. **Permisos mínimos:** asigna solo los permisos necesarios para cada integración.
+3. **Rotación regular:** crea claves nuevas y revoca las antiguas periódicamente.
+4. **Monitoreo:** revisa el uso de las API Keys y revoca las que no se utilicen.
+5. **Rate limiting:** respeta el límite de 120 req/min; implementa reintentos con backoff exponencial.
 
 ## Ejemplos de Implementación
 
 ### JavaScript/Node.js
 
 ```javascript
-class QRPaymentAPI {
-  constructor(apiKey, baseURL = 'http://localhost:3000/api') {
+class PaguiPublicAPI {
+  constructor(apiKey, baseURL = 'http://localhost:3001') {
     this.apiKey = apiKey;
     this.baseURL = baseURL;
   }
 
-  async generate(transactionData) {
-    const response = await fetch(`${this.baseURL}/qr/generate`, {
+  async generate(data) {
+    const res = await fetch(`${this.baseURL}/qr/generate`, {
       method: 'POST',
-      headers: {
-        'X-API-Key': this.apiKey,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(transactionData)
+      headers: { 'X-API-Key': this.apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
   }
 
   async checkQRStatus(qrId) {
-    const response = await fetch(`${this.baseURL}/qr/${qrId}/status`, {
-      method: 'GET',
-      headers: {
-        'X-API-Key': this.apiKey
-      }
+    const res = await fetch(`${this.baseURL}/qr/${qrId}/status`, {
+      headers: { 'X-API-Key': this.apiKey },
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
   }
 }
 
-// Uso
-const api = new QRPaymentAPI('YOUR_API_KEY');
-const qr = await api.generate({
-  transactionId: 'TXN-001',
-  amount: 100.00,
-  description: 'Pago de prueba'
-});
+const api = new PaguiPublicAPI('pg_tu_api_key_aqui');
+const qr = await api.generate({ amount: 100, description: 'Pago de prueba' });
 ```
 
 ### Python
 
 ```python
 import requests
-import json
 
-class QRPaymentAPI:
-    def __init__(self, api_key, base_url='http://localhost:3000/api'):
-        self.api_key = api_key
+class PaguiPublicAPI:
+    def __init__(self, api_key, base_url='http://localhost:3001'):
+        self.headers = {'X-API-Key': api_key, 'Content-Type': 'application/json'}
         self.base_url = base_url
-        self.headers = {
-            'X-API-Key': api_key,
-            'Content-Type': 'application/json'
-        }
-    
-    def generate_qr(self, transaction_data):
-        url = f"{self.base_url}/qr/generate"
-        response = requests.post(url, headers=self.headers, json=transaction_data)
-        response.raise_for_status()
-        return response.json()
-    
-    def check_qr_status(self, qr_id):
-        url = f"{self.base_url}/qr/{qr_id}/status"
-        response = requests.get(url, headers=self.headers)
-        response.raise_for_status()
-        return response.json()
 
-# Uso
-api = QRPaymentAPI('YOUR_API_KEY')
-qr = api.generate_qr({
-    'transactionId': 'TXN-001',
-    'amount': 100.00,
-    'description': 'Pago de prueba'
-})
+    def generate_qr(self, data):
+        res = requests.post(f'{self.base_url}/qr/generate', headers=self.headers, json=data)
+        res.raise_for_status()
+        return res.json()
+
+    def check_qr_status(self, qr_id):
+        res = requests.get(f'{self.base_url}/qr/{qr_id}/status', headers=self.headers)
+        res.raise_for_status()
+        return res.json()
+
+api = PaguiPublicAPI('pg_tu_api_key_aqui')
+qr = api.generate_qr({'amount': 100, 'description': 'Pago de prueba'})
 ```
 
 ### cURL
 
 ```bash
-#!/bin/bash
-
-API_KEY="YOUR_API_KEY"
-BASE_URL="http://localhost:3000/api"
+API_KEY="pg_tu_api_key_aqui"
+BASE_URL="http://localhost:3001"
 
 # Generar QR
-generate_qr() {
-    local transaction_id=$1
-    local amount=$2
-    local description=$3
-    
-    curl -X POST "${BASE_URL}/qr/generate" \
-        -H "X-API-Key: ${API_KEY}" \
-        -H "Content-Type: application/json" \
-        -d "{
-            \"transactionId\": \"${transaction_id}\",
-            \"amount\": ${amount},
-            \"description\": \"${description}\"
-        }"
-}
+curl -X POST "${BASE_URL}/qr/generate" \
+  -H "X-API-Key: ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"amount": 100, "description": "Pago de prueba"}'
 
-# Verificar estado de QR
-check_qr_status() {
-    local qr_id=$1
-    
-    curl -X GET "${BASE_URL}/qr/${qr_id}/status" \
-        -H "X-API-Key: ${API_KEY}"
-}
-
-# Ejemplos de uso
-generate_qr "TXN-001" 100.00 "Pago de prueba"
-check_qr_status "2412271016000000001"
+# Verificar estado
+curl -X GET "${BASE_URL}/qr/2412271016000000001/status" \
+  -H "X-API-Key: ${API_KEY}"
 ```
 
 ## Conclusión
 
-Las API Keys proporcionan una forma segura y flexible de integrar aplicaciones externas con la API de pagos QR. Siguiendo las mejores prácticas de seguridad y usando los permisos apropiados, puedes crear integraciones robustas y seguras.
-
-Para más información o soporte técnico, consulta la documentación completa de la API o contacta al equipo de desarrollo.
+Las API Keys proporcionan una forma segura y flexible de integrar aplicaciones externas con la API de pagos QR de Pagui. La API Pública es independiente de la API interna (JWT), está documentada con Swagger en `/docs` y permite controlar los permisos de cada integración de forma granular.

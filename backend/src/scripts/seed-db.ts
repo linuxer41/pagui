@@ -108,16 +108,15 @@ export async function seedDatabase() {
   }
 
   // 6. Collection config
-  const walletsWithUsers = await query(`
-    SELECT w.id as wallet_id, wp.user_id FROM wallets w
-    JOIN wallet_permissions wp ON wp.wallet_id = w.id
-    WHERE w.is_collection = true AND wp.deleted_at IS NULL
+  const collectionWallets = await query(`
+    SELECT id as wallet_id FROM wallets
+    WHERE is_collection = true AND deleted_at IS NULL
   `)
-  for (const row of walletsWithUsers.rows) {
+  for (const row of collectionWallets.rows) {
     await query(`
-      INSERT INTO collection_config (id, user_id, wallet_id, use_default, is_active)
-      VALUES ($1, $2, $3, true, true) ON CONFLICT DO NOTHING
-    `, [nextSnowflake(), row.user_id, row.wallet_id])
+      INSERT INTO collection_config (id, wallet_id, use_default, is_active)
+      VALUES ($1, $2, true, true) ON CONFLICT DO NOTHING
+    `, [nextSnowflake(), row.wallet_id])
   }
   logger.info('Collection configs created')
 

@@ -44,7 +44,7 @@ async function sendWhatsApp(phone: string, message: string): Promise<void> {
 }
 
 export const otpService = {
-  async sendOTP(phone: string): Promise<void> {
+  async sendOTP(phone: string): Promise<{ code: string } | void> {
     const recent = await this.getRecentSendAttempts(phone)
     if (recent >= MAX_SEND_ATTEMPTS) {
       throw new AppError(429, `Demasiados intentos. Espere ${SEND_WINDOW_MIN} minutos.`)
@@ -64,6 +64,10 @@ export const otpService = {
 
     const msg = `Tu código de verificación PAGUI es: *${code}*`
     await sendWhatsApp(phone, msg)
+
+    if (process.env.NODE_ENV === 'test' || process.env.E2E_OTP_IN_RESPONSE === 'true') {
+      return { code }
+    }
   },
 
   async verifyOTP(phone: string, code: string): Promise<boolean> {

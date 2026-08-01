@@ -22,7 +22,7 @@
   let accountNumber = $state('')
   let username = $state('')
   let password = $state('')
-  let commissionRate = $state(0.5)
+  let encryptionKey = $state('')
 
   onMount(async () => {
     try {
@@ -39,6 +39,8 @@
         if (!selectedWalletId) { error = 'Selecciona una billetera'; return }
         const res = await api.setCollectionWallet(selectedWalletId)
         if (!res.success) { error = res.message || 'Error al configurar billetera'; return }
+        const cfg = await api.saveCollectionConfig({ useDefault: true, collectionType: 'gateway' })
+        if (!cfg.success) { error = cfg.message || 'Error al guardar configuración'; return }
       } else {
         const res = await api.createCollectionWallet()
         if (!res.success) { error = res.message || 'Error al crear billetera'; return }
@@ -49,29 +51,20 @@
   }
 
   async function saveBaneco() {
-    if (!accountHolder.trim() || !accountNumber.trim() || !username.trim() || !password.trim()) {
+    if (!accountHolder.trim() || !accountNumber.trim() || !username.trim() || !password.trim() || !encryptionKey.trim()) {
       error = 'Completa todos los campos requeridos'
       return
     }
     loading = true; error = ''
     try {
-      const credRes = await api.createBanecoCredential({
+      const res = await api.setupCollection({
         accountHolder: accountHolder.trim(),
         accountNumber: accountNumber.trim(),
         username: username.trim(),
         password: password.trim(),
+        encryptionKey: encryptionKey.trim(),
       })
-      if (!credRes.success) { error = credRes.message || 'Error al guardar credenciales'; return }
-
-      const walletRes = await api.createCollectionWallet()
-      if (!walletRes.success) { error = walletRes.message || 'Error al crear billetera'; return }
-
-      await api.saveCollectionConfig({
-        useDefault: false,
-        banecoCredentialId: String(credRes.data.id),
-        collectionType: 'direct',
-        commissionRate: commissionRate,
-      })
+      if (!res.success) { error = res.message || 'Error al configurar recaudación'; return }
       step = 'success'
     } catch (e: any) { error = e.message }
     finally { loading = false }
@@ -198,15 +191,12 @@
       </div>
 
       <div class="field">
-        <label class="field-label">Comisión PAGUI (%)</label>
-        <div class="rate-input-wrap">
-          <input class="text-input rate-input" type="number" bind:value={commissionRate} min="0" max="100" step="0.01" />
-          <span class="rate-suffix">%</span>
-        </div>
-        <p class="field-note">Porcentaje sobre cada transacción que PAGUI retendrá como comisión. Se registra como saldo a favor de PAGUI.</p>
+        <label class="field-label">Encryption Key</label>
+        <input class="text-input" type="text" bind:value={encryptionKey} placeholder="Clave de encriptación AES" />
+        <p class="field-note">Clave proporcionada por el Banco Económico.</p>
       </div>
 
-      <p class="form-note">El servidor configurará automáticamente el entorno de pruebas, la clave de encriptación y la URL del API.</p>
+      <p class="form-note">El servidor configurará automáticamente el entorno de pruebas y la URL del API.</p>
 
       <button class="cta-btn" onclick={saveBaneco} disabled={loading}>
         {loading ? 'Guardando...' : 'Guardar y activar recaudación'}

@@ -108,8 +108,8 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   })
 
   .post('/send-otp', async ({ body }) => {
-    await otpService.sendOTP(body.phone)
-    return ok(null, 'OTP enviado por WhatsApp')
+    const result = await otpService.sendOTP(body.phone)
+    return ok(result || null, 'OTP enviado por WhatsApp')
   }, {
     body: t.Object({ phone: t.String() }),
     detail: { tags: ['Auth'], summary: 'Enviar OTP' },

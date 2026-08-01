@@ -27,15 +27,16 @@ X-API-Key: tu_llave_aqui</pre>
     </section>
 
     <section>
-      <h2><ExternalLink size={18} /> Endpoints disponibles</h2>
+      <h2><ExternalLink size={18} /> Endpoints disponibles (API Pública)</h2>
       <ul>
-        <li><code>GET /api/v1/wallets</code> — Listar billeteras</li>
-        <li><code>GET /api/v1/transactions</code> — Listar transacciones</li>
-        <li><code>POST /api/v1/transfers</code> — Crear transferencia</li>
-        <li><code>GET /api/v1/qr-codes</code> — Listar códigos QR</li>
-        <li><code>POST /api/v1/qr-codes</code> — Generar código QR</li>
+        <li><code>POST /qr/generate</code> — Generar código QR (permiso: <code>qr_generate</code>)</li>
+        <li><code>GET /qr/list</code> — Listar códigos QR con filtros (permiso: <code>qr_status</code>)</li>
+        <li><code>GET /qr/{'{qrId}'}</code> — Detalle de un código QR</li>
+        <li><code>GET /qr/{'{qrId}'}/status</code> — Estado de un QR con pagos (permiso: <code>qr_status</code>)</li>
+        <li><code>GET /qr/{'{qrId}'}/payments</code> — Pagos de un QR</li>
+        <li><code>DELETE /qr/{'{qrId}'}</code> — Cancelar QR (permiso: <code>qr_cancel</code>)</li>
       </ul>
-      <p class="note">La documentación completa de la API está disponible en <code>/api/docs</code>.</p>
+      <p class="note">La documentación interactiva (Swagger) de la API Pública está disponible en <code>{publicApiUrl}/docs</code>.</p>
     </section>
   </div>
 </PageLayout>

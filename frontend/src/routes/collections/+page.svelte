@@ -360,16 +360,6 @@
 
       <div class="summary-card">
         <div class="summary-row">
-          <span class="summary-label">Pendiente por liquidar</span>
-          <div class="summary-value-row">
-            <span class="summary-number">{formatAmount(pendingTotal)}</span>
-            {#if pendingTotal > 0 && bankAccounts.length > 0}
-              <button class="withdraw-btn" onclick={() => showWithdraw = true}>Retirar</button>
-            {/if}
-          </div>
-        </div>
-        <div class="summary-divider"></div>
-        <div class="summary-row">
           <span class="summary-label">Total recaudado ({selectedPeriodType === 'monthly' ? getMonthName(selectedMonth) : selectedPeriodType === 'weekly' ? `Semana ${selectedWeek}` : ''} {selectedYear})</span>
           <span class="summary-number">{formatAmount(statsTotal)}</span>
         </div>

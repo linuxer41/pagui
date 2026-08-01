@@ -2,12 +2,12 @@ import { Elysia, t } from 'elysia'
 
 import { idempotency } from '../../shared/middleware/idempotency'
 import { transferService } from '../transfer/transfer.service'
-import { query } from '../../shared/database/pool'
 import { notifRepository } from '../notification/notif.repository'
 import { walletRepository } from '../../banking/wallet/wallet.repository'
+import { walletService } from '../../banking/wallet/wallet.service'
+import { walletPermissionRepository } from '../../identity/wallet-permission/wallet-permission.repository'
 import { ok, list } from '../../shared/response'
 import { AppError } from '../../shared/errors/app-error'
-import { nextSnowflake } from '../../shared/snowflake'
 
 export const paymentRoutes = new Elysia()
   .use(idempotency())
@@ -70,16 +70,19 @@ export const paymentRoutes = new Elysia()
   })
 
   .post('/wallets', async ({ body, auth }: any) => {
-    const r = await query(`
-      INSERT INTO wallets (id, name, type, currency, balance, available_balance, held_balance)
-      VALUES ($1, $2, $3, $4, 0, 0, 0)
-      RETURNING *
-    `, [nextSnowflake(), body.name || 'Principal', body.type || 'standard', body.currency || 'BOB'])
-    return ok(r.rows[0], 'Billetera creada exitosamente')
+    const wallet = await walletService.create({
+      type: body.type || 'standard',
+      level: body.level,
+      name: body.name,
+      currency: body.currency || 'BOB',
+    })
+    await walletPermissionRepository.upsert(auth.user.id, wallet.id, 'owner')
+    return ok(wallet, 'Billetera creada exitosamente')
   }, {
     body: t.Object({
       name: t.Optional(t.String()),
       type: t.Optional(t.String()),
+      level: t.Optional(t.String()),
       currency: t.Optional(t.String()),
     }),
     detail: { tags: ['Payments'], summary: 'Crear billetera' },

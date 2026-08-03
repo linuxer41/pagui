@@ -1736,6 +1736,115 @@ var require_browser = __commonJS((exports, module) => {
   };
 });
 
+// node_modules/has-flag/index.js
+var require_has_flag = __commonJS((exports, module) => {
+  module.exports = (flag, argv = process.argv) => {
+    const prefix = flag.startsWith("-") ? "" : flag.length === 1 ? "-" : "--";
+    const position = argv.indexOf(prefix + flag);
+    const terminatorPosition = argv.indexOf("--");
+    return position !== -1 && (terminatorPosition === -1 || position < terminatorPosition);
+  };
+});
+
+// node_modules/supports-color/index.js
+var require_supports_color = __commonJS((exports, module) => {
+  var os = __require("os");
+  var tty = __require("tty");
+  var hasFlag = require_has_flag();
+  var { env: env2 } = process;
+  var forceColor;
+  if (hasFlag("no-color") || hasFlag("no-colors") || hasFlag("color=false") || hasFlag("color=never")) {
+    forceColor = 0;
+  } else if (hasFlag("color") || hasFlag("colors") || hasFlag("color=true") || hasFlag("color=always")) {
+    forceColor = 1;
+  }
+  if ("FORCE_COLOR" in env2) {
+    if (env2.FORCE_COLOR === "true") {
+      forceColor = 1;
+    } else if (env2.FORCE_COLOR === "false") {
+      forceColor = 0;
+    } else {
+      forceColor = env2.FORCE_COLOR.length === 0 ? 1 : Math.min(parseInt(env2.FORCE_COLOR, 10), 3);
+    }
+  }
+  function translateLevel(level) {
+    if (level === 0) {
+      return false;
+    }
+    return {
+      level,
+      hasBasic: true,
+      has256: level >= 2,
+      has16m: level >= 3
+    };
+  }
+  function supportsColor(haveStream, streamIsTTY) {
+    if (forceColor === 0) {
+      return 0;
+    }
+    if (hasFlag("color=16m") || hasFlag("color=full") || hasFlag("color=truecolor")) {
+      return 3;
+    }
+    if (hasFlag("color=256")) {
+      return 2;
+    }
+    if (haveStream && !streamIsTTY && forceColor === undefined) {
+      return 0;
+    }
+    const min = forceColor || 0;
+    if (env2.TERM === "dumb") {
+      return min;
+    }
+    if (process.platform === "win32") {
+      const osRelease = os.release().split(".");
+      if (Number(osRelease[0]) >= 10 && Number(osRelease[2]) >= 10586) {
+        return Number(osRelease[2]) >= 14931 ? 3 : 2;
+      }
+      return 1;
+    }
+    if ("CI" in env2) {
+      if (["TRAVIS", "CIRCLECI", "APPVEYOR", "GITLAB_CI", "GITHUB_ACTIONS", "BUILDKITE"].some((sign) => (sign in env2)) || env2.CI_NAME === "codeship") {
+        return 1;
+      }
+      return min;
+    }
+    if ("TEAMCITY_VERSION" in env2) {
+      return /^(9\.(0*[1-9]\d*)\.|\d{2,}\.)/.test(env2.TEAMCITY_VERSION) ? 1 : 0;
+    }
+    if (env2.COLORTERM === "truecolor") {
+      return 3;
+    }
+    if ("TERM_PROGRAM" in env2) {
+      const version = parseInt((env2.TERM_PROGRAM_VERSION || "").split(".")[0], 10);
+      switch (env2.TERM_PROGRAM) {
+        case "iTerm.app":
+          return version >= 3 ? 3 : 2;
+        case "Apple_Terminal":
+          return 2;
+      }
+    }
+    if (/-256(color)?$/i.test(env2.TERM)) {
+      return 2;
+    }
+    if (/^screen|^xterm|^vt100|^vt220|^rxvt|color|ansi|cygwin|linux/i.test(env2.TERM)) {
+      return 1;
+    }
+    if ("COLORTERM" in env2) {
+      return 1;
+    }
+    return min;
+  }
+  function getSupportLevel(stream) {
+    const level = supportsColor(stream, stream && stream.isTTY);
+    return translateLevel(level);
+  }
+  module.exports = {
+    supportsColor: getSupportLevel,
+    stdout: translateLevel(supportsColor(true, tty.isatty(1))),
+    stderr: translateLevel(supportsColor(true, tty.isatty(2)))
+  };
+});
+
 // node_modules/debug/src/node.js
 var require_node = __commonJS((exports, module) => {
   var tty = __require("tty");
@@ -1749,7 +1858,7 @@ var require_node = __commonJS((exports, module) => {
   exports.destroy = util.deprecate(() => {}, "Instance method `debug.destroy()` is deprecated and no longer does anything. It will be removed in the next major version of `debug`.");
   exports.colors = [6, 2, 3, 4, 5, 1];
   try {
-    const supportsColor = (()=>{throw new Error("Cannot require module "+"supports-color");})();
+    const supportsColor = require_supports_color();
     if (supportsColor && (supportsColor.stderr || supportsColor).level >= 2) {
       exports.colors = [
         20,
@@ -7605,20 +7714,20 @@ var require_serializer = __commonJS((exports) => {
   var sendSCRAMClientFinalMessage = function(additionalData) {
     return writer.addString(additionalData).flush(112);
   };
-  var query2 = (text) => {
+  var query = (text) => {
     return writer.addCString(text).flush(81);
   };
   var emptyArray = [];
-  var parse3 = (query3) => {
-    const name = query3.name || "";
+  var parse3 = (query2) => {
+    const name = query2.name || "";
     if (name.length > 63) {
       console.error("Warning! Postgres only supports 63 characters for query names.");
       console.error("You supplied %s (%s)", name, name.length);
       console.error("This can cause conflicts and silent errors executing queries");
     }
-    const types2 = query3.types || emptyArray;
+    const types2 = query2.types || emptyArray;
     const len = types2.length;
-    const buffer = writer.addCString(name).addCString(query3.text).addInt16(len);
+    const buffer = writer.addCString(name).addCString(query2.text).addInt16(len);
     for (let i = 0;i < len; i++) {
       buffer.addInt32(types2[i]);
     }
@@ -7724,7 +7833,7 @@ var require_serializer = __commonJS((exports) => {
     requestSsl,
     sendSASLInitialResponseMessage,
     sendSCRAMClientFinalMessage,
-    query: query2,
+    query,
     parse: parse3,
     bind,
     execute,
@@ -8323,8 +8432,8 @@ var require_connection = __commonJS((exports, module) => {
     query(text) {
       this._send(serialize2.query(text));
     }
-    parse(query2) {
-      this._send(serialize2.parse(query2));
+    parse(query) {
+      this._send(serialize2.parse(query));
     }
     bind(config) {
       this._send(serialize2.bind(config));
@@ -8749,9 +8858,9 @@ var require_client = __commonJS((exports, module) => {
       return this._activeQuery;
     }
     _errorAllQueries(err) {
-      const enqueueError = (query2) => {
+      const enqueueError = (query) => {
         process.nextTick(() => {
-          query2.handleError(err, this.connection);
+          query.handleError(err, this.connection);
         });
       };
       const activeQuery = this._getActiveQuery();
@@ -9095,8 +9204,8 @@ var require_client = __commonJS((exports, module) => {
       }
       return data;
     }
-    cancel(client, query2) {
-      if (client.activeQuery === query2) {
+    cancel(client, query) {
+      if (client.activeQuery === query) {
         const con = this.connection;
         if (this.host && this.host.indexOf("/") === 0) {
           con.connect(this.host + "/.s.PGSQL." + this.port);
@@ -9106,8 +9215,8 @@ var require_client = __commonJS((exports, module) => {
         con.on("connect", function() {
           con.cancel(client.processID, client.secretKey);
         });
-      } else if (client._queryQueue.indexOf(query2) !== -1) {
-        client._queryQueue.splice(client._queryQueue.indexOf(query2), 1);
+      } else if (client._queryQueue.indexOf(query) !== -1) {
+        client._queryQueue.splice(client._queryQueue.indexOf(query), 1);
       }
     }
     setTypeParser(oid, format, parseFn) {
@@ -9144,76 +9253,76 @@ var require_client = __commonJS((exports, module) => {
       }
     }
     query(config, values, callback) {
-      let query2;
+      let query;
       let result;
       if (config == null) {
         throw new TypeError("Client was passed a null or undefined query");
       }
       if (typeof config.submit === "function") {
-        result = query2 = config;
-        if (!query2.callback) {
+        result = query = config;
+        if (!query.callback) {
           if (typeof values === "function") {
-            query2.callback = values;
+            query.callback = values;
           } else if (callback) {
-            query2.callback = callback;
+            query.callback = callback;
           }
         }
       } else {
-        query2 = new Query(config, values, callback);
-        if (!query2.callback) {
+        query = new Query(config, values, callback);
+        if (!query.callback) {
           result = new this._Promise((resolve, reject) => {
-            query2.callback = (err, res) => err ? reject(err) : resolve(res);
+            query.callback = (err, res) => err ? reject(err) : resolve(res);
           }).catch((err) => {
             Error.captureStackTrace(err);
             throw err;
           });
-        } else if (typeof query2.callback !== "function") {
+        } else if (typeof query.callback !== "function") {
           throw new TypeError("callback is not a function");
         }
       }
       const readTimeout = config.query_timeout || this.connectionParameters.query_timeout;
       if (readTimeout) {
-        const queryCallback = query2.callback || (() => {});
+        const queryCallback = query.callback || (() => {});
         const readTimeoutTimer = setTimeout(() => {
           const error = new Error("Query read timeout");
           process.nextTick(() => {
-            query2.handleError(error, this.connection);
+            query.handleError(error, this.connection);
           });
           queryCallback(error);
-          query2.callback = () => {};
-          const index = this._queryQueue.indexOf(query2);
+          query.callback = () => {};
+          const index = this._queryQueue.indexOf(query);
           if (index > -1) {
             this._queryQueue.splice(index, 1);
           }
           this._pulseQueryQueue();
         }, readTimeout);
-        query2.callback = (err, res) => {
+        query.callback = (err, res) => {
           clearTimeout(readTimeoutTimer);
           queryCallback(err, res);
         };
       }
-      if (this.binary && !query2.binary) {
-        query2.binary = true;
+      if (this.binary && !query.binary) {
+        query.binary = true;
       }
-      if (query2._result && !query2._result._types) {
-        query2._result._types = this._types;
+      if (query._result && !query._result._types) {
+        query._result._types = this._types;
       }
       if (!this._queryable) {
         process.nextTick(() => {
-          query2.handleError(new Error("Client has encountered a connection error and is not queryable"), this.connection);
+          query.handleError(new Error("Client has encountered a connection error and is not queryable"), this.connection);
         });
         return result;
       }
       if (this._ending) {
         process.nextTick(() => {
-          query2.handleError(new Error("Client was closed and is not queryable"), this.connection);
+          query.handleError(new Error("Client was closed and is not queryable"), this.connection);
         });
         return result;
       }
       if (this._queryQueue.length > 0) {
         queryQueueLengthDeprecationNotice();
       }
-      this._queryQueue.push(query2);
+      this._queryQueue.push(query);
       this._pulseQueryQueue();
       return result;
     }
@@ -9852,10 +9961,10 @@ var require_client2 = __commonJS((exports, module) => {
   Client.Query = NativeQuery;
   util3.inherits(Client, EventEmitter);
   Client.prototype._errorAllQueries = function(err) {
-    const enqueueError = (query2) => {
+    const enqueueError = (query) => {
       process.nextTick(() => {
-        query2.native = this.native;
-        query2.handleError(err);
+        query.native = this.native;
+        query.handleError(err);
       });
     };
     if (this._hasActiveQuery()) {
@@ -9916,7 +10025,7 @@ var require_client2 = __commonJS((exports, module) => {
     });
   };
   Client.prototype.query = function(config, values, callback) {
-    let query2;
+    let query;
     let result;
     let readTimeout;
     let readTimeoutTimer;
@@ -9925,14 +10034,14 @@ var require_client2 = __commonJS((exports, module) => {
       throw new TypeError("Client was passed a null or undefined query");
     } else if (typeof config.submit === "function") {
       readTimeout = config.query_timeout || this.connectionParameters.query_timeout;
-      result = query2 = config;
+      result = query = config;
       if (typeof values === "function") {
         config.callback = values;
       }
     } else {
       readTimeout = config.query_timeout || this.connectionParameters.query_timeout;
-      query2 = new NativeQuery(config, values, callback);
-      if (!query2.callback) {
+      query = new NativeQuery(config, values, callback);
+      if (!query.callback) {
         let resolveOut, rejectOut;
         result = new this._Promise((resolve, reject) => {
           resolveOut = resolve;
@@ -9941,47 +10050,47 @@ var require_client2 = __commonJS((exports, module) => {
           Error.captureStackTrace(err);
           throw err;
         });
-        query2.callback = (err, res) => err ? rejectOut(err) : resolveOut(res);
+        query.callback = (err, res) => err ? rejectOut(err) : resolveOut(res);
       }
     }
     if (readTimeout) {
-      queryCallback = query2.callback || (() => {});
+      queryCallback = query.callback || (() => {});
       readTimeoutTimer = setTimeout(() => {
         const error = new Error("Query read timeout");
         process.nextTick(() => {
-          query2.handleError(error, this.connection);
+          query.handleError(error, this.connection);
         });
         queryCallback(error);
-        query2.callback = () => {};
-        const index = this._queryQueue.indexOf(query2);
+        query.callback = () => {};
+        const index = this._queryQueue.indexOf(query);
         if (index > -1) {
           this._queryQueue.splice(index, 1);
         }
         this._pulseQueryQueue();
       }, readTimeout);
-      query2.callback = (err, res) => {
+      query.callback = (err, res) => {
         clearTimeout(readTimeoutTimer);
         queryCallback(err, res);
       };
     }
     if (!this._queryable) {
-      query2.native = this.native;
+      query.native = this.native;
       process.nextTick(() => {
-        query2.handleError(new Error("Client has encountered a connection error and is not queryable"));
+        query.handleError(new Error("Client has encountered a connection error and is not queryable"));
       });
       return result;
     }
     if (this._ending) {
-      query2.native = this.native;
+      query.native = this.native;
       process.nextTick(() => {
-        query2.handleError(new Error("Client was closed and is not queryable"));
+        query.handleError(new Error("Client was closed and is not queryable"));
       });
       return result;
     }
     if (this._queryQueue.length > 0) {
       queryQueueLengthDeprecationNotice();
     }
-    this._queryQueue.push(query2);
+    this._queryQueue.push(query);
     this._pulseQueryQueue();
     return result;
   };
@@ -10020,25 +10129,25 @@ var require_client2 = __commonJS((exports, module) => {
     if (this._hasActiveQuery()) {
       return;
     }
-    const query2 = this._queryQueue.shift();
-    if (!query2) {
+    const query = this._queryQueue.shift();
+    if (!query) {
       if (!initialConnection) {
         this.emit("drain");
       }
       return;
     }
-    this._activeQuery = query2;
-    query2.submit(this);
+    this._activeQuery = query;
+    query.submit(this);
     const self = this;
-    query2.once("_done", function() {
+    query.once("_done", function() {
       self._pulseQueryQueue();
     });
   };
-  Client.prototype.cancel = function(query2) {
-    if (this._activeQuery === query2) {
+  Client.prototype.cancel = function(query) {
+    if (this._activeQuery === query) {
       this.native.cancel(function() {});
-    } else if (this._queryQueue.indexOf(query2) !== -1) {
-      this._queryQueue.splice(this._queryQueue.indexOf(query2), 1);
+    } else if (this._queryQueue.indexOf(query) !== -1) {
+      this._queryQueue.splice(this._queryQueue.indexOf(query), 1);
     }
   };
   Client.prototype.ref = function() {};
@@ -14607,10 +14716,10 @@ var exports_pool = {};
 __export(exports_pool, {
   waitForConnection: () => waitForConnection,
   testConnection: () => testConnection,
-  query: () => query2,
+  query: () => query,
   pool: () => pool
 });
-async function query2(text, params = []) {
+async function query(text, params = []) {
   try {
     const start = Date.now();
     const res = await pool.query(text, params);
@@ -24590,7 +24699,7 @@ var init_user_repository = __esm(() => {
   init_app_error();
   userRepository = {
     async create(data) {
-      const r2 = await query2(`
+      const r2 = await query(`
       INSERT INTO users (id, email, password, full_name, phone, address, role, status)
       VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
       RETURNING id
@@ -24598,7 +24707,7 @@ var init_user_repository = __esm(() => {
       return this.getById(r2.rows[0].id);
     },
     async getById(id) {
-      const r2 = await query2(`
+      const r2 = await query(`
       SELECT u.id, u.email, u.full_name as "fullName", u.phone, u.address,
              u.role as "role", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt"
       FROM users u
@@ -24607,7 +24716,7 @@ var init_user_repository = __esm(() => {
       return r2.rowCount ? r2.rows[0] : null;
     },
     async getByEmail(email) {
-      const r2 = await query2(`
+      const r2 = await query(`
       SELECT u.id, u.email, u.password, u.full_name as "fullName", u.phone, u.address,
              u.role as "role", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt"
       FROM users u
@@ -24616,7 +24725,7 @@ var init_user_repository = __esm(() => {
       return r2.rowCount ? r2.rows[0] : null;
     },
     async getPasswordHash(id) {
-      const r2 = await query2("SELECT password FROM users WHERE id = $1", [id]);
+      const r2 = await query("SELECT password FROM users WHERE id = $1", [id]);
       return r2.rowCount ? r2.rows[0].password : null;
     },
     async list(filters = {}) {
@@ -24642,9 +24751,9 @@ var init_user_repository = __esm(() => {
         params.push(filters.role);
       }
       const where = "WHERE " + conditions.join(" AND ");
-      const countR = await query2(`SELECT COUNT(*) as total FROM users u ${where}`, params);
+      const countR = await query(`SELECT COUNT(*) as total FROM users u ${where}`, params);
       const totalCount = parseInt(countR.rows[0].total);
-      const usersR = await query2(`
+      const usersR = await query(`
       SELECT u.id, u.email, u.full_name as "fullName", u.phone, u.address,
              u.role as "role", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt"
       FROM users u
@@ -24683,21 +24792,21 @@ var init_user_repository = __esm(() => {
       if (fields.length === 0)
         throw new AppError2(400, "No fields to update");
       fields.push("updated_at = CURRENT_TIMESTAMP");
-      await query2(`UPDATE users SET ${fields.join(", ")} WHERE id = $${pc + 1}`, [...params, id]);
+      await query(`UPDATE users SET ${fields.join(", ")} WHERE id = $${pc + 1}`, [...params, id]);
       return this.getById(id);
     },
     async updatePassword(id, hash2) {
-      await query2(`UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, [hash2, id]);
+      await query(`UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, [hash2, id]);
     },
     async softDelete(id) {
-      await query2(`UPDATE users SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [id]);
+      await query(`UPDATE users SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [id]);
     },
     async existsByEmail(email) {
-      const r2 = await query2("SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL", [email]);
+      const r2 = await query("SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL", [email]);
       return r2.rowCount !== null && r2.rowCount > 0;
     },
     async getByPhone(phone) {
-      const r2 = await query2(`
+      const r2 = await query(`
       SELECT u.id, u.email, u.password, u.full_name as "fullName", u.phone, u.address,
              u.role as "role", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt"
       FROM users u
@@ -24714,7 +24823,7 @@ var init_tenant_repository = __esm(() => {
   init_pool();
   tenantRepository = {
     async create(data) {
-      const r2 = await query2(`
+      const r2 = await query(`
       INSERT INTO tenants (id, full_name, email, phone, document_type, document_number,
         date_of_birth, nationality, address, environment)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -24741,7 +24850,7 @@ var init_tenant_repository = __esm(() => {
       return r2.rows[0];
     },
     async getById(id) {
-      const r2 = await query2(`
+      const r2 = await query(`
       SELECT id, full_name as "fullName", email, phone,
         document_type as "documentType", document_number as "documentNumber",
         date_of_birth as "dateOfBirth", nationality, address,
@@ -24768,18 +24877,18 @@ var init_tenant_repository = __esm(() => {
       if (!sets.length)
         return null;
       sets.push("updated_at = CURRENT_TIMESTAMP");
-      await query2(`UPDATE tenants SET ${sets.join(", ")} WHERE id = $${pc + 1}`, [...params, id]);
+      await query(`UPDATE tenants SET ${sets.join(", ")} WHERE id = $${pc + 1}`, [...params, id]);
       return this.getById(id);
     },
     async setTenant(userId, tenantId, role = "owner") {
-      await query2(`
+      await query(`
       INSERT INTO tenant_users (user_id, tenant_id, role)
       VALUES ($1, $2, $3)
       ON CONFLICT (user_id) DO UPDATE SET role = $3, deleted_at = NULL
     `, [userId, tenantId, role]);
     },
     async listByUser(userId) {
-      const r2 = await query2(`
+      const r2 = await query(`
       SELECT t.id, t.full_name as "fullName", t.email, t.phone,
         t.document_type as "documentType", t.document_number as "documentNumber",
         t.date_of_birth as "dateOfBirth", t.nationality, t.address,
@@ -24796,7 +24905,7 @@ var init_tenant_repository = __esm(() => {
       return r2.rows;
     },
     async getTenantId(userId) {
-      const r2 = await query2(`
+      const r2 = await query(`
       SELECT tenant_id FROM tenant_users
       WHERE user_id = $1 AND deleted_at IS NULL
       LIMIT 1
@@ -24811,23 +24920,21 @@ var WLT_COLS = `w.id, w.wallet_number as "walletNumber", w.name, w.type, w.level
   w.currency, w.balance, w.available_balance as "availableBalance",
   w.held_balance as "heldBalance", w.tenant_id as "tenantId",
   w.status, w.is_default as "isDefault", w.is_collection as "isCollection",
-  w.baneco_credential_id as "banecoCredentialId",
   w.max_per_tx as "maxPerTx", w.max_daily as "maxDaily", w.max_monthly as "maxMonthly"`, WLT_COLS_NOA = `id, wallet_number as "walletNumber", name, type, level,
   currency, balance, available_balance as "availableBalance",
   held_balance as "heldBalance", tenant_id as "tenantId",
   status, is_default as "isDefault", is_collection as "isCollection",
-  baneco_credential_id as "banecoCredentialId",
   max_per_tx as "maxPerTx", max_daily as "maxDaily", max_monthly as "maxMonthly"`, walletRepository;
 var init_wallet_repository = __esm(() => {
   init_pool();
   init_snowflake();
   walletRepository = {
     async create(data) {
-      const r2 = await query2(`
+      const r2 = await query(`
       INSERT INTO wallets (id, wallet_number, name, type, level, currency,
         balance, available_balance, held_balance, tenant_id,
-        baneco_credential_id, is_collection, is_default)
-      VALUES ($1, $2, $3, $4, $5, $6, 0.00, 0.00, 0.00, $7, $8, $9, $10)
+        is_collection, is_default)
+      VALUES ($1, $2, $3, $4, $5, $6, 0.00, 0.00, 0.00, $7, $8, $9)
       RETURNING ${WLT_COLS_NOA}
     `, [
         nextSnowflake(),
@@ -24837,22 +24944,21 @@ var init_wallet_repository = __esm(() => {
         data.level || "bronze",
         data.currency || "BOB",
         data.tenantId || null,
-        data.banecoCredentialId || null,
         data.isCollection || false,
         data.isDefault || false
       ]);
       return r2.rows[0];
     },
     async getById(id) {
-      const r2 = await query2(`SELECT ${WLT_COLS} FROM wallets w WHERE w.id = $1 AND w.deleted_at IS NULL`, [id]);
+      const r2 = await query(`SELECT ${WLT_COLS} FROM wallets w WHERE w.id = $1 AND w.deleted_at IS NULL`, [id]);
       return r2.rowCount ? r2.rows[0] : null;
     },
     async getByWalletNumber(number) {
-      const r2 = await query2(`SELECT ${WLT_COLS} FROM wallets w WHERE w.wallet_number = $1 AND w.deleted_at IS NULL`, [number]);
+      const r2 = await query(`SELECT ${WLT_COLS} FROM wallets w WHERE w.wallet_number = $1 AND w.deleted_at IS NULL`, [number]);
       return r2.rowCount ? r2.rows[0] : null;
     },
     async listByTenant(tenantId) {
-      const r2 = await query2(`
+      const r2 = await query(`
       SELECT ${WLT_COLS}, COALESCE(wp.role, 'viewer') as "userRole"
       FROM wallets w
       LEFT JOIN wallet_permissions wp ON w.id = wp.wallet_id AND wp.deleted_at IS NULL
@@ -24861,7 +24967,7 @@ var init_wallet_repository = __esm(() => {
       return r2.rows;
     },
     async listByUser(userId) {
-      const r2 = await query2(`
+      const r2 = await query(`
       SELECT ${WLT_COLS}, wp.role as "permissionRole",
         t.full_name as "holderName"
       FROM wallets w
@@ -24885,12 +24991,12 @@ var init_wallet_repository = __esm(() => {
         params.push(filters.status);
       }
       const where = "WHERE " + conditions.join(" AND ");
-      const c = await query2(`SELECT COUNT(*) as t FROM wallets ${where}`, params);
-      const r2 = await query2(`SELECT ${WLT_COLS_NOA} FROM wallets ${where} ORDER BY id DESC LIMIT $${pc + 1} OFFSET $${pc + 2}`, [...params, limit, offset]);
+      const c = await query(`SELECT COUNT(*) as t FROM wallets ${where}`, params);
+      const r2 = await query(`SELECT ${WLT_COLS_NOA} FROM wallets ${where} ORDER BY id DESC LIMIT $${pc + 1} OFFSET $${pc + 2}`, [...params, limit, offset]);
       return { wallets: r2.rows, totalCount: parseInt(c.rows[0].t) };
     },
     async createMovement(data) {
-      const r2 = await query2(`
+      const r2 = await query(`
       INSERT INTO wallet_movements (id, wallet_id, movement_type, amount, balance_before, balance_after,
         description, qr_id, transaction_id, payment_date, currency, sender_name,
         sender_document_id, sender_account, sender_bank_code, settlement_id, reference_id, reference_type, status)
@@ -24942,12 +25048,12 @@ var init_wallet_repository = __esm(() => {
         params.push(filters.type);
       }
       const where = "WHERE " + conditions.join(" AND ");
-      const c = await query2(`SELECT COUNT(*) as t FROM wallet_movements ${where}`, params);
-      const r2 = await query2(`SELECT * FROM wallet_movements ${where} ORDER BY created_at DESC LIMIT $${pc + 1} OFFSET $${pc + 2}`, [...params, limit, offset]);
+      const c = await query(`SELECT COUNT(*) as t FROM wallet_movements ${where}`, params);
+      const r2 = await query(`SELECT * FROM wallet_movements ${where} ORDER BY created_at DESC LIMIT $${pc + 1} OFFSET $${pc + 2}`, [...params, limit, offset]);
       return { movements: r2.rows, totalCount: parseInt(c.rows[0].t) };
     },
     async getStats(walletId) {
-      const r2 = await query2(`
+      const r2 = await query(`
       SELECT
         COALESCE(SUM(CASE WHEN created_at >= CURRENT_DATE THEN amount ELSE 0 END), 0) as today,
         COALESCE(SUM(CASE WHEN created_at >= DATE_TRUNC('week', CURRENT_DATE) THEN amount ELSE 0 END), 0) as week,
@@ -24957,7 +25063,7 @@ var init_wallet_repository = __esm(() => {
       return r2.rows[0];
     },
     async getBusinessAccount() {
-      const r2 = await query2(`SELECT ${WLT_COLS} FROM wallets w WHERE w.type = 'business' AND w.deleted_at IS NULL LIMIT 1`);
+      const r2 = await query(`SELECT ${WLT_COLS} FROM wallets w WHERE w.type = 'business' AND w.deleted_at IS NULL LIMIT 1`);
       return r2.rowCount ? r2.rows[0] : null;
     },
     async update(id, data) {
@@ -24973,11 +25079,6 @@ var init_wallet_repository = __esm(() => {
         pc++;
         sets.push(`status = $${pc}`);
         params.push(data.status);
-      }
-      if (data.banecoCredentialId !== undefined) {
-        pc++;
-        sets.push(`baneco_credential_id = $${pc}`);
-        params.push(data.banecoCredentialId);
       }
       if (data.name !== undefined) {
         pc++;
@@ -25007,11 +25108,11 @@ var init_wallet_repository = __esm(() => {
       if (sets.length === 0)
         return null;
       sets.push("updated_at = CURRENT_TIMESTAMP");
-      const r2 = await query2(`UPDATE wallets SET ${sets.join(", ")} WHERE id = $1 AND deleted_at IS NULL RETURNING ${WLT_COLS_NOA}`, params);
+      const r2 = await query(`UPDATE wallets SET ${sets.join(", ")} WHERE id = $1 AND deleted_at IS NULL RETURNING ${WLT_COLS_NOA}`, params);
       return r2.rowCount ? r2.rows[0] : null;
     },
     async getCollectionByUser(userId) {
-      const r2 = await query2(`
+      const r2 = await query(`
       SELECT ${WLT_COLS} FROM wallets w
       JOIN wallet_permissions wp ON w.id = wp.wallet_id
       WHERE wp.user_id = $1 AND w.is_collection = true AND w.deleted_at IS NULL AND wp.deleted_at IS NULL
@@ -25020,7 +25121,7 @@ var init_wallet_repository = __esm(() => {
       return r2.rowCount ? r2.rows[0] : null;
     },
     async getCollectionById(userId, walletId) {
-      const r2 = await query2(`
+      const r2 = await query(`
       SELECT ${WLT_COLS} FROM wallets w
       JOIN wallet_permissions wp ON w.id = wp.wallet_id
       WHERE wp.user_id = $1 AND w.id = $2 AND w.is_collection = true AND w.deleted_at IS NULL AND wp.deleted_at IS NULL
@@ -25035,7 +25136,7 @@ var init_wallet_repository = __esm(() => {
         sql += " AND w.level = $2";
         params.push(level2);
       }
-      const r2 = await query2(sql, params);
+      const r2 = await query(sql, params);
       return r2.rows;
     }
   };
@@ -25047,14 +25148,14 @@ var init_wallet_permission_repository = __esm(() => {
   init_pool();
   walletPermissionRepository2 = {
     async upsert(userId, walletId, role = "owner") {
-      await query2(`
+      await query(`
       INSERT INTO wallet_permissions (user_id, wallet_id, role)
       VALUES ($1, $2, $3)
       ON CONFLICT (user_id, wallet_id) DO UPDATE SET role = $3, deleted_at = NULL
     `, [userId, walletId, role]);
     },
     async listByUser(userId) {
-      const r2 = await query2(`
+      const r2 = await query(`
       SELECT wp.user_id as "userId", wp.wallet_id as "walletId", wp.role,
         wp.created_at as "createdAt",
         w.id as "id", w.name, w.type, w.level, w.currency,
@@ -25072,7 +25173,7 @@ var init_wallet_permission_repository = __esm(() => {
       return r2.rows;
     },
     async listByWallet(walletId) {
-      const r2 = await query2(`
+      const r2 = await query(`
       SELECT user_id as "userId", wallet_id as "walletId", role,
         created_at as "createdAt"
       FROM wallet_permissions WHERE wallet_id = $1 AND deleted_at IS NULL
@@ -25080,7 +25181,7 @@ var init_wallet_permission_repository = __esm(() => {
       return r2.rows;
     },
     async remove(userId, walletId) {
-      await query2(`
+      await query(`
       UPDATE wallet_permissions SET deleted_at = CURRENT_TIMESTAMP
       WHERE user_id = $1 AND wallet_id = $2
     `, [userId, walletId]);
@@ -28028,7 +28129,7 @@ var init_direct_transaction_service = __esm(() => {
   init_app_error();
   directTransactionService = {
     async create(data) {
-      const r2 = await query2(`
+      const r2 = await query(`
       INSERT INTO direct_transactions (id, user_id, config_id, qr_code_id, gross_amount, commission, commission_rate, currency, reference, paid_at)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP) RETURNING ${COLS}
     `, [
@@ -28046,16 +28147,16 @@ var init_direct_transaction_service = __esm(() => {
     },
     async listByUser(userId, page = 1, limit = 50) {
       const offset = (page - 1) * limit;
-      const c = await query2("SELECT COUNT(*) as t FROM direct_transactions WHERE user_id = $1", [userId]);
-      const r2 = await query2(`SELECT ${COLS} FROM direct_transactions WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`, [userId, limit, offset]);
+      const c = await query("SELECT COUNT(*) as t FROM direct_transactions WHERE user_id = $1", [userId]);
+      const r2 = await query(`SELECT ${COLS} FROM direct_transactions WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`, [userId, limit, offset]);
       return { items: r2.rows, totalCount: parseInt(c.rows[0].t) };
     },
     async getPendingTotal(userId) {
-      const r2 = await query2("SELECT COALESCE(SUM(commission), 0) as t FROM direct_transactions WHERE user_id = $1 AND commission_paid = false", [userId]);
+      const r2 = await query("SELECT COALESCE(SUM(commission), 0) as t FROM direct_transactions WHERE user_id = $1 AND commission_paid = false", [userId]);
       return parseFloat(r2.rows[0].t);
     },
     async markAsPaid(id) {
-      const r2 = await query2("UPDATE direct_transactions SET commission_paid = true, commission_paid_at = CURRENT_TIMESTAMP WHERE id = $1 AND commission_paid = false RETURNING id", [id]);
+      const r2 = await query("UPDATE direct_transactions SET commission_paid = true, commission_paid_at = CURRENT_TIMESTAMP WHERE id = $1 AND commission_paid = false RETURNING id", [id]);
       if (!r2.rowCount)
         throw new AppError2(404, "Transacción no encontrada o ya pagada");
     }
@@ -28085,7 +28186,7 @@ async function seedMinimal() {
     { code: "052", name: "Nación Argentina" }
   ];
   for (const b of bankData) {
-    await query2(`
+    await query(`
       INSERT INTO banks (id, code, name) VALUES ($1, $2, $3)
       ON CONFLICT (code) DO NOTHING
     `, [nextSnowflake(), b.code, b.name]);
@@ -28126,7 +28227,7 @@ async function seedMinimal() {
   let key = "pg_";
   for (let i = 0;i < 40; i++)
     key += chars.charAt(Math.floor(Math.random() * chars.length));
-  await query2(`
+  await query(`
     INSERT INTO api_keys (id, api_key, wallet_id, description, permissions, status)
     VALUES ($1, $2, $3, $4, $5, 'active')
     ON CONFLICT (api_key) DO NOTHING
@@ -28192,7 +28293,7 @@ async function seedTest() {
     }
   }
   logger.info("Test tenants created");
-  const storedTenants = await query2("SELECT id FROM tenants WHERE deleted_at IS NULL");
+  const storedTenants = await query("SELECT id FROM tenants WHERE deleted_at IS NULL");
   const walletConfigs = [
     { walletNumber: "100013102", name: "PAGUI Ahorros", type: "standard", level: "silver", tenantIdx: 0 },
     { walletNumber: "100013105", name: "PAGUI Inversiones", type: "business", level: "gold", tenantIdx: 0 },
@@ -28218,7 +28319,7 @@ async function seedTest() {
         isDefault: true
       });
       createdWallets.push(w);
-      const ut = await query2("SELECT user_id FROM tenant_users WHERE tenant_id = $1 LIMIT 1", [tenant.id]);
+      const ut = await query("SELECT user_id FROM tenant_users WHERE tenant_id = $1 LIMIT 1", [tenant.id]);
       if (ut.rowCount) {
         await walletPermissionRepository2.upsert(ut.rows[0].user_id, w.id, "owner");
       }
@@ -28227,24 +28328,24 @@ async function seedTest() {
       logger.warn("Wallet skipped", { walletNumber: wc.walletNumber, error: e.message });
     }
   }
-  const collectionWallets = await query2(`
+  const collectionWallets = await query(`
     SELECT id as wallet_id FROM wallets
     WHERE is_collection = true AND deleted_at IS NULL
   `);
   for (const row of collectionWallets.rows) {
-    await query2(`
+    await query(`
       INSERT INTO collection_config (id, wallet_id, use_default, is_active)
       VALUES ($1, $2, true, true) ON CONFLICT DO NOTHING
     `, [nextSnowflake(), row.wallet_id]);
   }
   logger.info("Collection configs created");
-  const storedWallets = await query2("SELECT id FROM wallets WHERE deleted_at IS NULL");
+  const storedWallets = await query("SELECT id FROM wallets WHERE deleted_at IS NULL");
   for (const row of storedWallets.rows) {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     let key = "pg_";
     for (let i = 0;i < 40; i++)
       key += chars.charAt(Math.floor(Math.random() * chars.length));
-    await query2(`
+    await query(`
       INSERT INTO api_keys (id, api_key, wallet_id, description, permissions, status)
       VALUES ($1, $2, $3, $4, $5, 'active')
       ON CONFLICT (api_key) DO NOTHING
@@ -28256,12 +28357,12 @@ async function seedTest() {
     const w = W[walletIdx];
     if (!w)
       return;
-    const bal = await query2("SELECT balance FROM wallets WHERE id = $1", [w.id]);
+    const bal = await query("SELECT balance FROM wallets WHERE id = $1", [w.id]);
     const balBefore = parseFloat(bal.rows[0]?.balance || "0");
     const balAfter = type === "deposit" || type === "transfer_in" || type === "qr_payment" ? balBefore + amount : balBefore - amount;
     const d = opts.daysAgo ? new Date(Date.now() - opts.daysAgo * 86400000) : new Date;
     const movementId = nextSnowflake();
-    await query2(`
+    await query(`
       INSERT INTO wallet_movements (id, wallet_id, movement_type, amount, balance_before, balance_after,
         description, payment_date, currency, sender_name, sender_document_id, sender_account,
         sender_bank_code, reference_id, reference_type, status, created_at)
@@ -28293,9 +28394,9 @@ async function seedTest() {
     const d = daysAgo ? new Date(Date.now() - daysAgo * 86400000) : new Date;
     const tId = nextSnowflake();
     const refId = `txn_${tId}`;
-    const fromBal = await query2("SELECT balance FROM wallets WHERE id = $1", [fromW.id]);
+    const fromBal = await query("SELECT balance FROM wallets WHERE id = $1", [fromW.id]);
     const fromBefore = parseFloat(fromBal.rows[0]?.balance || "0");
-    await query2(`
+    await query(`
       INSERT INTO wallet_movements (id, wallet_id, movement_type, amount, balance_before, balance_after,
         description, payment_date, currency, reference_id, reference_type, status, created_at)
       VALUES ($1,$2,'transfer_out',$3,$4,$5,$6,$7,'BOB',$8,'transfer','completed',$9)
@@ -28310,9 +28411,9 @@ async function seedTest() {
       refId,
       d
     ]);
-    const toBal = await query2("SELECT balance FROM wallets WHERE id = $1", [toW.id]);
+    const toBal = await query("SELECT balance FROM wallets WHERE id = $1", [toW.id]);
     const toBefore = parseFloat(toBal.rows[0]?.balance || "0");
-    await query2(`
+    await query(`
       INSERT INTO wallet_movements (id, wallet_id, movement_type, amount, balance_before, balance_after,
         description, payment_date, currency, reference_id, reference_type, status, created_at)
       VALUES ($1,$2,'transfer_in',$3,$4,$5,$6,$7,'BOB',$8,'transfer','completed',$9)
@@ -28327,7 +28428,7 @@ async function seedTest() {
       refId,
       d
     ]);
-    await query2(`
+    await query(`
       INSERT INTO transfers (id, sender_wallet_id, receiver_wallet_id, amount, fee, total, currency, description, status, completed_at, created_at)
       VALUES ($1,$2,$3,$4,0.00,$4,'BOB',$5,'completed',$6,$6)
     `, [nextSnowflake(), fromW.id, toW.id, amount, `Transferencia P2P`, d]);
@@ -28343,7 +28444,7 @@ async function seedTest() {
     await addMovement(wi, "deposit", amt, { description: desc, daysAgo: da });
   }
   logger.info("Initial deposits created");
-  const adminWallet = await query2("SELECT id FROM wallets WHERE wallet_number = '100013101' AND deleted_at IS NULL LIMIT 1");
+  const adminWallet = await query("SELECT id FROM wallets WHERE wallet_number = '100013101' AND deleted_at IS NULL LIMIT 1");
   const adminWalletId = adminWallet.rows[0]?.id;
   if (adminWalletId) {
     W.push({ id: adminWalletId });
@@ -28399,7 +28500,7 @@ async function seedTest() {
   if (createdDependents.length > 0 && storedTenants.rows[3]) {
     const iathingsTenant = storedTenants.rows[3];
     await tenantRepository.setTenant(createdDependents[0].id, iathingsTenant.id, "manager");
-    const iathingsWallets = await query2("SELECT id FROM wallets WHERE tenant_id = $1 AND deleted_at IS NULL", [iathingsTenant.id]);
+    const iathingsWallets = await query("SELECT id FROM wallets WHERE tenant_id = $1 AND deleted_at IS NULL", [iathingsTenant.id]);
     for (const w of iathingsWallets.rows) {
       await walletPermissionRepository2.upsert(createdDependents[0].id, w.id, "viewer");
     }
@@ -28408,7 +28509,7 @@ async function seedTest() {
   if (createdDependents.length > 1 && storedTenants.rows[1]) {
     const demoTenant = storedTenants.rows[1];
     await tenantRepository.setTenant(createdDependents[1].id, demoTenant.id, "viewer");
-    const demoWallets = await query2("SELECT id FROM wallets WHERE tenant_id = $1 AND deleted_at IS NULL LIMIT 1", [demoTenant.id]);
+    const demoWallets = await query("SELECT id FROM wallets WHERE tenant_id = $1 AND deleted_at IS NULL LIMIT 1", [demoTenant.id]);
     for (const w of demoWallets.rows) {
       await walletPermissionRepository2.upsert(createdDependents[1].id, w.id, "viewer");
     }
@@ -28431,7 +28532,7 @@ async function seedTest() {
   if (createdAdminRelated.length > 0 && storedTenants.rows[0]) {
     const adminTenant = storedTenants.rows[0];
     await tenantRepository.setTenant(createdAdminRelated[0].id, adminTenant.id, "manager");
-    const adminWallets = await query2("SELECT id FROM wallets WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY id", [adminTenant.id]);
+    const adminWallets = await query("SELECT id FROM wallets WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY id", [adminTenant.id]);
     if (adminWallets.rows.length > 0) {
       await walletPermissionRepository2.upsert(createdAdminRelated[0].id, adminWallets.rows[0].id, "manager");
     }
@@ -28443,7 +28544,7 @@ async function seedTest() {
   if (createdAdminRelated.length > 1 && storedTenants.rows[0]) {
     const adminTenant = storedTenants.rows[0];
     await tenantRepository.setTenant(createdAdminRelated[1].id, adminTenant.id, "viewer");
-    const adminWallets = await query2("SELECT id FROM wallets WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY id", [adminTenant.id]);
+    const adminWallets = await query("SELECT id FROM wallets WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY id", [adminTenant.id]);
     for (const w of adminWallets.rows) {
       await walletPermissionRepository2.upsert(createdAdminRelated[1].id, w.id, "viewer");
     }
@@ -41136,7 +41237,7 @@ for(const [k,v] of c.request.headers.entries())c.headers[k]=v
       normalize: app.config.normalize
     });
     app.route("WS", path, async (context) => {
-      const server = context.server ?? app.server, { set: set2, path: path2, qi, headers, query: query2, params } = context;
+      const server = context.server ?? app.server, { set: set2, path: path2, qi, headers, query, params } = context;
       if (context.validator = responseValidator, options.upgrade)
         if (typeof options.upgrade == "function") {
           const temp = options.upgrade(context);
@@ -42314,14 +42415,14 @@ var _Elysia = class _Elysia2 {
         const {
           body,
           headers,
-          query: query2,
+          query,
           params,
           cookie,
           response,
           ...hook
         } = schemaOrRun, localHook = hooks;
         this.applyMacro(hook);
-        const hasStandaloneSchema = body || headers || query2 || params || cookie || response;
+        const hasStandaloneSchema = body || headers || query || params || cookie || response;
         this.add(method, path, handler, mergeHook(hook, {
           ...localHook || {},
           error: localHook.error ? Array.isArray(localHook.error) ? [
@@ -42338,7 +42439,7 @@ var _Elysia = class _Elysia2 {
               {
                 body,
                 headers,
-                query: query2,
+                query,
                 params,
                 cookie,
                 response
@@ -42403,12 +42504,12 @@ var _Elysia = class _Elysia2 {
       const {
         body,
         headers,
-        query: query2,
+        query,
         params,
         cookie,
         response,
         ...guardHook
-      } = hook, hasStandaloneSchema = body || headers || query2 || params || cookie || response;
+      } = hook, hasStandaloneSchema = body || headers || query || params || cookie || response;
       this.add(method, path, handler, mergeHook(guardHook, {
         ...localHook || {},
         error: localHook.error ? Array.isArray(localHook.error) ? [
@@ -42423,7 +42524,7 @@ var _Elysia = class _Elysia2 {
           {
             body,
             headers,
-            query: query2,
+            query,
             params,
             cookie,
             response
@@ -42437,12 +42538,12 @@ var _Elysia = class _Elysia2 {
           const {
             body,
             headers,
-            query: query2,
+            query,
             params,
             cookie,
             response,
             ...guardHook
-          } = hook, hasStandaloneSchema = body || headers || query2 || params || cookie || response, startIndex = processedUntil;
+          } = hook, hasStandaloneSchema = body || headers || query || params || cookie || response, startIndex = processedUntil;
           processedUntil = instance.router.history.length;
           for (let i = startIndex;i < instance.router.history.length; i++) {
             const {
@@ -42465,7 +42566,7 @@ var _Elysia = class _Elysia2 {
                 {
                   body,
                   headers,
-                  query: query2,
+                  query,
                   params,
                   cookie,
                   response
@@ -49279,7 +49380,7 @@ init_pool();
 var _walletSeq = null;
 async function getWalletSeq() {
   if (_walletSeq === null) {
-    const r2 = await query2("SELECT COUNT(*)::int AS c FROM wallets WHERE deleted_at IS NULL");
+    const r2 = await query("SELECT COUNT(*)::int AS c FROM wallets WHERE deleted_at IS NULL");
     _walletSeq = (r2.rows[0]?.c || 0) + 1;
   }
   return _walletSeq++;
@@ -49293,7 +49394,6 @@ var walletService = {
       level: data.level,
       name: data.name,
       currency: data.currency || "BOB",
-      banecoCredentialId: data.banecoCredentialId,
       tenantId: data.tenantId,
       isCollection: data.isCollection,
       isDefault: data.isDefault
@@ -49391,8 +49491,8 @@ var otpService = {
     }
     const code = crypto2.randomInt(1e5, 999999).toString();
     const codeHash = hashCode(code);
-    await query2("DELETE FROM otp_codes WHERE phone = $1 AND verified_at IS NULL", [phone]);
-    await query2(`
+    await query("DELETE FROM otp_codes WHERE phone = $1 AND verified_at IS NULL", [phone]);
+    await query(`
       INSERT INTO otp_codes (id, phone, code_hash, attempts, expires_at)
       VALUES ($1, $2, $3, 0, CURRENT_TIMESTAMP + INTERVAL '${OTP_EXPIRATION_MIN} minutes')
     `, [nextSnowflake(), phone, codeHash]);
@@ -49404,7 +49504,7 @@ var otpService = {
     }
   },
   async verifyOTP(phone, code) {
-    const r2 = await query2(`
+    const r2 = await query(`
       SELECT id, code_hash, attempts FROM otp_codes
       WHERE phone = $1 AND verified_at IS NULL AND expires_at > CURRENT_TIMESTAMP
       ORDER BY created_at DESC LIMIT 1
@@ -49417,18 +49517,18 @@ var otpService = {
     }
     const computedHash = hashCode(code);
     if (computedHash !== row.code_hash) {
-      await query2("UPDATE otp_codes SET attempts = attempts + 1 WHERE id = $1", [row.id]);
+      await query("UPDATE otp_codes SET attempts = attempts + 1 WHERE id = $1", [row.id]);
       const remaining = MAX_VERIFY_ATTEMPTS - row.attempts - 1;
       if (remaining <= 0) {
         throw new AppError2(429, "Demasiados intentos fallidos. Solicite un nuevo código.");
       }
       throw new AppError2(400, `Código incorrecto. Intentos restantes: ${remaining}`);
     }
-    await query2("UPDATE otp_codes SET verified_at = CURRENT_TIMESTAMP WHERE id = $1", [row.id]);
+    await query("UPDATE otp_codes SET verified_at = CURRENT_TIMESTAMP WHERE id = $1", [row.id]);
     return true;
   },
   async isPhoneVerified(phone) {
-    const r2 = await query2(`
+    const r2 = await query(`
       SELECT id FROM otp_codes
       WHERE phone = $1 AND verified_at IS NOT NULL
         AND verified_at > CURRENT_TIMESTAMP - INTERVAL '${VERIFIED_TOKEN_EXPIRATION_MIN} minutes'
@@ -49437,7 +49537,7 @@ var otpService = {
     return r2.rowCount > 0;
   },
   async getRecentSendAttempts(phone) {
-    const r2 = await query2(`
+    const r2 = await query(`
       SELECT COUNT(*) as count FROM otp_codes
       WHERE phone = $1 AND created_at > CURRENT_TIMESTAMP - INTERVAL '${SEND_WINDOW_MIN} minutes'
     `, [phone]);
@@ -49476,7 +49576,7 @@ var authService = {
     const id = nextSnowflake();
     const fakeEmail = `u_${id}@pagui.app`;
     const fakePassword = crypto3.randomBytes(32).toString("hex");
-    await query2(`
+    await query(`
       INSERT INTO users (id, email, password, full_name, phone, address, role, status)
       VALUES ($1, $2, $3, $4, $5, $6, 3, 'active')
     `, [id, fakeEmail, fakePassword, name, phone, documentId || null]);
@@ -49505,8 +49605,8 @@ var authService = {
     const refreshPayload = { userId: Number(user.id), type: "refresh" };
     const refreshToken = import_jsonwebtoken.default.sign(refreshPayload, JWT_REFRESH_SECRET(), { expiresIn: "30d" });
     try {
-      await query2("INSERT INTO auth_tokens (id, user_id, token_type, token) VALUES ($1, $2, $3, $4)", [nextSnowflake(), user.id, "ACCESS_TOKEN", accessToken]);
-      await query2("INSERT INTO auth_tokens (id, user_id, token_type, token) VALUES ($1, $2, $3, $4)", [nextSnowflake(), user.id, "REFRESH_TOKEN", refreshToken]);
+      await query("INSERT INTO auth_tokens (id, user_id, token_type, token) VALUES ($1, $2, $3, $4)", [nextSnowflake(), user.id, "ACCESS_TOKEN", accessToken]);
+      await query("INSERT INTO auth_tokens (id, user_id, token_type, token) VALUES ($1, $2, $3, $4)", [nextSnowflake(), user.id, "REFRESH_TOKEN", refreshToken]);
     } catch {}
     const wallets = await walletPermissionRepository2.listByUser(user.id);
     return {
@@ -49532,7 +49632,7 @@ var authService = {
   },
   async verifyTokenWithDb(token) {
     const decoded = this.verifyToken(token);
-    const r2 = await query2("SELECT id FROM auth_tokens WHERE token = $1 AND token_type = $2", [token, "ACCESS_TOKEN"]);
+    const r2 = await query("SELECT id FROM auth_tokens WHERE token = $1 AND token_type = $2", [token, "ACCESS_TOKEN"]);
     if (r2.rowCount === 0)
       throw new AppError2(401, "Token revocado");
     return decoded;
@@ -49547,7 +49647,7 @@ var authService = {
     const decoded = import_jsonwebtoken.default.verify(refreshToken, JWT_REFRESH_SECRET());
     if (decoded.type !== "refresh")
       throw new AppError2(401, "Token inválido");
-    const r2 = await query2("SELECT user_id FROM auth_tokens WHERE token = $1 AND token_type = $2", [refreshToken, "REFRESH_TOKEN"]);
+    const r2 = await query("SELECT user_id FROM auth_tokens WHERE token = $1 AND token_type = $2", [refreshToken, "REFRESH_TOKEN"]);
     if (r2.rowCount === 0)
       throw new AppError2(401, "Token expirado o inválido");
     const userId = BigInt(decoded.userId);
@@ -49558,18 +49658,18 @@ var authService = {
     const newAccessToken = import_jsonwebtoken.default.sign(accessPayload, JWT_SECRET(), { expiresIn: JWT_EXPIRES_IN() });
     const newRefreshPayload = { userId: Number(user.id), type: "refresh" };
     const newRefreshToken = import_jsonwebtoken.default.sign(newRefreshPayload, JWT_REFRESH_SECRET(), { expiresIn: "30d" });
-    await query2("DELETE FROM auth_tokens WHERE token = $1 AND token_type = $2", [refreshToken, "REFRESH_TOKEN"]);
-    await query2("INSERT INTO auth_tokens (id, user_id, token_type, token) VALUES ($1, $2, $3, $4)", [nextSnowflake(), user.id, "REFRESH_TOKEN", newRefreshToken]);
+    await query("DELETE FROM auth_tokens WHERE token = $1 AND token_type = $2", [refreshToken, "REFRESH_TOKEN"]);
+    await query("INSERT INTO auth_tokens (id, user_id, token_type, token) VALUES ($1, $2, $3, $4)", [nextSnowflake(), user.id, "REFRESH_TOKEN", newRefreshToken]);
     return { accessToken: newAccessToken, refreshToken: newRefreshToken };
   },
   async revokeToken(token) {
-    await query2("DELETE FROM auth_tokens WHERE token = $1", [token]);
+    await query("DELETE FROM auth_tokens WHERE token = $1", [token]);
   },
   async revokeAllUserTokens(userId) {
-    await query2("DELETE FROM auth_tokens WHERE user_id = $1", [userId]);
+    await query("DELETE FROM auth_tokens WHERE user_id = $1", [userId]);
   },
   async listTokens(userId) {
-    const r2 = await query2(`
+    const r2 = await query(`
       SELECT id, token_type, token, expires_at, created_at
       FROM auth_tokens WHERE user_id = $1 AND deleted_at IS NULL
       ORDER BY created_at DESC
@@ -49583,7 +49683,7 @@ init_pool();
 init_snowflake();
 var apikeyRepository = {
   async create(data) {
-    const r2 = await query2(`
+    const r2 = await query(`
       INSERT INTO api_keys (id, api_key, wallet_id, description, permissions, expires_at, status)
       VALUES ($1, $2, $3, $4, $5, $6, 'active')
       RETURNING id, api_key as "apiKey", wallet_id as "walletId",
@@ -49600,11 +49700,10 @@ var apikeyRepository = {
     return r2.rows[0];
   },
   async findByKey(apiKey) {
-    const r2 = await query2(`
+    const r2 = await query(`
       SELECT ak.id, ak.api_key as "apiKey", ak.wallet_id as "walletId",
              ak.description, ak.permissions, ak.expires_at as "expiresAt",
-             ak.status, ak.created_at as "createdAt", ak.updated_at as "updatedAt",
-             w.baneco_credential_id as "banecoCredentialId"
+             ak.status, ak.created_at as "createdAt", ak.updated_at as "updatedAt"
       FROM api_keys ak
       INNER JOIN wallets w ON ak.wallet_id = w.id
       WHERE ak.api_key = $1 AND ak.deleted_at IS NULL
@@ -49612,7 +49711,7 @@ var apikeyRepository = {
     return r2.rowCount ? r2.rows[0] : null;
   },
   async listByWallet(walletId) {
-    const r2 = await query2(`
+    const r2 = await query(`
       SELECT id, api_key as "apiKey", wallet_id as "walletId",
              description, permissions, expires_at as "expiresAt",
              status, created_at as "createdAt", updated_at as "updatedAt"
@@ -49622,7 +49721,7 @@ var apikeyRepository = {
     return r2.rows;
   },
   async getById(id) {
-    const r2 = await query2(`
+    const r2 = await query(`
       SELECT id, api_key as "apiKey", wallet_id as "walletId",
              description, permissions, expires_at as "expiresAt",
              status, created_at as "createdAt", updated_at as "updatedAt"
@@ -49631,10 +49730,10 @@ var apikeyRepository = {
     return r2.rowCount ? r2.rows[0] : null;
   },
   async revoke(id) {
-    await query2("UPDATE api_keys SET status = 'REVOKED', updated_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
+    await query("UPDATE api_keys SET status = 'REVOKED', updated_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
   },
   async markExpired(id) {
-    await query2("UPDATE api_keys SET status = 'EXPIRED', updated_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
+    await query("UPDATE api_keys SET status = 'EXPIRED', updated_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
   }
 };
 
@@ -49656,7 +49755,7 @@ var apiKeyService = {
       await apikeyRepository.markExpired(key.id);
       return { isValid: false };
     }
-    return { isValid: true, walletId: key.walletId, banecoCredentialId: key.banecoCredentialId, permissions: key.permissions };
+    return { isValid: true, walletId: key.walletId, permissions: key.permissions };
   },
   async generate(walletId, description, permissions, expiresAt) {
     const apiKey = generateApiKeyString();
@@ -49721,7 +49820,6 @@ function authMiddleware(options = { type: "jwt", level: "user" }) {
             type: "apikey",
             apiKeyInfo: {
               walletId: verification.walletId,
-              banecoCredentialId: verification.banecoCredentialId || null,
               permissions: verification.permissions || {},
               apiKey: apiKeyHeader
             }
@@ -49803,7 +49901,7 @@ var authRoutes = new Elysia({ prefix: "/auth" }).post("/login", async ({ body, s
   body: t.Object({ email: t.String(), password: t.String() }),
   detail: { tags: ["Auth"], summary: "Iniciar sesión" }
 }).post("/biometric/login", async ({ body }) => {
-  const result = await query2(`SELECT u.id, u.password_hash, u.is_active FROM users u
+  const result = await query(`SELECT u.id, u.password_hash, u.is_active FROM users u
        JOIN devices d ON d.user_id = u.id
        WHERE d.biometric_key_hash = $1 AND d.is_active = TRUE
        LIMIT 1`, [body.biometricKeyHash]);
@@ -49833,13 +49931,13 @@ var authRoutes = new Elysia({ prefix: "/auth" }).post("/login", async ({ body, s
   detail: { tags: ["Auth"], summary: "Recuperar contraseña" }
 }).post("/register", async ({ body, set: set2 }) => {
   try {
-    const exists = await query2("SELECT id FROM registration_requests WHERE email = $1", [body.email]);
+    const exists = await query("SELECT id FROM registration_requests WHERE email = $1", [body.email]);
     if (exists.rows.length > 0) {
       set2.status = 409;
       return fail("Ya existe una solicitud con este email", "Ya existe una solicitud con este email");
     }
     const id = nextSnowflake();
-    await query2(`INSERT INTO registration_requests (id, full_name, email, company, phone, message)
+    await query(`INSERT INTO registration_requests (id, full_name, email, company, phone, message)
          VALUES ($1, $2, $3, $4, $5, $6)`, [id, body.fullName, body.email, body.company, body.phone, body.message || ""]);
     return ok({ id: id.toString() }, "Solicitud enviada exitosamente");
   } catch (e) {
@@ -49913,7 +50011,7 @@ var authRoutes = new Elysia({ prefix: "/auth" }).post("/login", async ({ body, s
   const keyHash = hash2(body.biometricKey);
   const encryptedKey = encrypt(body.biometricKey);
   const deviceData = body.deviceName ? { name: body.deviceName, platform: body.platform || "unknown" } : {};
-  const result = await query2(`INSERT INTO devices (id, user_id, name, platform, biometric_key_hash, encrypted_biometric_key, is_active)
+  const result = await query(`INSERT INTO devices (id, user_id, name, platform, biometric_key_hash, encrypted_biometric_key, is_active)
        VALUES ($1, $2, $3, $4, $5, $6, TRUE)
        RETURNING id`, [nextSnowflake(), auth.user.id, deviceData.name || null, deviceData.platform || null, keyHash, encryptedKey]);
   logger.info("Biometric key registered", { userId: auth.user.id, deviceId: result.rows[0].id });
@@ -49926,7 +50024,7 @@ var authRoutes = new Elysia({ prefix: "/auth" }).post("/login", async ({ body, s
   }),
   detail: { tags: ["Auth"], summary: "Registrar credencial biométrica" }
 }).post("/biometric/unregister/:deviceId", async ({ params, auth }) => {
-  await query2("UPDATE devices SET is_active = FALSE, biometric_key_hash = NULL, encrypted_biometric_key = NULL WHERE id = $1 AND user_id = $2", [params.deviceId, auth.user.id]);
+  await query("UPDATE devices SET is_active = FALSE, biometric_key_hash = NULL, encrypted_biometric_key = NULL WHERE id = $1 AND user_id = $2", [params.deviceId, auth.user.id]);
   return ok(null, "Credencial biométrica eliminada");
 }, {
   params: t.Object({ deviceId: t.String() }),
@@ -49940,7 +50038,7 @@ init_user_service();
 init_pool();
 var userProfileRepository = {
   async upsert(userId, data) {
-    const exists = await query2("SELECT user_id FROM user_profiles WHERE user_id = $1", [userId]);
+    const exists = await query("SELECT user_id FROM user_profiles WHERE user_id = $1", [userId]);
     if (exists.rowCount) {
       const sets = [];
       const params = [];
@@ -49954,17 +50052,17 @@ var userProfileRepository = {
       }
       if (sets.length) {
         sets.push("updated_at = CURRENT_TIMESTAMP");
-        await query2(`UPDATE user_profiles SET ${sets.join(", ")} WHERE user_id = $${pc + 1}`, [...params, userId]);
+        await query(`UPDATE user_profiles SET ${sets.join(", ")} WHERE user_id = $${pc + 1}`, [...params, userId]);
       }
     } else {
-      await query2(`
+      await query(`
         INSERT INTO user_profiles (user_id, pin_hash, daily_limit, monthly_limit)
         VALUES ($1, $2, $3, $4)
       `, [userId, data.pinHash || null, data.dailyLimit || 5000, data.monthlyLimit || 50000]);
     }
   },
   async getByUserId(userId) {
-    const r2 = await query2("SELECT * FROM user_profiles WHERE user_id = $1", [userId]);
+    const r2 = await query("SELECT * FROM user_profiles WHERE user_id = $1", [userId]);
     return r2.rowCount ? r2.rows[0] : null;
   }
 };
@@ -49974,7 +50072,7 @@ init_pool();
 init_snowflake();
 var deviceRepository = {
   async register(data) {
-    const r2 = await query2(`
+    const r2 = await query(`
       INSERT INTO devices (id, user_id, device_name, device_type, device_id, fcm_token, apns_token)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       ON CONFLICT (device_id) DO UPDATE SET
@@ -49986,22 +50084,22 @@ var deviceRepository = {
     return r2.rows[0];
   },
   async listByUser(userId) {
-    const r2 = await query2("SELECT * FROM devices WHERE user_id = $1 AND is_active = true ORDER BY last_seen_at DESC NULLS LAST", [userId]);
+    const r2 = await query("SELECT * FROM devices WHERE user_id = $1 AND is_active = true ORDER BY last_seen_at DESC NULLS LAST", [userId]);
     return r2.rows;
   },
   async unregister(deviceId) {
-    await query2("UPDATE devices SET is_active = false WHERE device_id = $1", [deviceId]);
+    await query("UPDATE devices SET is_active = false WHERE device_id = $1", [deviceId]);
   }
 };
 
 // src/identity/user.routes.ts
 init_app_error();
-var userRoutes = new Elysia({ prefix: "/users" }).get("/", async ({ query: query3 }) => {
+var userRoutes = new Elysia({ prefix: "/users" }).get("/", async ({ query: query2 }) => {
   const result = await userService.list({
-    page: query3.page ? parseInt(query3.page) : undefined,
-    limit: query3.limit ? parseInt(query3.limit) : undefined,
-    search: query3.search,
-    status: query3.status
+    page: query2.page ? parseInt(query2.page) : undefined,
+    limit: query2.limit ? parseInt(query2.limit) : undefined,
+    search: query2.search,
+    status: query2.status
   });
   return list(result.users, result.totalCount, "Usuarios listados exitosamente");
 }, {
@@ -50123,13 +50221,13 @@ var CFG_COLS = `id, wallet_id as "walletId", use_default as "useDefault",
   is_active as "isActive", created_at as "createdAt", updated_at as "updatedAt", deleted_at as "deletedAt"`;
 var collectionService = {
   async getConfig(walletId) {
-    const r2 = await query2(`SELECT ${CFG_COLS} FROM collection_config WHERE wallet_id = $1 AND deleted_at IS NULL`, [walletId]);
+    const r2 = await query(`SELECT ${CFG_COLS} FROM collection_config WHERE wallet_id = $1 AND deleted_at IS NULL`, [walletId]);
     return r2.rowCount ? r2.rows[0] : null;
   },
   async upsertConfig(walletId, data) {
     const existing = await collectionService.getConfig(walletId);
     if (existing) {
-      const r3 = await query2(`
+      const r3 = await query(`
         UPDATE collection_config
         SET use_default = $1, baneco_credential_id = $2, bank_account_id = $3,
           collection_type = $4, commission_rate = $5, updated_at = CURRENT_TIMESTAMP
@@ -50144,7 +50242,7 @@ var collectionService = {
       ]);
       return r3.rows[0];
     }
-    const r2 = await query2(`
+    const r2 = await query(`
       INSERT INTO collection_config (id, wallet_id, use_default, baneco_credential_id, bank_account_id, collection_type, commission_rate, is_active)
       VALUES ($1, $2, $3, $4, $5, $6, $7, true) RETURNING ${CFG_COLS}
     `, [
@@ -50240,7 +50338,7 @@ init_pool();
 init_snowflake();
 var qrRepository = {
   async create(data) {
-    const r2 = await query2(`
+    const r2 = await query(`
       INSERT INTO qr_codes (id, qr_id, transaction_id, wallet_id, baneco_credential_id, user_id,
         amount, currency, description, due_date, qr_image, single_use, modify_amount)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
@@ -50268,7 +50366,7 @@ var qrRepository = {
     return r2.rows[0];
   },
   async getByQrId(qrId) {
-    const r2 = await query2(`
+    const r2 = await query(`
       SELECT id, qr_id as "qrId", transaction_id as "transactionId",
         wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
@@ -50280,7 +50378,7 @@ var qrRepository = {
     return r2.rowCount ? r2.rows[0] : null;
   },
   async getById(id) {
-    const r2 = await query2(`
+    const r2 = await query(`
       SELECT id, qr_id as "qrId", transaction_id as "transactionId",
         wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
@@ -50314,8 +50412,8 @@ var qrRepository = {
       params.push(filters.to);
     }
     const where = "WHERE " + conditions.join(" AND ");
-    const c = await query2(`SELECT COUNT(*) as t FROM qr_codes ${where}`, params);
-    const r2 = await query2(`
+    const c = await query(`SELECT COUNT(*) as t FROM qr_codes ${where}`, params);
+    const r2 = await query(`
       SELECT id, qr_id as "qrId", transaction_id as "transactionId",
         wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
@@ -50339,8 +50437,8 @@ var qrRepository = {
       params.push(filters.status);
     }
     const where = "WHERE " + conditions.join(" AND ");
-    const c = await query2(`SELECT COUNT(*) as t FROM qr_codes ${where}`, params);
-    const r2 = await query2(`
+    const c = await query(`SELECT COUNT(*) as t FROM qr_codes ${where}`, params);
+    const r2 = await query(`
       SELECT id, qr_id as "qrId", transaction_id as "transactionId",
         wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
@@ -50352,13 +50450,13 @@ var qrRepository = {
     return { qrs: r2.rows, totalCount: parseInt(c.rows[0].t) };
   },
   async updateStatus(qrId, status2) {
-    await query2("UPDATE qr_codes SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE qr_id = $2", [status2, qrId]);
+    await query("UPDATE qr_codes SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE qr_id = $2", [status2, qrId]);
   },
   async updateQrImage(qrId, qrImage) {
-    await query2("UPDATE qr_codes SET qr_image = $1, updated_at = CURRENT_TIMESTAMP WHERE qr_id = $2", [qrImage, qrId]);
+    await query("UPDATE qr_codes SET qr_image = $1, updated_at = CURRENT_TIMESTAMP WHERE qr_id = $2", [qrImage, qrId]);
   },
   async getPayments(qrId) {
-    const r2 = await query2(`
+    const r2 = await query(`
       SELECT * FROM wallet_movements WHERE qr_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC
     `, [qrId]);
     return r2.rows;
@@ -50468,7 +50566,7 @@ function buildFromEnv() {
 }
 async function resolveCredentials(credentialId) {
   if (credentialId) {
-    const r2 = await query2("SELECT * FROM baneco_credentials WHERE id = $1 AND deleted_at IS NULL", [credentialId]);
+    const r2 = await query("SELECT * FROM baneco_credentials WHERE id = $1 AND deleted_at IS NULL", [credentialId]);
     if (r2.rowCount) {
       const row = r2.rows[0];
       return {
@@ -50488,7 +50586,7 @@ init_pool();
 init_snowflake();
 var settlementRepository = {
   async create(data) {
-    const r2 = await query2(`
+    const r2 = await query(`
       INSERT INTO settlements (id, from_wallet_id, config_id, user_id, qr_code_id,
         gross_amount, commission, commission_rate, net_amount, currency, status)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending')
@@ -50508,7 +50606,7 @@ var settlementRepository = {
     return r2.rows[0];
   },
   async getById(id) {
-    const r2 = await query2("SELECT * FROM settlements WHERE id = $1", [id]);
+    const r2 = await query("SELECT * FROM settlements WHERE id = $1", [id]);
     return r2.rowCount ? r2.rows[0] : null;
   },
   async listByUser(userId, filters = {}) {
@@ -50524,12 +50622,12 @@ var settlementRepository = {
       params.push(filters.status);
     }
     const where = "WHERE " + conditions.join(" AND ");
-    const c = await query2(`SELECT COUNT(*) as t FROM settlements ${where}`, params);
-    const r2 = await query2(`SELECT * FROM settlements ${where} ORDER BY created_at DESC LIMIT $${pc + 1} OFFSET $${pc + 2}`, [...params, limit, offset]);
+    const c = await query(`SELECT COUNT(*) as t FROM settlements ${where}`, params);
+    const r2 = await query(`SELECT * FROM settlements ${where} ORDER BY created_at DESC LIMIT $${pc + 1} OFFSET $${pc + 2}`, [...params, limit, offset]);
     return { settlements: r2.rows, totalCount: parseInt(c.rows[0].t) };
   },
   async getPending() {
-    const r2 = await query2("SELECT * FROM settlements WHERE status = 'pending' ORDER BY created_at ASC");
+    const r2 = await query("SELECT * FROM settlements WHERE status = 'pending' ORDER BY created_at ASC");
     return r2.rows;
   },
   async updateStatus(id, status2, data = {}) {
@@ -50554,7 +50652,7 @@ var settlementRepository = {
     if (status2 === "completed") {
       sets.push("settled_at = CURRENT_TIMESTAMP");
     }
-    await query2(`UPDATE settlements SET ${sets.join(", ")} WHERE id = $${pc + 1}`, [...params, id]);
+    await query(`UPDATE settlements SET ${sets.join(", ")} WHERE id = $${pc + 1}`, [...params, id]);
   }
 };
 
@@ -50592,7 +50690,7 @@ init_pool();
 init_snowflake();
 var notifRepository = {
   async create(data) {
-    const r2 = await query2(`
+    const r2 = await query(`
       INSERT INTO notifications (id, user_id, type, title, body, data)
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
@@ -50600,20 +50698,20 @@ var notifRepository = {
     return r2.rows[0];
   },
   async listByUser(userId, limit = 50, offset = 0) {
-    const r2 = await query2(`
+    const r2 = await query(`
       SELECT * FROM notifications WHERE user_id = $1
       ORDER BY created_at DESC LIMIT $2 OFFSET $3
     `, [userId, limit, offset]);
     return r2.rows;
   },
   async markRead(id) {
-    await query2("UPDATE notifications SET is_read = true WHERE id = $1", [id]);
+    await query("UPDATE notifications SET is_read = true WHERE id = $1", [id]);
   },
   async markAllRead(userId) {
-    await query2("UPDATE notifications SET is_read = true WHERE user_id = $1", [userId]);
+    await query("UPDATE notifications SET is_read = true WHERE user_id = $1", [userId]);
   },
   async countUnread(userId) {
-    const r2 = await query2("SELECT COUNT(*) as c FROM notifications WHERE user_id = $1 AND is_read = false", [userId]);
+    const r2 = await query("SELECT COUNT(*) as c FROM notifications WHERE user_id = $1 AND is_read = false", [userId]);
     return parseInt(r2.rows[0].c);
   }
 };
@@ -50623,7 +50721,7 @@ init_pool();
 init_logger();
 init_app_error();
 async function sendPush(userId, payload) {
-  const devices = await query2(`SELECT fcm_token, apns_token, platform FROM devices
+  const devices = await query(`SELECT fcm_token, apns_token, platform FROM devices
      WHERE user_id = $1 AND is_active = TRUE
        AND (fcm_token IS NOT NULL OR apns_token IS NOT NULL)`, [userId]);
   let sent = 0;
@@ -50773,7 +50871,7 @@ var paymentSyncService = {
           referenceType: "qr"
         });
         await qrRepository.updateStatus(qrId, "used");
-        await query2(`
+        await query(`
           INSERT INTO payment_sync_status (qr_id, last_checked, check_count, success, final_status)
           VALUES ($1, CURRENT_TIMESTAMP, 1, true, 'completed')
           ON CONFLICT (qr_id) DO UPDATE SET
@@ -50786,7 +50884,7 @@ var paymentSyncService = {
       }
       if (status2.status === "EXPIRED" || status2.status === "CANCELLED") {
         await qrRepository.updateStatus(qrId, status2.status.toLowerCase());
-        await query2(`
+        await query(`
           INSERT INTO payment_sync_status (qr_id, last_checked, check_count, success, final_status)
           VALUES ($1, CURRENT_TIMESTAMP, 1, true, $2)
           ON CONFLICT (qr_id) DO UPDATE SET
@@ -50795,7 +50893,7 @@ var paymentSyncService = {
         `, [qrId, status2.status.toLowerCase()]);
         return { changed: true, status: status2.status.toLowerCase() };
       }
-      await query2(`
+      await query(`
         INSERT INTO payment_sync_status (qr_id, last_checked, check_count, success)
         VALUES ($1, CURRENT_TIMESTAMP, 1, true)
         ON CONFLICT (qr_id) DO UPDATE SET
@@ -50804,7 +50902,7 @@ var paymentSyncService = {
       return { changed: false };
     } catch (e) {
       logger.error("Sync error for QR", { qrId, error: String(e) });
-      await query2(`
+      await query(`
         INSERT INTO payment_sync_status (qr_id, last_checked, success)
         VALUES ($1, CURRENT_TIMESTAMP, false)
         ON CONFLICT (qr_id) DO UPDATE SET last_checked = CURRENT_TIMESTAMP, success = false
@@ -50855,6 +50953,7 @@ var paymentQueueService = {
 };
 
 // src/payments/qr/qr.service.ts
+init_pool();
 var qrService = {
   async generate(data) {
     let targetWallet;
@@ -50867,7 +50966,8 @@ var qrService = {
       if (!targetWallet)
         throw new AppError2(500, "Billetera empresarial no configurada");
     }
-    const bcid = targetWallet.banecoCredentialId || targetWallet.baneco_credential_id;
+    const cc = await query(`SELECT baneco_credential_id FROM collection_config WHERE wallet_id = $1 AND is_active = true AND deleted_at IS NULL LIMIT 1`, [targetWallet.id]);
+    const bcid = cc.rowCount ? cc.rows[0].baneco_credential_id : null;
     const cred = await resolveCredentials(bcid);
     const adapter = new BanecoAdapter(cred.api_base_url, cred.encryption_key);
     const token = await adapter.getToken(cred.username, cred.password);
@@ -51065,11 +51165,11 @@ var qrRoutes = new Elysia({ prefix: "/qr" }).post("/generate", async ({ body, au
   const walletId = body.walletId ? BigInt(body.walletId) : undefined;
   const qr = await qrService.generate({ ...body, walletId, userId: auth.user.id });
   return ok(qr, "QR generado exitosamente");
-}, { body: QRRequestSchema, detail: { tags: ["QR"], summary: "Generar QR de pago" } }).get("/list", async ({ query: query3, auth }) => {
+}, { body: QRRequestSchema, detail: { tags: ["QR"], summary: "Generar QR de pago" } }).get("/list", async ({ query: query2, auth }) => {
   const result = await qrService.listByUser(auth.user.id, {
-    page: query3.page ? parseInt(query3.page) : undefined,
-    limit: query3.limit ? parseInt(query3.limit) : undefined,
-    status: query3.status
+    page: query2.page ? parseInt(query2.page) : undefined,
+    limit: query2.limit ? parseInt(query2.limit) : undefined,
+    status: query2.status
   });
   return list(result.qrs, result.totalCount, "QR listados exitosamente");
 }, {
@@ -51146,7 +51246,7 @@ function idempotency() {
     const key = ctx.headers["idempotency-key"];
     if (!key)
       return {};
-    const existing = await query2("SELECT response_body FROM idempotency_keys WHERE idempotency_key = $1 AND expires_at > CURRENT_TIMESTAMP", [key]);
+    const existing = await query("SELECT response_body FROM idempotency_keys WHERE idempotency_key = $1 AND expires_at > CURRENT_TIMESTAMP", [key]);
     if (existing.rowCount && existing.rowCount > 0) {
       logger.info("Idempotency hit", { key });
       throw new AppError2(409, "Idempotency conflict", {
@@ -51159,7 +51259,7 @@ function idempotency() {
 }
 async function storeIdempotencyResponse(key, responseBody) {
   try {
-    await query2(`INSERT INTO idempotency_keys (id, idempotency_key, response_body, expires_at)
+    await query(`INSERT INTO idempotency_keys (id, idempotency_key, response_body, expires_at)
        VALUES ($1, $2, $3, CURRENT_TIMESTAMP + INTERVAL '24 hours')
        ON CONFLICT (idempotency_key) DO NOTHING`, [nextSnowflake(), key, JSON.stringify(responseBody)]);
   } catch (e) {
@@ -51176,7 +51276,7 @@ init_pool();
 init_snowflake();
 var transferRepository = {
   async create(data) {
-    const r2 = await query2(`
+    const r2 = await query(`
       INSERT INTO transfers (id, sender_wallet_id, receiver_wallet_id, amount, fee, total,
         currency, description, reference_type, reference_id)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -51196,7 +51296,7 @@ var transferRepository = {
     return r2.rows[0];
   },
   async getById(id) {
-    const r2 = await query2(`
+    const r2 = await query(`
       SELECT t.*,
         sw.wallet_number as "senderWalletNumber",
         rw.wallet_number as "receiverWalletNumber"
@@ -51208,7 +51308,7 @@ var transferRepository = {
     return r2.rowCount ? r2.rows[0] : null;
   },
   async listByWallet(walletId, limit = 20, offset = 0) {
-    const r2 = await query2(`
+    const r2 = await query(`
       SELECT t.*,
         sw.wallet_number as "senderWalletNumber",
         rw.wallet_number as "receiverWalletNumber"
@@ -51221,7 +51321,7 @@ var transferRepository = {
     return r2.rows;
   },
   async updateStatus(id, status2) {
-    await query2(`UPDATE transfers SET status = $1, completed_at = CASE WHEN $2 THEN CURRENT_TIMESTAMP ELSE completed_at END WHERE id = $3`, [status2, status2 === "completed", id]);
+    await query(`UPDATE transfers SET status = $1, completed_at = CASE WHEN $2 THEN CURRENT_TIMESTAMP ELSE completed_at END WHERE id = $3`, [status2, status2 === "completed", id]);
   }
 };
 
@@ -51236,16 +51336,16 @@ async function registerWebhook(params) {
   if (keys.length === 0) {
     throw new AppError2(400, "Se requiere al menos una API Key activa en esta billetera para crear un webhook");
   }
-  const result = await query2(`INSERT INTO outgoing_webhooks (id, user_id, wallet_id, url, events)
+  const result = await query(`INSERT INTO outgoing_webhooks (id, user_id, wallet_id, url, events)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING id`, [nextSnowflake(), params.userId, params.walletId, params.url, params.events]);
   return { id: result.rows[0].id };
 }
 async function dispatch(event, payload) {
-  const webhooks = await query2(`SELECT id, wallet_id, url FROM outgoing_webhooks
+  const webhooks = await query(`SELECT id, wallet_id, url FROM outgoing_webhooks
      WHERE $1 = ANY(events) AND is_active = TRUE`, [event]);
   for (const wh of webhooks.rows) {
-    await query2(`INSERT INTO outgoing_webhook_jobs (id, webhook_id, event, payload)
+    await query(`INSERT INTO outgoing_webhook_jobs (id, webhook_id, event, payload)
        VALUES ($1, $2, $3, $4)`, [nextSnowflake(), wh.id, event, JSON.stringify(payload)]);
   }
   if (webhooks.rows.length > 0) {
@@ -51253,7 +51353,7 @@ async function dispatch(event, payload) {
   }
 }
 async function processPendingJobs() {
-  const jobs = await query2(`SELECT j.id, j.webhook_id, j.event, j.payload, j.retry_count, w.url, w.wallet_id
+  const jobs = await query(`SELECT j.id, j.webhook_id, j.event, j.payload, j.retry_count, w.url, w.wallet_id
      FROM outgoing_webhook_jobs j
      JOIN outgoing_webhooks w ON w.id = j.webhook_id
      WHERE j.status = 'pending' AND j.scheduled_at <= CURRENT_TIMESTAMP
@@ -51283,8 +51383,8 @@ async function processPendingJobs() {
         body: job.payload
       });
       if (response.ok) {
-        await query2(`UPDATE outgoing_webhook_jobs SET status = 'completed', completed_at = CURRENT_TIMESTAMP WHERE id = $1`, [job.id]);
-        await query2(`UPDATE outgoing_webhooks SET last_sent_at = CURRENT_TIMESTAMP WHERE id = $1`, [job.webhook_id]);
+        await query(`UPDATE outgoing_webhook_jobs SET status = 'completed', completed_at = CURRENT_TIMESTAMP WHERE id = $1`, [job.id]);
+        await query(`UPDATE outgoing_webhooks SET last_sent_at = CURRENT_TIMESTAMP WHERE id = $1`, [job.webhook_id]);
       } else {
         throw new AppError2(502, `HTTP ${response.status}`);
       }
@@ -51292,23 +51392,23 @@ async function processPendingJobs() {
       const retryCount = job.retry_count + 1;
       const status2 = retryCount >= 3 ? "failed" : "pending";
       const backoff = Math.min(Math.pow(2, retryCount) * 1e4, 600000);
-      await query2(`UPDATE outgoing_webhook_jobs
+      await query(`UPDATE outgoing_webhook_jobs
          SET status = $1, retry_count = $2, last_error = $3,
              scheduled_at = CURRENT_TIMESTAMP + INTERVAL '${backoff} milliseconds'
          WHERE id = $4`, [status2, retryCount, err.message, job.id]);
       if (status2 === "failed") {
-        await query2(`UPDATE outgoing_webhooks SET last_error = $1 WHERE id = $2`, [err.message, job.webhook_id]);
+        await query(`UPDATE outgoing_webhooks SET last_error = $1 WHERE id = $2`, [err.message, job.webhook_id]);
         logger.error("Webhook job failed", { jobId: job.id, error: err.message });
       }
     }
   }
 }
 async function getWebhooks(userId, walletId) {
-  const result = await query2('SELECT id, wallet_id as "walletId", url, events, is_active as "isActive", last_sent_at as "lastSentAt", last_error as "lastError", created_at as "createdAt" FROM outgoing_webhooks WHERE user_id = $1 AND wallet_id = $2 ORDER BY created_at DESC', [userId, walletId]);
+  const result = await query('SELECT id, wallet_id as "walletId", url, events, is_active as "isActive", last_sent_at as "lastSentAt", last_error as "lastError", created_at as "createdAt" FROM outgoing_webhooks WHERE user_id = $1 AND wallet_id = $2 ORDER BY created_at DESC', [userId, walletId]);
   return result.rows;
 }
 async function deleteWebhook(id, userId, walletId) {
-  await query2("DELETE FROM outgoing_webhooks WHERE id = $1 AND user_id = $2 AND wallet_id = $3", [id, userId, walletId]);
+  await query("DELETE FROM outgoing_webhooks WHERE id = $1 AND user_id = $2 AND wallet_id = $3", [id, userId, walletId]);
 }
 function createSignature(secret, payload) {
   return createHmac("sha256", secret).update(payload).digest("hex");
@@ -51328,8 +51428,8 @@ var transferService = {
       throw new AppError2(400, "Monto inválido");
     if (senderWalletId === receiverWalletId)
       throw new AppError2(400, "No puedes transferirte a ti mismo");
-    const senderRow = await query2("SELECT * FROM wallets WHERE id = $1 AND deleted_at IS NULL", [senderWalletId]);
-    const receiverRow = await query2("SELECT * FROM wallets WHERE id = $1 AND deleted_at IS NULL", [receiverWalletId]);
+    const senderRow = await query("SELECT * FROM wallets WHERE id = $1 AND deleted_at IS NULL", [senderWalletId]);
+    const receiverRow = await query("SELECT * FROM wallets WHERE id = $1 AND deleted_at IS NULL", [receiverWalletId]);
     if (!senderRow.rowCount || !receiverRow.rowCount)
       throw new AppError2(404, "Billetera no encontrada");
     const sender = senderRow.rows[0];
@@ -51349,8 +51449,8 @@ var transferService = {
       description: options?.description,
       referenceType: "p2p"
     });
-    await query2("UPDATE wallets SET balance = balance - $1, available_balance = available_balance - $1 WHERE id = $2", [total, senderWalletId]);
-    await query2("UPDATE wallets SET balance = balance + $1, available_balance = available_balance + $1 WHERE id = $2", [amount, receiverWalletId]);
+    await query("UPDATE wallets SET balance = balance - $1, available_balance = available_balance - $1 WHERE id = $2", [total, senderWalletId]);
+    await query("UPDATE wallets SET balance = balance + $1, available_balance = available_balance + $1 WHERE id = $2", [amount, receiverWalletId]);
     await transferRepository.updateStatus(transfer.id, "completed");
     const result = await transferRepository.getById(transfer.id);
     eventBus.emit("transfer.completed", { transferId: transfer.id, senderWalletId, receiverWalletId, amount, fee });
@@ -51642,12 +51742,12 @@ var transactionRepository = {
       extraParams.push(...filters.types);
     }
     const extraSql = clauses.length > 0 ? " AND " + clauses.join(" AND ") : "";
-    const countResult = await query2(`SELECT COUNT(*) as total
+    const countResult = await query(`SELECT COUNT(*) as total
        FROM wallet_movements m
        JOIN wallet_permissions wp ON m.wallet_id = wp.wallet_id
        WHERE wp.user_id = $1 AND m.deleted_at IS NULL AND wp.deleted_at IS NULL${extraSql}`, [userId, ...extraParams]);
     const totalCount = parseInt(countResult.rows[0].total);
-    const result = await query2(`SELECT m.*
+    const result = await query(`SELECT m.*
        FROM wallet_movements m
        JOIN wallet_permissions wp ON m.wallet_id = wp.wallet_id
        WHERE wp.user_id = $1 AND m.deleted_at IS NULL AND wp.deleted_at IS NULL${extraSql}
@@ -51659,7 +51759,7 @@ var transactionRepository = {
     };
   },
   async getById(id, userId) {
-    const result = await query2(`SELECT m.*
+    const result = await query(`SELECT m.*
        FROM wallet_movements m
        JOIN wallet_permissions wp ON m.wallet_id = wp.wallet_id
        WHERE m.id = $1 AND wp.user_id = $2 AND m.deleted_at IS NULL AND wp.deleted_at IS NULL`, [id, userId]);
@@ -51668,7 +51768,7 @@ var transactionRepository = {
     return mapMovement(result.rows[0]);
   },
   async getYearlyStats(userId, year, walletId) {
-    const result = await query2(`SELECT
+    const result = await query(`SELECT
          DATE_TRUNC('month', m.created_at) as month_date,
          SUM(m.amount) as amount,
          COUNT(*) as count
@@ -51703,7 +51803,7 @@ var transactionRepository = {
   async getMonthlyStats(userId, year, month, walletId) {
     const startDate = `${year}-${String(month + 1).padStart(2, "0")}-01`;
     const endDate = new Date(year, month + 1, 0).toISOString().split("T")[0];
-    const result = await query2(`SELECT
+    const result = await query(`SELECT
          DATE(m.created_at) as day_date,
          SUM(m.amount) as amount,
          COUNT(*) as count
@@ -51742,7 +51842,7 @@ var transactionRepository = {
     const daysOffset = (week - 1) * 7;
     const startDate = new Date(firstDay.getTime() + daysOffset * 86400000).toISOString().split("T")[0];
     const endDate = new Date(firstDay.getTime() + (daysOffset + 6) * 86400000).toISOString().split("T")[0];
-    const result = await query2(`SELECT
+    const result = await query(`SELECT
          DATE(m.created_at) as day_date,
          SUM(m.amount) as amount,
          COUNT(*) as count
@@ -51826,71 +51926,9 @@ var transactionsRoutes = new Elysia().get("/transactions", async ({ auth, query:
   detail: { tags: ["Transactions"], summary: "Obtener detalle de transacción" }
 });
 
-// src/collections/providers/empsaat/empsaat.service.ts
-init_app_error();
-var import_node_fetch2 = __toESM(require_lib4(), 1);
-var EMPSAAT_API = process.env.EMPSAAT_API_URL || "https://api.empsaat.org.bo";
-var EMPSAAT_API_KEY = process.env.EMPSAAT_API_KEY || "";
-
-class EmpsaatProvider {
-  getCompanySlug() {
-    return "empsaat";
-  }
-  async request(path, options = {}) {
-    const res = await import_node_fetch2.default(`${EMPSAAT_API}${path}`, {
-      headers: { "Content-Type": "application/json", "X-API-Key": EMPSAAT_API_KEY },
-      ...options
-    });
-    if (!res.ok)
-      throw new AppError2(502, `EMPSAAT error: ${await res.text()}`);
-    return res.json();
-  }
-  async queryDebts(request) {
-    return this.request(`/deudas?keyword=${encodeURIComponent(request.keyword)}&type=${request.type || "ci"}`);
-  }
-  async createTransaction(abonado, amount, description) {
-    return this.request(`/deudas/${abonado}/transaction`, {
-      method: "POST",
-      body: JSON.stringify({ amount, description: description || `Pago QR ${abonado}` })
-    });
-  }
-  async completeTransaction(transactionId, paymentRef) {
-    return this.request(`/deudas/transaction/complete`, {
-      method: "POST",
-      body: JSON.stringify({ transactionId, paymentRef })
-    });
-  }
-  async getHistory(abonado) {
-    return this.request(`/deudas/${abonado}/transactions`);
-  }
-}
-
-// src/collections/providers/empsaat/empsaat.controller.ts
-var empsaat = new EmpsaatProvider;
-var empsaatRoutes = new Elysia({ prefix: "/collections/empsaat" }).use(authMiddleware({ type: "apikey", level: "user" })).get("/deudas", async ({ query: query3 }) => {
-  return ok(await empsaat.queryDebts({ keyword: query3.keyword, type: query3.type }));
-}, {
-  query: t.Object({ keyword: t.String(), type: t.Optional(t.String()) }),
-  detail: { tags: ["EMPSAAT"], summary: "Consultar deudas por keyword" }
-}).post("/deudas/:abonado/transaction", async ({ params, body }) => {
-  return ok(await empsaat.createTransaction(params.abonado, body.amount, body.description));
-}, {
-  body: t.Object({ amount: t.Number(), description: t.Optional(t.String()) }),
-  detail: { tags: ["EMPSAAT"], summary: "Crear transacción de pago" }
-}).post("/deudas/transaction/complete", async ({ body }) => {
-  return ok(await empsaat.completeTransaction(body.transactionId, body.paymentRef));
-}, {
-  body: t.Object({ transactionId: t.String(), paymentRef: t.Optional(t.String()) }),
-  detail: { tags: ["EMPSAAT"], summary: "Completar transacción" }
-}).get("/deudas/:abonado/transactions", async ({ params }) => {
-  return ok(await empsaat.getHistory(params.abonado));
-}, {
-  detail: { tags: ["EMPSAAT"], summary: "Historial de transacciones" }
-});
-
 // src/collections/collections.routes.ts
 init_wallet_repository();
-var collectionsRoutes = new Elysia().use(empsaatRoutes).get("/collections/stats/:periodType/:year/:month?", async ({ auth, params, query: q }) => {
+var collectionsRoutes = new Elysia().get("/collections/stats/:periodType/:year/:month?", async ({ auth, params, query: q }) => {
   const userId = auth.user.id;
   const { periodType, year, month } = params;
   const walletIdStr = q.walletId;
@@ -51919,8 +51957,8 @@ var collectionsRoutes = new Elysia().use(empsaatRoutes).get("/collections/stats/
 // src/api-keys/apikey.routes.ts
 init_wallet_repository();
 init_app_error();
-var apiKeyRoutes = new Elysia({ prefix: "/api-keys" }).get("/", async ({ query: query3, auth }) => {
-  const walletId = query3.walletId ? BigInt(query3.walletId) : null;
+var apiKeyRoutes = new Elysia({ prefix: "/api-keys" }).get("/", async ({ query: query2, auth }) => {
+  const walletId = query2.walletId ? BigInt(query2.walletId) : null;
   if (!walletId)
     throw new AppError2(400, "walletId es requerido");
   const wallet = await walletRepository.getCollectionById(auth.user.id, walletId);
@@ -52065,17 +52103,17 @@ var publicQrRoutes = new Elysia({ prefix: "/qr" }).derive(authMiddleware({ type:
     throw new AppError2(403, "API key no tiene permiso qr_generate");
   const qr = await qrService.generate({ ...body, walletId });
   return ok(qr, "QR generado exitosamente");
-}, { body: QRRequestSchema, detail: { tags: ["Public QR"], summary: "Generar QR (API key)" } }).get("/list", async ({ query: query3, auth }) => {
+}, { body: QRRequestSchema, detail: { tags: ["Public QR"], summary: "Generar QR (API key)" } }).get("/list", async ({ query: query2, auth }) => {
   const permissions = auth.apiKeyInfo.permissions;
   if (!permissions.qr_status)
     throw new AppError2(403, "API key no tiene permiso qr_status");
   const walletId = auth.apiKeyInfo.walletId;
   const result = await qrService.list(walletId, {
-    page: query3.page ? parseInt(query3.page) : undefined,
-    limit: query3.limit ? parseInt(query3.limit) : undefined,
-    status: query3.status,
-    from: query3.from || query3.startDate,
-    to: query3.to || query3.endDate
+    page: query2.page ? parseInt(query2.page) : undefined,
+    limit: query2.limit ? parseInt(query2.limit) : undefined,
+    status: query2.status,
+    from: query2.from || query2.startDate,
+    to: query2.to || query2.endDate
   });
   return list(result.qrs, result.totalCount, "QR listados exitosamente");
 }, {
@@ -52367,11 +52405,11 @@ async function processNFCTransaction(tx) {
   if (age > 300000) {
     throw new AppError2(400, "Transacción NFC expirada (más de 5 min)");
   }
-  const existing = await query2("SELECT id FROM transfers WHERE reference = $1", [`nfc-${tx.nfcId}`]);
+  const existing = await query("SELECT id FROM transfers WHERE reference = $1", [`nfc-${tx.nfcId}`]);
   if (existing.rows.length > 0) {
     throw new AppError2(409, "Transacción NFC ya procesada");
   }
-  const senderResult = await query2("SELECT * FROM wallets WHERE id = $1 AND deleted_at IS NULL", [tx.senderWalletId]);
+  const senderResult = await query("SELECT * FROM wallets WHERE id = $1 AND deleted_at IS NULL", [tx.senderWalletId]);
   if (!senderResult.rowCount)
     throw new AppError2(400, "Saldo insuficiente");
   const sender = senderResult.rows[0];
@@ -52388,7 +52426,7 @@ async function processNFCTransaction(tx) {
     reference: `nfc-${tx.nfcId}`,
     referenceType: "nfc_offline"
   });
-  await query2("UPDATE wallets SET balance = balance - $1, available_balance = available_balance - $1 WHERE id = $2", [tx.amount, tx.senderWalletId]);
+  await query("UPDATE wallets SET balance = balance - $1, available_balance = available_balance - $1 WHERE id = $2", [tx.amount, tx.senderWalletId]);
   await transferRepository.updateStatus(transfer.id, "completed");
   logger.info("NFC offline payment processed", {
     nfcId: tx.nfcId,
@@ -52433,66 +52471,267 @@ var nfcRoutes = new Elysia({ prefix: "/nfc" }).post("/prepare", async ({ body })
 
 // src/shared/kyc/kyc.service.ts
 init_pool();
+init_snowflake();
 init_logger();
-async function submitKYC(params) {
-  const uc = await query2("SELECT tenant_id FROM tenant_users WHERE user_id = $1 AND role = $2 LIMIT 1", [params.userId, "owner"]);
-  if (!uc.rowCount) {
-    throw new Error("No se encontró un cliente asociado a este usuario");
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname as dirname3, join as join3 } from "node:path";
+import { fileURLToPath as fileURLToPath3 } from "node:url";
+
+// src/shared/kyc/ml/ml-client.ts
+init_logger();
+import { spawn } from "node:child_process";
+import { dirname as dirname2, join as join2 } from "node:path";
+import { fileURLToPath as fileURLToPath2 } from "node:url";
+var __dirname3 = dirname2(fileURLToPath2(import.meta.url));
+var WORKER_PATH = join2(__dirname3, "ml-worker.mjs");
+
+class MLClient {
+  child = null;
+  queue = [];
+  buffer = "";
+  started = false;
+  ensureProcess() {
+    if (this.child && !this.child.killed)
+      return this.child;
+    this.buffer = "";
+    const child = spawn("node", [WORKER_PATH], {
+      stdio: ["pipe", "pipe", "inherit"],
+      windowsHide: true
+    });
+    this.child = child;
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => {
+      this.buffer += chunk;
+      let nl;
+      while ((nl = this.buffer.indexOf(`
+`)) !== -1) {
+        const line = this.buffer.slice(0, nl).trim();
+        this.buffer = this.buffer.slice(nl + 1);
+        if (!line)
+          continue;
+        const pending = this.queue.shift();
+        if (!pending)
+          continue;
+        let payload;
+        try {
+          payload = JSON.parse(line);
+        } catch {
+          pending.reject(new Error("ML worker: respuesta inválida"));
+          continue;
+        }
+        if (!payload.ok) {
+          pending.reject(new Error(String(payload.error || "ML worker error")));
+        } else {
+          pending.resolve(payload);
+        }
+      }
+    });
+    child.on("error", (err) => {
+      logger.error("ML worker error", { error: String(err) });
+      this.child = null;
+      this.drainQueue(new Error(`ML worker no disponible: ${err.message}`));
+    });
+    child.on("exit", (code) => {
+      logger.warn("ML worker exited", { code });
+      if (this.child === child)
+        this.child = null;
+      this.drainQueue(new Error(`ML worker terminó (exit ${code})`));
+    });
+    return child;
   }
-  const tenantId = uc.rows[0].tenant_id;
-  await query2(`UPDATE tenants SET
+  drainQueue(err) {
+    while (this.queue.length) {
+      const pending = this.queue.shift();
+      pending.reject(err);
+    }
+  }
+  async call(action) {
+    const child = this.ensureProcess();
+    return new Promise((resolve, reject) => {
+      this.queue.push({ resolve, reject });
+      if (child.stdin)
+        child.stdin.write(JSON.stringify(action) + `
+`);
+      else
+        reject(new Error("ML worker sin stdin"));
+    });
+  }
+  async close() {
+    if (this.child && !this.child.killed && this.child.stdin) {
+      this.child.stdin.end();
+    }
+    this.child = null;
+    this.drainQueue(new Error("ML worker cerrado"));
+  }
+}
+var mlClient = new MLClient;
+async function ocrDocument(imageBase64) {
+  const res = await mlClient.call({ action: "ocr", image: imageBase64 });
+  return { text: res.text || "", confidence: res.confidence || 0, fields: res.fields || null };
+}
+async function verifyFaces(selfieBase64, documentBase64) {
+  const res = await mlClient.call({ action: "verify", selfie: selfieBase64, document: documentBase64 });
+  return { detected: !!res.detected, similarity: res.similarity ?? null, match: !!res.match };
+}
+
+// src/shared/kyc/kyc.service.ts
+var __dirname4 = dirname3(fileURLToPath3(import.meta.url));
+var BACKEND_ROOT = join3(__dirname4, "..", "..", "..", "..");
+var UPLOAD_ROOT = join3(BACKEND_ROOT, "uploads", "kyc");
+var MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+function tenantIdForUser(userId) {
+  return query("SELECT tenant_id FROM tenant_users WHERE user_id = $1 AND role = $2 LIMIT 1", [userId, "owner"]).then((r2) => {
+    if (!r2.rowCount)
+      throw new Error("No se encontró un cliente asociado a este usuario");
+    return r2.rows[0].tenant_id;
+  });
+}
+function saveImage(userId, kind, base64) {
+  const raw = base64.replace(/^data:[a-z0-9/+-]+;base64,/i, "");
+  const buffer = Buffer.from(raw, "base64");
+  if (buffer.length === 0 || buffer.length > MAX_IMAGE_BYTES) {
+    throw new Error("Imagen inválida o demasiado grande");
+  }
+  const ext = buffer[0] === 255 && buffer[1] === 216 ? "jpg" : "png";
+  const dir = join3(UPLOAD_ROOT, String(userId));
+  mkdirSync(dir, { recursive: true });
+  const name = `${kind}-${nextSnowflake().toString()}.${ext}`;
+  writeFileSync(join3(dir, name), buffer);
+  logger.info("KYC image saved", { userId, kind, name, bytes: buffer.length });
+  return `/uploads/kyc/${userId}/${name}`;
+}
+function toBigInt(v) {
+  return typeof v === "bigint" ? v : BigInt(v);
+}
+async function submitKYC(params) {
+  const userId = toBigInt(params.userId);
+  const tenantId = await tenantIdForUser(userId);
+  let selfieUrl = null;
+  let frontUrl = null;
+  let backUrl = null;
+  if (params.selfieBase64)
+    selfieUrl = saveImage(userId, "selfie", params.selfieBase64);
+  if (params.documentFrontBase64)
+    frontUrl = saveImage(userId, "front", params.documentFrontBase64);
+  if (params.documentBackBase64)
+    backUrl = saveImage(userId, "back", params.documentBackBase64);
+  let ocrText = null;
+  let ocrConfidence = null;
+  let faceMatch = null;
+  let faceSimilarity = null;
+  let mlRunAt = null;
+  try {
+    if (params.documentFrontBase64) {
+      const ocr = await ocrDocument(params.documentFrontBase64);
+      ocrText = ocr.text || null;
+      ocrConfidence = ocr.confidence || null;
+      if (!params.documentNumber && ocr.fields?.documentNumber) {
+        params = { ...params, documentNumber: ocr.fields.documentNumber };
+      }
+      if (!params.fullName && ocr.fields?.fullName) {
+        params = { ...params, fullName: ocr.fields.fullName };
+      }
+    }
+    if (params.selfieBase64 && params.documentFrontBase64) {
+      const verify = await verifyFaces(params.selfieBase64, params.documentFrontBase64);
+      faceMatch = verify.match;
+      faceSimilarity = verify.similarity;
+      if (!verify.detected) {
+        throw new Error("No se pudo detectar un rostro en las fotos");
+      }
+    }
+    mlRunAt = new Date;
+  } catch (err) {
+    logger.warn("KYC ML step failed, continuing with basic submit", {
+      userId,
+      tenantId,
+      error: String(err && err.message || err)
+    });
+  }
+  await query(`UPDATE tenants SET
        document_type = $1, document_number = $2, date_of_birth = $3,
        nationality = $4, address = $5,
-       kyc_level = CASE WHEN kyc_level = 'none' THEN 'basic' ELSE kyc_level END,
+       photo_url = COALESCE($6, photo_url),
+       kyc_selfie_url = COALESCE($7, kyc_selfie_url),
+       kyc_document_front_url = COALESCE($8, kyc_document_front_url),
+       kyc_document_back_url = COALESCE($9, kyc_document_back_url),
+       kyc_ocr_text = COALESCE($10, kyc_ocr_text),
+       kyc_ocr_confidence = COALESCE($11, kyc_ocr_confidence),
+       kyc_face_match = COALESCE($12, kyc_face_match),
+       kyc_face_similarity = COALESCE($13, kyc_face_similarity),
+       kyc_ml_run_at = COALESCE($14, kyc_ml_run_at),
+       kyc_level = CASE
+         WHEN $15 = TRUE THEN 'verified'
+         WHEN kyc_level = 'none' THEN 'basic'
+         ELSE kyc_level END,
        kyc_submitted_at = CURRENT_TIMESTAMP
-     WHERE id = $6`, [
+     WHERE id = $16`, [
     params.documentType,
     params.documentNumber,
     params.birthDate,
     params.nationality,
     params.address,
+    selfieUrl,
+    selfieUrl,
+    frontUrl,
+    backUrl,
+    ocrText,
+    ocrConfidence,
+    faceMatch,
+    faceSimilarity,
+    mlRunAt,
+    faceMatch,
     tenantId
   ]);
-  logger.info("KYC submitted", { userId: params.userId, tenantId, level: "basic" });
-  return { kycId: tenantId, level: "basic" };
+  const level2 = faceMatch === true ? "verified" : "basic";
+  if (level2 === "verified") {
+    await query("UPDATE wallets SET max_daily = 10000, max_monthly = 100000 WHERE tenant_id = $1", [tenantId]);
+  }
+  logger.info("KYC submitted", { userId, tenantId, level: level2, ocrConfidence, faceMatch, faceSimilarity });
+  return { kycId: tenantId, level: level2 };
 }
 async function approveKYC(userId, level2 = "verified") {
-  const uc = await query2("SELECT tenant_id FROM tenant_users WHERE user_id = $1 LIMIT 1", [userId]);
+  const uc = await query("SELECT tenant_id FROM tenant_users WHERE user_id = $1 LIMIT 1", [userId]);
   if (!uc.rowCount)
     throw new Error("Cliente no encontrado");
   const tenantId = uc.rows[0].tenant_id;
-  await query2(`UPDATE tenants SET kyc_level = $1, kyc_verified_at = CURRENT_TIMESTAMP WHERE id = $2`, [level2, tenantId]);
+  await query(`UPDATE tenants SET kyc_level = $1, kyc_verified_at = CURRENT_TIMESTAMP WHERE id = $2`, [level2, tenantId]);
   logger.info("KYC approved", { userId, tenantId, level: level2 });
   if (level2 === "premium") {
-    await query2("UPDATE wallets SET max_daily = 50000, max_monthly = 500000 WHERE tenant_id = $1", [tenantId]);
+    await query("UPDATE wallets SET max_daily = 50000, max_monthly = 500000 WHERE tenant_id = $1", [tenantId]);
   } else if (level2 === "verified") {
-    await query2("UPDATE wallets SET max_daily = 10000, max_monthly = 100000 WHERE tenant_id = $1", [tenantId]);
+    await query("UPDATE wallets SET max_daily = 10000, max_monthly = 100000 WHERE tenant_id = $1", [tenantId]);
   }
 }
 async function rejectKYC(userId, reason) {
-  const uc = await query2("SELECT tenant_id FROM tenant_users WHERE user_id = $1 LIMIT 1", [userId]);
+  const uc = await query("SELECT tenant_id FROM tenant_users WHERE user_id = $1 LIMIT 1", [userId]);
   if (!uc.rowCount)
     throw new Error("Cliente no encontrado");
   const tenantId = uc.rows[0].tenant_id;
-  await query2(`UPDATE tenants SET kyc_level = 'none', kyc_rejection_reason = $1 WHERE id = $2`, [reason, tenantId]);
+  await query(`UPDATE tenants SET kyc_level = 'none', kyc_rejection_reason = $1 WHERE id = $2`, [reason, tenantId]);
   logger.info("KYC rejected", { userId, reason });
 }
 async function getKYCStatus(userId) {
-  const result = await query2(`SELECT t.kyc_level FROM tenants t
-     JOIN tenant_users tu ON ut.tenant_id = t.id
-     WHERE ut.user_id = $1 AND ut.deleted_at IS NULL`, [userId]);
+  const result = await query(`SELECT t.kyc_level FROM tenants t
+     JOIN tenant_users tu ON tu.tenant_id = t.id
+     WHERE tu.user_id = $1 AND tu.deleted_at IS NULL`, [userId]);
   return result.rows[0]?.kyc_level || "none";
 }
 async function getPendingKYC(limit = 50) {
-  const result = await query2(`SELECT t.*, u.email FROM tenants t
-     JOIN tenant_users tu ON ut.tenant_id = t.id
-     JOIN users u ON u.id = ut.user_id
+  const result = await query(`SELECT t.*, u.email FROM tenants t
+     JOIN tenant_users tu ON tu.tenant_id = t.id
+     JOIN users u ON u.id = tu.user_id
      WHERE t.kyc_level = 'basic' AND t.kyc_verified_at IS NULL
      ORDER BY t.kyc_submitted_at ASC LIMIT $1`, [limit]);
   return result.rows;
 }
 
 // src/shared/kyc/kyc.routes.ts
+import { join as join4 } from "node:path";
+import { dirname as dirname4 } from "node:path";
+import { fileURLToPath as fileURLToPath4 } from "node:url";
+var __dirname5 = dirname4(fileURLToPath4(import.meta.url));
+var UPLOAD_ROOT2 = join4(__dirname5, "..", "..", "..", "..", "uploads", "kyc");
 var kycRoutes = new Elysia({ prefix: "/kyc" }).post("/submit", async ({ auth: { user: { id: userId } }, body }) => {
   return ok(await submitKYC({ userId, ...body }));
 }, {
@@ -52512,6 +52751,18 @@ var kycRoutes = new Elysia({ prefix: "/kyc" }).post("/submit", async ({ auth: { 
   return ok({ level: await getKYCStatus(userId) });
 }, {
   detail: { tags: ["KYC"], summary: "Estado KYC" }
+}).get("/uploads/*", async ({ params, set: set2 }) => {
+  const file2 = Bun.file(join4(UPLOAD_ROOT2, params["*"]));
+  if (!await file2.exists()) {
+    set2.status = 404;
+    return "Not found";
+  }
+  const ext = String(params["*"]).split(".").pop();
+  const type = ext === "png" ? "image/png" : "image/jpeg";
+  return new Response(file2.stream(), { headers: { "Content-Type": type } });
+}, {
+  params: t.Object({ "*": t.String() }),
+  detail: { tags: ["KYC"], summary: "Servir imagen KYC" }
 }).post("/:userId/approve", async ({ params, body }) => {
   await approveKYC(params.userId, body.level);
   return ok(null);
@@ -52556,7 +52807,7 @@ var settlementService = {
       throw new AppError2(404, "Settlement no encontrado");
     if (settlement.status !== "pending")
       return;
-    const businessConfig = await query2(`
+    const businessConfig = await query(`
       SELECT * FROM collection_config WHERE is_active = true LIMIT 1
     `);
     if (!businessConfig.rowCount)
@@ -52566,7 +52817,7 @@ var settlementService = {
     const token = await adapter.getToken(config.username, config.password);
     let clientAccountNumber;
     if (settlement.configId) {
-      const clientConfig = await query2("SELECT * FROM collection_config WHERE id = $1 AND is_active = true", [settlement.configId]);
+      const clientConfig = await query("SELECT * FROM collection_config WHERE id = $1 AND is_active = true", [settlement.configId]);
       if (!clientConfig.rowCount)
         throw new AppError2(400, "Configuración del cliente no encontrada");
       clientAccountNumber = clientConfig.rows[0].account_number;
@@ -52633,7 +52884,7 @@ init_pool();
 init_snowflake();
 var bankCredentialRepository = {
   async create(data) {
-    const r2 = await query2(`
+    const r2 = await query(`
       INSERT INTO baneco_credentials (id, account_holder, account_number, merchant_id,
         username, password, encryption_key, environment, api_base_url, tenant_id, is_active)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true)
@@ -52653,7 +52904,7 @@ var bankCredentialRepository = {
     return r2.rows[0];
   },
   async getById(id) {
-    const r2 = await query2("SELECT * FROM baneco_credentials WHERE id = $1 AND deleted_at IS NULL", [id]);
+    const r2 = await query("SELECT * FROM baneco_credentials WHERE id = $1 AND deleted_at IS NULL", [id]);
     return r2.rowCount ? r2.rows[0] : null;
   },
   async list(filters = {}) {
@@ -52676,7 +52927,7 @@ var bankCredentialRepository = {
       params.push(filters.isActive);
     }
     const where = "WHERE " + conditions.join(" AND ");
-    const r2 = await query2(`SELECT bc.* FROM baneco_credentials bc ${where} ORDER BY bc.created_at DESC`, params);
+    const r2 = await query(`SELECT bc.* FROM baneco_credentials bc ${where} ORDER BY bc.created_at DESC`, params);
     return r2.rows;
   },
   async update(id, data) {
@@ -52699,11 +52950,11 @@ var bankCredentialRepository = {
       params.push(v);
     }
     if (sets.length) {
-      await query2(`UPDATE baneco_credentials SET ${sets.join(", ")} WHERE id = $${pc + 1}`, [...params, id]);
+      await query(`UPDATE baneco_credentials SET ${sets.join(", ")} WHERE id = $${pc + 1}`, [...params, id]);
     }
   },
   async delete(id) {
-    await query2("UPDATE baneco_credentials SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
+    await query("UPDATE baneco_credentials SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
   }
 };
 
@@ -52713,22 +52964,22 @@ init_snowflake();
 var COLS2 = `id, tenant_id as "tenantId", bank_code as "bankCode", account_holder as "accountHolder", account_number as "accountNumber", holder_document as "holderDocument", is_active as "isActive", created_at as "createdAt", deleted_at as "deletedAt"`;
 var bankAccountRepository = {
   async create(data) {
-    const r2 = await query2(`
+    const r2 = await query(`
       INSERT INTO bank_accounts (id, tenant_id, bank_code, account_holder, account_number, holder_document)
       VALUES ($1, $2, $3, $4, $5, $6) RETURNING ${COLS2}
     `, [nextSnowflake(), data.tenantId, data.bankCode, data.accountHolder, data.accountNumber, data.holderDocument || ""]);
     return r2.rows[0];
   },
   async listByTenant(tenantId) {
-    const r2 = await query2(`SELECT ${COLS2} FROM bank_accounts WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC`, [tenantId]);
+    const r2 = await query(`SELECT ${COLS2} FROM bank_accounts WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC`, [tenantId]);
     return r2.rows;
   },
   async getById(id) {
-    const r2 = await query2(`SELECT ${COLS2} FROM bank_accounts WHERE id = $1 AND deleted_at IS NULL`, [id]);
+    const r2 = await query(`SELECT ${COLS2} FROM bank_accounts WHERE id = $1 AND deleted_at IS NULL`, [id]);
     return r2.rowCount ? r2.rows[0] : null;
   },
   async delete(id) {
-    await query2("UPDATE bank_accounts SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
+    await query("UPDATE bank_accounts SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
   }
 };
 
@@ -52737,7 +52988,7 @@ init_tenant_repository();
 init_app_error();
 init_snowflake();
 async function getTenantEnv(userId) {
-  const r2 = await query2(`
+  const r2 = await query(`
     SELECT t.environment FROM tenants t
     JOIN tenant_users tu ON t.id = tu.tenant_id
     WHERE tu.user_id = $1 AND t.deleted_at IS NULL AND tu.deleted_at IS NULL
@@ -52800,7 +53051,7 @@ var collectionRoutes = new Elysia().get("/baneco-credentials", async ({ auth }) 
   }),
   detail: { tags: ["Collection"], summary: "Probar conexión Baneco" }
 }).get("/banks", async () => {
-  const r2 = await query2("SELECT code, name FROM banks WHERE is_active = true ORDER BY name");
+  const r2 = await query("SELECT code, name FROM banks WHERE is_active = true ORDER BY name");
   return list(r2.rows, r2.rows.length);
 }, {
   detail: { tags: ["Collection"], summary: "Listar bancos disponibles" }
@@ -52970,7 +53221,7 @@ var liquidationService = {
     });
     const settlementId = nextSnowflake();
     const reference = `MANUAL-${settlementId}`;
-    await query2(`
+    await query(`
       INSERT INTO settlements (id, wallet_movement_id, from_wallet_id, user_id, gross_amount, commission, commission_rate, net_amount, currency, status, reference, settled_at)
       VALUES ($1, $2, $3, $4, $5, 0, 0, $5, 'BOB', 'completed', $6, CURRENT_TIMESTAMP)
     `, [settlementId, movement.id, wallet.id, userId, amount, reference]);
@@ -53032,19 +53283,19 @@ init_snowflake();
 init_dist();
 var adminRoutes = new Elysia({ prefix: "/admin" }).get("/stats", async () => {
   const [users, tenants, wallets] = await Promise.all([
-    query2(`SELECT
+    query(`SELECT
         COUNT(*) as total,
         COUNT(*) FILTER (WHERE status = 'active') as active,
         COUNT(*) FILTER (WHERE status = 'inactive') as inactive
       FROM users WHERE deleted_at IS NULL`),
-    query2(`SELECT
+    query(`SELECT
         COUNT(*) as total,
         COUNT(*) FILTER (WHERE status = 'active') as active,
         COUNT(*) FILTER (WHERE status = 'inactive') as inactive,
         COUNT(*) FILTER (WHERE environment = 'sandbox') as sandbox,
         COUNT(*) FILTER (WHERE environment = 'production') as production
       FROM tenants WHERE deleted_at IS NULL`),
-    query2(`SELECT
+    query(`SELECT
         COUNT(*) as total,
         COUNT(*) FILTER (WHERE status = 'active') as active,
         COUNT(*) FILTER (WHERE status = 'inactive') as inactive
@@ -53114,12 +53365,12 @@ var adminRoutes = new Elysia({ prefix: "/admin" }).get("/stats", async () => {
   const user = await userService.getById(BigInt(params.id));
   if (!user)
     throw new AppError2(404, "Usuario no encontrado");
-  const tenantR = await query2(`
+  const tenantR = await query(`
       SELECT t.id, t.full_name as "fullName", t.environment
       FROM tenant_users tu JOIN tenants t ON t.id = tu.tenant_id
       WHERE tu.user_id = $1 AND tu.deleted_at IS NULL AND t.deleted_at IS NULL
     `, [user.id]);
-  const walletR = await query2(`
+  const walletR = await query(`
       SELECT w.id, w.wallet_number as "walletNumber", w.name, w.type, w.balance, w.status
       FROM wallets w
       JOIN wallet_permissions wp ON w.id = wp.wallet_id AND wp.deleted_at IS NULL
@@ -53151,9 +53402,9 @@ var adminRoutes = new Elysia({ prefix: "/admin" }).get("/stats", async () => {
     params.push(q.environment);
   }
   const where = "WHERE " + conditions.join(" AND ");
-  const countR = await query2(`SELECT COUNT(*) as total FROM tenants t ${where}`, params);
+  const countR = await query(`SELECT COUNT(*) as total FROM tenants t ${where}`, params);
   const totalCount = parseInt(countR.rows[0].total);
-  const rows = await query2(`
+  const rows = await query(`
       SELECT t.id, t.full_name as "fullName", t.email, t.phone,
         t.document_type as "documentType", t.document_number as "documentNumber",
         t.status, t.environment, t.created_at as "createdAt",
@@ -53175,7 +53426,7 @@ var adminRoutes = new Elysia({ prefix: "/admin" }).get("/stats", async () => {
   const tenant = await tenantRepository.getById(BigInt(params.id));
   if (!tenant)
     throw new AppError2(404, "Cliente no encontrado");
-  const walletsR = await query2(`SELECT COUNT(*) as total, COALESCE(SUM(balance), 0) as totalBalance FROM wallets WHERE tenant_id = $1 AND deleted_at IS NULL`, [tenant.id]);
+  const walletsR = await query(`SELECT COUNT(*) as total, COALESCE(SUM(balance), 0) as totalBalance FROM wallets WHERE tenant_id = $1 AND deleted_at IS NULL`, [tenant.id]);
   return ok({
     ...tenant,
     walletCount: parseInt(walletsR.rows[0].total),
@@ -53272,9 +53523,9 @@ var adminRoutes = new Elysia({ prefix: "/admin" }).get("/stats", async () => {
     params.push(q.type);
   }
   const where = "WHERE " + conditions.join(" AND ");
-  const countR = await query2(`SELECT COUNT(*) as total FROM wallets w ${where}`, params);
+  const countR = await query(`SELECT COUNT(*) as total FROM wallets w ${where}`, params);
   const totalCount = parseInt(countR.rows[0].total);
-  const rows = await query2(`
+  const rows = await query(`
       SELECT w.id, w.wallet_number as "walletNumber", w.name, w.type, w.level,
         w.currency, w.balance, w.available_balance as "availableBalance",
         w.held_balance as "heldBalance", w.tenant_id as "tenantId",
@@ -53301,7 +53552,7 @@ var adminRoutes = new Elysia({ prefix: "/admin" }).get("/stats", async () => {
   const wallet = await walletRepository.getById(BigInt(params.id));
   if (!wallet)
     throw new AppError2(404, "Billetera no encontrada");
-  const tenantR = await query2(`SELECT full_name as "fullName", environment FROM tenants WHERE id = $1`, [wallet.tenantId]);
+  const tenantR = await query(`SELECT full_name as "fullName", environment FROM tenants WHERE id = $1`, [wallet.tenantId]);
   return ok({ ...wallet, tenantName: tenantR.rows[0]?.fullName || null, tenantEnvironment: tenantR.rows[0]?.environment || null }, "Billetera encontrada");
 }, {
   detail: { tags: ["Admin"], summary: "Detalle de billetera" }
@@ -53323,8 +53574,8 @@ var adminRoutes = new Elysia({ prefix: "/admin" }).get("/stats", async () => {
   const movementId = nextSnowflake();
   const newBalance = parseFloat(wallet.balance) + amount;
   const newAvailable = parseFloat(wallet.availableBalance) + amount;
-  await query2("UPDATE wallets SET balance = $1, available_balance = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3", [newBalance, newAvailable, wallet.id]);
-  await query2(`
+  await query("UPDATE wallets SET balance = $1, available_balance = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3", [newBalance, newAvailable, wallet.id]);
+  await query(`
       INSERT INTO wallet_movements (id, wallet_id, movement_type, amount, balance_before, balance_after,
         description, currency, reference_id, reference_type, status, created_at)
       VALUES ($1, $2, 'deposit', $3, $4, $5, $6, 'BOB', $7, 'admin_credit', 'completed', CURRENT_TIMESTAMP)
@@ -53374,9 +53625,9 @@ var adminRoutes = new Elysia({ prefix: "/admin" }).get("/stats", async () => {
     queryParams.push(q.dateTo);
   }
   const where = "WHERE " + conditions.join(" AND ");
-  const countR = await query2(`SELECT COUNT(*) as total FROM wallet_movements wm ${where}`, queryParams);
+  const countR = await query(`SELECT COUNT(*) as total FROM wallet_movements wm ${where}`, queryParams);
   const totalCount = parseInt(countR.rows[0].total);
-  const rows = await query2(`
+  const rows = await query(`
       SELECT wm.id, wm.wallet_id as "walletId", wm.movement_type as "movementType",
         wm.amount, wm.balance_before as "balanceBefore", wm.balance_after as "balanceAfter",
         wm.description, wm.currency, wm.status, wm.payment_date as "paymentDate",
@@ -53421,9 +53672,9 @@ var adminRoutes = new Elysia({ prefix: "/admin" }).get("/stats", async () => {
     queryParams.push(q.dateTo);
   }
   const where = "WHERE " + conditions.join(" AND ");
-  const countR = await query2(`SELECT COUNT(*) as total FROM transfers t ${where}`, queryParams);
+  const countR = await query(`SELECT COUNT(*) as total FROM transfers t ${where}`, queryParams);
   const totalCount = parseInt(countR.rows[0].total);
-  const rows = await query2(`
+  const rows = await query(`
       SELECT t.id, t.sender_wallet_id as "senderWalletId",
         (SELECT w.wallet_number FROM wallets w WHERE w.id = t.sender_wallet_id) as "senderWalletNumber",
         (SELECT w.name FROM wallets w WHERE w.id = t.sender_wallet_id) as "senderWalletName",
@@ -53447,7 +53698,7 @@ var adminRoutes = new Elysia({ prefix: "/admin" }).get("/stats", async () => {
   })),
   detail: { tags: ["Admin"], summary: "Todas las transacciones" }
 }).get("/transactions/:id", async ({ params }) => {
-  const r2 = await query2(`
+  const r2 = await query(`
       SELECT t.id, t.sender_wallet_id as "senderWalletId",
         (SELECT w.wallet_number FROM wallets w WHERE w.id = t.sender_wallet_id) as "senderWalletNumber",
         (SELECT w.name FROM wallets w WHERE w.id = t.sender_wallet_id) as "senderWalletName",
@@ -53470,7 +53721,7 @@ var adminRoutes = new Elysia({ prefix: "/admin" }).get("/stats", async () => {
   if (!wallet)
     throw new AppError2(404, "Billetera no encontrada");
   if (body.tenantId) {
-    const tenantR = await query2("SELECT id FROM tenants WHERE id = $1 AND deleted_at IS NULL", [BigInt(body.tenantId)]);
+    const tenantR = await query("SELECT id FROM tenants WHERE id = $1 AND deleted_at IS NULL", [BigInt(body.tenantId)]);
     if (!tenantR.rowCount)
       throw new AppError2(404, "Cliente destino no encontrado");
   }
@@ -53480,7 +53731,7 @@ var adminRoutes = new Elysia({ prefix: "/admin" }).get("/stats", async () => {
   body: t.Object({ tenantId: t.Optional(t.String()) }),
   detail: { tags: ["Admin"], summary: "Transferir billetera a otro cliente" }
 }).get("/wallets/:id/permissions", async ({ params }) => {
-  const r2 = await query2(`
+  const r2 = await query(`
       SELECT wp.user_id as "userId", wp.wallet_id as "walletId", wp.role,
         wp.created_at as "createdAt", u.email, u.full_name as "fullName"
       FROM wallet_permissions wp
@@ -53496,7 +53747,7 @@ var adminRoutes = new Elysia({ prefix: "/admin" }).get("/stats", async () => {
   const wallet = await walletRepository.getById(BigInt(params.id));
   if (!wallet)
     throw new AppError2(404, "Billetera no encontrada");
-  const userR = await query2("SELECT id FROM users WHERE id = $1 AND deleted_at IS NULL", [userId]);
+  const userR = await query("SELECT id FROM users WHERE id = $1 AND deleted_at IS NULL", [userId]);
   if (!userR.rowCount)
     throw new AppError2(404, "Usuario no encontrado");
   const role = body.role || "viewer";

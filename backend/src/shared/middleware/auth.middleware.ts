@@ -28,7 +28,6 @@ interface APIKeyAuthData {
   type: 'apikey'
   apiKeyInfo: {
     walletId: bigint
-    banecoCredentialId: bigint | null
     permissions: Record<string, boolean>
     apiKey: string
   }
@@ -75,7 +74,6 @@ export function authMiddleware<T extends 'jwt' | 'apikey' | 'all'>(
             type: 'apikey' as const,
             apiKeyInfo: {
               walletId: verification.walletId,
-              banecoCredentialId: verification.banecoCredentialId || null,
               permissions: verification.permissions || {},
               apiKey: apiKeyHeader,
             },

@@ -11,7 +11,7 @@ function generateApiKeyString(): string {
 
 export const apiKeyService = {
   async verifyApiKey(apiKey: string): Promise<{
-    isValid: boolean; walletId?: bigint; banecoCredentialId?: bigint | null; permissions?: Record<string, boolean>
+    isValid: boolean; walletId?: bigint; permissions?: Record<string, boolean>
   }> {
     const key = await apikeyRepository.findByKey(apiKey)
     if (!key || key.status !== 'active') return { isValid: false }
@@ -21,7 +21,7 @@ export const apiKeyService = {
       return { isValid: false }
     }
 
-    return { isValid: true, walletId: key.walletId, banecoCredentialId: key.banecoCredentialId, permissions: key.permissions }
+    return { isValid: true, walletId: key.walletId, permissions: key.permissions }
   },
 
   async generate(walletId: bigint, description: string, permissions: Record<string, boolean>, expiresAt?: string | null) {

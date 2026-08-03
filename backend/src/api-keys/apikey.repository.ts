@@ -29,17 +29,16 @@ export const apikeyRepository = {
     return r.rows[0] as ApiKeyRow
   },
 
-  async findByKey(apiKey: string): Promise<(ApiKeyRow & { banecoCredentialId: bigint | null }) | null> {
+  async findByKey(apiKey: string): Promise<ApiKeyRow | null> {
     const r = await query(`
       SELECT ak.id, ak.api_key as "apiKey", ak.wallet_id as "walletId",
              ak.description, ak.permissions, ak.expires_at as "expiresAt",
-             ak.status, ak.created_at as "createdAt", ak.updated_at as "updatedAt",
-             w.baneco_credential_id as "banecoCredentialId"
+             ak.status, ak.created_at as "createdAt", ak.updated_at as "updatedAt"
       FROM api_keys ak
       INNER JOIN wallets w ON ak.wallet_id = w.id
       WHERE ak.api_key = $1 AND ak.deleted_at IS NULL
     `, [apiKey])
-    return r.rowCount ? r.rows[0] as ApiKeyRow & { banecoCredentialId: bigint | null } : null
+    return r.rowCount ? r.rows[0] as ApiKeyRow : null
   },
 
   async listByWallet(walletId: bigint): Promise<ApiKeyRow[]> {

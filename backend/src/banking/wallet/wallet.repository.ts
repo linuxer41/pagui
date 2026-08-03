@@ -15,7 +15,6 @@ export interface WalletRow {
   status: string
   isDefault: boolean
   isCollection: boolean
-  banecoCredentialId: bigint | null
   maxPerTx: number | null
   maxDaily: number | null
   maxMonthly: number | null
@@ -48,31 +47,29 @@ const WLT_COLS = `w.id, w.wallet_number as "walletNumber", w.name, w.type, w.lev
   w.currency, w.balance, w.available_balance as "availableBalance",
   w.held_balance as "heldBalance", w.tenant_id as "tenantId",
   w.status, w.is_default as "isDefault", w.is_collection as "isCollection",
-  w.baneco_credential_id as "banecoCredentialId",
   w.max_per_tx as "maxPerTx", w.max_daily as "maxDaily", w.max_monthly as "maxMonthly"`
 
 const WLT_COLS_NOA = `id, wallet_number as "walletNumber", name, type, level,
   currency, balance, available_balance as "availableBalance",
   held_balance as "heldBalance", tenant_id as "tenantId",
   status, is_default as "isDefault", is_collection as "isCollection",
-  baneco_credential_id as "banecoCredentialId",
   max_per_tx as "maxPerTx", max_daily as "maxDaily", max_monthly as "maxMonthly"`
 
 export const walletRepository = {
   async create(data: {
     walletNumber: string; type: string; level?: string; name?: string
-    currency?: string; banecoCredentialId?: bigint; tenantId?: bigint
+    currency?: string; tenantId?: bigint
     isCollection?: boolean; isDefault?: boolean
   }): Promise<WalletRow> {
     const r = await query(`
       INSERT INTO wallets (id, wallet_number, name, type, level, currency,
         balance, available_balance, held_balance, tenant_id,
-        baneco_credential_id, is_collection, is_default)
-      VALUES ($1, $2, $3, $4, $5, $6, 0.00, 0.00, 0.00, $7, $8, $9, $10)
+        is_collection, is_default)
+      VALUES ($1, $2, $3, $4, $5, $6, 0.00, 0.00, 0.00, $7, $8, $9)
       RETURNING ${WLT_COLS_NOA}
     `, [nextSnowflake(), data.walletNumber, data.name || 'Mi Wallet', data.type,
       data.level || 'bronze', data.currency || 'BOB', data.tenantId || null,
-      data.banecoCredentialId || null, data.isCollection || false, data.isDefault || false])
+      data.isCollection || false, data.isDefault || false])
     return r.rows[0] as WalletRow
   },
 
@@ -168,14 +165,13 @@ export const walletRepository = {
   },
 
   async update(id: bigint, data: Partial<{
-    type: string; status: string; banecoCredentialId: bigint | null
+    type: string; status: string
     name?: string; isCollection?: boolean; level?: string; isDefault?: boolean
     tenantId?: bigint | null
   }>): Promise<WalletRow | null> {
     const sets: string[] = []; const params: unknown[] = [id]; let pc = 1
     if (data.type !== undefined) { pc++; sets.push(`type = $${pc}`); params.push(data.type) }
     if (data.status !== undefined) { pc++; sets.push(`status = $${pc}`); params.push(data.status) }
-    if (data.banecoCredentialId !== undefined) { pc++; sets.push(`baneco_credential_id = $${pc}`); params.push(data.banecoCredentialId) }
     if (data.name !== undefined) { pc++; sets.push(`name = $${pc}`); params.push(data.name) }
     if (data.isCollection !== undefined) { pc++; sets.push(`is_collection = $${pc}`); params.push(data.isCollection) }
     if (data.level !== undefined) { pc++; sets.push(`level = $${pc}`); params.push(data.level) }

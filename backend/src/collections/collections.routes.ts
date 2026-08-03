@@ -1,12 +1,9 @@
 import { Elysia } from 'elysia'
-import { empsaatRoutes } from './providers/empsaat/empsaat.controller'
 import { transactionRepository } from '../payments/transactions/transaction.repository'
 import { walletRepository } from '../banking/wallet/wallet.repository'
 import { ok, fail } from '../shared/response'
 
 export const collectionsRoutes = new Elysia()
-
-  .use(empsaatRoutes)
 
   .get('/collections/stats/:periodType/:year/:month?', async ({ auth, params, query: q }) => {
     const userId = auth.user.id

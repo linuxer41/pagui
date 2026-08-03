@@ -17,12 +17,12 @@ async function getWalletSeq(): Promise<number> {
 export const walletService = {
   async create(data: {
     type: string; level?: string; name?: string; currency?: string
-    banecoCredentialId?: bigint; tenantId?: bigint; isCollection?: boolean; isDefault?: boolean
+    tenantId?: bigint; isCollection?: boolean; isDefault?: boolean
   }): Promise<WalletRow> {
     const num = generateWalletNumber(data.type, await getWalletSeq())
     const wallet = await walletRepository.create({
       walletNumber: num, type: data.type, level: data.level, name: data.name,
-      currency: data.currency || 'BOB', banecoCredentialId: data.banecoCredentialId,
+      currency: data.currency || 'BOB',
       tenantId: data.tenantId, isCollection: data.isCollection, isDefault: data.isDefault,
     })
     return wallet

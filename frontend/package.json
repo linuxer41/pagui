@@ -26,7 +26,7 @@
     "@tauri-apps/plugin-fs": "^2.5.1",
     "@tauri-apps/plugin-nfc": "^2.3.5",
     "@tauri-apps/plugin-notification": "^2.3.3",
-    "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-opener": "~2.4.0",
     "@zitadel/node": "^3.0.20",
     "axios": "^1.6.7",
     "crypto-js": "^4.2.0",

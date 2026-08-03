@@ -8,6 +8,7 @@ import { logger } from '../../shared/logger'
 import { eventBus } from '../events/event-bus'
 import { notifService } from '../notification/notif.service'
 import { paymentQueueService } from '../sync/payment-queue.service'
+import { query } from '../../shared/database/pool'
 
 export const qrService = {
   async generate(data: {
@@ -23,7 +24,12 @@ export const qrService = {
       if (!targetWallet) throw new AppError(500, 'Billetera empresarial no configurada')
     }
 
-    const bcid = (targetWallet as any).banecoCredentialId || (targetWallet as any).baneco_credential_id
+    // La credencial Baneco se resuelve desde collection_config (no desde wallets)
+    const cc = await query(
+      `SELECT baneco_credential_id FROM collection_config WHERE wallet_id = $1 AND is_active = true AND deleted_at IS NULL LIMIT 1`,
+      [targetWallet.id]
+    )
+    const bcid: bigint | null = cc.rowCount ? (cc.rows[0].baneco_credential_id as bigint | null) : null
     const cred = await resolveCredentials(bcid)
 
     const adapter = new BanecoAdapter(cred.api_base_url, cred.encryption_key)

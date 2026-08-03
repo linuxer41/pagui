@@ -1,0 +1,9 @@
+ALTER TABLE tenants
+  ADD COLUMN IF NOT EXISTS kyc_selfie_url VARCHAR(500),
+  ADD COLUMN IF NOT EXISTS kyc_document_front_url VARCHAR(500),
+  ADD COLUMN IF NOT EXISTS kyc_document_back_url VARCHAR(500),
+  ADD COLUMN IF NOT EXISTS kyc_ocr_text TEXT,
+  ADD COLUMN IF NOT EXISTS kyc_ocr_confidence NUMERIC(6, 3),
+  ADD COLUMN IF NOT EXISTS kyc_face_match BOOLEAN,
+  ADD COLUMN IF NOT EXISTS kyc_face_similarity NUMERIC(8, 4),
+  ADD COLUMN IF NOT EXISTS kyc_ml_run_at TIMESTAMPTZ;

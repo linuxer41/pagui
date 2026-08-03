@@ -92,7 +92,7 @@ export async function seedDatabase() {
     if (!tenant) continue
     const w = await walletRepository.create({
       walletNumber: wc.walletNumber, name: wc.name, type: wc.type,
-      level: wc.level, banecoCredentialId: wc.banecoCredentialId,
+      level: wc.level,
       tenantId: tenant.id, isCollection: wc.isCollection || false, isDefault: true,
     })
     createdWallets.push(w)

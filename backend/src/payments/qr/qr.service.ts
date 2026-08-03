@@ -10,6 +10,12 @@ import { notifService } from '../notification/notif.service'
 import { paymentQueueService } from '../sync/payment-queue.service'
 import { query } from '../../shared/database/pool'
 
+function defaultDueDate(days = 30): string {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
 export const qrService = {
   async generate(data: {
     walletId?: bigint; amount: number; currency?: string; description?: string; dueDate?: string
@@ -38,8 +44,10 @@ export const qrService = {
       ? String(data.transactionId)
       : `TXN${Date.now()}${Math.random().toString(36).slice(2, 8)}`.toUpperCase()
 
+    const dueDate = data.dueDate || defaultDueDate()
+
     const result = await adapter.generateQr(token, transactionId, cred.account_number, data.amount, {
-      description: data.description, dueDate: data.dueDate,
+      description: data.description, dueDate,
       singleUse: data.singleUse, modifyAmount: data.modifyAmount, currency: data.currency,
     })
 
@@ -47,7 +55,7 @@ export const qrService = {
       qrId: result.qrId, transactionId, walletId: targetWallet.id,
       banecoCredentialId: bcid, userId: data.userId,
       amount: data.amount, currency: data.currency || 'BOB',
-      description: data.description, dueDate: data.dueDate || '2025-12-31',
+      description: data.description, dueDate,
       qrImage: result.qrImage, singleUse: data.singleUse,
       modifyAmount: data.modifyAmount,
     })

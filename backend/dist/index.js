@@ -50954,6 +50954,11 @@ var paymentQueueService = {
 
 // src/payments/qr/qr.service.ts
 init_pool();
+function defaultDueDate(days = 30) {
+  const d = new Date;
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 var qrService = {
   async generate(data) {
     let targetWallet;
@@ -50972,9 +50977,10 @@ var qrService = {
     const adapter = new BanecoAdapter(cred.api_base_url, cred.encryption_key);
     const token = await adapter.getToken(cred.username, cred.password);
     const transactionId = data.transactionId ? String(data.transactionId) : `TXN${Date.now()}${Math.random().toString(36).slice(2, 8)}`.toUpperCase();
+    const dueDate = data.dueDate || defaultDueDate();
     const result = await adapter.generateQr(token, transactionId, cred.account_number, data.amount, {
       description: data.description,
-      dueDate: data.dueDate,
+      dueDate,
       singleUse: data.singleUse,
       modifyAmount: data.modifyAmount,
       currency: data.currency
@@ -50988,7 +50994,7 @@ var qrService = {
       amount: data.amount,
       currency: data.currency || "BOB",
       description: data.description,
-      dueDate: data.dueDate || "2025-12-31",
+      dueDate,
       qrImage: result.qrImage,
       singleUse: data.singleUse,
       modifyAmount: data.modifyAmount

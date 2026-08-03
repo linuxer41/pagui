@@ -47,6 +47,13 @@ jobs:
         run: bun run build
         working-directory: ./backend
 
+      - name: Initialize test database schema
+        run: bun run init-db
+        working-directory: ./backend
+        env:
+          DATABASE_URL: postgres://pagui:pagui@localhost:5432/pagui_test
+          ENCRYPTION_KEY: test-key-32-chars-for-testing-only
+
       - name: Run tests
         run: bun test
         working-directory: ./backend

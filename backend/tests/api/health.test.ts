@@ -14,12 +14,14 @@ describe('Health API', () => {
     const res = await app.handle(new Request('http://localhost/health'))
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.status).toBe('ok')
+    expect(body.success).toBe(true)
+    expect(body.data.status).toBe('ok')
   })
 
   test('GET /health/api returns DB status', async () => {
     const res = await app.handle(new Request('http://localhost/health/api'))
     const body = await res.json()
-    expect(body).toHaveProperty('database')
+    expect(body.success).toBe(true)
+    expect(body.data).toHaveProperty('database')
   })
 })

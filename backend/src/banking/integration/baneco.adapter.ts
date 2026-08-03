@@ -73,11 +73,31 @@ export class BanecoAdapter implements BankAdapter {
   }
 
   async getQrStatus(token: string, qrId: string): Promise<{ status: string; amount: number; currency: string; description: string; qrImage: string }> {
-    const data = await this.request<Static<typeof BANECO_QRStatusResponseSchema>>(`api/qrsimple/v2/statusQR/${qrId}`, {
+    const data = await this.request<any>(`api/qrsimple/v2/statusQR/${qrId}`, {
       method: 'GET',
       headers: { Authorization: `Bearer ${token}` },
     })
-    return { status: data.status, amount: data.amount, currency: data.currency, description: data.description, qrImage: data.qrImage }
+    // Baneco responde con statusQrCode (0=activo, 1=pagado, 2=cancelado/vencido)
+    // y el pago dentro del array payment[]. El campo `status` no existe.
+    const statusCode = Number(data.statusQrCode)
+    const payment = Array.isArray(data.payment) ? data.payment[0] : undefined
+    let status = 'ACTIVE'
+    if (statusCode === 1) status = 'PAID'
+    else if (statusCode === 2) status = 'CANCELLED'
+    return {
+      status,
+      amount: payment?.amount ?? data.amount ?? 0,
+      currency: payment?.currency ?? data.currency ?? 'BOB',
+      description: payment?.description ?? data.description ?? '',
+      qrImage: data.qrImage ?? '',
+      senderName: payment?.senderName ?? '',
+      senderDocumentId: payment?.senderDocumentId ?? '',
+      senderAccount: payment?.senderAccount ?? '',
+      senderBankCode: payment?.senderBankCode ?? '',
+      paymentDate: payment?.paymentDate ?? '',
+      paymentTime: payment?.paymentTime ?? '',
+      bankTransactionId: payment?.transactionId ?? '',
+    }
   }
 
   async getPaidQrsByDate(token: string, dateStr: string): Promise<Array<{ qrId: string; transactionId: string; amount: number; currency: string; paymentDate: string; paymentHour: string }>> {

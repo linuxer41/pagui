@@ -20,6 +20,13 @@ export interface BankAdapter {
     currency: string
     description: string
     qrImage: string
+    senderName?: string
+    senderDocumentId?: string
+    senderAccount?: string
+    senderBankCode?: string
+    paymentDate?: string
+    paymentTime?: string
+    bankTransactionId?: string
   }>
   getPaidQrsByDate(token: string, dateStr: string): Promise<Array<{
     qrId: string

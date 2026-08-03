@@ -50449,6 +50449,13 @@ var qrRepository = {
     `, [...params, limit, offset]);
     return { qrs: r2.rows, totalCount: parseInt(c.rows[0].t) };
   },
+  async listActive() {
+    const r2 = await query(`
+      SELECT qr_id as "qrId" FROM qr_codes
+      WHERE status = 'active' AND deleted_at IS NULL
+    `);
+    return r2.rows.map((row) => row.qrId);
+  },
   async updateStatus(qrId, status2) {
     await query("UPDATE qr_codes SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE qr_id = $2", [status2, qrId]);
   },
@@ -50534,7 +50541,27 @@ class BanecoAdapter {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` }
     });
-    return { status: data.status, amount: data.amount, currency: data.currency, description: data.description, qrImage: data.qrImage };
+    const statusCode = Number(data.statusQrCode);
+    const payment = Array.isArray(data.payment) ? data.payment[0] : undefined;
+    let status2 = "ACTIVE";
+    if (statusCode === 1)
+      status2 = "PAID";
+    else if (statusCode === 2)
+      status2 = "CANCELLED";
+    return {
+      status: status2,
+      amount: payment?.amount ?? data.amount ?? 0,
+      currency: payment?.currency ?? data.currency ?? "BOB",
+      description: payment?.description ?? data.description ?? "",
+      qrImage: data.qrImage ?? "",
+      senderName: payment?.senderName ?? "",
+      senderDocumentId: payment?.senderDocumentId ?? "",
+      senderAccount: payment?.senderAccount ?? "",
+      senderBankCode: payment?.senderBankCode ?? "",
+      paymentDate: payment?.paymentDate ?? "",
+      paymentTime: payment?.paymentTime ?? "",
+      bankTransactionId: payment?.transactionId ?? ""
+    };
   }
   async getPaidQrsByDate(token, dateStr) {
     const data = await this.request(`api/qrsimple/v2/paidQR/${dateStr}`, {
@@ -50856,21 +50883,36 @@ var paymentSyncService = {
       const token = await adapter.getToken(cred.username, cred.password);
       const status2 = await adapter.getQrStatus(token, qrId);
       if (status2.status === "PAID" || status2.status === "COMPLETED") {
+        const claim = await query(`UPDATE qr_codes SET status = 'used', updated_at = CURRENT_TIMESTAMP
+           WHERE qr_id = $1 AND status = 'active'`, [qrId]);
+        if (claim.rowCount === 0) {
+          await query(`
+            INSERT INTO payment_sync_status (qr_id, last_checked, check_count, success, final_status)
+            VALUES ($1, CURRENT_TIMESTAMP, 1, true, 'completed')
+            ON CONFLICT (qr_id) DO UPDATE SET
+              last_checked = CURRENT_TIMESTAMP, check_count = payment_sync_status.check_count + 1,
+              success = true, final_status = 'completed'
+          `, [qrId]);
+          return { changed: false, status: "completed" };
+        }
         const movement = await walletRepository.createMovement({
           walletId: qr.walletId,
           movementType: "qr_payment",
           amount: status2.amount,
           balanceBefore: 0,
           balanceAfter: 0,
-          description: `Pago QR ${qrId}`,
+          description: status2.description || `Pago QR ${qrId}`,
           qrId,
           transactionId: qr.transactionId,
-          paymentDate: new Date().toISOString(),
+          paymentDate: status2.paymentDate || new Date().toISOString(),
           currency: status2.currency,
+          senderName: status2.senderName || null,
+          senderDocumentId: status2.senderDocumentId || null,
+          senderAccount: status2.senderAccount || null,
+          senderBankCode: status2.senderBankCode || null,
           referenceId: qr.transactionId,
           referenceType: "qr"
         });
-        await qrRepository.updateStatus(qrId, "used");
         await query(`
           INSERT INTO payment_sync_status (qr_id, last_checked, check_count, success, final_status)
           VALUES ($1, CURRENT_TIMESTAMP, 1, true, 'completed')
@@ -50913,12 +50955,16 @@ var paymentSyncService = {
 };
 
 // src/payments/sync/payment-queue.service.ts
+init_logger();
 var syncQueues = new Map;
 var MAX_ATTEMPTS = 20;
+var SWEEPER_INTERVAL = 5 * 60 * 1000;
 function getInterval(attempts) {
-  if (attempts <= 5)
+  if (attempts <= 3)
+    return 30 * 1000;
+  if (attempts <= 8)
     return 2 * 60 * 1000;
-  if (attempts <= 10)
+  if (attempts <= 12)
     return 5 * 60 * 1000;
   return 15 * 60 * 1000;
 }
@@ -50943,6 +50989,30 @@ var paymentQueueService = {
       }
     }, interval);
     syncQueues.set(qrId, { timer, attempts });
+  },
+  async startAll() {
+    try {
+      const qrIds = await qrRepository.listActive();
+      for (const qrId of qrIds) {
+        this.enqueueSync(qrId);
+      }
+      logger.info(`Sync worker: ${qrIds.length} QR(s) activo(s) re-encolado(s)`);
+    } catch (e) {
+      logger.error("Sync worker: error re-encolando QRs activos", { error: String(e) });
+    }
+  },
+  startSweeper() {
+    return setInterval(async () => {
+      try {
+        const qrIds = await qrRepository.listActive();
+        for (const qrId of qrIds) {
+          if (!syncQueues.has(qrId))
+            this.enqueueSync(qrId);
+        }
+      } catch (e) {
+        logger.error("Sync sweeper error", { error: String(e) });
+      }
+    }, SWEEPER_INTERVAL);
   },
   stopAll() {
     for (const [qrId, { timer }] of syncQueues) {
@@ -53775,6 +53845,7 @@ var adminRoutes = new Elysia({ prefix: "/admin" }).get("/stats", async () => {
 BigInt.prototype.toJSON = function() {
   return String(this);
 };
+var qrSweeper;
 sentry.init();
 var app = new Elysia;
 app.onRequest(({ request }) => {
@@ -53842,6 +53913,8 @@ if (mode === "init-db") {
     await waitForConnection();
     startWebhookProcessor();
     const settlementInterval = setInterval(() => settlementService.processPending(), 60000);
+    await paymentQueueService.startAll();
+    qrSweeper = paymentQueueService.startSweeper();
     logger.info("All services initialized");
     const port = parseInt(process.env.PORT || "3000");
     app.listen(port, () => {
@@ -53856,6 +53929,7 @@ if (mode === "init-db") {
 process.on("SIGINT", () => {
   logger.info("Shutting down...");
   sseService.closeAll();
+  clearInterval(qrSweeper);
   paymentQueueService.stopAll();
   logger.flush?.();
   process.exit(0);
@@ -53863,6 +53937,7 @@ process.on("SIGINT", () => {
 process.on("SIGTERM", () => {
   logger.info("Shutting down...");
   sseService.closeAll();
+  clearInterval(qrSweeper);
   paymentQueueService.stopAll();
   logger.flush?.();
   process.exit(0);

@@ -20,14 +20,34 @@ export const paymentSyncService = {
       const status = await adapter.getQrStatus(token, qrId)
 
       if (status.status === 'PAID' || status.status === 'COMPLETED') {
+        // Claim atómico: solo el proceso que logre pasar el QR a 'used' crea el
+        // movimiento. Evita duplicados si corren varios workers/instancias.
+        const claim = await query(
+          `UPDATE qr_codes SET status = 'used', updated_at = CURRENT_TIMESTAMP
+           WHERE qr_id = $1 AND status = 'active'`,
+          [qrId]
+        )
+        if (claim.rowCount === 0) {
+          await query(`
+            INSERT INTO payment_sync_status (qr_id, last_checked, check_count, success, final_status)
+            VALUES ($1, CURRENT_TIMESTAMP, 1, true, 'completed')
+            ON CONFLICT (qr_id) DO UPDATE SET
+              last_checked = CURRENT_TIMESTAMP, check_count = payment_sync_status.check_count + 1,
+              success = true, final_status = 'completed'
+          `, [qrId])
+          return { changed: false, status: 'completed' }
+        }
         const movement = await walletRepository.createMovement({
           walletId: qr.walletId, movementType: 'qr_payment',
           amount: status.amount, balanceBefore: 0, balanceAfter: 0,
-          description: `Pago QR ${qrId}`, qrId, transactionId: qr.transactionId,
-          paymentDate: new Date().toISOString(), currency: status.currency,
+          description: status.description || `Pago QR ${qrId}`, qrId, transactionId: qr.transactionId,
+          paymentDate: status.paymentDate || new Date().toISOString(), currency: status.currency,
+          senderName: status.senderName || null,
+          senderDocumentId: status.senderDocumentId || null,
+          senderAccount: status.senderAccount || null,
+          senderBankCode: status.senderBankCode || null,
           referenceId: qr.transactionId, referenceType: 'qr',
         })
-        await qrRepository.updateStatus(qrId, 'used')
         await query(`
           INSERT INTO payment_sync_status (qr_id, last_checked, check_count, success, final_status)
           VALUES ($1, CURRENT_TIMESTAMP, 1, true, 'completed')

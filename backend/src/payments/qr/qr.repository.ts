@@ -107,6 +107,14 @@ export const qrRepository = {
     return { qrs: r.rows as QrRow[], totalCount: parseInt(c.rows[0].t) }
   },
 
+  async listActive(): Promise<string[]> {
+    const r = await query(`
+      SELECT qr_id as "qrId" FROM qr_codes
+      WHERE status = 'active' AND deleted_at IS NULL
+    `)
+    return r.rows.map(row => row.qrId as string)
+  },
+
   async updateStatus(qrId: string, status: string): Promise<void> {
     await query("UPDATE qr_codes SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE qr_id = $2", [status, qrId])
   },

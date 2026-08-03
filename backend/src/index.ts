@@ -38,6 +38,8 @@ import { settlementService } from './payments/settlement/settlement.service'
 import { collectionRoutes } from './collection/collection.routes'
 import { liquidationRoutes } from './collection/liquidation.routes'
 import { directTransactionRoutes } from './collection/direct-transaction.routes'
+
+let qrSweeper: ReturnType<typeof setInterval> | undefined
 import { adminRoutes } from './admin/admin.routes'
 import { requireRole } from './shared/middleware/auth.middleware'
 
@@ -138,6 +140,9 @@ if (mode === 'init-db') {
     await waitForConnection()
     startWebhookProcessor()
     const settlementInterval = setInterval(() => settlementService.processPending(), 60_000)
+    // Re-encola QRs activos y vigila pérdidas (cubre reinicios del proceso).
+    await paymentQueueService.startAll()
+    qrSweeper = paymentQueueService.startSweeper()
     logger.info('All services initialized')
     const port = parseInt(process.env.PORT || '3000')
     app.listen(port, () => {
@@ -153,6 +158,7 @@ if (mode === 'init-db') {
 process.on('SIGINT', () => {
   logger.info('Shutting down...')
   sseService.closeAll()
+  clearInterval(qrSweeper)
   paymentQueueService.stopAll()
   logger.flush?.()
   process.exit(0)
@@ -161,6 +167,7 @@ process.on('SIGINT', () => {
 process.on('SIGTERM', () => {
   logger.info('Shutting down...')
   sseService.closeAll()
+  clearInterval(qrSweeper)
   paymentQueueService.stopAll()
   logger.flush?.()
   process.exit(0)

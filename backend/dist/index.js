@@ -50959,6 +50959,9 @@ init_logger();
 var syncQueues = new Map;
 var MAX_ATTEMPTS = 20;
 var SWEEPER_INTERVAL = 5 * 60 * 1000;
+var sweeperStartedAt = null;
+var lastSweepAt = null;
+var lastSweepCount = 0;
 function getInterval(attempts) {
   if (attempts <= 3)
     return 30 * 1000;
@@ -51002,13 +51005,19 @@ var paymentQueueService = {
     }
   },
   startSweeper() {
+    sweeperStartedAt = Date.now();
     return setInterval(async () => {
       try {
         const qrIds = await qrRepository.listActive();
+        let added = 0;
         for (const qrId of qrIds) {
-          if (!syncQueues.has(qrId))
+          if (!syncQueues.has(qrId)) {
             this.enqueueSync(qrId);
+            added++;
+          }
         }
+        lastSweepAt = Date.now();
+        lastSweepCount = added;
       } catch (e) {
         logger.error("Sync sweeper error", { error: String(e) });
       }
@@ -51019,6 +51028,21 @@ var paymentQueueService = {
       clearTimeout(timer);
     }
     syncQueues.clear();
+  },
+  getStats() {
+    const now = Date.now();
+    const entries = Array.from(syncQueues.entries());
+    return {
+      running: sweeperStartedAt !== null,
+      queuedQrs: entries.length,
+      maxAttempts: MAX_ATTEMPTS,
+      sweeperIntervalMs: SWEEPER_INTERVAL,
+      sweeperStartedAt: sweeperStartedAt ? new Date(sweeperStartedAt).toISOString() : null,
+      lastSweepAt: lastSweepAt ? new Date(lastSweepAt).toISOString() : null,
+      lastSweepSecondsAgo: lastSweepAt ? Math.round((now - lastSweepAt) / 1000) : null,
+      lastSweepRequeued: lastSweepCount,
+      queuedQrIds: entries.slice(0, 50).map(([qrId, { attempts }]) => ({ qrId, attempts }))
+    };
   }
 };
 
@@ -51407,6 +51431,9 @@ init_snowflake();
 init_logger();
 init_app_error();
 import { createHmac } from "node:crypto";
+var webhookProcessorStartedAt = null;
+var lastWebhookRunAt = null;
+var lastWebhookProcessedCount = 0;
 async function registerWebhook(params) {
   const keys = await apikeyRepository.listByWallet(BigInt(params.walletId));
   if (keys.length === 0) {
@@ -51429,6 +51456,7 @@ async function dispatch(event, payload) {
   }
 }
 async function processPendingJobs() {
+  lastWebhookRunAt = Date.now();
   const jobs = await query(`SELECT j.id, j.webhook_id, j.event, j.payload, j.retry_count, w.url, w.wallet_id
      FROM outgoing_webhook_jobs j
      JOIN outgoing_webhooks w ON w.id = j.webhook_id
@@ -51437,6 +51465,7 @@ async function processPendingJobs() {
      LIMIT 20
      FOR UPDATE SKIP LOCKED`);
   const walletKeyCache = new Map;
+  lastWebhookProcessedCount = jobs.rows.length;
   for (const job of jobs.rows) {
     try {
       let apiKeyValue = walletKeyCache.get(job.wallet_id);
@@ -51490,10 +51519,20 @@ function createSignature(secret, payload) {
   return createHmac("sha256", secret).update(payload).digest("hex");
 }
 async function startWebhookProcessor(intervalMs = 15000) {
+  webhookProcessorStartedAt = Date.now();
   const timer = setInterval(processPendingJobs, intervalMs);
   process.on("SIGINT", () => clearInterval(timer));
   process.on("SIGTERM", () => clearInterval(timer));
   logger.info("Webhook processor started", { intervalMs });
+}
+function getWebhookProcessorStats() {
+  return {
+    running: webhookProcessorStartedAt !== null,
+    startedAt: webhookProcessorStartedAt ? new Date(webhookProcessorStartedAt).toISOString() : null,
+    lastRunAt: lastWebhookRunAt ? new Date(lastWebhookRunAt).toISOString() : null,
+    lastRunSecondsAgo: lastWebhookRunAt ? Math.round((Date.now() - lastWebhookRunAt) / 1000) : null,
+    lastProcessed: lastWebhookProcessedCount
+  };
 }
 
 // src/payments/transfer/transfer.service.ts
@@ -52131,7 +52170,11 @@ var healthRoutes = new Elysia({ prefix: "/health" }).get("/", () => ok({
     },
     pid: process.pid,
     platform: process.platform,
-    nodeVersion: process.version
+    nodeVersion: process.version,
+    workers: {
+      sync: paymentQueueService.getStats(),
+      webhook: getWebhookProcessorStats()
+    }
   });
 }, {
   detail: { tags: ["Monitoring"], summary: "Stats detalladas del servidor" }

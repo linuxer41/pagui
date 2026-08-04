@@ -88,54 +88,6 @@ services:
       - pagui-net
 
   # ========================================
-  # Webhook Worker
-  # ========================================
-  webhook-worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: pagui-webhook-worker
-    environment:
-      - DATABASE_URL=postgres://pagui:pagui@postgres:5432/pagui
-      - REDIS_URL=redis://redis:6379
-      - NODE_ENV=production
-      - LOG_LEVEL=info
-    command: ["bun", "run", "src/workers/webhook-worker.ts"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-    logging: *logging
-    networks:
-      - pagui-net
-
-  # ========================================
-  # Payment Sync Worker
-  # ========================================
-  sync-worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: pagui-sync-worker
-    environment:
-      - DATABASE_URL=postgres://pagui:pagui@postgres:5432/pagui
-      - REDIS_URL=redis://redis:6379
-      - NODE_ENV=production
-      - LOG_LEVEL=info
-    command: ["bun", "run", "src/workers/sync-worker.ts"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-    logging: *logging
-    networks:
-      - pagui-net
-
-  # ========================================
   # Nginx (Reverse Proxy + Rate Limiting)
   # ========================================
   nginx:

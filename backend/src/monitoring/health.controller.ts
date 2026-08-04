@@ -3,6 +3,8 @@ import { pool } from '../shared/database/pool'
 import { getMigrationStatus } from '../shared/database/migrate'
 import { ok } from '../shared/response'
 import * as os from 'os'
+import { paymentQueueService } from '../payments/sync/payment-queue.service'
+import { getWebhookProcessorStats } from '../payments/webhooks/webhook.service'
 
 let startTime = Date.now()
 
@@ -78,6 +80,10 @@ export const healthRoutes = new Elysia({ prefix: '/health' })
       pid: process.pid,
       platform: process.platform,
       nodeVersion: process.version,
+      workers: {
+        sync: paymentQueueService.getStats(),
+        webhook: getWebhookProcessorStats(),
+      },
     })
   }, {
     detail: { tags: ['Monitoring'], summary: 'Stats detalladas del servidor' },

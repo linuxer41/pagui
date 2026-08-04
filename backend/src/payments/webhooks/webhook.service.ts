@@ -5,6 +5,10 @@ import { logger } from '../../shared/logger'
 import { AppError } from '../../shared/errors/app-error'
 import { apikeyRepository } from '../../api-keys/apikey.repository'
 
+let webhookProcessorStartedAt: number | null = null
+let lastWebhookRunAt: number | null = null
+let lastWebhookProcessedCount = 0
+
 export type WebhookEvent =
   | 'transfer.created'
   | 'transfer.completed'
@@ -55,6 +59,7 @@ export async function dispatch(event: WebhookEvent, payload: Record<string, unkn
 }
 
 export async function processPendingJobs() {
+  lastWebhookRunAt = Date.now()
   const jobs = await query(
     `SELECT j.id, j.webhook_id, j.event, j.payload, j.retry_count, w.url, w.wallet_id
      FROM outgoing_webhook_jobs j
@@ -66,6 +71,7 @@ export async function processPendingJobs() {
   )
 
   const walletKeyCache = new Map<string, string>()
+  lastWebhookProcessedCount = jobs.rows.length
 
   for (const job of jobs.rows) {
     try {
@@ -142,8 +148,19 @@ function createSignature(secret: string, payload: string): string {
 }
 
 export async function startWebhookProcessor(intervalMs = 15_000) {
+  webhookProcessorStartedAt = Date.now()
   const timer = setInterval(processPendingJobs, intervalMs)
   process.on('SIGINT', () => clearInterval(timer))
   process.on('SIGTERM', () => clearInterval(timer))
   logger.info('Webhook processor started', { intervalMs })
+}
+
+export function getWebhookProcessorStats() {
+  return {
+    running: webhookProcessorStartedAt !== null,
+    startedAt: webhookProcessorStartedAt ? new Date(webhookProcessorStartedAt).toISOString() : null,
+    lastRunAt: lastWebhookRunAt ? new Date(lastWebhookRunAt).toISOString() : null,
+    lastRunSecondsAgo: lastWebhookRunAt ? Math.round((Date.now() - lastWebhookRunAt) / 1000) : null,
+    lastProcessed: lastWebhookProcessedCount,
+  }
 }

@@ -24,4 +24,17 @@ describe('Health API', () => {
     expect(body.success).toBe(true)
     expect(body.data).toHaveProperty('database')
   })
+
+  test('GET /health/stats returns worker status', async () => {
+    const res = await app.handle(new Request('http://localhost/health/stats'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.success).toBe(true)
+    expect(body.data.workers).toHaveProperty('sync')
+    expect(body.data.workers).toHaveProperty('webhook')
+    expect(body.data.workers.sync).toHaveProperty('queuedQrs')
+    expect(body.data.workers.sync).toHaveProperty('running')
+    expect(body.data.workers.webhook).toHaveProperty('running')
+    expect(body.data.workers.webhook).toHaveProperty('lastProcessed')
+  })
 })

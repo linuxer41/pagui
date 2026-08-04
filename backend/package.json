@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
-    "build": "bun build src/index.ts --target node --outdir ./dist",
+    "build": "bun build src/index.ts src/workers/sync-worker.ts src/workers/webhook-worker.ts --target node --outdir ./dist",
     "lint": "eslint .",
     "init-db": "bun run src/index.ts init-db",
     "migrate": "bun run src/index.ts migrate",

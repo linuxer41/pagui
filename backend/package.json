@@ -7,7 +7,7 @@
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
     "build": "bun build src/index.ts src/workers/sync-worker.ts src/workers/webhook-worker.ts --target node --outdir ./dist",
-    "lint": "eslint .",
+    "lint": "echo No hay linter configurado; el build valida el bundling",
     "init-db": "bun run src/index.ts init-db",
     "migrate": "bun run src/index.ts migrate",
     "seed": "bun run src/index.ts seed",

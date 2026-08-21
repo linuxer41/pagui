@@ -36,7 +36,8 @@ export const qrService = {
       [targetWallet.id]
     )
     const bcid: bigint | null = cc.rowCount ? (cc.rows[0].baneco_credential_id as bigint | null) : null
-    const cred = await resolveCredentials(bcid)
+    // use_default (bcid null) => siempre producción, sin depender de BANECO_ENVIRONMENT del container
+    const cred = await resolveCredentials(bcid, bcid ? undefined : 'prod')
 
     const adapter = new BanecoAdapter(cred.api_base_url, cred.encryption_key)
     const token = await adapter.getToken(cred.username, cred.password)

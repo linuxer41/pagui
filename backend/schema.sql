@@ -264,6 +264,7 @@ CREATE TABLE qr_codes (
   transaction_id VARCHAR(100) NOT NULL,
   wallet_id BIGINT NOT NULL REFERENCES wallets(id) ON DELETE CASCADE,
   baneco_credential_id BIGINT REFERENCES baneco_credentials(id) ON DELETE SET NULL,
+  baneco_environment VARCHAR(16),
   user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
   amount DECIMAL(10,2) NOT NULL,
   currency VARCHAR(3) NOT NULL DEFAULT 'BOB' CHECK (currency IN ('BOB', 'USD')),

@@ -15,7 +15,7 @@ function normalizeEnv(env?: string | null): BanecoEnv {
   return env === 'prod' || env === 'production' ? 'prod' : 'sandbox'
 }
 
-function buildFromEnv(env: BanecoEnv = normalizeEnv(process.env.BANECO_ENVIRONMENT)): ResolvedCredential {
+function buildFromEnv(env: BanecoEnv = normalizeEnv(process.env.BANECO_ENVIRONMENT || 'prod')): ResolvedCredential {
   const prefix = env === 'prod' ? 'BANECO_PROD' : 'BANECO_SANDBOX'
 
   const get = (key: string): string => {

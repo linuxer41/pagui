@@ -53,7 +53,7 @@ export const qrService = {
 
     const qr = await qrRepository.create({
       qrId: result.qrId, transactionId, walletId: targetWallet.id,
-      banecoCredentialId: bcid, userId: data.userId,
+      banecoCredentialId: bcid, banecoEnvironment: cred.environment, userId: data.userId,
       amount: data.amount, currency: data.currency || 'BOB',
       description: data.description, dueDate,
       qrImage: result.qrImage, singleUse: data.singleUse,
@@ -82,15 +82,23 @@ export const qrService = {
   },
 
   // Consulta el estado en Baneco en vivo y luego devuelve el QR actualizado + pagos.
-  // Reemplaza al endpoint de status "tonto" que solo leía la DB y no detectaba pagos.
+  // Si aún no hay pagos registrados, consulta primero a Baneco y persiste el pago
+  // si este ya existe de su lado (estado PAID/COMPLETED). Si ya hay pagos, no
+  // golpea al banco de nuevo.
   async checkStatus(qrId: string) {
     const qr = await qrRepository.getByQrId(qrId)
     if (!qr) return null
 
-    const { changed } = await paymentSyncService.syncQRStatus(qrId)
+    const existing = await qrRepository.getPayments(qrId)
+    let synced = false
+    if (qr.status === 'active' && existing.length === 0) {
+      const res = await paymentSyncService.syncQRStatus(qrId)
+      synced = res.changed
+    }
+
     const freshQr = await qrRepository.getByQrId(qrId)
     const payments = await qrRepository.getPayments(qrId)
-    return { ...freshQr, payments, synced: changed }
+    return { ...freshQr, payments, synced }
   },
 
   async cancel(qrId: string): Promise<void> {
@@ -99,7 +107,7 @@ export const qrService = {
     if (qr.status !== 'active') throw new AppError(400, 'El QR no está activo')
 
     const qrBcid = (qr as any).baneco_credential_id
-    const cred = await resolveCredentials(qrBcid)
+    const cred = await resolveCredentials(qrBcid, qr.banecoEnvironment)
     try {
       const adapter = new BanecoAdapter(cred.api_base_url, cred.encryption_key)
       const token = await adapter.getToken(cred.username, cred.password)

@@ -12,7 +12,7 @@ export const paymentSyncService = {
     const qr = await qrRepository.getByQrId(qrId)
     if (!qr || qr.status === 'used' || qr.status === 'cancelled') return { changed: false }
 
-    const cred = await resolveCredentials(qr.banecoCredentialId)
+    const cred = await resolveCredentials(qr.banecoCredentialId, qr.banecoEnvironment)
 
     try {
       const adapter = new BanecoAdapter(cred.api_base_url, cred.encryption_key)

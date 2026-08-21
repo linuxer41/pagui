@@ -50339,11 +50339,12 @@ init_snowflake();
 var qrRepository = {
   async create(data) {
     const r2 = await query(`
-      INSERT INTO qr_codes (id, qr_id, transaction_id, wallet_id, baneco_credential_id, user_id,
+      INSERT INTO qr_codes (id, qr_id, transaction_id, wallet_id, baneco_credential_id, baneco_environment, user_id,
         amount, currency, description, due_date, qr_image, single_use, modify_amount)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
       RETURNING id, qr_id as "qrId", transaction_id as "transactionId",
-        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", baneco_environment as "banecoEnvironment",
+        user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
         single_use as "singleUse", modify_amount as "modifyAmount",
         status,
@@ -50354,6 +50355,7 @@ var qrRepository = {
       data.transactionId,
       data.walletId,
       data.banecoCredentialId || null,
+      data.banecoEnvironment || null,
       data.userId || null,
       data.amount,
       data.currency || "BOB",
@@ -50368,7 +50370,7 @@ var qrRepository = {
   async getByQrId(qrId) {
     const r2 = await query(`
       SELECT id, qr_id as "qrId", transaction_id as "transactionId",
-        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", baneco_environment as "banecoEnvironment", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
         single_use as "singleUse", modify_amount as "modifyAmount",
         status,
@@ -50380,7 +50382,7 @@ var qrRepository = {
   async getById(id) {
     const r2 = await query(`
       SELECT id, qr_id as "qrId", transaction_id as "transactionId",
-        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", baneco_environment as "banecoEnvironment", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
         single_use as "singleUse", modify_amount as "modifyAmount",
         status,
@@ -50415,7 +50417,7 @@ var qrRepository = {
     const c = await query(`SELECT COUNT(*) as t FROM qr_codes ${where}`, params);
     const r2 = await query(`
       SELECT id, qr_id as "qrId", transaction_id as "transactionId",
-        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", baneco_environment as "banecoEnvironment", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
         single_use as "singleUse", modify_amount as "modifyAmount",
         status,
@@ -50440,7 +50442,7 @@ var qrRepository = {
     const c = await query(`SELECT COUNT(*) as t FROM qr_codes ${where}`, params);
     const r2 = await query(`
       SELECT id, qr_id as "qrId", transaction_id as "transactionId",
-        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", baneco_environment as "banecoEnvironment", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
         single_use as "singleUse", modify_amount as "modifyAmount",
         status,
@@ -50574,8 +50576,10 @@ class BanecoAdapter {
 
 // src/banking/credential/credential-resolver.ts
 init_pool();
-function buildFromEnv() {
-  const env3 = process.env.BANECO_ENVIRONMENT || "sandbox";
+function normalizeEnv(env3) {
+  return env3 === "prod" || env3 === "production" ? "prod" : "sandbox";
+}
+function buildFromEnv(env3 = normalizeEnv(process.env.BANECO_ENVIRONMENT)) {
   const prefix = env3 === "prod" ? "BANECO_PROD" : "BANECO_SANDBOX";
   const get = (key) => {
     const val = process.env[key];
@@ -50588,10 +50592,11 @@ function buildFromEnv() {
     encryption_key: get(`${prefix}_ENCRYPTION_KEY`),
     username: get(`${prefix}_USERNAME`),
     password: get(`${prefix}_PASSWORD`),
-    account_number: get(`${prefix}_ACCOUNT_NUMBER`)
+    account_number: get(`${prefix}_ACCOUNT_NUMBER`),
+    environment: env3
   };
 }
-async function resolveCredentials(credentialId) {
+async function resolveCredentials(credentialId, environment) {
   if (credentialId) {
     const r2 = await query("SELECT * FROM baneco_credentials WHERE id = $1 AND deleted_at IS NULL", [credentialId]);
     if (r2.rowCount) {
@@ -50601,11 +50606,12 @@ async function resolveCredentials(credentialId) {
         encryption_key: row.encryption_key,
         username: row.username,
         password: row.password,
-        account_number: row.account_number
+        account_number: row.account_number,
+        environment: normalizeEnv(row.environment)
       };
     }
   }
-  return buildFromEnv();
+  return buildFromEnv(normalizeEnv(environment));
 }
 
 // src/payments/settlement/settlement.repository.ts
@@ -50877,7 +50883,7 @@ var paymentSyncService2 = {
     const qr = await qrRepository.getByQrId(qrId);
     if (!qr || qr.status === "used" || qr.status === "cancelled")
       return { changed: false };
-    const cred = await resolveCredentials(qr.banecoCredentialId);
+    const cred = await resolveCredentials(qr.banecoCredentialId, qr.banecoEnvironment);
     try {
       const adapter = new BanecoAdapter(cred.api_base_url, cred.encryption_key);
       const token = await adapter.getToken(cred.username, cred.password);
@@ -51084,6 +51090,7 @@ var qrService = {
       transactionId,
       walletId: targetWallet.id,
       banecoCredentialId: bcid,
+      banecoEnvironment: cred.environment,
       userId: data.userId,
       amount: data.amount,
       currency: data.currency || "BOB",
@@ -51113,10 +51120,15 @@ var qrService = {
     const qr = await qrRepository.getByQrId(qrId);
     if (!qr)
       return null;
-    const { changed } = await paymentSyncService.syncQRStatus(qrId);
+    const existing = await qrRepository.getPayments(qrId);
+    let synced = false;
+    if (qr.status === "active" && existing.length === 0) {
+      const res = await paymentSyncService.syncQRStatus(qrId);
+      synced = res.changed;
+    }
     const freshQr = await qrRepository.getByQrId(qrId);
     const payments = await qrRepository.getPayments(qrId);
-    return { ...freshQr, payments, synced: changed };
+    return { ...freshQr, payments, synced };
   },
   async cancel(qrId) {
     const qr = await qrRepository.getByQrId(qrId);
@@ -51125,7 +51137,7 @@ var qrService = {
     if (qr.status !== "active")
       throw new AppError2(400, "El QR no está activo");
     const qrBcid = qr.baneco_credential_id;
-    const cred = await resolveCredentials(qrBcid);
+    const cred = await resolveCredentials(qrBcid, qr.banecoEnvironment);
     try {
       const adapter = new BanecoAdapter(cred.api_base_url, cred.encryption_key);
       const token = await adapter.getToken(cred.username, cred.password);
@@ -51294,10 +51306,10 @@ var qrRoutes = new Elysia({ prefix: "/qr" }).post("/generate", async ({ body, au
   })),
   detail: { tags: ["QR"], summary: "Listar QR generados" }
 }).get("/:qrId", async ({ params }) => {
-  const qr = await qrService.getDetails(params.qrId);
-  if (!qr)
+  const result = await qrService.checkStatus(params.qrId);
+  if (!result)
     throw new AppError2(404, "QR no encontrado");
-  return ok(qr);
+  return ok(result);
 }, {
   detail: { tags: ["QR"], summary: "Obtener detalle de QR" }
 }).get("/:qrId/status", async ({ params }) => {
@@ -52256,10 +52268,10 @@ var publicQrRoutes = new Elysia({ prefix: "/qr" }).derive(authMiddleware({ type:
   })),
   detail: { tags: ["Public QR"], summary: "Listar QR (API key)" }
 }).get("/:qrId", async ({ params }) => {
-  const qr = await qrService.getDetails(params.qrId);
-  if (!qr)
+  const result = await qrService.checkStatus(params.qrId);
+  if (!result)
     throw new AppError2(404, "QR no encontrado");
-  return ok(qr);
+  return ok(result);
 }, {
   detail: { tags: ["Public QR"], summary: "Detalle QR (API key)" }
 }).get("/:qrId/status", async ({ params, auth }) => {

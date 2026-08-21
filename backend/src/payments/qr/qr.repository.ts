@@ -7,6 +7,7 @@ export interface QrRow {
   transactionId: string
   walletId: bigint
   banecoCredentialId: bigint | null
+  banecoEnvironment: string | null
   userId: bigint | null
   amount: number
   currency: string
@@ -23,21 +24,22 @@ export interface QrRow {
 export const qrRepository = {
   async create(data: {
     qrId: string; transactionId: string; walletId: bigint; banecoCredentialId?: bigint
-    userId?: bigint; amount: number; currency?: string; description?: string; dueDate: string
+    banecoEnvironment?: string; userId?: bigint; amount: number; currency?: string; description?: string; dueDate: string
     qrImage?: string; singleUse?: boolean; modifyAmount?: boolean
   }): Promise<QrRow> {
     const r = await query(`
-      INSERT INTO qr_codes (id, qr_id, transaction_id, wallet_id, baneco_credential_id, user_id,
+      INSERT INTO qr_codes (id, qr_id, transaction_id, wallet_id, baneco_credential_id, baneco_environment, user_id,
         amount, currency, description, due_date, qr_image, single_use, modify_amount)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
       RETURNING id, qr_id as "qrId", transaction_id as "transactionId",
-        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", baneco_environment as "banecoEnvironment",
+        user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
         single_use as "singleUse", modify_amount as "modifyAmount",
         status,
         created_at as "createdAt", updated_at as "updatedAt"
     `, [nextSnowflake(), data.qrId, data.transactionId, data.walletId, data.banecoCredentialId || null,
-      data.userId || null,
+      data.banecoEnvironment || null, data.userId || null,
       data.amount, data.currency || 'BOB', data.description || null, data.dueDate, data.qrImage || null,
       data.singleUse !== false, data.modifyAmount === true])
     return r.rows[0] as QrRow
@@ -46,7 +48,7 @@ export const qrRepository = {
   async getByQrId(qrId: string): Promise<QrRow | null> {
     const r = await query(`
       SELECT id, qr_id as "qrId", transaction_id as "transactionId",
-        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", baneco_environment as "banecoEnvironment", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
         single_use as "singleUse", modify_amount as "modifyAmount",
         status,
@@ -59,7 +61,7 @@ export const qrRepository = {
   async getById(id: bigint): Promise<QrRow | null> {
     const r = await query(`
       SELECT id, qr_id as "qrId", transaction_id as "transactionId",
-        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", baneco_environment as "banecoEnvironment", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
         single_use as "singleUse", modify_amount as "modifyAmount",
         status,
@@ -79,7 +81,7 @@ export const qrRepository = {
     const c = await query(`SELECT COUNT(*) as t FROM qr_codes ${where}`, params)
     const r = await query(`
       SELECT id, qr_id as "qrId", transaction_id as "transactionId",
-        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", baneco_environment as "banecoEnvironment", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
         single_use as "singleUse", modify_amount as "modifyAmount",
         status,
@@ -97,7 +99,7 @@ export const qrRepository = {
     const c = await query(`SELECT COUNT(*) as t FROM qr_codes ${where}`, params)
     const r = await query(`
       SELECT id, qr_id as "qrId", transaction_id as "transactionId",
-        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", baneco_environment as "banecoEnvironment", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
         single_use as "singleUse", modify_amount as "modifyAmount",
         status,

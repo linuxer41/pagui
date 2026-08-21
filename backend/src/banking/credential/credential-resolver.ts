@@ -1,15 +1,21 @@
 import { query } from '../../shared/database/pool'
 
+export type BanecoEnv = 'prod' | 'sandbox'
+
 export interface ResolvedCredential {
   api_base_url: string
   encryption_key: string
   username: string
   password: string
   account_number: string
+  environment: BanecoEnv
 }
 
-function buildFromEnv(): ResolvedCredential {
-  const env = process.env.BANECO_ENVIRONMENT || 'sandbox'
+function normalizeEnv(env?: string | null): BanecoEnv {
+  return env === 'prod' || env === 'production' ? 'prod' : 'sandbox'
+}
+
+function buildFromEnv(env: BanecoEnv = normalizeEnv(process.env.BANECO_ENVIRONMENT)): ResolvedCredential {
   const prefix = env === 'prod' ? 'BANECO_PROD' : 'BANECO_SANDBOX'
 
   const get = (key: string): string => {
@@ -24,10 +30,14 @@ function buildFromEnv(): ResolvedCredential {
     username: get(`${prefix}_USERNAME`),
     password: get(`${prefix}_PASSWORD`),
     account_number: get(`${prefix}_ACCOUNT_NUMBER`),
+    environment: env,
   }
 }
 
-export async function resolveCredentials(credentialId?: bigint | null): Promise<ResolvedCredential> {
+export async function resolveCredentials(
+  credentialId?: bigint | null,
+  environment?: string | null
+): Promise<ResolvedCredential> {
   if (credentialId) {
     const r = await query('SELECT * FROM baneco_credentials WHERE id = $1 AND deleted_at IS NULL', [credentialId])
     if (r.rowCount) {
@@ -38,8 +48,9 @@ export async function resolveCredentials(credentialId?: bigint | null): Promise<
         username: row.username,
         password: row.password,
         account_number: row.account_number,
+        environment: normalizeEnv(row.environment),
       }
     }
   }
-  return buildFromEnv()
+  return buildFromEnv(normalizeEnv(environment))
 }

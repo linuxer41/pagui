@@ -12681,11 +12681,12 @@ init_snowflake();
 var qrRepository = {
   async create(data) {
     const r = await query(`
-      INSERT INTO qr_codes (id, qr_id, transaction_id, wallet_id, baneco_credential_id, user_id,
+      INSERT INTO qr_codes (id, qr_id, transaction_id, wallet_id, baneco_credential_id, baneco_environment, user_id,
         amount, currency, description, due_date, qr_image, single_use, modify_amount)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
       RETURNING id, qr_id as "qrId", transaction_id as "transactionId",
-        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", baneco_environment as "banecoEnvironment",
+        user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
         single_use as "singleUse", modify_amount as "modifyAmount",
         status,
@@ -12696,6 +12697,7 @@ var qrRepository = {
       data.transactionId,
       data.walletId,
       data.banecoCredentialId || null,
+      data.banecoEnvironment || null,
       data.userId || null,
       data.amount,
       data.currency || "BOB",
@@ -12710,7 +12712,7 @@ var qrRepository = {
   async getByQrId(qrId) {
     const r = await query(`
       SELECT id, qr_id as "qrId", transaction_id as "transactionId",
-        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", baneco_environment as "banecoEnvironment", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
         single_use as "singleUse", modify_amount as "modifyAmount",
         status,
@@ -12722,7 +12724,7 @@ var qrRepository = {
   async getById(id) {
     const r = await query(`
       SELECT id, qr_id as "qrId", transaction_id as "transactionId",
-        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", baneco_environment as "banecoEnvironment", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
         single_use as "singleUse", modify_amount as "modifyAmount",
         status,
@@ -12757,7 +12759,7 @@ var qrRepository = {
     const c = await query(`SELECT COUNT(*) as t FROM qr_codes ${where}`, params);
     const r = await query(`
       SELECT id, qr_id as "qrId", transaction_id as "transactionId",
-        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", baneco_environment as "banecoEnvironment", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
         single_use as "singleUse", modify_amount as "modifyAmount",
         status,
@@ -12782,7 +12784,7 @@ var qrRepository = {
     const c = await query(`SELECT COUNT(*) as t FROM qr_codes ${where}`, params);
     const r = await query(`
       SELECT id, qr_id as "qrId", transaction_id as "transactionId",
-        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", user_id as "userId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", baneco_environment as "banecoEnvironment", user_id as "userId",
         amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
         single_use as "singleUse", modify_amount as "modifyAmount",
         status,
@@ -12913,8 +12915,10 @@ class BanecoAdapter {
 
 // src/banking/credential/credential-resolver.ts
 init_pool();
-function buildFromEnv() {
-  const env = process.env.BANECO_ENVIRONMENT || "sandbox";
+function normalizeEnv(env) {
+  return env === "prod" || env === "production" ? "prod" : "sandbox";
+}
+function buildFromEnv(env = normalizeEnv(process.env.BANECO_ENVIRONMENT)) {
   const prefix = env === "prod" ? "BANECO_PROD" : "BANECO_SANDBOX";
   const get = (key) => {
     const val = process.env[key];
@@ -12927,10 +12931,11 @@ function buildFromEnv() {
     encryption_key: get(`${prefix}_ENCRYPTION_KEY`),
     username: get(`${prefix}_USERNAME`),
     password: get(`${prefix}_PASSWORD`),
-    account_number: get(`${prefix}_ACCOUNT_NUMBER`)
+    account_number: get(`${prefix}_ACCOUNT_NUMBER`),
+    environment: env
   };
 }
-async function resolveCredentials(credentialId) {
+async function resolveCredentials(credentialId, environment) {
   if (credentialId) {
     const r = await query("SELECT * FROM baneco_credentials WHERE id = $1 AND deleted_at IS NULL", [credentialId]);
     if (r.rowCount) {
@@ -12940,11 +12945,12 @@ async function resolveCredentials(credentialId) {
         encryption_key: row.encryption_key,
         username: row.username,
         password: row.password,
-        account_number: row.account_number
+        account_number: row.account_number,
+        environment: normalizeEnv(row.environment)
       };
     }
   }
-  return buildFromEnv();
+  return buildFromEnv(normalizeEnv(environment));
 }
 
 // src/payments/sync/payment-sync.service.ts
@@ -13138,7 +13144,7 @@ var paymentSyncService = {
     const qr = await qrRepository.getByQrId(qrId);
     if (!qr || qr.status === "used" || qr.status === "cancelled")
       return { changed: false };
-    const cred = await resolveCredentials(qr.banecoCredentialId);
+    const cred = await resolveCredentials(qr.banecoCredentialId, qr.banecoEnvironment);
     try {
       const adapter = new BanecoAdapter(cred.api_base_url, cred.encryption_key);
       const token = await adapter.getToken(cred.username, cred.password);

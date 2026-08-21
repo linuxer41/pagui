@@ -1,0 +1,4 @@
+# Secrets y datos sensibles (no versionar)
+.env
+**/.env
+uploads/

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cotización — EMPSAAT</title>
+<link rel="stylesheet" href="css/cotizacion.css">
+<style>
+  :root {
+    --primary: #0e7490;
+    --primary-light: #ecfeff;
+    --bg-highlight: #ecfeff;
+    --bg-table-header: #f0f9ff;
+    --bg-card: #f0f9ff;
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="header">
+    <div class="logos">
+      <div class="logo-box">iathings</div>
+    </div>
+    <div class="header-right">
+      <h1>COTIZACIÓN</h1>
+      <p>N° 080-2026</p>
+      <p>17 de agosto de 2026</p>
+    </div>
+  </div>
+
+  <div class="info-row"><span class="label">Cliente</span><span class="value">EMPSAAT — Empresa de Agua Potable y Alcantarillado de Tupiza</span></div>
+  <div class="info-row"><span class="label">Atención</span><span class="value">Lic. Santiago Rodríguez — Gerente</span></div>
+  <div class="info-row"><span class="label">Emisor</span><span class="value">iathings</span></div>
+  <div class="info-row"><span class="label">Validez</span><span class="value">15 días calendario</span></div>
+
+  <h2>Solicitud</h2>
+  <p>Se solicita la modificación del sistema de control interno <strong>EMPSAAT</strong> para soportar <strong>carnets con extensión</strong> en la facturación (formato Bolivia, ej. 7474483-1B), que actualmente el sistema no admite.</p>
+
+  <h2>Alcance</h2>
+  <ul>
+    <li><strong>Sistema de control interno EMPSAAT:</strong> el campo de carnet pasará a aceptar el formato con extensión (ej. 7474483-1B) con su validación.</li>
+    <li><strong>Base de datos SQL Server:</strong> se modificará el esquema para almacenar la extensión del carnet sin afectar los datos existentes.</li>
+    <li><strong>Comunicación con la API de facturación (Factugest):</strong> se adecuará el envío del carnet con extensión para generar la factura correctamente.</li>
+    <li><strong>Compilación nueva:</strong> se generará la versión actualizada del sistema de control interno y del sistema de facturación.</li>
+  </ul>
+
+  <h2>Entregables</h2>
+
+  <table>
+    <thead>
+      <tr><th>Entregable</th><th>Importe</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Modificación del código del sistema de control interno EMPSAAT para soportar carnets con extensión</td><td>Bs 350</td></tr>
+      <tr><td>Modificación del esquema de la base de datos SQL Server para soportar extensiones de carnet</td><td>Bs 120</td></tr>
+      <tr><td>Adecuación de la comunicación con la API de facturación (Factugest)</td><td>Bs 230</td></tr>
+      <tr><td>Compilación nueva del sistema de control interno y del sistema de facturación + puesta en producción</td><td>Bs 150</td></tr>
+      <tr class="total"><td>Total (facturado)</td><td>Bs 850</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Condiciones</h2>
+  <div class="terms">
+    <p><strong>Forma de pago:</strong> Pago único <strong>contra entrega</strong> (llave en mano). Se entrega el sistema funcionando y se cancela contra conformidad. Total: Bs 850 (facturado).</p>
+    <p><strong>Plazo de entrega:</strong> 5 días hábiles a partir de la firma y anticipo.</p>
+    <p><strong>Soporte:</strong> Incluye 30 días de soporte post-entrega.</p>
+    <p><strong>Capacitación:</strong> Incluye una sesión breve de verificación con el personal de caja/recaudación al finalizar la implementación.</p>
+  </div>
+
+  <div class="signature-row">
+    <div class="signature-line">Firma iathings</div>
+    <div class="signature-line">Firma Cliente</div>
+  </div>
+
+  <div class="footer">
+    <p><strong>iathings</strong> — Tecnología que impulsa tu negocio</p>
+    <p>Sucre, Bolivia</p>
+    <p style="margin-top:8px;color:#0e7490;font-weight:600;">Ing. Francisco Ochoa Gonzales</p>
+  </div>
+
+</div>
+
+</body>
+</html>

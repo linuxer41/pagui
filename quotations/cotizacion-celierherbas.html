@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Factugest — Celier Herbas</title>
+<style>
+  @page { margin: 1.5cm; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', 'Courier New', monospace;
+    color: #1e293b; background: #f8f9fa; line-height: 1.7;
+    padding: 40px 20px;
+  }
+  .page {
+    max-width: 850px; margin: 0 auto; background: #fff;
+    padding: 50px 60px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .page { box-shadow: none; padding: 0; max-width: 100%; }
+    @page { margin: 1.2cm; }
+  }
+
+  h1 {
+    font-size: 20px; color: #0f3b5e; font-weight: 700;
+    letter-spacing: 0.5px; margin-bottom: 4px;
+  }
+  h2 {
+    font-size: 15px; color: #0f3b5e; font-weight: 700;
+    margin: 28px 0 12px; padding-bottom: 6px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  h3 {
+    font-size: 13px; color: #0f3b5e; font-weight: 600;
+    margin: 16px 0 8px;
+  }
+  p, li { font-size: 12.5px; color: #334155; }
+  p { margin-bottom: 8px; }
+  ul { padding-left: 20px; margin: 6px 0 12px; }
+  li { margin-bottom: 3px; }
+
+  .header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding-bottom: 20px; border-bottom: 2px solid #0f3b5e; margin-bottom: 24px;
+  }
+  .header-left h1 { font-size: 22px; }
+  .header-right { text-align: right; font-size: 12px; color: #64748b; }
+  .header-right p { font-size: 12px; color: #64748b; margin: 1px 0; }
+  .doc-id { color: #0f3b5e; font-weight: 700; }
+
+  .meta {
+    background: #f8fafc; padding: 12px 16px; margin-bottom: 20px;
+    font-size: 12px; border: 1px solid #e2e8f0; border-radius: 4px;
+  }
+  .meta span { display: inline-block; margin-right: 30px; }
+  .meta .label { color: #64748b; }
+  .meta .val { color: #1e293b; font-weight: 600; }
+
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  th, td {
+    padding: 8px 12px; text-align: left; font-size: 12px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  th {
+    background: #f1f5f9; color: #0f3b5e; font-weight: 600;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
+  }
+  td:last-child, th:last-child { text-align: right; width: 100px; }
+  .total td { font-weight: 700; color: #0f3b5e; border-top: 2px solid #0f3b5e; border-bottom: none; }
+
+  .code-block {
+    background: #1e293b; color: #e2e8f0; padding: 12px 16px;
+    border-radius: 4px; font-size: 11.5px; line-height: 1.6;
+    margin: 8px 0 16px; overflow-x: auto; font-family: inherit;
+  }
+  .code-block .comment { color: #94a3b8; }
+  .code-block .keyword { color: #93c5fd; }
+  .code-block .string { color: #86efac; }
+  .code-block .method { color: #fde68a; }
+
+  .spec-grid {
+    display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0;
+  }
+  .spec-item {
+    flex: 1 1 calc(50% - 12px); min-width: 180px;
+    padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0;
+    border-radius: 4px;
+  }
+  .spec-item h4 { font-size: 12px; color: #0f3b5e; margin-bottom: 2px; }
+  .spec-item p { font-size: 11px; margin: 0; color: #64748b; }
+
+  .endpoint {
+    font-family: inherit; font-size: 12px; padding: 6px 0;
+  }
+  .endpoint .method {
+    display: inline-block; padding: 1px 6px; border-radius: 2px;
+    font-weight: 700; font-size: 10px; margin-right: 6px;
+  }
+  .endpoint .method.post { background: #dcfce7; color: #15803d; }
+  .endpoint .method.get { background: #dbeafe; color: #1d4ed8; }
+  .endpoint .method.put { background: #fef3c7; color: #b45309; }
+  .endpoint .path { color: #334155; font-weight: 600; }
+  .endpoint .desc { color: #64748b; font-size: 11px; margin-left: 8px; }
+
+  .footer {
+    margin-top: 32px; padding-top: 16px;
+    border-top: 1px solid #e2e8f0;
+    text-align: center; color: #94a3b8; font-size: 11px;
+  }
+  .footer p { margin: 1px 0; font-size: 11px; color: #94a3b8; }
+
+  .signature-row { display: flex; justify-content: space-between; margin-top: 40px; }
+  .signature-line {
+    width: 200px; border-top: 1px solid #1e293b; padding-top: 6px;
+    font-size: 11px; color: #64748b; text-align: center;
+  }
+
+  hr { border: none; border-top: 1px dashed #e2e8f0; margin: 20px 0; }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="header">
+    <div class="header-left">
+      <h1>Factugest API</h1>
+      <p style="color:#64748b;font-size:12px;margin:0;">Facturación Electrónica — Autorizado por Impuestos Nacionales</p>
+    </div>
+    <div class="header-right">
+      <p class="doc-id">ITG-2026-CH-001</p>
+      <p>Versión: 1.0</p>
+      <p>17 de agosto de 2026</p>
+    </div>
+  </div>
+
+  <div class="meta">
+    <span><span class="label">Cliente:</span> <span class="val">Celier Herbas</span></span>
+    <span><span class="label">Contacto:</span> <span class="val">Celier Herbas</span></span>
+  </div>
+
+  <h2>Resumen Técnico</h2>
+  <p>Factugest es una <strong>API REST</strong> de facturación electrónica autorizada por Impuestos Nacionales. Está diseñada para que sistemas externos puedan emitir, anular y consultar facturas mediante llamadas HTTP estándar, sin necesidad de implementar la lógica de contingencia, validación ni comunicación con el ente tributario.</p>
+
+  <h2>Recursos de la API</h2>
+  <div class="endpoint"><span class="method post">POST</span><span class="path">/api/v1/factura/emitir</span><span class="desc">Emite una factura electrónica (contingencia automática si SIN está caído)</span></div>
+  <div class="endpoint"><span class="method post">POST</span><span class="path">/api/v1/factura/anular</span><span class="desc">Anula una factura existente por CUF</span></div>
+  <div class="endpoint"><span class="method get">GET</span><span class="path">/api/v1/factura/:cuf</span><span class="desc">Consulta estado y datos de una factura</span></div>
+  <div class="endpoint"><span class="method get">GET</span><span class="path">/api/v1/factura/pendientes</span><span class="desc">Lista facturas pendientes de validación</span></div>
+  <div class="endpoint"><span class="method post">POST</span><span class="path">/api/v1/empresa/config</span><span class="desc">Actualiza configuración del emisor</span></div>
+  <div class="endpoint"><span class="method post">POST</span><span class="path">/api/v1/firma/subir</span><span class="desc">Sube firma digital (archivo .p12)</span></div>
+
+  <h2>Autenticación</h2>
+  <p>API Key vía header <code>X-API-Key: [tu_api_key]</code>. Las credenciales se entregan al momento de la activación del NIT.</p>
+
+  <div class="code-block">
+<span class="comment">// Ejemplo: emitir factura (PHP)</span>
+$client = new \GuzzleHttp\Client();
+$response = $client->post('https://api.factugest.bo/v1/factura/emitir', [
+    'headers' =&gt; ['X-API-Key' =&gt; $apiKey],
+    'json' =&gt; [
+        'nitEmisor'     =&gt; '123456789',
+        'cuf'           =&gt; '...',
+        'montoTotal'    =&gt; 1200.00,
+        'detalle'       =&gt; [/* ... */]
+    ]
+]);
+  </div>
+
+  <div class="code-block">
+<span class="comment">// Ejemplo: emitir factura (JavaScript/Node)</span>
+<span class="keyword">const</span> response = <span class="keyword">await</span> fetch(<span class="string">'https://api.factugest.bo/v1/factura/emitir'</span>, {
+  method: <span class="string">'POST'</span>,
+  headers: { <span class="string">'X-API-Key'</span>: <span class="method">${</span>apiKey<span class="method">}</span> },
+  body: JSON.stringify({ nitEmisor, cuf, montoTotal, detalle })
+});
+  </div>
+
+  <h2>Panel de Control</h2>
+  <p>Aplicación de escritorio instalable que permite gestionar la configuración del emisor sin usar la API directamente:</p>
+  <ul>
+    <li>Registro y edición de datos de empresa por NIT</li>
+    <li>Administración de <strong>API Keys</strong> (generar, revocar, renovar)</li>
+    <li>Carga de firma digital (.p12)</li>
+    <li>Validación manual de facturas pendientes</li>
+    <li>Facturación fuera de línea (offline) con sincronización automática al recuperar conexión</li>
+    <li>Visualización de contingencias activas e históricas</li>
+    <li>Exportación de reportes</li>
+  </ul>
+
+  <h2>Manejo de Contingencias</h2>
+  <p>Factugest gestiona automáticamente los siguientes escenarios sin intervención del integrador:</p>
+  <ul>
+    <li><strong>Corte de luz:</strong> La cola de facturas se reanuda al restaurar el servicio</li>
+    <li><strong>Caída de internet:</strong> Las facturas se almacenan localmente y se sincronizan al recuperar conexión</li>
+    <li><strong>Caída del SIN (Impuestos Nacionales):</strong> Se activa modalidad contingente automática; las facturas se validan cuando el SIN retorna</li>
+    <li><strong>Corte de línea telefónica:</strong> Sin efecto — la comunicación es vía internet</li>
+  </ul>
+
+  <hr>
+
+  <h2>Estructura de Costos</h2>
+  <p>En Impuestos Nacionales, cada NIT tiene una <strong>sucursal 0</strong> (casa matriz). El costo base cubre el NIT completo <strong>incluyendo la sucursal 0</strong>. Las sucursales adicionales (1, 2, 3...) tienen un recargo del 30% sobre el base.</p>
+
+  <table>
+    <thead>
+      <tr><th>Concepto</th><th>Mensual</th><th>Anual (×11)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Licencia API por NIT (incluye sucursal 0)</td><td>Bs 120</td><td>Bs 1.320</td></tr>
+      <tr><td>Sucursal adicional — recargo 30% sobre base</td><td>Bs 36</td><td>Bs 396</td></tr>
+    </tbody>
+  </table>
+
+  <div class="code-block">
+<span class="comment">// Cálculo de ejemplo (anual)</span>
+const nitBase = 120 * 11;        <span class="comment">// Bs 1.320/año por NIT</span>
+const sucursalExtra = 36 * 11;   <span class="comment">// Bs 396/año por sucursal extra</span>
+<span class="keyword">function</span> total(nits, sucursalesExtras) {
+  <span class="keyword">return</span> (nits * nitBase) + (sucursalesExtras * sucursalExtra);
+}
+total(<span class="string">1</span>, <span class="string">0</span>); <span class="comment">// => Bs 1.320/año</span>
+  </div>
+
+  <h3>Escenarios comunes (anual)</h3>
+  <table>
+    <thead>
+      <tr><th>Escenario</th><th>NITs</th><th>Suc. extra</th><th>Mensual</th><th>Anual</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Empresa sin sucursales (solo sucursal 0)</td><td>1</td><td>0</td><td>Bs 120</td><td>Bs 1.320</td></tr>
+      <tr><td>1 NIT + 1 sucursal adicional</td><td>1</td><td>1</td><td>Bs 156</td><td>Bs 1.716</td></tr>
+      <tr><td>1 NIT + 2 sucursales adicionales</td><td>1</td><td>2</td><td>Bs 192</td><td>Bs 2.112</td></tr>
+      <tr><td>1 NIT + 3 sucursales adicionales</td><td>1</td><td>3</td><td>Bs 228</td><td>Bs 2.508</td></tr>
+      <tr><td>2 NITs (sin sucursales extra)</td><td>2</td><td>0</td><td>Bs 240</td><td>Bs 2.640</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Condiciones</h2>
+  <div class="spec-grid">
+    <div class="spec-item">
+      <h4>Licencia</h4>
+      <p>Anual por NIT. Incluye acceso a API, panel de control y actualizaciones normativas.</p>
+    </div>
+    <div class="spec-item">
+      <h4>Sucursales</h4>
+      <p>Cada sucursal adicional tiene un recargo del 30% sobre el costo base del NIT (Bs 36).</p>
+    </div>
+    <div class="spec-item">
+      <h4>Integración</h4>
+      <p>El integrador implementa usando la documentación y ejemplos provistos. Soporte técnico incluido para dudas sobre la API.</p>
+    </div>
+    <div class="spec-item">
+      <h4>Actualizaciones</h4>
+      <p>Cambios normativos de Impuestos Nacionales se actualizan automáticamente sin costo adicional.</p>
+    </div>
+  </div>
+
+  <div class="signature-row">
+    <div class="signature-line">Firma iathings</div>
+    <div class="signature-line">Firma Cliente</div>
+  </div>
+
+  <div class="footer">
+    <p><strong>iathings</strong> · Factugest · Facturación Electrónica Autorizada por Impuestos Nacionales</p>
+    <p>Sucre, Bolivia · Ing. Francisco Ochoa Gonzales</p>
+  </div>
+
+</div>
+
+</body>
+</html>

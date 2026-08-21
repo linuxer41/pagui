@@ -160,6 +160,8 @@ curl -X GET "http://localhost:3001/qr/2412271016000000001/status" \
 ```
 
 > El cobro está **confirmado** cuando `status === "used"` y existe un `payment` con `status === "completed"`.
+>
+> 🔄 **Estado en vivo:** este endpoint consulta el estado en Baneco antes de responder, así que si el pago ya se hizo pero la sincronización aún no lo había detectado, aquí se refleja al momento (el QR pasa a `used` y aparece el `payment`).
 
 ---
 
@@ -172,7 +174,7 @@ curl -X GET "http://localhost:3001/qr/2412271016000000001" \
   -H "X-API-Key: pg_..."
 ```
 
-Devuelve los datos del QR sin historial de pagos. **404** si no existe.
+Devuelve los datos del QR junto con el historial de pagos (también consulta Baneco en vivo). **404** si no existe.
 
 ---
 

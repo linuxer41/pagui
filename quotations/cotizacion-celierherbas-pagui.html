@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pagui API — Celier Herbas</title>
+<style>
+  @page { margin: 1.5cm; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', 'Courier New', monospace;
+    color: #1e293b; background: #f8f9fa; line-height: 1.7;
+    padding: 40px 20px;
+  }
+  .page {
+    max-width: 850px; margin: 0 auto; background: #fff;
+    padding: 50px 60px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .page { box-shadow: none; padding: 0; max-width: 100%; }
+    @page { margin: 1.2cm; }
+  }
+
+  h1 {
+    font-size: 20px; color: #0f3b5e; font-weight: 700;
+    letter-spacing: 0.5px; margin-bottom: 4px;
+  }
+  h2 {
+    font-size: 15px; color: #0f3b5e; font-weight: 700;
+    margin: 28px 0 12px; padding-bottom: 6px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  h3 {
+    font-size: 13px; color: #0f3b5e; font-weight: 600;
+    margin: 16px 0 8px;
+  }
+  p, li { font-size: 12.5px; color: #334155; }
+  p { margin-bottom: 8px; }
+  ul { padding-left: 20px; margin: 6px 0 12px; }
+  li { margin-bottom: 3px; }
+
+  .header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding-bottom: 20px; border-bottom: 2px solid #0f3b5e; margin-bottom: 24px;
+  }
+  .header-left h1 { font-size: 22px; }
+  .header-right { text-align: right; font-size: 12px; color: #64748b; }
+  .header-right p { font-size: 12px; color: #64748b; margin: 1px 0; }
+  .doc-id { color: #0f3b5e; font-weight: 700; }
+
+  .meta {
+    background: #f8fafc; padding: 12px 16px; margin-bottom: 20px;
+    font-size: 12px; border: 1px solid #e2e8f0; border-radius: 4px;
+  }
+  .meta span { display: inline-block; margin-right: 30px; }
+  .meta .label { color: #64748b; }
+  .meta .val { color: #1e293b; font-weight: 600; }
+
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  th, td {
+    padding: 8px 12px; text-align: left; font-size: 12px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  th {
+    background: #f1f5f9; color: #0f3b5e; font-weight: 600;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
+  }
+  td:last-child, th:last-child { text-align: right; width: 100px; }
+  .total td { font-weight: 700; color: #0f3b5e; border-top: 2px solid #0f3b5e; border-bottom: none; }
+
+  .code-block {
+    background: #1e293b; color: #e2e8f0; padding: 12px 16px;
+    border-radius: 4px; font-size: 11.5px; line-height: 1.6;
+    margin: 8px 0 16px; overflow-x: auto; font-family: inherit;
+  }
+  .code-block .comment { color: #94a3b8; }
+  .code-block .keyword { color: #93c5fd; }
+  .code-block .string { color: #86efac; }
+  .code-block .method { color: #fde68a; }
+
+  .spec-grid {
+    display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0;
+  }
+  .spec-item {
+    flex: 1 1 calc(50% - 12px); min-width: 180px;
+    padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0;
+    border-radius: 4px;
+  }
+  .spec-item h4 { font-size: 12px; color: #0f3b5e; margin-bottom: 2px; }
+  .spec-item p { font-size: 11px; margin: 0; color: #64748b; }
+
+  .endpoint {
+    font-family: inherit; font-size: 12px; padding: 6px 0;
+  }
+  .endpoint .method {
+    display: inline-block; padding: 1px 6px; border-radius: 2px;
+    font-weight: 700; font-size: 10px; margin-right: 6px;
+  }
+  .endpoint .method.post { background: #dcfce7; color: #15803d; }
+  .endpoint .method.get { background: #dbeafe; color: #1d4ed8; }
+  .endpoint .method.put { background: #fef3c7; color: #b45309; }
+  .endpoint .path { color: #334155; font-weight: 600; }
+  .endpoint .desc { color: #64748b; font-size: 11px; margin-left: 8px; }
+
+  .footer {
+    margin-top: 32px; padding-top: 16px;
+    border-top: 1px solid #e2e8f0;
+    text-align: center; color: #94a3b8; font-size: 11px;
+  }
+  .footer p { margin: 1px 0; font-size: 11px; color: #94a3b8; }
+
+  .signature-row { display: flex; justify-content: space-between; margin-top: 40px; }
+  .signature-line {
+    width: 200px; border-top: 1px solid #1e293b; padding-top: 6px;
+    font-size: 11px; color: #64748b; text-align: center;
+  }
+
+  hr { border: none; border-top: 1px dashed #e2e8f0; margin: 20px 0; }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="header">
+    <div class="header-left">
+      <h1>Pagui API</h1>
+      <p style="color:#64748b;font-size:12px;margin:0;">Conexión Bancaria — Respaldado por Banco Económico</p>
+    </div>
+    <div class="header-right">
+      <p class="doc-id">ITG-2026-CH-002</p>
+      <p>Versión: 1.0</p>
+      <p>17 de agosto de 2026</p>
+    </div>
+  </div>
+
+  <div class="meta">
+    <span><span class="label">Cliente:</span> <span class="val">Celier Herbas</span></span>
+    <span><span class="label">Contacto:</span> <span class="val">Celier Herbas</span></span>
+  </div>
+
+  <h2>Resumen Técnico</h2>
+  <p>Pagui es una <strong>API REST</strong> de conexión bancaria directa, respaldada por <strong>Banco Económico</strong>. Está diseñada para que <strong>desarrolladores</strong> integren cobros y pagos en sus propios sistemas mediante llamadas HTTP estándar, sin necesidad de implementar la conexión con el banco, el hardware de encriptación ni el cumplimiento de las normas ISO del sistema bancario.</p>
+
+  <h2>Recursos de la API</h2>
+  <div class="endpoint"><span class="method post">POST</span><span class="path">/auth/login</span><span class="desc">Autenticación de usuario (email + contraseña)</span></div>
+  <div class="endpoint"><span class="method post">POST</span><span class="path">/transfers/p2p</span><span class="desc">Transferencia P2P (idempotente + validación de fraude)</span></div>
+  <div class="endpoint"><span class="method post">POST</span><span class="path">/wallets</span><span class="desc">Consulta de saldo y movimientos de billetera</span></div>
+  <div class="endpoint"><span class="method post">POST</span><span class="path">/qr/crear</span><span class="desc">Genera código QR de cobro dinámico</span></div>
+  <div class="endpoint"><span class="method post">POST</span><span class="path">/merchants/pay</span><span class="desc">Pago a comercio mediante Pagui</span></div>
+  <div class="endpoint"><span class="method post">POST</span><span class="path">/subscriptions</span><span class="desc">Crea suscripción recurrente (diaria/semanal/mensual/anual)</span></div>
+  <div class="endpoint"><span class="method post">POST</span><span class="path">/split/pay</span><span class="desc">Pago compartido múltiple entre participantes</span></div>
+  <div class="endpoint"><span class="method post">POST</span><span class="path">/nfc/prepare</span><span class="desc">Prepara pago NFC sin conexión (offline)</span></div>
+
+  <h2>Autenticación</h2>
+  <p>Autenticación con <strong>JWT</strong> (obtenido en <code>POST /auth/login</code>) más <strong>API Key</strong> vía header <code>X-API-Key: [tu_api_key]</code>. Las credenciales se entregan al momento de la activación.</p>
+
+  <div class="code-block">
+<span class="comment">// Ejemplo: cobrar con QR (JavaScript/Node)</span>
+<span class="keyword">const</span> token = <span class="keyword">await</span> login({ email, password });
+<span class="keyword">const</span> qr = <span class="keyword">await</span> fetch(<span class="string">'https://api.pagui.bo/qr/crear'</span>, {
+  method: <span class="string">'POST'</span>,
+  headers: {
+    <span class="string">'Authorization'</span>: <span class="method">`Bearer ${</span>token<span class="method">}`</span>,
+    <span class="string">'X-API-Key'</span>: apiKey
+  },
+  body: JSON.stringify({ monto: 250.00, concepto: <span class="string">'Pago de servicio'</span> })
+});
+  </div>
+
+  <div class="code-block">
+<span class="comment">// Ejemplo: transferencia P2P (PHP)</span>
+$response = $client->post('https://api.pagui.bo/transfers/p2p', [
+    'headers' =&gt; [
+        'Authorization' =&gt; "Bearer {$token}",
+        'X-API-Key'     =&gt; $apiKey,
+        'Idempotency-Key' =&gt; uniqid()
+    ],
+    'json' =&gt; [
+        'monto'         =&gt; 100.00,
+        'cuentaDestino' =&gt; '1234567890'
+    ]
+]);
+  </div>
+
+  <h2>Seguridad y Cumplimiento</h2>
+  <ul>
+    <li><strong>Cifrado AES-256</strong> para datos sensibles (seed phrases, llaves biométricas)</li>
+    <li><strong>Idempotencia</strong> en operaciones (header <code>Idempotency-Key</code>): evita duplicados</li>
+    <li><strong>Validación de fraude</strong> (velocidad, monto, hora, dispositivo) previa a cada operación</li>
+    <li><strong>Hardware de encriptación</strong> y cumplimiento de <strong>normas ISO</strong> exigidas por el sistema bancario</li>
+    <li><strong>WebSockets</strong> con autenticación JWT para notificaciones en tiempo real</li>
+  </ul>
+
+  <h2>Panel de Control</h2>
+  <ul>
+    <li>Administración de <strong>API Keys</strong> (generar, revocar, renovar)</li>
+    <li>Configuración de cuentas bancarias y credenciales del banco</li>
+    <li>Visualización de operaciones, movimientos y comisiones generadas</li>
+    <li>Reportes exportables</li>
+  </ul>
+
+  <hr>
+
+  <h2>Estructura de Costos</h2>
+  <p>La activación es un <strong>pago único</strong> por el alta del NIT/empresa. La comisión del <strong>0.1%</strong> se cobra solo por operaciones procesadas, <strong>no se descuenta del dinero en tránsito</strong> y se factura al cierre de cada mes.</p>
+
+  <table>
+    <thead>
+      <tr><th>Concepto</th><th>Importe</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Activación e integración de la API (pago único)</td><td>Bs 600</td></tr>
+      <tr><td>Comisión por transacción procesada</td><td>0.1%</td></tr>
+    </tbody>
+  </table>
+
+  <div class="code-block">
+<span class="comment">// Ejemplo de comisión mensual (0.1%)</span>
+<span class="keyword">function</span> comision(montoProcesado) {
+  <span class="keyword">return</span> montoProcesado * 0.001;
+}
+comision(<span class="string">10000</span>); <span class="comment">// Bs 10.000 procesados => Bs 10 de comisión</span>
+  </div>
+
+  <h2>Condiciones</h2>
+  <div class="spec-grid">
+    <div class="spec-item">
+      <h4>Activación</h4>
+      <p>Pago único de Bs 600. Incluye alta del emisor, entrega de credenciales (JWT + API Key) y acceso a documentación.</p>
+    </div>
+    <div class="spec-item">
+      <h4>Comisión</h4>
+      <p>0.1% por operación procesada. No se descuenta del dinero en tránsito; se factura al final de cada mes mediante nota de débito.</p>
+    </div>
+    <div class="spec-item">
+      <h4>Integración</h4>
+      <p>El desarrollador implementa usando la documentación y ejemplos provistos. Soporte técnico incluido para dudas sobre la API.</p>
+    </div>
+    <div class="spec-item">
+      <h4>Sin costos fijos</h4>
+      <p>No hay tarifas fijas mensuales ni tarifas ocultas. El banco no cobra ninguna comisión.</p>
+    </div>
+  </div>
+
+  <div class="signature-row">
+    <div class="signature-line">Firma iathings</div>
+    <div class="signature-line">Firma Cliente</div>
+  </div>
+
+  <div class="footer">
+    <p><strong>iathings</strong> · Pagui · Conexión Bancaria Respaldada por Banco Económico</p>
+    <p>Sucre, Bolivia · Ing. Francisco Ochoa Gonzales</p>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -38,9 +38,9 @@ export const publicQrRoutes = new Elysia({ prefix: '/qr' })
   })
 
   .get('/:qrId', async ({ params }) => {
-    const qr = await qrService.getDetails(params.qrId)
-    if (!qr) throw new AppError(404, 'QR no encontrado')
-    return ok(qr)
+    const result = await qrService.checkStatus(params.qrId)
+    if (!result) throw new AppError(404, 'QR no encontrado')
+    return ok(result)
   }, {
     detail: { tags: ['Public QR'], summary: 'Detalle QR (API key)' },
   })
@@ -48,10 +48,9 @@ export const publicQrRoutes = new Elysia({ prefix: '/qr' })
   .get('/:qrId/status', async ({ params, auth }: any) => {
     const permissions = auth.apiKeyInfo.permissions
     if (!permissions.qr_status) throw new AppError(403, 'API key no tiene permiso qr_status')
-    const qr = await qrService.getDetails(params.qrId)
-    if (!qr) throw new AppError(404, 'QR no encontrado')
-    const payments = await qrService.getPayments(params.qrId)
-    return ok({ ...qr, payments }, 'Estado del QR verificado')
+    const result = await qrService.checkStatus(params.qrId)
+    if (!result) throw new AppError(404, 'QR no encontrado')
+    return ok(result, 'Estado del QR verificado')
   }, {
     detail: { tags: ['Public QR'], summary: 'Estado QR (API key)' },
   })

@@ -50872,7 +50872,7 @@ var notifService = {
 init_pool();
 init_wallet_repository();
 init_logger();
-var paymentSyncService = {
+var paymentSyncService2 = {
   async syncQRStatus(qrId) {
     const qr = await qrRepository.getByQrId(qrId);
     if (!qr || qr.status === "used" || qr.status === "cancelled")
@@ -50983,7 +50983,7 @@ var paymentQueueService = {
       clearTimeout(existing.timer);
     const interval = getInterval(attempts);
     const timer = setTimeout(async () => {
-      const { changed } = await paymentSyncService.syncQRStatus(qrId);
+      const { changed } = await paymentSyncService2.syncQRStatus(qrId);
       const nextAttempts = attempts + 1;
       if (!changed && nextAttempts < MAX_ATTEMPTS) {
         this.scheduleNext(qrId, nextAttempts);
@@ -51108,6 +51108,15 @@ var qrService = {
   },
   async getPayments(qrId) {
     return qrRepository.getPayments(qrId);
+  },
+  async checkStatus(qrId) {
+    const qr = await qrRepository.getByQrId(qrId);
+    if (!qr)
+      return null;
+    const { changed } = await paymentSyncService.syncQRStatus(qrId);
+    const freshQr = await qrRepository.getByQrId(qrId);
+    const payments = await qrRepository.getPayments(qrId);
+    return { ...freshQr, payments, synced: changed };
   },
   async cancel(qrId) {
     const qr = await qrRepository.getByQrId(qrId);
@@ -51292,11 +51301,10 @@ var qrRoutes = new Elysia({ prefix: "/qr" }).post("/generate", async ({ body, au
 }, {
   detail: { tags: ["QR"], summary: "Obtener detalle de QR" }
 }).get("/:qrId/status", async ({ params }) => {
-  const qr = await qrService.getDetails(params.qrId);
-  if (!qr)
+  const result = await qrService.checkStatus(params.qrId);
+  if (!result)
     throw new AppError2(404, "QR no encontrado");
-  const payments = await qrService.getPayments(params.qrId);
-  return ok({ ...qr, payments }, "Estado del QR verificado");
+  return ok(result, "Estado del QR verificado");
 }, {
   detail: { tags: ["QR"], summary: "Verificar estado de QR" }
 }).get("/:qrId/payments", async ({ params }) => {
@@ -52258,11 +52266,10 @@ var publicQrRoutes = new Elysia({ prefix: "/qr" }).derive(authMiddleware({ type:
   const permissions = auth.apiKeyInfo.permissions;
   if (!permissions.qr_status)
     throw new AppError2(403, "API key no tiene permiso qr_status");
-  const qr = await qrService.getDetails(params.qrId);
-  if (!qr)
+  const result = await qrService.checkStatus(params.qrId);
+  if (!result)
     throw new AppError2(404, "QR no encontrado");
-  const payments = await qrService.getPayments(params.qrId);
-  return ok({ ...qr, payments }, "Estado del QR verificado");
+  return ok(result, "Estado del QR verificado");
 }, {
   detail: { tags: ["Public QR"], summary: "Estado QR (API key)" }
 }).get("/:qrId/payments", async ({ params }) => {

@@ -33,18 +33,17 @@ export const qrRoutes = new Elysia({ prefix: '/qr' })
   })
 
   .get('/:qrId', async ({ params }) => {
-    const qr = await qrService.getDetails(params.qrId)
-    if (!qr) throw new AppError(404, 'QR no encontrado')
-    return ok(qr)
+    const result = await qrService.checkStatus(params.qrId)
+    if (!result) throw new AppError(404, 'QR no encontrado')
+    return ok(result)
   }, {
     detail: { tags: ['QR'], summary: 'Obtener detalle de QR' },
   })
 
   .get('/:qrId/status', async ({ params }) => {
-    const qr = await qrService.getDetails(params.qrId)
-    if (!qr) throw new AppError(404, 'QR no encontrado')
-    const payments = await qrService.getPayments(params.qrId)
-    return ok({ ...qr, payments }, 'Estado del QR verificado')
+    const result = await qrService.checkStatus(params.qrId)
+    if (!result) throw new AppError(404, 'QR no encontrado')
+    return ok(result, 'Estado del QR verificado')
   }, {
     detail: { tags: ['QR'], summary: 'Verificar estado de QR' },
   })

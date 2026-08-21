@@ -81,6 +81,18 @@ export const qrService = {
     return qrRepository.getPayments(qrId)
   },
 
+  // Consulta el estado en Baneco en vivo y luego devuelve el QR actualizado + pagos.
+  // Reemplaza al endpoint de status "tonto" que solo leía la DB y no detectaba pagos.
+  async checkStatus(qrId: string) {
+    const qr = await qrRepository.getByQrId(qrId)
+    if (!qr) return null
+
+    const { changed } = await paymentSyncService.syncQRStatus(qrId)
+    const freshQr = await qrRepository.getByQrId(qrId)
+    const payments = await qrRepository.getPayments(qrId)
+    return { ...freshQr, payments, synced: changed }
+  },
+
   async cancel(qrId: string): Promise<void> {
     const qr = await qrRepository.getByQrId(qrId)
     if (!qr) throw new AppError(404, 'QR no encontrado')

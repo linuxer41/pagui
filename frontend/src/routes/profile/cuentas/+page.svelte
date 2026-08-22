@@ -59,16 +59,16 @@
   .eye-btn { width: 36px; height: 36px; border-radius: var(--radius-full); border: none; background: rgba(var(--surface-rgb), 1); color: rgba(var(--text-secondary-rgb), 1); display: flex; align-items: center; justify-content: center; cursor: pointer; }
   .eye-btn:active { opacity: 0.7; }
   .list { display: flex; flex-direction: column; gap: var(--space-3); }
-  .card { background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.08) 0%, #1a1a1a 60%); border-radius: var(--radius-xl); padding: var(--space-5); color: #fff; position: relative; overflow: hidden; }
-  .card.prime { background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.35) 0%, #1a1a1a 60%); }
+  .card { background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.08) 0%, rgba(var(--surface-rgb), 1) 60%); border-radius: var(--radius-xl); padding: var(--space-5); color: rgba(var(--text-primary-rgb), 1); position: relative; overflow: hidden; }
+  .card.prime { background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.35) 0%, rgba(var(--surface-rgb), 1) 60%); }
   .card.prime::before { content: ''; position: absolute; top: -40%; right: -20%; width: 180px; height: 180px; border-radius: 50%; background: rgba(var(--primary-rgb), 0.12); }
   .card.prime::after { content: 'Principal'; position: absolute; top: var(--space-3); right: var(--space-3); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--primary); background: rgba(var(--primary-rgb), 0.2); padding: 2px 8px; border-radius: var(--radius-full); z-index: 1; }
   .card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4); position: relative; z-index: 1; }
-  .card-badge { display: flex; align-items: center; gap: 4px; font-size: var(--text-xs); font-weight: 600; color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.08); padding: 4px 10px; border-radius: var(--radius-full); }
+  .card-badge { display: flex; align-items: center; gap: 4px; font-size: var(--text-xs); font-weight: 600; color: rgba(var(--text-secondary-rgb), 1); background: rgba(var(--text-primary-rgb), 0.08); padding: 4px 10px; border-radius: var(--radius-full); }
   .card-badge.biz { background: rgba(var(--primary-rgb), 0.25); color: var(--primary); }
-  .card-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.15); flex-shrink: 0; }
-  .card-dot.on { background: #4ade80; box-shadow: 0 0 6px rgba(74,222,128,0.5); }
+  .card-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(var(--border-rgb), 0.6); flex-shrink: 0; }
+  .card-dot.on { background: rgba(var(--success-rgb), 1); box-shadow: 0 0 6px rgba(var(--success-rgb), 0.5); }
   .card-body { position: relative; z-index: 1; }
-  .card-number { font-size: var(--text-xs); font-family: var(--font-mono); color: rgba(255,255,255,0.35); margin-bottom: var(--space-1); }
+  .card-number { font-size: var(--text-xs); font-family: var(--font-mono); color: rgba(var(--text-primary-rgb), 0.35); margin-bottom: var(--space-1); }
   .card-bal { font-size: var(--text-2xl); font-weight: 800; font-family: var(--font-mono); letter-spacing: -0.5px; }
 </style>

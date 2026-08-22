@@ -1,6 +1,7 @@
 :root {
   /* ── Lunaris Design Tokens ── */
   --primary: #FF8400;
+  --primary-dark: #CC6A00;
   --primary-foreground: #111111;
   --background: #111111;
   --foreground: #FFFFFF;
@@ -75,6 +76,7 @@
 
 html[data-theme="light"] {
   --primary: #FF8400;
+  --primary-dark: #CC6A00;
   --primary-foreground: #111111;
   --background: #EDEEEA;
   --foreground: #111111;

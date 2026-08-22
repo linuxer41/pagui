@@ -230,7 +230,7 @@
   .card-number { font-size: var(--text-lg); font-family: var(--font-mono, monospace); color: rgba(255,255,255,0.9); letter-spacing: 4px; font-weight: 600; word-spacing: 8px; }
   .copy-btn { background: rgba(255,255,255,0.12); border: none; border-radius: 6px; padding: 4px 8px; color: rgba(255,255,255,0.7); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; flex-shrink: 0; }
   .copy-btn:active { background: rgba(255,255,255,0.2); }
-  .copy-ok { font-size: 10px; font-weight: 600; color: #4ade80; white-space: nowrap; }
+  .copy-ok { font-size: 10px; font-weight: 600; color: rgba(var(--success-rgb), 1); white-space: nowrap; }
   .card-bottom-row { display: flex; align-items: flex-end; gap: var(--space-6); margin-top: var(--space-2); flex: 1; }
   .card-field { display: flex; flex-direction: column; gap: 1px; }
   .card-field.right { margin-left: auto; text-align: right; }

@@ -128,13 +128,13 @@
     z-index: 200;
     padding: 2px 10px;
     border-radius: 20px;
-    background: #f97316;
-    color: #fff;
+    background: var(--primary);
+    color: var(--primary-foreground);
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.5px;
     text-transform: uppercase;
     line-height: 1.5;
-    box-shadow: 0 2px 8px rgba(249, 115, 22, 0.4);
+    box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.4);
   }
 </style>

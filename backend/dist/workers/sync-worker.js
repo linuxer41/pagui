@@ -12918,7 +12918,7 @@ init_pool();
 function normalizeEnv(env) {
   return env === "prod" || env === "production" ? "prod" : "sandbox";
 }
-function buildFromEnv(env = normalizeEnv(process.env.BANECO_ENVIRONMENT)) {
+function buildFromEnv(env = normalizeEnv(process.env.BANECO_ENVIRONMENT || "prod")) {
   const prefix = env === "prod" ? "BANECO_PROD" : "BANECO_SANDBOX";
   const get = (key) => {
     const val = process.env[key];
@@ -13144,7 +13144,7 @@ var paymentSyncService = {
     const qr = await qrRepository.getByQrId(qrId);
     if (!qr || qr.status === "used" || qr.status === "cancelled")
       return { changed: false };
-    const cred = await resolveCredentials(qr.banecoCredentialId, qr.banecoEnvironment);
+    const cred = await resolveCredentials(qr.banecoCredentialId, qr.banecoEnvironment || "prod");
     try {
       const adapter = new BanecoAdapter(cred.api_base_url, cred.encryption_key);
       const token = await adapter.getToken(cred.username, cred.password);

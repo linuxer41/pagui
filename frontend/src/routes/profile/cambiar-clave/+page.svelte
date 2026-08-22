@@ -103,12 +103,12 @@
     width: 80px;
     height: 80px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--primary), #CC6A00);
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
     color: white;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 10px rgba(58, 102, 255, 0.2);
+    box-shadow: 0 4px 10px rgba(var(--primary-rgb), 0.2);
   }
 
   .form-card {

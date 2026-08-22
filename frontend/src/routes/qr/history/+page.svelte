@@ -354,7 +354,7 @@ import PageLayout from '$lib/components/layouts/PageLayout.svelte';
   
   .status-warning {
     background-color: rgba(255, 175, 0, 0.1);
-    color: #ff9800;
+    color: rgba(var(--warning-rgb), 1);
   }
   
   .status-error {
@@ -386,7 +386,7 @@ import PageLayout from '$lib/components/layouts/PageLayout.svelte';
   }
   
   .view-button:hover {
-    background: #CC6A00;
+    background: var(--primary-dark);
     transform: scale(1.05);
   }
   
@@ -409,7 +409,7 @@ import PageLayout from '$lib/components/layouts/PageLayout.svelte';
   }
   
   .load-more-button:hover:not(:disabled) {
-    background: #CC6A00;
+    background: var(--primary-dark);
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
@@ -486,7 +486,7 @@ import PageLayout from '$lib/components/layouts/PageLayout.svelte';
   }
   
   .retry-button:hover {
-    background: #CC6A00;
+    background: var(--primary-dark);
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
@@ -527,7 +527,7 @@ import PageLayout from '$lib/components/layouts/PageLayout.svelte';
   }
   
   .generate-button:hover {
-    background: #CC6A00;
+    background: var(--primary-dark);
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }

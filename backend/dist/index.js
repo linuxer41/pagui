@@ -50579,7 +50579,7 @@ init_pool();
 function normalizeEnv(env3) {
   return env3 === "prod" || env3 === "production" ? "prod" : "sandbox";
 }
-function buildFromEnv(env3 = normalizeEnv(process.env.BANECO_ENVIRONMENT)) {
+function buildFromEnv(env3 = normalizeEnv(process.env.BANECO_ENVIRONMENT || "prod")) {
   const prefix = env3 === "prod" ? "BANECO_PROD" : "BANECO_SANDBOX";
   const get = (key) => {
     const val = process.env[key];
@@ -50883,7 +50883,7 @@ var paymentSyncService2 = {
     const qr = await qrRepository.getByQrId(qrId);
     if (!qr || qr.status === "used" || qr.status === "cancelled")
       return { changed: false };
-    const cred = await resolveCredentials(qr.banecoCredentialId, qr.banecoEnvironment);
+    const cred = await resolveCredentials(qr.banecoCredentialId, qr.banecoEnvironment || "prod");
     try {
       const adapter = new BanecoAdapter(cred.api_base_url, cred.encryption_key);
       const token = await adapter.getToken(cred.username, cred.password);
@@ -51073,7 +51073,7 @@ var qrService = {
     }
     const cc = await query(`SELECT baneco_credential_id FROM collection_config WHERE wallet_id = $1 AND is_active = true AND deleted_at IS NULL LIMIT 1`, [targetWallet.id]);
     const bcid = cc.rowCount ? cc.rows[0].baneco_credential_id : null;
-    const cred = await resolveCredentials(bcid);
+    const cred = await resolveCredentials(bcid, bcid ? undefined : "prod");
     const adapter = new BanecoAdapter(cred.api_base_url, cred.encryption_key);
     const token = await adapter.getToken(cred.username, cred.password);
     const transactionId = data.transactionId ? String(data.transactionId) : `TXN${Date.now()}${Math.random().toString(36).slice(2, 8)}`.toUpperCase();

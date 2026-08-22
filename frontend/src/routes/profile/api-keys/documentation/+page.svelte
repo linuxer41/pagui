@@ -529,17 +529,17 @@ data = response.json()`;
   }
 
   .method.post {
-    background: #10b981;
+    background: rgba(var(--success-rgb), 1);
     color: white;
   }
 
   .method.get {
-    background: #3b82f6;
+    background: rgba(var(--info-rgb), 1);
     color: white;
   }
 
   .method.delete {
-    background: #ef4444;
+    background: rgba(var(--error-rgb), 1);
     color: white;
   }
 
@@ -651,7 +651,7 @@ data = response.json()`;
   }
 
   .copy-button:hover {
-    background: #CC6A00;
+    background: var(--primary-dark);
   }
 
   .code-block pre {

@@ -171,10 +171,10 @@ export const collectionRoutes = new Elysia()
       await client.query(`
         INSERT INTO wallets (id, wallet_number, name, type, level, currency, balance,
           available_balance, held_balance, tenant_id, status, is_default, is_collection,
-          baneco_credential_id, created_at, updated_at)
+          created_at, updated_at)
         VALUES ($1, $2, $3, 'standard', 'bronze', 'BOB', 0, 0, 0,
-          $4, 'active', false, true, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      `, [walletId, `400${credId.toString().slice(-9)}`, 'Recaudaciones', tenantId, credId])
+          $4, 'active', false, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `, [walletId, `400${credId.toString().slice(-9)}`, 'Recaudaciones', tenantId])
 
       const ut = await client.query(
         'SELECT user_id FROM tenant_users WHERE tenant_id = $1 AND deleted_at IS NULL LIMIT 1',

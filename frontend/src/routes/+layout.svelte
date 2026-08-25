@@ -4,6 +4,7 @@
   import { browser } from '$app/environment';
   import Toast from '$lib/components/Toast.svelte';
   import NotificationToast from '$lib/components/NotificationToast.svelte';
+  import TitleBar from '$lib/components/TitleBar.svelte';
   import { theme, type Theme } from '$lib/stores/theme';
   import { onMount } from 'svelte';
   import '../app.css';
@@ -49,6 +50,7 @@
   });
 </script>
 
+<TitleBar />
 <Toast />
 <NotificationToast />
 

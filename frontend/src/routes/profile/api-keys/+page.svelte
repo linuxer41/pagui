@@ -6,6 +6,7 @@
   import { Calendar, Clock, Copy, Eye, EyeOff, Key, PlusCircle, Trash2, AlertCircle, Receipt, Check, X, FileText } from '@lucide/svelte'
   import WalletInfo from '$lib/components/composite/WalletInfo.svelte'
   import IconButton from '$lib/components/ui/IconButton.svelte'
+  import Checkbox from '$lib/components/Checkbox.svelte'
 
   let wallet: any = $state(null)
   let hasWallet = $state<boolean | null>(null)
@@ -17,6 +18,9 @@
 
   let showCreate = $state(false)
   let newKeyName = $state('')
+  let permGenerate = $state(true)
+  let permStatus = $state(true)
+  let permCancel = $state(false)
   let creating = $state(false)
   let newKeyResult: any = $state(null)
   let showKeyValue = $state(false)
@@ -56,7 +60,7 @@
       const res = await api.generateApiKey({
         walletId: String(wallet.id),
         description: newKeyName.trim(),
-        permissions: { qr_generate: true, qr_status: true, qr_cancel: false },
+        permissions: { qr_generate: permGenerate, qr_status: permStatus, qr_cancel: permCancel },
       })
       if (res.success) {
         newKeyResult = res.data
@@ -64,6 +68,7 @@
         copied = false
         newKeyName = ''
         showCreate = false
+        resetPerms()
         loadKeys()
       } else {
         error = res.message || 'Error al crear API key'
@@ -71,6 +76,14 @@
     } catch (e: any) { error = e.message }
     finally { creating = false }
   }
+
+  function resetPerms() {
+    permGenerate = true
+    permStatus = true
+    permCancel = false
+  }
+
+  const hasAnyPerm = $derived(permGenerate || permStatus || permCancel)
 
   async function deleteKey(id: number) {
     try {
@@ -170,7 +183,24 @@
           <label class="field-label">Nombre descriptivo</label>
           <input class="field-input" type="text" bind:value={newKeyName} placeholder="Ej: Integración POS" />
         </div>
-        <button class="cta-btn" onclick={createKey} disabled={!newKeyName.trim() || creating}>
+        <div class="field">
+          <label class="field-label">Permisos</label>
+          <div class="perm-list">
+            <Checkbox id="perm-generate" bind:checked={permGenerate} label="Generar QR">
+              <span class="perm-desc">Crear códigos QR de cobro</span>
+            </Checkbox>
+            <Checkbox id="perm-status" bind:checked={permStatus} label="Consultar estado">
+              <span class="perm-desc">Ver el estado de pagos y QR</span>
+            </Checkbox>
+            <Checkbox id="perm-cancel" bind:checked={permCancel} label="Cancelar QR">
+              <span class="perm-desc">Anular códigos QR pendientes</span>
+            </Checkbox>
+          </div>
+        </div>
+        {#if !hasAnyPerm}
+          <p class="perm-warning"><AlertCircle size={14} />Selecciona al menos un permiso</p>
+        {/if}
+        <button class="cta-btn" onclick={createKey} disabled={!newKeyName.trim() || !hasAnyPerm || creating}>
           {creating ? 'Creando...' : 'Generar API key'}
         </button>
       </div>
@@ -267,6 +297,9 @@
   .field-label { font-size: var(--text-sm); font-weight: 600; color: rgba(var(--text-primary-rgb), 1); }
   .field-input { padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); border: 1px solid rgba(var(--border-rgb), 0.3); background: rgba(var(--bg-rgb), 1); color: rgba(var(--text-primary-rgb), 1); font-size: var(--text-sm); outline: none; }
   .field-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.15); }
+  .perm-list { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3); background: rgba(var(--bg-rgb), 1); border-radius: var(--radius-lg); border: 1px solid rgba(var(--border-rgb), 0.3); }
+  .perm-desc { display: block; font-size: var(--text-xs); color: rgba(var(--text-tertiary-rgb), 1); margin-top: 2px; }
+  .perm-warning { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); color: rgba(245,158,11,1); margin: 0; }
 
   .empty-state { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); padding: var(--space-8); color: var(--muted-foreground); text-align: center; }
   .empty-state span:first-of-type { font-weight: 600; color: rgba(var(--text-secondary-rgb), 1); }

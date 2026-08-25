@@ -11,7 +11,9 @@
   .auth-shell {
     display: flex;
     flex-direction: column;
-    min-height: 100dvh;
+    height: calc(100dvh - var(--titlebar-height));
+    overflow-y: auto;
+    overscroll-behavior: contain;
     max-width: 480px;
     margin: 0 auto;
     background: rgba(var(--bg-rgb), 1);

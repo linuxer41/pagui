@@ -13,8 +13,12 @@
     "windows": [
       {
         "title": "Pagui",
-        "width": 800,
-        "height": 600
+        "width": 405,
+        "height": 720,
+        "resizable": false,
+        "decorations": false,
+        "visible": false,
+        "center": true
       }
     ],
     "security": {

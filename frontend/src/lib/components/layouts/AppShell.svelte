@@ -67,8 +67,8 @@
   .app-shell {
     display: flex;
     flex-direction: column;
-    min-height: 100dvh;
-    max-height: 100dvh;
+    height: calc(100dvh - var(--titlebar-height));
+    /* overflow: hidden; */
     max-width: 480px;
     margin: 0 auto;
     position: relative;
@@ -81,6 +81,9 @@
     flex: 1;
     display: flex;
     flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
   }
   .app-main.has-nav {
     padding-bottom: var(--safe-bottom, 0px)
@@ -123,7 +126,7 @@
 
   .env-badge {
     position: fixed;
-    top: calc(var(--safe-top, 0px) + 8px);
+    top: calc(var(--safe-top, 0px) + var(--titlebar-height) + 8px);
     right: 8px;
     z-index: 200;
     padding: 2px 10px;

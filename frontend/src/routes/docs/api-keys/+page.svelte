@@ -1,6 +1,8 @@
 <script lang="ts">
   import PageLayout from '$lib/components/layouts/PageLayout.svelte';
   import { Key, Shield, Link, ExternalLink } from '@lucide/svelte';
+
+  const publicApiUrl = import.meta.env.VITE_PUBLIC_API_URL || 'https://api.pagui.com:3001';
 </script>
 
 <PageLayout title="Documentación: API Keys">

@@ -70,6 +70,9 @@
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 
+  /* ── Barra de ventana (solo desktop Tauri) ── */
+  --titlebar-height: 0px;
+
   /* ── Transiciones ── */
   --duration-fast: 150ms; --duration-normal: 250ms;
 }
@@ -124,6 +127,13 @@ body {
 }
 
 input, textarea, select, button { font-family: inherit; }
+
+/* Desktop shell: sin scroll de documento, solo scroll interno */
+html.is-desktop-shell,
+html.is-desktop-shell body {
+  height: 100%;
+  overflow: hidden;
+}
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

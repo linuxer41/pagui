@@ -8,6 +8,7 @@ import { logger } from '../../shared/logger'
 import { eventBus } from '../events/event-bus'
 import { notifService } from '../notification/notif.service'
 import { paymentQueueService } from '../sync/payment-queue.service'
+import { paymentSyncService } from '../sync/payment-sync.service'
 import { query } from '../../shared/database/pool'
 
 function defaultDueDate(days = 30): string {

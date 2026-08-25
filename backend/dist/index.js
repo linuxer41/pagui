@@ -50878,7 +50878,7 @@ var notifService = {
 init_pool();
 init_wallet_repository();
 init_logger();
-var paymentSyncService2 = {
+var paymentSyncService = {
   async syncQRStatus(qrId) {
     const qr = await qrRepository.getByQrId(qrId);
     if (!qr || qr.status === "used" || qr.status === "cancelled")
@@ -50989,7 +50989,7 @@ var paymentQueueService = {
       clearTimeout(existing.timer);
     const interval = getInterval(attempts);
     const timer = setTimeout(async () => {
-      const { changed } = await paymentSyncService2.syncQRStatus(qrId);
+      const { changed } = await paymentSyncService.syncQRStatus(qrId);
       const nextAttempts = attempts + 1;
       if (!changed && nextAttempts < MAX_ATTEMPTS) {
         this.scheduleNext(qrId, nextAttempts);

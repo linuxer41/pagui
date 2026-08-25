@@ -20,7 +20,7 @@
   let newKeyName = $state('')
   let permGenerate = $state(true)
   let permStatus = $state(true)
-  let permCancel = $state(false)
+  let permCancel = $state(true)
   let creating = $state(false)
   let newKeyResult: any = $state(null)
   let showKeyValue = $state(false)
@@ -80,7 +80,7 @@
   function resetPerms() {
     permGenerate = true
     permStatus = true
-    permCancel = false
+    permCancel = true
   }
 
   const hasAnyPerm = $derived(permGenerate || permStatus || permCancel)

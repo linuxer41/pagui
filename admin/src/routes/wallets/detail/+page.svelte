@@ -189,11 +189,17 @@
     <div class="stat-card">
       <div class="stat-label">Nombre</div>
       <div class="stat-value" style="font-size:18px">{wallet.name}</div>
+      {#if wallet.isCollection}<div style="margin-top:6px"><span class="badge" style="background:{wallet.collectionType==='direct' ? 'rgba(16,185,129,0.15);color:#059669' : 'rgba(99,102,241,0.1);color:var(--primary)'}">{wallet.collectionType==='direct' ? 'Directo · cuenta propia' : 'Gateway Pagui'}</span></div>{/if}
     </div>
     <div class="stat-card">
       <div class="stat-label">Saldo</div>
-      <div class="stat-value">Bs {fmt(wallet.balance)}</div>
-      <div class="stat-sub">Disponible: Bs {fmt(wallet.availableBalance)}</div>
+      {#if wallet.isCollection && wallet.collectionType==='direct'}
+        <div class="stat-value" style="color:var(--text-tertiary)">Bs 0,00</div>
+        <div class="stat-sub" style="color:#059669">Directo — fondos a banco propio, solo comisión</div>
+      {:else}
+        <div class="stat-value">Bs {fmt(wallet.balanceDisplay ?? wallet.balance)}</div>
+        <div class="stat-sub">Disponible: Bs {fmt(wallet.availableBalance)}</div>
+      {/if}
     </div>
     <div class="stat-card">
       <div class="stat-label">Estado</div>

@@ -28,6 +28,8 @@
     { href: '/tenants', label: 'Clientes' },
     { href: '/wallets', label: 'Billeteras' },
     { href: '/transactions', label: 'Transacciones' },
+    { href: '/recaudaciones', label: 'Recaudaciones' },
+    { href: '/api-keys', label: 'API Keys' },
   ]
 </script>
 

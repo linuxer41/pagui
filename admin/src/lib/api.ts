@@ -69,6 +69,26 @@ class AdminApiClient extends BaseApiClient {
   revokeWalletPermission(id: string, userId: string): Promise<ApiResponse<any>> { return this.delete(`/admin/wallets/${id}/permissions/${userId}`, {}) }
   listTransactions(params?: string): Promise<ApiResponse<any>> { return this.get(`/admin/transactions${params ? `?${params}` : ''}`) }
   getTransaction(id: string): Promise<ApiResponse<any>> { return this.get(`/admin/transactions/${id}`, {}) }
+
+  // Recaudaciones por empresa / mes
+  listRecaudaciones(params?: string): Promise<ApiResponse<any>> { return this.get(`/admin/recaudaciones${params ? `?${params}` : ''}`) }
+  getRecaudacionesDetail(tenantId: string, params?: string): Promise<ApiResponse<any>> { return this.get(`/admin/recaudaciones/${tenantId}${params ? `?${params}` : ''}`) }
+  getDebitNote(tenantId: string, params?: string): Promise<ApiResponse<any>> { return this.get(`/admin/recaudaciones/${tenantId}/debit-note${params ? `?${params}` : ''}`) }
+  toggleRecaudacionDiscount(tenantId: string, data: { enabled: boolean; threshold?: number; discountRate?: number; baseRate?: number }): Promise<ApiResponse<any>> { return this.put(`/admin/recaudaciones/${tenantId}/discount`, data) }
+  listApiKeys(params?: string): Promise<ApiResponse<any>> { return this.get(`/admin/api-keys${params ? `?${params}` : ''}`) }
+  getApiKey(id: string): Promise<ApiResponse<any>> { return this.get(`/admin/api-keys/${id}`) }
+  createApiKey(data: Record<string, unknown>): Promise<ApiResponse<any>> { return this.post('/admin/api-keys', data) }
+  revokeApiKey(id: string): Promise<ApiResponse<any>> { return this.delete(`/admin/api-keys/${id}`) }
+  async getDebitNotePdf(tenantId: string, params?: string): Promise<Blob> {
+    const token = get(auth).token
+    const url = `${API_URL}/admin/recaudaciones/${tenantId}/debit-note/pdf${params ? `?${params}` : ''}`
+    const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+    if (!res.ok) {
+      const txt = await res.text()
+      throw new Error(txt || `Error ${res.status}`)
+    }
+    return await res.blob()
+  }
 }
 
 const api = new AdminApiClient()

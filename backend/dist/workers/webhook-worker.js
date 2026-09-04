@@ -9518,36 +9518,31 @@ var init_app_error = __esm(() => {
   };
 });
 
-// src/payments/webhooks/webhook.service.ts
-init_pool();
-init_snowflake();
-init_logger();
-init_app_error();
-import { createHmac } from "node:crypto";
-
 // src/api-keys/apikey.repository.ts
-init_pool();
-init_snowflake();
-var apikeyRepository = {
-  async create(data) {
-    const r = await query(`
+var apikeyRepository;
+var init_apikey_repository = __esm(() => {
+  init_pool();
+  init_snowflake();
+  apikeyRepository = {
+    async create(data) {
+      const r = await query(`
       INSERT INTO api_keys (id, api_key, wallet_id, description, permissions, expires_at, status)
       VALUES ($1, $2, $3, $4, $5, $6, 'active')
       RETURNING id, api_key as "apiKey", wallet_id as "walletId",
                 description, permissions, expires_at as "expiresAt",
                 status, created_at as "createdAt", updated_at as "updatedAt"
     `, [
-      nextSnowflake(),
-      data.apiKey,
-      data.walletId,
-      data.description || null,
-      JSON.stringify(data.permissions),
-      data.expiresAt ? new Date(data.expiresAt) : null
-    ]);
-    return r.rows[0];
-  },
-  async findByKey(apiKey) {
-    const r = await query(`
+        nextSnowflake(),
+        data.apiKey,
+        data.walletId,
+        data.description || null,
+        JSON.stringify(data.permissions),
+        data.expiresAt ? new Date(data.expiresAt) : null
+      ]);
+      return r.rows[0];
+    },
+    async findByKey(apiKey) {
+      const r = await query(`
       SELECT ak.id, ak.api_key as "apiKey", ak.wallet_id as "walletId",
              ak.description, ak.permissions, ak.expires_at as "expiresAt",
              ak.status, ak.created_at as "createdAt", ak.updated_at as "updatedAt"
@@ -9555,36 +9550,43 @@ var apikeyRepository = {
       INNER JOIN wallets w ON ak.wallet_id = w.id
       WHERE ak.api_key = $1 AND ak.deleted_at IS NULL
     `, [apiKey]);
-    return r.rowCount ? r.rows[0] : null;
-  },
-  async listByWallet(walletId) {
-    const r = await query(`
+      return r.rowCount ? r.rows[0] : null;
+    },
+    async listByWallet(walletId) {
+      const r = await query(`
       SELECT id, api_key as "apiKey", wallet_id as "walletId",
              description, permissions, expires_at as "expiresAt",
              status, created_at as "createdAt", updated_at as "updatedAt"
       FROM api_keys WHERE wallet_id = $1 AND deleted_at IS NULL
       AND status = 'active' ORDER BY created_at DESC
     `, [walletId]);
-    return r.rows;
-  },
-  async getById(id) {
-    const r = await query(`
+      return r.rows;
+    },
+    async getById(id) {
+      const r = await query(`
       SELECT id, api_key as "apiKey", wallet_id as "walletId",
              description, permissions, expires_at as "expiresAt",
              status, created_at as "createdAt", updated_at as "updatedAt"
       FROM api_keys WHERE id = $1 AND deleted_at IS NULL
     `, [id]);
-    return r.rowCount ? r.rows[0] : null;
-  },
-  async revoke(id) {
-    await query("UPDATE api_keys SET status = 'REVOKED', updated_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
-  },
-  async markExpired(id) {
-    await query("UPDATE api_keys SET status = 'EXPIRED', updated_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
-  }
-};
+      return r.rowCount ? r.rows[0] : null;
+    },
+    async revoke(id) {
+      await query("UPDATE api_keys SET status = 'REVOKED', updated_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
+    },
+    async markExpired(id) {
+      await query("UPDATE api_keys SET status = 'EXPIRED', updated_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
+    }
+  };
+});
 
 // src/payments/webhooks/webhook.service.ts
+init_pool();
+init_snowflake();
+init_logger();
+init_app_error();
+init_apikey_repository();
+import { createHmac } from "node:crypto";
 var webhookProcessorStartedAt = null;
 var lastWebhookRunAt = null;
 var lastWebhookProcessedCount = 0;

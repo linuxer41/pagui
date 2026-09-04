@@ -69,9 +69,9 @@
         {#each wallets as w}
           <tr>
             <td><a href="/wallets/detail?id={w.id}" style="color:var(--primary);text-decoration:none;font-weight:600;cursor:pointer">{w.walletNumber}</a></td>
-            <td>{w.name}</td>
+            <td>{w.name} {#if w.isCollection}<span class="badge" style="background:{w.collectionType==='direct' ? 'rgba(16,185,129,0.12);color:#059669' : 'rgba(99,102,241,0.1);color:var(--primary)'};margin-left:6px">{w.collectionType==='direct' ? 'Directo' : 'Gateway'}</span>{/if}</td>
             <td><span class="badge" style="background:rgba(var(--primary-rgb),0.1);color:var(--primary)">{w.type}</span></td>
-            <td>Bs {fmt(w.balance)}</td>
+            <td>{#if w.isCollection && w.collectionType==='direct'}<span style="color:var(--text-tertiary)">Bs 0,00</span> <span style="font-size:10px;color:#059669">· directo</span>{:else}Bs {fmt(w.balance)}{/if}</td>
             <td style="font-size:12px">
               {#if w.tenantId && w.tenantName}
                 <a href="/tenants/detail?id={w.tenantId}" style="color:var(--primary);text-decoration:none">{w.tenantName}</a>

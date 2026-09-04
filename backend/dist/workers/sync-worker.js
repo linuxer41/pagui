@@ -9728,6 +9728,148 @@ var init_wallet_repository = __esm(() => {
   };
 });
 
+// src/payments/qr/qr.repository.ts
+var qrRepository;
+var init_qr_repository = __esm(() => {
+  init_pool();
+  init_snowflake();
+  qrRepository = {
+    async create(data) {
+      const r = await query(`
+      INSERT INTO qr_codes (id, qr_id, transaction_id, wallet_id, baneco_credential_id, baneco_environment, user_id,
+        amount, currency, description, due_date, qr_image, single_use, modify_amount)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+      RETURNING id, qr_id as "qrId", transaction_id as "transactionId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", baneco_environment as "banecoEnvironment",
+        user_id as "userId",
+        amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
+        single_use as "singleUse", modify_amount as "modifyAmount",
+        status,
+        created_at as "createdAt", updated_at as "updatedAt"
+    `, [
+        nextSnowflake(),
+        data.qrId,
+        data.transactionId,
+        data.walletId,
+        data.banecoCredentialId || null,
+        data.banecoEnvironment || null,
+        data.userId || null,
+        data.amount,
+        data.currency || "BOB",
+        data.description || null,
+        data.dueDate,
+        data.qrImage || null,
+        data.singleUse !== false,
+        data.modifyAmount === true
+      ]);
+      return r.rows[0];
+    },
+    async getByQrId(qrId) {
+      const r = await query(`
+      SELECT id, qr_id as "qrId", transaction_id as "transactionId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", baneco_environment as "banecoEnvironment", user_id as "userId",
+        amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
+        single_use as "singleUse", modify_amount as "modifyAmount",
+        status,
+        created_at as "createdAt", updated_at as "updatedAt"
+      FROM qr_codes WHERE qr_id = $1 AND deleted_at IS NULL
+    `, [qrId]);
+      return r.rowCount ? r.rows[0] : null;
+    },
+    async getById(id) {
+      const r = await query(`
+      SELECT id, qr_id as "qrId", transaction_id as "transactionId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", baneco_environment as "banecoEnvironment", user_id as "userId",
+        amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
+        single_use as "singleUse", modify_amount as "modifyAmount",
+        status,
+        created_at as "createdAt", updated_at as "updatedAt"
+      FROM qr_codes WHERE id = $1 AND deleted_at IS NULL
+    `, [id]);
+      return r.rowCount ? r.rows[0] : null;
+    },
+    async listByAccount(walletId, filters = {}) {
+      const page = filters.page || 1;
+      const limit = filters.limit || 20;
+      const offset = (page - 1) * limit;
+      const conditions = ["wallet_id = $1", "deleted_at IS NULL"];
+      const params = [walletId];
+      let pc = 1;
+      if (filters.status) {
+        pc++;
+        conditions.push(`status = $${pc}`);
+        params.push(filters.status);
+      }
+      if (filters.from) {
+        pc++;
+        conditions.push(`created_at >= $${pc}`);
+        params.push(filters.from);
+      }
+      if (filters.to) {
+        pc++;
+        conditions.push(`created_at <= $${pc}`);
+        params.push(filters.to);
+      }
+      const where = "WHERE " + conditions.join(" AND ");
+      const c = await query(`SELECT COUNT(*) as t FROM qr_codes ${where}`, params);
+      const r = await query(`
+      SELECT id, qr_id as "qrId", transaction_id as "transactionId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", baneco_environment as "banecoEnvironment", user_id as "userId",
+        amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
+        single_use as "singleUse", modify_amount as "modifyAmount",
+        status,
+        created_at as "createdAt", updated_at as "updatedAt"
+      FROM qr_codes ${where} ORDER BY created_at DESC LIMIT $${pc + 1} OFFSET $${pc + 2}
+    `, [...params, limit, offset]);
+      return { qrs: r.rows, totalCount: parseInt(c.rows[0].t) };
+    },
+    async listByUser(userId, filters = {}) {
+      const page = filters.page || 1;
+      const limit = filters.limit || 20;
+      const offset = (page - 1) * limit;
+      const conditions = ["user_id = $1", "deleted_at IS NULL"];
+      const params = [userId];
+      let pc = 1;
+      if (filters.status) {
+        pc++;
+        conditions.push(`status = $${pc}`);
+        params.push(filters.status);
+      }
+      const where = "WHERE " + conditions.join(" AND ");
+      const c = await query(`SELECT COUNT(*) as t FROM qr_codes ${where}`, params);
+      const r = await query(`
+      SELECT id, qr_id as "qrId", transaction_id as "transactionId",
+        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", baneco_environment as "banecoEnvironment", user_id as "userId",
+        amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
+        single_use as "singleUse", modify_amount as "modifyAmount",
+        status,
+        created_at as "createdAt", updated_at as "updatedAt"
+      FROM qr_codes ${where} ORDER BY created_at DESC LIMIT $${pc + 1} OFFSET $${pc + 2}
+    `, [...params, limit, offset]);
+      return { qrs: r.rows, totalCount: parseInt(c.rows[0].t) };
+    },
+    async listActive() {
+      const r = await query(`
+      SELECT qr_id as "qrId" FROM qr_codes
+      WHERE status = 'active' AND deleted_at IS NULL
+    `);
+      return r.rows.map((row) => row.qrId);
+    },
+    async updateStatus(qrId, status) {
+      await query("UPDATE qr_codes SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE qr_id = $2", [status, qrId]);
+    },
+    async updateQrImage(qrId, qrImage) {
+      await query("UPDATE qr_codes SET qr_image = $1, updated_at = CURRENT_TIMESTAMP WHERE qr_id = $2", [qrImage, qrId]);
+    },
+    async getPayments(qrId) {
+      const r = await query(`
+      SELECT * FROM wallet_movements WHERE qr_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC
+    `, [qrId]);
+      return r.rows;
+    }
+  };
+});
+
 // node_modules/webidl-conversions/lib/index.js
 var require_lib3 = __commonJS((exports, module) => {
   var conversions = {};
@@ -12624,200 +12766,7 @@ var init_app_error = __esm(() => {
   };
 });
 
-// src/identity/wallet-permission/wallet-permission.repository.ts
-var walletPermissionRepository;
-var init_wallet_permission_repository = __esm(() => {
-  init_pool();
-  walletPermissionRepository = {
-    async upsert(userId, walletId, role = "owner") {
-      await query(`
-      INSERT INTO wallet_permissions (user_id, wallet_id, role)
-      VALUES ($1, $2, $3)
-      ON CONFLICT (user_id, wallet_id) DO UPDATE SET role = $3, deleted_at = NULL
-    `, [userId, walletId, role]);
-    },
-    async listByUser(userId) {
-      const r = await query(`
-      SELECT wp.user_id as "userId", wp.wallet_id as "walletId", wp.role,
-        wp.created_at as "createdAt",
-        w.id as "id", w.name, w.type, w.level, w.currency,
-        w.balance, w.available_balance as "availableBalance",
-        w.held_balance as "heldBalance", w.wallet_number as "walletNumber",
-        w.tenant_id as "tenantId", w.status, w.is_default as "isDefault",
-        w.is_collection as "isCollection",
-        t.full_name as "holderName"
-      FROM wallet_permissions wp
-      JOIN wallets w ON w.id = wp.wallet_id
-      LEFT JOIN tenants t ON t.id = w.tenant_id
-      WHERE wp.user_id = $1 AND wp.deleted_at IS NULL AND w.deleted_at IS NULL AND (t.id IS NULL OR t.deleted_at IS NULL)
-      ORDER BY wp.role ASC
-    `, [userId]);
-      return r.rows;
-    },
-    async listByWallet(walletId) {
-      const r = await query(`
-      SELECT user_id as "userId", wallet_id as "walletId", role,
-        created_at as "createdAt"
-      FROM wallet_permissions WHERE wallet_id = $1 AND deleted_at IS NULL
-    `, [walletId]);
-      return r.rows;
-    },
-    async remove(userId, walletId) {
-      await query(`
-      UPDATE wallet_permissions SET deleted_at = CURRENT_TIMESTAMP
-      WHERE user_id = $1 AND wallet_id = $2
-    `, [userId, walletId]);
-    }
-  };
-});
-
-// src/payments/sync/payment-sync.service.ts
-init_pool();
-init_wallet_repository();
-
-// src/payments/qr/qr.repository.ts
-init_pool();
-init_snowflake();
-var qrRepository = {
-  async create(data) {
-    const r = await query(`
-      INSERT INTO qr_codes (id, qr_id, transaction_id, wallet_id, baneco_credential_id, baneco_environment, user_id,
-        amount, currency, description, due_date, qr_image, single_use, modify_amount)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
-      RETURNING id, qr_id as "qrId", transaction_id as "transactionId",
-        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", baneco_environment as "banecoEnvironment",
-        user_id as "userId",
-        amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
-        single_use as "singleUse", modify_amount as "modifyAmount",
-        status,
-        created_at as "createdAt", updated_at as "updatedAt"
-    `, [
-      nextSnowflake(),
-      data.qrId,
-      data.transactionId,
-      data.walletId,
-      data.banecoCredentialId || null,
-      data.banecoEnvironment || null,
-      data.userId || null,
-      data.amount,
-      data.currency || "BOB",
-      data.description || null,
-      data.dueDate,
-      data.qrImage || null,
-      data.singleUse !== false,
-      data.modifyAmount === true
-    ]);
-    return r.rows[0];
-  },
-  async getByQrId(qrId) {
-    const r = await query(`
-      SELECT id, qr_id as "qrId", transaction_id as "transactionId",
-        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", baneco_environment as "banecoEnvironment", user_id as "userId",
-        amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
-        single_use as "singleUse", modify_amount as "modifyAmount",
-        status,
-        created_at as "createdAt", updated_at as "updatedAt"
-      FROM qr_codes WHERE qr_id = $1 AND deleted_at IS NULL
-    `, [qrId]);
-    return r.rowCount ? r.rows[0] : null;
-  },
-  async getById(id) {
-    const r = await query(`
-      SELECT id, qr_id as "qrId", transaction_id as "transactionId",
-        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", baneco_environment as "banecoEnvironment", user_id as "userId",
-        amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
-        single_use as "singleUse", modify_amount as "modifyAmount",
-        status,
-        created_at as "createdAt", updated_at as "updatedAt"
-      FROM qr_codes WHERE id = $1 AND deleted_at IS NULL
-    `, [id]);
-    return r.rowCount ? r.rows[0] : null;
-  },
-  async listByAccount(walletId, filters = {}) {
-    const page = filters.page || 1;
-    const limit = filters.limit || 20;
-    const offset = (page - 1) * limit;
-    const conditions = ["wallet_id = $1", "deleted_at IS NULL"];
-    const params = [walletId];
-    let pc = 1;
-    if (filters.status) {
-      pc++;
-      conditions.push(`status = $${pc}`);
-      params.push(filters.status);
-    }
-    if (filters.from) {
-      pc++;
-      conditions.push(`created_at >= $${pc}`);
-      params.push(filters.from);
-    }
-    if (filters.to) {
-      pc++;
-      conditions.push(`created_at <= $${pc}`);
-      params.push(filters.to);
-    }
-    const where = "WHERE " + conditions.join(" AND ");
-    const c = await query(`SELECT COUNT(*) as t FROM qr_codes ${where}`, params);
-    const r = await query(`
-      SELECT id, qr_id as "qrId", transaction_id as "transactionId",
-        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", baneco_environment as "banecoEnvironment", user_id as "userId",
-        amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
-        single_use as "singleUse", modify_amount as "modifyAmount",
-        status,
-        created_at as "createdAt", updated_at as "updatedAt"
-      FROM qr_codes ${where} ORDER BY created_at DESC LIMIT $${pc + 1} OFFSET $${pc + 2}
-    `, [...params, limit, offset]);
-    return { qrs: r.rows, totalCount: parseInt(c.rows[0].t) };
-  },
-  async listByUser(userId, filters = {}) {
-    const page = filters.page || 1;
-    const limit = filters.limit || 20;
-    const offset = (page - 1) * limit;
-    const conditions = ["user_id = $1", "deleted_at IS NULL"];
-    const params = [userId];
-    let pc = 1;
-    if (filters.status) {
-      pc++;
-      conditions.push(`status = $${pc}`);
-      params.push(filters.status);
-    }
-    const where = "WHERE " + conditions.join(" AND ");
-    const c = await query(`SELECT COUNT(*) as t FROM qr_codes ${where}`, params);
-    const r = await query(`
-      SELECT id, qr_id as "qrId", transaction_id as "transactionId",
-        wallet_id as "walletId", baneco_credential_id as "banecoCredentialId", baneco_environment as "banecoEnvironment", user_id as "userId",
-        amount::float8 as "amount", currency, description, due_date as "dueDate", qr_image as "qrImage",
-        single_use as "singleUse", modify_amount as "modifyAmount",
-        status,
-        created_at as "createdAt", updated_at as "updatedAt"
-      FROM qr_codes ${where} ORDER BY created_at DESC LIMIT $${pc + 1} OFFSET $${pc + 2}
-    `, [...params, limit, offset]);
-    return { qrs: r.rows, totalCount: parseInt(c.rows[0].t) };
-  },
-  async listActive() {
-    const r = await query(`
-      SELECT qr_id as "qrId" FROM qr_codes
-      WHERE status = 'active' AND deleted_at IS NULL
-    `);
-    return r.rows.map((row) => row.qrId);
-  },
-  async updateStatus(qrId, status) {
-    await query("UPDATE qr_codes SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE qr_id = $2", [status, qrId]);
-  },
-  async updateQrImage(qrId, qrImage) {
-    await query("UPDATE qr_codes SET qr_image = $1, updated_at = CURRENT_TIMESTAMP WHERE qr_id = $2", [qrImage, qrId]);
-  },
-  async getPayments(qrId) {
-    const r = await query(`
-      SELECT * FROM wallet_movements WHERE qr_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC
-    `, [qrId]);
-    return r.rows;
-  }
-};
-
 // src/banking/integration/baneco.adapter.ts
-init_app_error();
-var import_node_fetch = __toESM(require_lib4(), 1);
-
 class BanecoAdapter {
   apiBaseUrl;
   aesKey;
@@ -12912,9 +12861,13 @@ class BanecoAdapter {
     return data.paymentList || [];
   }
 }
+var import_node_fetch;
+var init_baneco_adapter = __esm(() => {
+  init_app_error();
+  import_node_fetch = __toESM(require_lib4(), 1);
+});
 
 // src/banking/credential/credential-resolver.ts
-init_pool();
 function normalizeEnv(env) {
   return env === "prod" || env === "production" ? "prod" : "sandbox";
 }
@@ -12952,13 +12905,11 @@ async function resolveCredentials(credentialId, environment) {
   }
   return buildFromEnv(normalizeEnv(environment));
 }
-
-// src/payments/sync/payment-sync.service.ts
-init_logger();
+var init_credential_resolver = __esm(() => {
+  init_pool();
+});
 
 // src/payments/events/event-bus.ts
-init_logger();
-
 class EventBus {
   listeners = new Map;
   on(event, fn) {
@@ -12980,43 +12931,47 @@ class EventBus {
     this.listeners.clear();
   }
 }
-var eventBus = new EventBus;
+var eventBus;
+var init_event_bus = __esm(() => {
+  init_logger();
+  eventBus = new EventBus;
+});
 
 // src/payments/notification/notif.repository.ts
-init_pool();
-init_snowflake();
-var notifRepository = {
-  async create(data) {
-    const r = await query(`
+var notifRepository;
+var init_notif_repository = __esm(() => {
+  init_pool();
+  init_snowflake();
+  notifRepository = {
+    async create(data) {
+      const r = await query(`
       INSERT INTO notifications (id, user_id, type, title, body, data)
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
     `, [nextSnowflake(), data.userId, data.type, data.title, data.body || null, data.data ? JSON.stringify(data.data) : null]);
-    return r.rows[0];
-  },
-  async listByUser(userId, limit = 50, offset = 0) {
-    const r = await query(`
+      return r.rows[0];
+    },
+    async listByUser(userId, limit = 50, offset = 0) {
+      const r = await query(`
       SELECT * FROM notifications WHERE user_id = $1
       ORDER BY created_at DESC LIMIT $2 OFFSET $3
     `, [userId, limit, offset]);
-    return r.rows;
-  },
-  async markRead(id) {
-    await query("UPDATE notifications SET is_read = true WHERE id = $1", [id]);
-  },
-  async markAllRead(userId) {
-    await query("UPDATE notifications SET is_read = true WHERE user_id = $1", [userId]);
-  },
-  async countUnread(userId) {
-    const r = await query("SELECT COUNT(*) as c FROM notifications WHERE user_id = $1 AND is_read = false", [userId]);
-    return parseInt(r.rows[0].c);
-  }
-};
+      return r.rows;
+    },
+    async markRead(id) {
+      await query("UPDATE notifications SET is_read = true WHERE id = $1", [id]);
+    },
+    async markAllRead(userId) {
+      await query("UPDATE notifications SET is_read = true WHERE user_id = $1", [userId]);
+    },
+    async countUnread(userId) {
+      const r = await query("SELECT COUNT(*) as c FROM notifications WHERE user_id = $1 AND is_read = false", [userId]);
+      return parseInt(r.rows[0].c);
+    }
+  };
+});
 
 // src/payments/push/push.service.ts
-init_pool();
-init_logger();
-init_app_error();
 async function sendPush(userId, payload) {
   const devices = await query(`SELECT fcm_token, apns_token, platform FROM devices
      WHERE user_id = $1 AND is_active = TRUE
@@ -13104,131 +13059,193 @@ async function generateAPNSToken(keyId, teamId, keyFile) {
   }, "base64");
   return `${teamId}.${keyId}.${token}`;
 }
+var init_push_service = __esm(() => {
+  init_pool();
+  init_logger();
+  init_app_error();
+});
+
+// src/identity/wallet-permission/wallet-permission.repository.ts
+var walletPermissionRepository;
+var init_wallet_permission_repository = __esm(() => {
+  init_pool();
+  walletPermissionRepository = {
+    async upsert(userId, walletId, role = "owner") {
+      await query(`
+      INSERT INTO wallet_permissions (user_id, wallet_id, role)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (user_id, wallet_id) DO UPDATE SET role = $3, deleted_at = NULL
+    `, [userId, walletId, role]);
+    },
+    async listByUser(userId) {
+      const r = await query(`
+      SELECT wp.user_id as "userId", wp.wallet_id as "walletId", wp.role,
+        wp.created_at as "createdAt",
+        w.id as "id", w.name, w.type, w.level, w.currency,
+        w.balance, w.available_balance as "availableBalance",
+        w.held_balance as "heldBalance", w.wallet_number as "walletNumber",
+        w.tenant_id as "tenantId", w.status, w.is_default as "isDefault",
+        w.is_collection as "isCollection",
+        t.full_name as "holderName"
+      FROM wallet_permissions wp
+      JOIN wallets w ON w.id = wp.wallet_id
+      LEFT JOIN tenants t ON t.id = w.tenant_id
+      WHERE wp.user_id = $1 AND wp.deleted_at IS NULL AND w.deleted_at IS NULL AND (t.id IS NULL OR t.deleted_at IS NULL)
+      ORDER BY wp.role ASC
+    `, [userId]);
+      return r.rows;
+    },
+    async listByWallet(walletId) {
+      const r = await query(`
+      SELECT user_id as "userId", wallet_id as "walletId", role,
+        created_at as "createdAt"
+      FROM wallet_permissions WHERE wallet_id = $1 AND deleted_at IS NULL
+    `, [walletId]);
+      return r.rows;
+    },
+    async remove(userId, walletId) {
+      await query(`
+      UPDATE wallet_permissions SET deleted_at = CURRENT_TIMESTAMP
+      WHERE user_id = $1 AND wallet_id = $2
+    `, [userId, walletId]);
+    }
+  };
+});
 
 // src/payments/notification/notif.service.ts
-init_wallet_permission_repository();
-var notifService = {
-  async create(userId, type, title, body, data) {
-    const notification = await notifRepository.create({
-      userId,
-      type,
-      title,
-      body,
-      data
-    });
-    eventBus.emit("notification.created", notification);
-    sendPush(userId, { title, body: body || title }).catch(() => {});
-    return notification;
-  },
-  async creditReceived(userId, amount, description) {
-    return this.create(userId, "balance", "Saldo acreditado", `Has recibido un abono de BOB ${amount.toFixed(2)} por: ${description}`, { amount, description, type: "credit" });
-  },
-  async transferSent(userId, amount, receiverName, transferId) {
-    return this.create(userId, "payment", "Transferencia enviada", `Has enviado BOB ${amount.toFixed(2)} a ${receiverName}`, { amount, receiverName, transferId: String(transferId), type: "transfer_sent" });
-  },
-  async transferReceived(userId, amount, senderName, transferId) {
-    return this.create(userId, "payment", "Transferencia recibida", `Has recibido BOB ${amount.toFixed(2)} de ${senderName}`, { amount, senderName, transferId: String(transferId), type: "transfer_received" });
-  },
-  async qrPaymentReceived(userId, amount, description, qrId, senderName) {
-    return this.create(userId, "payment", "Pago QR recibido", senderName ? `Recibiste BOB ${amount.toFixed(2)} de ${senderName}${description ? ` — ${description}` : ""}` : `Has recibido BOB ${amount.toFixed(2)}${description ? ` por: ${description}` : ""}`, { amount, description, qrId, senderName, type: "qr_payment" });
-  },
-  async getWalletUserIds(walletId) {
-    const permissions = await walletPermissionRepository.listByWallet(walletId);
-    return permissions.map((p) => p.userId);
-  }
-};
+var notifService;
+var init_notif_service = __esm(() => {
+  init_notif_repository();
+  init_event_bus();
+  init_push_service();
+  init_wallet_permission_repository();
+  notifService = {
+    async create(userId, type, title, body, data) {
+      const notification = await notifRepository.create({
+        userId,
+        type,
+        title,
+        body,
+        data
+      });
+      eventBus.emit("notification.created", notification);
+      sendPush(userId, { title, body: body || title }).catch(() => {});
+      return notification;
+    },
+    async creditReceived(userId, amount, description) {
+      return this.create(userId, "balance", "Saldo acreditado", `Has recibido un abono de BOB ${amount.toFixed(2)} por: ${description}`, { amount, description, type: "credit" });
+    },
+    async transferSent(userId, amount, receiverName, transferId) {
+      return this.create(userId, "payment", "Transferencia enviada", `Has enviado BOB ${amount.toFixed(2)} a ${receiverName}`, { amount, receiverName, transferId: String(transferId), type: "transfer_sent" });
+    },
+    async transferReceived(userId, amount, senderName, transferId) {
+      return this.create(userId, "payment", "Transferencia recibida", `Has recibido BOB ${amount.toFixed(2)} de ${senderName}`, { amount, senderName, transferId: String(transferId), type: "transfer_received" });
+    },
+    async qrPaymentReceived(userId, amount, description, qrId, senderName) {
+      return this.create(userId, "payment", "Pago QR recibido", senderName ? `Recibiste BOB ${amount.toFixed(2)} de ${senderName}${description ? ` — ${description}` : ""}` : `Has recibido BOB ${amount.toFixed(2)}${description ? ` por: ${description}` : ""}`, { amount, description, qrId, senderName, type: "qr_payment" });
+    },
+    async getWalletUserIds(walletId) {
+      const permissions = await walletPermissionRepository.listByWallet(walletId);
+      return permissions.map((p) => p.userId);
+    }
+  };
+});
 
 // src/payments/sync/payment-sync.service.ts
-var paymentSyncService = {
-  async syncQRStatus(qrId) {
-    const qr = await qrRepository.getByQrId(qrId);
-    if (!qr || qr.status === "used" || qr.status === "cancelled")
-      return { changed: false };
-    const cred = await resolveCredentials(qr.banecoCredentialId, qr.banecoEnvironment || "prod");
-    try {
-      const adapter = new BanecoAdapter(cred.api_base_url, cred.encryption_key);
-      const token = await adapter.getToken(cred.username, cred.password);
-      const status = await adapter.getQrStatus(token, qrId);
-      if (status.status === "PAID" || status.status === "COMPLETED") {
-        const claim = await query(`UPDATE qr_codes SET status = 'used', updated_at = CURRENT_TIMESTAMP
+var paymentSyncService;
+var init_payment_sync_service = __esm(() => {
+  init_pool();
+  init_wallet_repository();
+  init_qr_repository();
+  init_baneco_adapter();
+  init_credential_resolver();
+  init_logger();
+  init_event_bus();
+  init_notif_service();
+  paymentSyncService = {
+    async syncQRStatus(qrId) {
+      const qr = await qrRepository.getByQrId(qrId);
+      if (!qr || qr.status === "used" || qr.status === "cancelled")
+        return { changed: false };
+      const cred = await resolveCredentials(qr.banecoCredentialId, qr.banecoEnvironment || "prod");
+      try {
+        const adapter = new BanecoAdapter(cred.api_base_url, cred.encryption_key);
+        const token = await adapter.getToken(cred.username, cred.password);
+        const status = await adapter.getQrStatus(token, qrId);
+        if (status.status === "PAID" || status.status === "COMPLETED") {
+          const claim = await query(`UPDATE qr_codes SET status = 'used', updated_at = CURRENT_TIMESTAMP
            WHERE qr_id = $1 AND status = 'active'`, [qrId]);
-        if (claim.rowCount === 0) {
-          await query(`
+          if (claim.rowCount === 0) {
+            await query(`
             INSERT INTO payment_sync_status (qr_id, last_checked, check_count, success, final_status)
             VALUES ($1, CURRENT_TIMESTAMP, 1, true, 'completed')
             ON CONFLICT (qr_id) DO UPDATE SET
               last_checked = CURRENT_TIMESTAMP, check_count = payment_sync_status.check_count + 1,
               success = true, final_status = 'completed'
           `, [qrId]);
-          return { changed: false, status: "completed" };
-        }
-        const movement = await walletRepository.createMovement({
-          walletId: qr.walletId,
-          movementType: "qr_payment",
-          amount: status.amount,
-          balanceBefore: 0,
-          balanceAfter: 0,
-          description: status.description || `Pago QR ${qrId}`,
-          qrId,
-          transactionId: qr.transactionId,
-          paymentDate: status.paymentDate || new Date().toISOString(),
-          currency: status.currency,
-          senderName: status.senderName || null,
-          senderDocumentId: status.senderDocumentId || null,
-          senderAccount: status.senderAccount || null,
-          senderBankCode: status.senderBankCode || null,
-          referenceId: qr.transactionId,
-          referenceType: "qr"
-        });
-        await query(`
+            return { changed: false, status: "completed" };
+          }
+          const movement = await walletRepository.createMovement({
+            walletId: qr.walletId,
+            movementType: "qr_payment",
+            amount: status.amount,
+            balanceBefore: 0,
+            balanceAfter: 0,
+            description: status.description || `Pago QR ${qrId}`,
+            qrId,
+            transactionId: qr.transactionId,
+            paymentDate: status.paymentDate || new Date().toISOString(),
+            currency: status.currency,
+            senderName: status.senderName || null,
+            senderDocumentId: status.senderDocumentId || null,
+            senderAccount: status.senderAccount || null,
+            senderBankCode: status.senderBankCode || null,
+            referenceId: qr.transactionId,
+            referenceType: "qr"
+          });
+          await query(`
           INSERT INTO payment_sync_status (qr_id, last_checked, check_count, success, final_status)
           VALUES ($1, CURRENT_TIMESTAMP, 1, true, 'completed')
           ON CONFLICT (qr_id) DO UPDATE SET
             last_checked = CURRENT_TIMESTAMP, check_count = payment_sync_status.check_count + 1,
             success = true, final_status = 'completed'
         `, [qrId]);
-        eventBus.emit("qr.paid", { qrId, walletId: qr.walletId, amount: status.amount, movementId: movement.id });
-        notifService.getWalletUserIds(qr.walletId).then((userIds) => Promise.all(userIds.map((uid) => notifService.qrPaymentReceived(uid, status.amount, qr.description || "Pago QR", qrId)))).catch((e) => logger.error("Failed to notify QR payment to wallet users", { error: e.message, qrId }));
-        return { changed: true, status: "completed" };
-      }
-      if (status.status === "EXPIRED" || status.status === "CANCELLED") {
-        await qrRepository.updateStatus(qrId, status.status.toLowerCase());
-        await query(`
+          eventBus.emit("qr.paid", { qrId, walletId: qr.walletId, amount: status.amount, movementId: movement.id });
+          notifService.getWalletUserIds(qr.walletId).then((userIds) => Promise.all(userIds.map((uid) => notifService.qrPaymentReceived(uid, status.amount, qr.description || "Pago QR", qrId)))).catch((e) => logger.error("Failed to notify QR payment to wallet users", { error: e.message, qrId }));
+          return { changed: true, status: "completed" };
+        }
+        if (status.status === "EXPIRED" || status.status === "CANCELLED") {
+          await qrRepository.updateStatus(qrId, status.status.toLowerCase());
+          await query(`
           INSERT INTO payment_sync_status (qr_id, last_checked, check_count, success, final_status)
           VALUES ($1, CURRENT_TIMESTAMP, 1, true, $2)
           ON CONFLICT (qr_id) DO UPDATE SET
             last_checked = CURRENT_TIMESTAMP, check_count = payment_sync_status.check_count + 1,
             success = true, final_status = $2
         `, [qrId, status.status.toLowerCase()]);
-        return { changed: true, status: status.status.toLowerCase() };
-      }
-      await query(`
+          return { changed: true, status: status.status.toLowerCase() };
+        }
+        await query(`
         INSERT INTO payment_sync_status (qr_id, last_checked, check_count, success)
         VALUES ($1, CURRENT_TIMESTAMP, 1, true)
         ON CONFLICT (qr_id) DO UPDATE SET
           last_checked = CURRENT_TIMESTAMP, check_count = payment_sync_status.check_count + 1, success = true
       `, [qrId]);
-      return { changed: false };
-    } catch (e) {
-      logger.error("Sync error for QR", { qrId, error: String(e) });
-      await query(`
+        return { changed: false };
+      } catch (e) {
+        logger.error("Sync error for QR", { qrId, error: String(e) });
+        await query(`
         INSERT INTO payment_sync_status (qr_id, last_checked, success)
         VALUES ($1, CURRENT_TIMESTAMP, false)
         ON CONFLICT (qr_id) DO UPDATE SET last_checked = CURRENT_TIMESTAMP, success = false
       `, [qrId]);
-      return { changed: false };
+        return { changed: false };
+      }
     }
-  }
-};
+  };
+});
 
 // src/payments/sync/payment-queue.service.ts
-init_logger();
-var syncQueues = new Map;
-var MAX_ATTEMPTS = 20;
-var SWEEPER_INTERVAL = 5 * 60 * 1000;
-var sweeperStartedAt = null;
-var lastSweepAt = null;
-var lastSweepCount = 0;
 function getInterval(attempts) {
   if (attempts <= 3)
     return 30 * 1000;
@@ -13238,82 +13255,91 @@ function getInterval(attempts) {
     return 5 * 60 * 1000;
   return 15 * 60 * 1000;
 }
-var paymentQueueService = {
-  enqueueSync(qrId) {
-    if (syncQueues.has(qrId))
-      return;
-    this.scheduleNext(qrId, 0);
-  },
-  scheduleNext(qrId, attempts) {
-    const existing = syncQueues.get(qrId);
-    if (existing)
-      clearTimeout(existing.timer);
-    const interval = getInterval(attempts);
-    const timer = setTimeout(async () => {
-      const { changed } = await paymentSyncService.syncQRStatus(qrId);
-      const nextAttempts = attempts + 1;
-      if (!changed && nextAttempts < MAX_ATTEMPTS) {
-        this.scheduleNext(qrId, nextAttempts);
-      } else {
-        syncQueues.delete(qrId);
-      }
-    }, interval);
-    syncQueues.set(qrId, { timer, attempts });
-  },
-  async startAll() {
-    try {
-      const qrIds = await qrRepository.listActive();
-      for (const qrId of qrIds) {
-        this.enqueueSync(qrId);
-      }
-      logger.info(`Sync worker: ${qrIds.length} QR(s) activo(s) re-encolado(s)`);
-    } catch (e) {
-      logger.error("Sync worker: error re-encolando QRs activos", { error: String(e) });
-    }
-  },
-  startSweeper() {
-    sweeperStartedAt = Date.now();
-    return setInterval(async () => {
+var syncQueues, MAX_ATTEMPTS = 20, SWEEPER_INTERVAL, sweeperStartedAt = null, lastSweepAt = null, lastSweepCount = 0, paymentQueueService;
+var init_payment_queue_service = __esm(() => {
+  init_payment_sync_service();
+  init_qr_repository();
+  init_logger();
+  syncQueues = new Map;
+  SWEEPER_INTERVAL = 5 * 60 * 1000;
+  paymentQueueService = {
+    enqueueSync(qrId) {
+      if (syncQueues.has(qrId))
+        return;
+      this.scheduleNext(qrId, 0);
+    },
+    scheduleNext(qrId, attempts) {
+      const existing = syncQueues.get(qrId);
+      if (existing)
+        clearTimeout(existing.timer);
+      const interval = getInterval(attempts);
+      const timer = setTimeout(async () => {
+        const { changed } = await paymentSyncService.syncQRStatus(qrId);
+        const nextAttempts = attempts + 1;
+        if (!changed && nextAttempts < MAX_ATTEMPTS) {
+          this.scheduleNext(qrId, nextAttempts);
+        } else {
+          syncQueues.delete(qrId);
+        }
+      }, interval);
+      syncQueues.set(qrId, { timer, attempts });
+    },
+    async startAll() {
       try {
         const qrIds = await qrRepository.listActive();
-        let added = 0;
         for (const qrId of qrIds) {
-          if (!syncQueues.has(qrId)) {
-            this.enqueueSync(qrId);
-            added++;
-          }
+          this.enqueueSync(qrId);
         }
-        lastSweepAt = Date.now();
-        lastSweepCount = added;
+        logger.info(`Sync worker: ${qrIds.length} QR(s) activo(s) re-encolado(s)`);
       } catch (e) {
-        logger.error("Sync sweeper error", { error: String(e) });
+        logger.error("Sync worker: error re-encolando QRs activos", { error: String(e) });
       }
-    }, SWEEPER_INTERVAL);
-  },
-  stopAll() {
-    for (const [qrId, { timer }] of syncQueues) {
-      clearTimeout(timer);
+    },
+    startSweeper() {
+      sweeperStartedAt = Date.now();
+      return setInterval(async () => {
+        try {
+          const qrIds = await qrRepository.listActive();
+          let added = 0;
+          for (const qrId of qrIds) {
+            if (!syncQueues.has(qrId)) {
+              this.enqueueSync(qrId);
+              added++;
+            }
+          }
+          lastSweepAt = Date.now();
+          lastSweepCount = added;
+        } catch (e) {
+          logger.error("Sync sweeper error", { error: String(e) });
+        }
+      }, SWEEPER_INTERVAL);
+    },
+    stopAll() {
+      for (const [qrId, { timer }] of syncQueues) {
+        clearTimeout(timer);
+      }
+      syncQueues.clear();
+    },
+    getStats() {
+      const now = Date.now();
+      const entries = Array.from(syncQueues.entries());
+      return {
+        running: sweeperStartedAt !== null,
+        queuedQrs: entries.length,
+        maxAttempts: MAX_ATTEMPTS,
+        sweeperIntervalMs: SWEEPER_INTERVAL,
+        sweeperStartedAt: sweeperStartedAt ? new Date(sweeperStartedAt).toISOString() : null,
+        lastSweepAt: lastSweepAt ? new Date(lastSweepAt).toISOString() : null,
+        lastSweepSecondsAgo: lastSweepAt ? Math.round((now - lastSweepAt) / 1000) : null,
+        lastSweepRequeued: lastSweepCount,
+        queuedQrIds: entries.slice(0, 50).map(([qrId, { attempts }]) => ({ qrId, attempts }))
+      };
     }
-    syncQueues.clear();
-  },
-  getStats() {
-    const now = Date.now();
-    const entries = Array.from(syncQueues.entries());
-    return {
-      running: sweeperStartedAt !== null,
-      queuedQrs: entries.length,
-      maxAttempts: MAX_ATTEMPTS,
-      sweeperIntervalMs: SWEEPER_INTERVAL,
-      sweeperStartedAt: sweeperStartedAt ? new Date(sweeperStartedAt).toISOString() : null,
-      lastSweepAt: lastSweepAt ? new Date(lastSweepAt).toISOString() : null,
-      lastSweepSecondsAgo: lastSweepAt ? Math.round((now - lastSweepAt) / 1000) : null,
-      lastSweepRequeued: lastSweepCount,
-      queuedQrIds: entries.slice(0, 50).map(([qrId, { attempts }]) => ({ qrId, attempts }))
-    };
-  }
-};
+  };
+});
 
 // src/workers/sync-worker.ts
+init_payment_queue_service();
 init_logger();
 init_pool();
 async function main() {

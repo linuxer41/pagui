@@ -131,6 +131,23 @@ export const qrService = {
 
     await qrRepository.updateStatus(qrId, 'used')
 
+    // Si es QR de nota de débito, marcarla como pagada automáticamente (vía pasarela Pagui)
+    try {
+      const { debitNoteService } = await import('../../admin/debit-note.service')
+      const dn = await debitNoteService.markPaidByQrId(qrId)
+      if (dn) {
+        logger.info('Debit note pagada automáticamente vía QR', { qrId, correlative: dn.correlative, tenantId: String(dn.tenantId) })
+        // Notificar al tenant si tiene usuario asociado
+        try {
+          const tu = await query(`SELECT user_id FROM tenant_users WHERE tenant_id = $1 LIMIT 1`, [dn.tenantId])
+          if (tu.rowCount) {
+            const uid = tu.rows[0].user_id
+            notifService.qrPaymentReceived(uid, amount, `Nota de débito ${dn.correlative} pagada`, qrId, senderName).catch(()=>{})
+          }
+        } catch {}
+      }
+    } catch (e) { logger.warn('No se pudo marcar debit note como pagada', { qrId, error: String(e) }) }
+
     // Si el QR tiene user_id, determinar el tipo de recaudación
     if (qr.userId) {
       try {

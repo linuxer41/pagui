@@ -208465,14 +208465,16 @@ async function generateDebitNotePdf(data) {
     field("TELÉFONO", data.client.phone || "—", col1X, ry);
     field("PERIODO", periodStr, col2X, ry);
     y = 152;
-    const conceptH = 36;
+    const conceptH = 62;
     doc.save().roundedRect(cardX, y, cardW, conceptH, 6).fillAndStroke(cSlate50, cSlate200).restore();
     doc.fillColor(cSlate400).font("Helvetica-Bold").fontSize(5.5).text("CONCEPTO", cardX + 12, y + 8, { lineBreak: false });
-    const rateText = data.summary.hasDiscount ? data.summary.qualifiesForDiscount ? `0.05% aplicado` : `0.10% -> 0.05% si > Bs ${Number(data.summary.discountThreshold).toLocaleString("es-BO")}` : "0.10% fijo";
-    doc.fillColor(cSlate900).font("Helvetica-Bold").fontSize(8).text(`Comisión por servicio de recaudación  ·  ${data.summary.avgCommissionPercent.toFixed(2)}%`, cardX + 12, y + 18, { lineBreak: false });
-    doc.fillColor(cSlate500).font("Helvetica").fontSize(6).text(rateText, cardX + 12 + doc.widthOfString(`Comisión por servicio de recaudación  ·  ${data.summary.avgCommissionPercent.toFixed(2)}% `), y + 18.5, { lineBreak: false });
-    doc.fillColor(cSlate500).font("Helvetica").fontSize(6.5).text(`${data.summary.txCount} transacciones por Bs ${fmt(data.summary.totalGross)}  ·  ${data.period.periodLabel}`, cardX + 12, y + 27, { lineBreak: false });
-    y = 200;
+    doc.fillColor(cSlate900).font("Helvetica-Bold").fontSize(8).text(`Comisión por servicio de recaudación  ·  ${data.summary.avgCommissionPercent.toFixed(2)}%`, cardX + 12, y + 18, { width: cardW - 24, lineBreak: false, ellipsis: true });
+    const pStart = (data.period.start || "").slice(0, 10);
+    const pEndExcl = new Date(new Date(data.period.end).getTime() - 86400000).toISOString().slice(0, 10);
+    doc.fillColor(cSlate900).font("Helvetica-Bold").fontSize(6.5).text(`Periodo: ${data.period.periodLabel} (${pStart} al ${pEndExcl})`, cardX + 12, y + 30, { width: cardW - 24, lineBreak: false, ellipsis: true });
+    const rateText2 = data.summary.hasDiscount ? data.summary.qualifiesForDiscount ? `0.05% aplicado` : `0.05% si > Bs ${Number(data.summary.discountThreshold).toLocaleString("es-BO")}` : "0.10% fijo";
+    doc.fillColor(cSlate500).font("Helvetica").fontSize(6.5).text(`${rateText2}  ·  ${data.summary.txCount} transacciones por Bs ${fmt(data.summary.totalGross)}`, cardX + 12, y + 40, { width: cardW - 24, lineBreak: false, ellipsis: true });
+    y = 226;
     const thH = 16;
     const colDet = cardW - 130;
     const colAmt = 130;
@@ -208518,9 +208520,9 @@ async function generateDebitNotePdf(data) {
     }
     ty += 8;
     const infoW = qr ? cardW - 160 : cardW;
-    doc.fillColor(cSlate600).font("Helvetica").fontSize(6).text(`Moneda: ${data.currency}  ·  Escanea el QR para pagar esta comisión via PAGUI. Una vez recibido el pago, esta nota se marcará automáticamente como pagada.`, cardX, ty, { width: infoW, lineBreak: false });
-    ty += 12;
-    doc.fillColor(cSlate400).font("Helvetica").fontSize(5.5).text(`Emitido ${new Date(data.issueDate).toLocaleString("es-BO")}  ·  Correlativo ${data.correlative}  ·  ID ${data.client.id}  ·  ${data.period.periodLabel}`, cardX, ty, { width: infoW, lineBreak: false });
+    doc.fillColor(cSlate600).font("Helvetica").fontSize(6).text(`Moneda: ${data.currency}  ·  Escanea el QR para pagar esta comisión via PAGUI. Una vez recibido el pago, esta nota se marcará automáticamente como pagada.`, cardX, ty, { width: infoW, ellipsis: true });
+    ty += 20;
+    doc.fillColor(cSlate400).font("Helvetica").fontSize(5.5).text(`Emitido ${new Date(data.issueDate).toLocaleString("es-BO")}  ·  Correlativo ${data.correlative}  ·  ID ${data.client.id}  ·  ${data.period.periodLabel}`, cardX, ty, { width: infoW, lineBreak: false, ellipsis: true });
     const sigY = H - 88;
     const sigW = 150;
     const sigLeftX = cardX + 20;
@@ -208543,6 +208545,10 @@ function getMonthRange(year, month) {
   const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
   const end = new Date(Date.UTC(year, month, 1, 0, 0, 0));
   return { start: start.toISOString(), end: end.toISOString(), label: `${year}-${String(month).padStart(2, "0")}` };
+}
+var MESES_ES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+function periodLabelEs(year, month) {
+  return `${MESES_ES[month - 1]} de ${year}`;
 }
 var adminRoutes = new Elysia({ prefix: "/admin" }).get("/stats", async () => {
   const [users, tenants, wallets] = await Promise.all([
@@ -209253,7 +209259,7 @@ var adminRoutes = new Elysia({ prefix: "/admin" }).get("/stats", async () => {
   const commissionWithIva = Number((totalCommission + commissionIva).toFixed(2));
   const correlative = `ND-${label.replace("-", "")}-${String(tenantId).slice(-6)}`;
   const issueDate = new Date().toISOString();
-  const periodLabel = new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("es-BO", { month: "long", year: "numeric" });
+  const periodLabel = periodLabelEs(year, month);
   let qrDataUrl = null;
   let paymentUrl = null;
   let qrId = null;
@@ -209330,7 +209336,7 @@ var adminRoutes = new Elysia({ prefix: "/admin" }).get("/stats", async () => {
       firstTx: row.firstTx,
       lastTx: row.lastTx
     },
-    concept: `Comisión por servicio de recaudación ${qualifies ? "(0.05% por superar Bs " + threshold.toLocaleString("es-BO") + ")" : "(0.10%)"} — ${periodLabel} — ${row.txCount} transacciones por Bs ${totalGross.toFixed(2)}`,
+    concept: `Comisión por servicio de recaudación ${qualifies ? "(0.05% por superar Bs " + threshold.toLocaleString("es-BO") + ")" : "(0.10%)"} — Periodo ${periodLabel} (${start.slice(0, 10)} al ${new Date(new Date(end).getTime() - 86400000).toISOString().slice(0, 10)}) — ${row.txCount} transacciones por Bs ${totalGross.toFixed(2)}`,
     currency: "BOB"
   }, "Nota de débito generada");
 }, {
@@ -209413,7 +209419,7 @@ var adminRoutes = new Elysia({ prefix: "/admin" }).get("/stats", async () => {
   const netAmount = isDirect ? 0 : totalGross - totalCommission;
   const correlative = `ND-${label.replace("-", "")}-${String(tenantId).slice(-6)}`;
   const issueDate = new Date().toISOString();
-  const periodLabel = new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("es-BO", { month: "long", year: "numeric" });
+  const periodLabel = periodLabelEs(year, month);
   let qrDataUrl = null;
   let qrId = null;
   try {
@@ -209444,7 +209450,7 @@ var adminRoutes = new Elysia({ prefix: "/admin" }).get("/stats", async () => {
     issuer: { name: "PAGUI / IATHINGS", nit: "—", address: "Santa Cruz, Bolivia" },
     client: { id: String(tenant.id), name: tenant.fullName, email: tenant.email, phone: tenant.phone, documentType: tenant.documentType, documentNumber: tenant.documentNumber, address: tenant.address },
     summary: { txCount: row.txCount, totalGross, baseRate, discountRate: discRate, discountThreshold: threshold, hasDiscount: hasDisc, isDirect, collectionType: row.collectionType, qualifiesForDiscount: qualifies, effectiveRate, avgCommissionPercent: effectiveRate * 100, totalCommission, netAmount, firstTx: null, lastTx: null },
-    concept: `Comisión por servicio de recaudación ${qualifies ? "(0.05% por superar Bs " + threshold.toLocaleString("es-BO") + ")" : "(0.10%)"} — ${periodLabel} — ${row.txCount} transacciones por Bs ${totalGross.toFixed(2)}`,
+    concept: `Comisión por servicio de recaudación ${qualifies ? "(0.05% por superar Bs " + threshold.toLocaleString("es-BO") + ")" : "(0.10%)"} — Periodo ${periodLabel} (${start.slice(0, 10)} al ${new Date(new Date(end).getTime() - 86400000).toISOString().slice(0, 10)}) — ${row.txCount} transacciones por Bs ${totalGross.toFixed(2)}`,
     currency: "BOB",
     payment: { qrDataUrl, amount: totalCommission, currency: "BOB" }
   });

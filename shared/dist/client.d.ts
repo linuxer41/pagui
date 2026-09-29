@@ -10,7 +10,8 @@ export declare class JwtAuthProvider implements AuthProvider {
 }
 export declare class ApiKeyAuthProvider implements AuthProvider {
     private apiKey;
-    constructor(apiKey: string);
+    private headerName;
+    constructor(apiKey: string, headerName?: string);
     getHeaders(): Record<string, string>;
 }
 import type { TSchema } from '@sinclair/typebox';

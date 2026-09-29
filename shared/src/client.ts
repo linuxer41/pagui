@@ -19,10 +19,10 @@ export class JwtAuthProvider implements AuthProvider {
 }
 
 export class ApiKeyAuthProvider implements AuthProvider {
-  constructor(private apiKey: string) {}
+  constructor(private apiKey: string, private headerName = 'x-api-key') {}
 
   getHeaders(): Record<string, string> {
-    return { 'x-api-key': this.apiKey }
+    return { [this.headerName]: this.apiKey }
   }
 }
 

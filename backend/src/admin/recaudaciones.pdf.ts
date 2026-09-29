@@ -103,20 +103,25 @@ export async function generateDebitNotePdf(data: DebitNoteData): Promise<Buffer>
     field('TELÉFONO', data.client.phone || '—', col1X, ry)
     field('PERIODO', periodStr, col2X, ry)
 
-    // Concept - minimal, no pill overlapping
+    // Concept - periodo explicito, sin solape
     y = 152
-    const conceptH = 36
+    const conceptH = 62
     doc.save().roundedRect(cardX, y, cardW, conceptH, 6).fillAndStroke(cSlate50, cSlate200).restore()
     doc.fillColor(cSlate400).font('Helvetica-Bold').fontSize(5.5).text('CONCEPTO', cardX + 12, y + 8, { lineBreak: false })
-    const rateText = data.summary.hasDiscount
-      ? (data.summary.qualifiesForDiscount ? `0.05% aplicado` : `0.10% -> 0.05% si > Bs ${Number(data.summary.discountThreshold).toLocaleString('es-BO')}`)
+    // Linea 1: titulo + tasa efectiva
+    doc.fillColor(cSlate900).font('Helvetica-Bold').fontSize(8).text(`Comisión por servicio de recaudación  ·  ${data.summary.avgCommissionPercent.toFixed(2)}%`, cardX + 12, y + 18, { width: cardW - 24, lineBreak: false, ellipsis: true })
+    // Linea 2: periodo explicito con rango de fechas
+    const pStart = (data.period.start || '').slice(0, 10)
+    const pEndExcl = new Date(new Date(data.period.end).getTime() - 86400000).toISOString().slice(0, 10)
+    doc.fillColor(cSlate900).font('Helvetica-Bold').fontSize(6.5).text(`Periodo: ${data.period.periodLabel} (${pStart} al ${pEndExcl})`, cardX + 12, y + 30, { width: cardW - 24, lineBreak: false, ellipsis: true })
+    // Linea 3: condicion + detalle
+    const rateText2 = data.summary.hasDiscount
+      ? (data.summary.qualifiesForDiscount ? `0.05% aplicado` : `0.05% si > Bs ${Number(data.summary.discountThreshold).toLocaleString('es-BO')}`)
       : '0.10% fijo'
-    doc.fillColor(cSlate900).font('Helvetica-Bold').fontSize(8).text(`Comisión por servicio de recaudación  ·  ${data.summary.avgCommissionPercent.toFixed(2)}%`, cardX + 12, y + 18, { lineBreak: false })
-    doc.fillColor(cSlate500).font('Helvetica').fontSize(6).text(rateText, cardX + 12 + doc.widthOfString(`Comisión por servicio de recaudación  ·  ${data.summary.avgCommissionPercent.toFixed(2)}% `) , y + 18.5, { lineBreak: false })
-    doc.fillColor(cSlate500).font('Helvetica').fontSize(6.5).text(`${data.summary.txCount} transacciones por Bs ${fmt(data.summary.totalGross)}  ·  ${data.period.periodLabel}`, cardX + 12, y + 27, { lineBreak: false })
+    doc.fillColor(cSlate500).font('Helvetica').fontSize(6.5).text(`${rateText2}  ·  ${data.summary.txCount} transacciones por Bs ${fmt(data.summary.totalGross)}`, cardX + 12, y + 40, { width: cardW - 24, lineBreak: false, ellipsis: true })
 
     // Table - minimal, no overlapping, fixed col widths
-    y = 200
+    y = 226
     const thH = 16
     const colDet = cardW - 130
     const colAmt = 130
@@ -169,9 +174,9 @@ export async function generateDebitNotePdf(data: DebitNoteData): Promise<Buffer>
     // Meta — sin mencionar factura, es para pago del cliente (no solapa con QR)
     ty += 8
     const infoW = qr ? cardW - 160 : cardW
-    doc.fillColor(cSlate600).font('Helvetica').fontSize(6).text(`Moneda: ${data.currency}  ·  Escanea el QR para pagar esta comisión via PAGUI. Una vez recibido el pago, esta nota se marcará automáticamente como pagada.`, cardX, ty, { width: infoW, lineBreak: false })
-    ty += 12
-    doc.fillColor(cSlate400).font('Helvetica').fontSize(5.5).text(`Emitido ${new Date(data.issueDate).toLocaleString('es-BO')}  ·  Correlativo ${data.correlative}  ·  ID ${data.client.id}  ·  ${data.period.periodLabel}`, cardX, ty, { width: infoW, lineBreak: false })
+    doc.fillColor(cSlate600).font('Helvetica').fontSize(6).text(`Moneda: ${data.currency}  ·  Escanea el QR para pagar esta comisión via PAGUI. Una vez recibido el pago, esta nota se marcará automáticamente como pagada.`, cardX, ty, { width: infoW, ellipsis: true })
+    ty += 20
+    doc.fillColor(cSlate400).font('Helvetica').fontSize(5.5).text(`Emitido ${new Date(data.issueDate).toLocaleString('es-BO')}  ·  Correlativo ${data.correlative}  ·  ID ${data.client.id}  ·  ${data.period.periodLabel}`, cardX, ty, { width: infoW, lineBreak: false, ellipsis: true })
 
     // Firmas
     const sigY = H - 88

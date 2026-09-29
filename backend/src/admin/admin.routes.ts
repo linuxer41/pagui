@@ -17,6 +17,11 @@ function getMonthRange(year: number, month: number) {
   return { start: start.toISOString(), end: end.toISOString(), label: `${year}-${String(month).padStart(2,'0')}` }
 }
 
+const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
+function periodLabelEs(year: number, month: number) {
+  return `${MESES_ES[month - 1]} de ${year}`
+}
+
 export const adminRoutes = new Elysia({ prefix: '/admin' })
 
   // ── Stats ──
@@ -739,7 +744,7 @@ export const adminRoutes = new Elysia({ prefix: '/admin' })
 
     const correlative = `ND-${label.replace('-','')}-${String(tenantId).slice(-6)}`
     const issueDate = new Date().toISOString()
-    const periodLabel = new Date(Date.UTC(year, month-1, 1)).toLocaleDateString('es-BO', { month: 'long', year: 'numeric' })
+    const periodLabel = periodLabelEs(year, month)
     // QR para pago de la comisión — generado desde cuenta PAGUI Empresarial (gateway)
     let qrDataUrl: string | null = null
     let paymentUrl: string | null = null
@@ -819,7 +824,7 @@ export const adminRoutes = new Elysia({ prefix: '/admin' })
         firstTx: row.firstTx,
         lastTx: row.lastTx,
       },
-      concept: `Comisión por servicio de recaudación ${qualifies ? '(0.05% por superar Bs '+threshold.toLocaleString('es-BO')+')' : '(0.10%)'} — ${periodLabel} — ${row.txCount} transacciones por Bs ${totalGross.toFixed(2)}`,
+      concept: `Comisión por servicio de recaudación ${qualifies ? '(0.05% por superar Bs '+threshold.toLocaleString('es-BO')+')' : '(0.10%)'} — Periodo ${periodLabel} (${start.slice(0,10)} al ${new Date(new Date(end).getTime()-86400000).toISOString().slice(0,10)}) — ${row.txCount} transacciones por Bs ${totalGross.toFixed(2)}`,
       currency: 'BOB'
     }, 'Nota de débito generada')
   }, {
@@ -904,7 +909,7 @@ export const adminRoutes = new Elysia({ prefix: '/admin' })
     const netAmount = isDirect ? 0 : totalGross - totalCommission
     const correlative = `ND-${label.replace('-','')}-${String(tenantId).slice(-6)}`
     const issueDate = new Date().toISOString()
-    const periodLabel = new Date(Date.UTC(year, month-1, 1)).toLocaleDateString('es-BO', { month: 'long', year: 'numeric' })
+    const periodLabel = periodLabelEs(year, month)
     // QR desde PAGUI Empresarial para pago automático
     let qrDataUrl: string | null = null
     let qrId: string | null = null
@@ -934,7 +939,7 @@ export const adminRoutes = new Elysia({ prefix: '/admin' })
       issuer: { name: 'PAGUI / IATHINGS', nit: '—', address: 'Santa Cruz, Bolivia' },
       client: { id: String(tenant.id), name: tenant.fullName, email: tenant.email, phone: tenant.phone, documentType: tenant.documentType, documentNumber: tenant.documentNumber, address: tenant.address },
       summary: { txCount: row.txCount, totalGross, baseRate, discountRate: discRate, discountThreshold: threshold, hasDiscount: hasDisc, isDirect, collectionType: row.collectionType, qualifiesForDiscount: qualifies, effectiveRate, avgCommissionPercent: effectiveRate*100, totalCommission, netAmount, firstTx: null, lastTx: null } as any,
-      concept: `Comisión por servicio de recaudación ${qualifies ? '(0.05% por superar Bs '+threshold.toLocaleString('es-BO')+')' : '(0.10%)'} — ${periodLabel} — ${row.txCount} transacciones por Bs ${totalGross.toFixed(2)}`,
+      concept: `Comisión por servicio de recaudación ${qualifies ? '(0.05% por superar Bs '+threshold.toLocaleString('es-BO')+')' : '(0.10%)'} — Periodo ${periodLabel} (${start.slice(0,10)} al ${new Date(new Date(end).getTime()-86400000).toISOString().slice(0,10)}) — ${row.txCount} transacciones por Bs ${totalGross.toFixed(2)}`,
       currency: 'BOB',
       payment: { qrDataUrl, amount: totalCommission, currency: 'BOB' } as any,
     })

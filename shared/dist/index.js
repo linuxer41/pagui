@@ -5147,11 +5147,13 @@ class JwtAuthProvider {
 
 class ApiKeyAuthProvider {
   apiKey;
-  constructor(apiKey) {
+  headerName;
+  constructor(apiKey, headerName = "x-api-key") {
     this.apiKey = apiKey;
+    this.headerName = headerName;
   }
   getHeaders() {
-    return { "x-api-key": this.apiKey };
+    return { [this.headerName]: this.apiKey };
   }
 }
 var PUBLIC_ENDPOINTS = ["/auth/login", "/auth/forgot-password", "/auth/reset-password"];

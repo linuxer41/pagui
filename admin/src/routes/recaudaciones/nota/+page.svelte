@@ -131,7 +131,7 @@
           {note.summary.avgCommissionPercent.toFixed(2)}%{note.summary.qualifiesForDiscount ? ' - 0.05% aplicado' : ''}
         </span>
       </p>
-      <p class="concept-sub">{note.summary.txCount} transacciones por Bs {fmt(note.summary.totalGross)} - {note.period.periodLabel}</p>
+      <p class="concept-sub">Periodo: {note.period.periodLabel} ({note.period.start.slice(0,10)} al {note.period.end ? new Date(new Date(note.period.end).getTime()-86400000).toISOString().slice(0,10) : ''}) · {note.summary.txCount} transacciones por Bs {fmt(note.summary.totalGross)}</p>
     </section>
 
     <table class="minimal">

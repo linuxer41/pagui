@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'page/**'
+      - 'shared/**'
       - '.github/workflows/publish-page.yml'
       - '!**/readme.md'
       - '!**/.env'
@@ -16,13 +17,12 @@ on:
       - main
     paths:
       - 'page/**'
+      - 'shared/**'
       - '.github/workflows/publish-page.yml'
       - '!**/readme.md'
       - '!**/.env'
       - '!page/android/**'
       - '!page/ios/**'
-env:
-  VITE_API_URL: https://oe-api.databol.org/v1
 
 jobs:
   docker:
@@ -66,11 +66,11 @@ jobs:
         if: github.event_name == 'push' || (github.event.pull_request.merged == true && github.event.pull_request.state == 'closed')
         uses: docker/build-push-action@v3
         with:
-          context: "{{defaultContext}}:page"
+          context: .
+          file: page/dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
-          build-args: VITE_API_URL=${{ env.VITE_API_URL }}
           cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/pagui-page-buildcache
           cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/pagui-page-buildcache

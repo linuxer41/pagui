@@ -1,5 +1,5 @@
 import { BaseApiClient, ApiKeyAuthProvider } from '@pagui/shared';
-import { PAGUI_PUBLIC_API_URL, PAGUI_API_KEY } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import type {
 	QRGenerationAPIResponse,
 	QRStatusAPIResponse,
@@ -7,9 +7,6 @@ import type {
 	QRPaymentsAPIResponse,
 	PaymentData
 } from '../types/api';
-
-const DEFAULT_API_URL = PAGUI_PUBLIC_API_URL || 'http://localhost:3001';
-const DEFAULT_API_KEY = PAGUI_API_KEY || '';
 
 // La public API devuelve los movimientos en snake_case (filas de wallet_movements);
 // el frontend espera el shape camelCase de PaymentData.
@@ -35,8 +32,8 @@ function normalizePayment(row: PaymentData): PaymentData {
 
 export class QRService extends BaseApiClient {
 	constructor(baseUrl?: string, apiKey?: string) {
-		const resolvedBaseUrl = baseUrl || DEFAULT_API_URL;
-		const resolvedApiKey = apiKey || DEFAULT_API_KEY;
+		const resolvedBaseUrl = baseUrl || env.PAGUI_PUBLIC_API_URL || 'http://localhost:3001';
+		const resolvedApiKey = apiKey || env.PAGUI_API_KEY || '';
 		super(resolvedBaseUrl, new ApiKeyAuthProvider(resolvedApiKey));
 	}
 

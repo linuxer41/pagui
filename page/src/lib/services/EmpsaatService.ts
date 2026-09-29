@@ -1,5 +1,5 @@
 import { BaseApiClient, ApiKeyAuthProvider } from '@pagui/shared';
-import { EMPSAAT_API_URL, EMPSAAT_API_KEY } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import type { ServerResponse } from '../types/api';
 import type {
 	DeudasResponse,
@@ -8,17 +8,15 @@ import type {
 	TransaccionResponse
 } from '../types/empsaat';
 
-const DEFAULT_API_URL = EMPSAAT_API_URL || 'http://localhost:3002';
-const DEFAULT_API_KEY = EMPSAAT_API_KEY || '';
-
 /**
  * Servicio de la API de integración EMPSAAT (:3002).
  * Autenticación: header `api-key` (no `X-API-Key`).
+ * URL y key se leen en runtime desde process.env (no se hornean en la imagen).
  */
 export class EmpsaatService extends BaseApiClient {
 	constructor(baseUrl?: string, apiKey?: string) {
-		const resolvedBaseUrl = baseUrl || DEFAULT_API_URL;
-		const resolvedApiKey = apiKey || DEFAULT_API_KEY;
+		const resolvedBaseUrl = baseUrl || env.EMPSAAT_API_URL || 'http://localhost:3002';
+		const resolvedApiKey = apiKey || env.EMPSAAT_API_KEY || '';
 		super(resolvedBaseUrl, new ApiKeyAuthProvider(resolvedApiKey, 'api-key'));
 	}
 

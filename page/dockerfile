@@ -1,29 +1,25 @@
-# Stage 1: Builder
+# Stage 1: Builder — contexto = raíz del monorepo (incluye shared/)
 FROM node:22 AS builder
 WORKDIR /usr/src/app
-ARG VITE_API_URL
-# ENV VITE_API_URL ${VITE_API_URL} || https://oe-api.databol.org/v1
-ENV VITE_API_URL https://oe-api.databol.org/v1
 
-# Copia los archivos necesarios para la construcción
-COPY package.json bun.lock ./
-RUN npm install
+# @pagui/shared = file:../shared → debe existir ANTES de npm install
+COPY shared/ ./shared/
+COPY page/package.json page/bun.lock ./page/
+RUN cd page && npm install
 
-# Copia el resto del código fuente
-COPY . .
+# Copia el resto del código fuente de page
+COPY page/ ./page/
 
-# Construye el proyecto
-RUN echo "Starting build process..."
-RUN npm run build
-RUN echo "Build process completed."
+# SSR (adapter-node): las API keys NO se pasan aquí — se leen en runtime
+# desde process.env ($env/dynamic/private) con -e al correr el contenedor.
+RUN cd page && npm run build
 
-# Stage 2: Release
+# Stage 2: Release — servidor Node ejecutado con bun
 FROM oven/bun:1 AS release
 WORKDIR /usr/src/app
-ENV VITE_API_URL https://oe-api.databol.org/v1
 
 # Copia solo los archivos generados por el proceso de construcción
-COPY --from=builder /usr/src/app/build ./build
+COPY --from=builder /usr/src/app/page/build ./build
 
 # Expone el puerto (ajusta según tu aplicación)
 EXPOSE 3000/tcp

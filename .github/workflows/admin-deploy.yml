@@ -5,6 +5,7 @@ on:
     branches: [main, master]
     paths:
       - 'admin/**'
+      - 'shared/**'
       - '.github/workflows/admin-deploy.yml'
   workflow_dispatch:
 
@@ -34,7 +35,8 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: admin
+          context: .
+          file: admin/Dockerfile
           push: true
           tags: ghcr.io/${{ github.repository }}/admin:latest
           build-args: |

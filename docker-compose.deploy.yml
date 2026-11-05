@@ -45,6 +45,8 @@ services:
       - PORT=${PORT:-3000}
       - CORS_ORIGINS=${CORS_ORIGINS}
       - SENTRY_DSN=${SENTRY_DSN:-}
+      # Public API (:3001) que consume page vía PAGUI_PUBLIC_API_URL=http://backend:3001
+      - PUBLIC_API_PORT=${PUBLIC_API_PORT:-3001}
     networks:
       - pagui-net
     depends_on:
@@ -111,9 +113,13 @@ services:
     image: ghcr.io/${GH_USER:-linuxer41}/pagui-page:${TAG:-latest}
     restart: always
     environment:
-      VITE_API_URL: ${VITE_API_URL}
       PORT: 3000
       NODE_ENV: production
+      # Runtime ($env/dynamic/private): NO se hornean en la imagen — se leen al arrancar
+      PAGUI_PUBLIC_API_URL: ${PAGUI_PUBLIC_API_URL:-http://backend:3001}
+      PAGUI_API_KEY: ${PAGUI_API_KEY:-}
+      EMPSAAT_API_URL: ${EMPSAAT_API_URL:-https://api.empsaat.org.bo}
+      EMPSAAT_API_KEY: ${EMPSAAT_API_KEY:-}
     ports:
       - "${PAGE_PORT:-4175}:3000"
     networks:

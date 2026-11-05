@@ -4,6 +4,7 @@ import { nextSnowflake } from '../../shared/snowflake'
 import { logger } from '../../shared/logger'
 import { AppError } from '../../shared/errors/app-error'
 import { apikeyRepository } from '../../api-keys/apikey.repository'
+import { eventBus } from '../events/event-bus'
 
 let webhookProcessorStartedAt: number | null = null
 let lastWebhookRunAt: number | null = null
@@ -13,10 +14,20 @@ export type WebhookEvent =
   | 'transfer.created'
   | 'transfer.completed'
   | 'transfer.failed'
+  | 'qr.paid'
   | 'wallet.topup'
   | 'wallet.withdrawal'
   | 'user.registered'
   | 'fraud.alert'
+
+export async function ownerUserIdForWallet(walletId: bigint | string): Promise<bigint | null> {
+  const result = await query(
+    `SELECT user_id FROM wallet_permissions
+     WHERE wallet_id = $1 AND role = 'owner' AND deleted_at IS NULL LIMIT 1`,
+    [walletId]
+  )
+  return result.rowCount ? result.rows[0].user_id : null
+}
 
 export async function registerWebhook(params: {
   userId: bigint | string
@@ -38,11 +49,13 @@ export async function registerWebhook(params: {
   return { id: result.rows[0].id }
 }
 
-export async function dispatch(event: WebhookEvent, payload: Record<string, unknown>) {
+export async function dispatch(event: WebhookEvent, payload: Record<string, unknown>, walletId?: bigint | string) {
+  // Con billetera se acota al comercio dueño del evento; sin ella, a todos los suscriptos
+  // (así quedan los eventos de transferencia, que tienen dos partes).
   const webhooks = await query(
     `SELECT id, wallet_id, url FROM outgoing_webhooks
-     WHERE $1 = ANY(events) AND is_active = TRUE`,
-    [event]
+     WHERE $1 = ANY(events) AND is_active = TRUE AND ($2::bigint IS NULL OR wallet_id = $2)`,
+    [event, walletId ?? null]
   )
 
   for (const wh of webhooks.rows) {
@@ -146,6 +159,13 @@ export async function deleteWebhook(id: bigint | string, userId: bigint | string
 function createSignature(secret: string, payload: string): string {
   return createHmac('sha256', secret).update(payload).digest('hex')
 }
+
+// El pago por QR llega por dos caminos (notificación del banco y sondeo del sync) y ambos
+// emiten 'qr.paid' al claimar el QR, por eso el webhook se encola una sola vez por pago.
+eventBus.on('qr.paid', (data: any) => {
+  dispatch('qr.paid', data, data?.walletId)
+    .catch(e => logger.error('Webhook qr.paid no se pudo encolar', { error: String(e?.message || e), qrId: data?.qrId }))
+})
 
 export async function startWebhookProcessor(intervalMs = 15_000) {
   webhookProcessorStartedAt = Date.now()

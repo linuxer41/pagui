@@ -28841,7 +28841,22 @@ var init_payment_sync_service = __esm(() => {
             last_checked = CURRENT_TIMESTAMP, check_count = payment_sync_status.check_count + 1,
             success = true, final_status = 'completed'
         `, [qrId]);
-          eventBus.emit("qr.paid", { qrId, walletId: qr.walletId, amount: status2.amount, movementId: movement.id });
+          eventBus.emit("qr.paid", {
+            qrId,
+            transactionId: qr.transactionId,
+            bankTransactionId: status2.bankTransactionId || null,
+            walletId: String(qr.walletId),
+            amount: status2.amount,
+            currency: status2.currency || qr.currency,
+            paymentDate: status2.paymentDate || new Date().toISOString(),
+            paymentHour: status2.paymentTime || null,
+            senderName: status2.senderName || null,
+            senderDocumentId: status2.senderDocumentId || null,
+            senderAccount: status2.senderAccount || null,
+            senderBankCode: status2.senderBankCode || null,
+            movementId: movement.id,
+            status: "paid"
+          });
           notifService.getWalletUserIds(qr.walletId).then((userIds) => Promise.all(userIds.map((uid) => notifService.qrPaymentReceived(uid, status2.amount, qr.description || "Pago QR", qrId)))).catch((e) => logger.error("Failed to notify QR payment to wallet users", { error: e.message, qrId }));
           return { changed: true, status: "completed" };
         }
@@ -29199,7 +29214,24 @@ var init_qr_service = __esm(() => {
       const qr = await qrRepository.getByQrId(qrId);
       if (!qr)
         throw new AppError2(404, "QR no encontrado");
+      if (qr.status === "used")
+        return;
       await qrRepository.updateStatus(qrId, "used");
+      eventBus.emit("qr.paid", {
+        qrId,
+        transactionId: qr.transactionId,
+        bankTransactionId: transactionId,
+        walletId: String(qr.walletId),
+        amount,
+        currency: currency || qr.currency,
+        paymentDate: paymentDate || new Date().toISOString(),
+        paymentHour,
+        senderName,
+        senderDocumentId,
+        senderAccount,
+        senderBankCode,
+        status: "paid"
+      });
       try {
         const { debitNoteService: debitNoteService2 } = await Promise.resolve().then(() => (init_debit_note_service(), exports_debit_note_service));
         const dn = await debitNoteService2.markPaidByQrId(qrId);
@@ -29242,7 +29274,7 @@ var init_qr_service = __esm(() => {
             });
             logger.info("Direct transaction created", { userId: qr.userId, grossAmount: amount, commission });
           } else {
-            const movement2 = await walletRepository.createMovement({
+            const movement = await walletRepository.createMovement({
               walletId: qr.walletId,
               movementType: "qr_payment",
               amount,
@@ -29295,7 +29327,7 @@ var init_qr_service = __esm(() => {
         }
         return;
       }
-      const movement = await walletRepository.createMovement({
+      await walletRepository.createMovement({
         walletId: qr.walletId,
         movementType: "qr_payment",
         amount,
@@ -29314,7 +29346,6 @@ var init_qr_service = __esm(() => {
         referenceType: "qr",
         status: "completed"
       });
-      eventBus.emit("qr.paid", { qrId, walletId: qr.walletId, amount, movementId: movement.id });
       notifService.getWalletUserIds(qr.walletId).then((userIds) => Promise.all(userIds.map((uid) => notifService.qrPaymentReceived(uid, amount, qr.description || "Pago QR", qrId, senderName)))).catch((e) => logger.error("Failed to notify QR payment to wallet users", { error: e.message, qrId }));
     }
   };
@@ -183361,10 +183392,16 @@ init_snowflake();
 init_logger();
 init_app_error();
 init_apikey_repository();
+init_event_bus();
 import { createHmac } from "node:crypto";
 var webhookProcessorStartedAt = null;
 var lastWebhookRunAt = null;
 var lastWebhookProcessedCount = 0;
+async function ownerUserIdForWallet(walletId) {
+  const result = await query(`SELECT user_id FROM wallet_permissions
+     WHERE wallet_id = $1 AND role = 'owner' AND deleted_at IS NULL LIMIT 1`, [walletId]);
+  return result.rowCount ? result.rows[0].user_id : null;
+}
 async function registerWebhook(params) {
   const keys = await apikeyRepository.listByWallet(BigInt(params.walletId));
   if (keys.length === 0) {
@@ -183375,9 +183412,9 @@ async function registerWebhook(params) {
      RETURNING id`, [nextSnowflake(), params.userId, params.walletId, params.url, params.events]);
   return { id: result.rows[0].id };
 }
-async function dispatch(event, payload) {
+async function dispatch(event, payload, walletId) {
   const webhooks = await query(`SELECT id, wallet_id, url FROM outgoing_webhooks
-     WHERE $1 = ANY(events) AND is_active = TRUE`, [event]);
+     WHERE $1 = ANY(events) AND is_active = TRUE AND ($2::bigint IS NULL OR wallet_id = $2)`, [event, walletId ?? null]);
   for (const wh of webhooks.rows) {
     await query(`INSERT INTO outgoing_webhook_jobs (id, webhook_id, event, payload)
        VALUES ($1, $2, $3, $4)`, [nextSnowflake(), wh.id, event, JSON.stringify(payload)]);
@@ -183449,6 +183486,9 @@ async function deleteWebhook(id, userId, walletId) {
 function createSignature(secret, payload) {
   return createHmac("sha256", secret).update(payload).digest("hex");
 }
+eventBus.on("qr.paid", (data) => {
+  dispatch("qr.paid", data, data?.walletId).catch((e) => logger.error("Webhook qr.paid no se pudo encolar", { error: String(e?.message || e), qrId: data?.qrId }));
+});
 async function startWebhookProcessor(intervalMs = 15000) {
   webhookProcessorStartedAt = Date.now();
   const timer = setInterval(processPendingJobs, intervalMs);
@@ -184223,6 +184263,48 @@ var publicQrRoutes = new Elysia({ prefix: "/qr" }).derive(authMiddleware({ type:
   detail: { tags: ["Public QR"], summary: "Cancelar QR por ID (API key)" }
 });
 
+// src/public-api/public-webhook.routes.ts
+init_wallet_repository();
+init_app_error();
+var publicWebhookRoutes = new Elysia({ prefix: "/webhooks" }).derive(authMiddleware({ type: "apikey", level: "user" })).derive(async ({ auth }) => {
+  const permissions = auth.apiKeyInfo.permissions;
+  if (!permissions.qr_generate)
+    throw new AppError2(403, "API key no tiene permiso qr_generate");
+  const walletId = BigInt(auth.apiKeyInfo.walletId);
+  const userId = await ownerUserIdForWallet(walletId);
+  if (!userId)
+    throw new AppError2(403, "La billetera de esta API key no tiene propietario");
+  const wallet = await walletRepository.getCollectionById(userId, walletId);
+  if (!wallet)
+    throw new AppError2(400, "La billetera no existe o no es de recaudación");
+  return { webhookScope: { userId, walletId } };
+}).get("/", async ({ webhookScope }) => {
+  const webhooks = await getWebhooks(webhookScope.userId, webhookScope.walletId);
+  return list(webhooks, undefined, "Webhooks listados exitosamente");
+}, {
+  detail: { tags: ["Public Webhooks"], summary: "Listar webhooks de la billetera (API key)" }
+}).post("/", async ({ body, webhookScope }) => {
+  const { id } = await registerWebhook({
+    userId: webhookScope.userId,
+    walletId: webhookScope.walletId,
+    url: body.url,
+    events: body.events
+  });
+  return ok({ id }, "Webhook registrado exitosamente");
+}, {
+  body: t.Object({
+    url: t.String({ format: "uri" }),
+    events: t.Array(t.String())
+  }),
+  detail: { tags: ["Public Webhooks"], summary: "Registrar webhook de la billetera (API key)" }
+}).delete("/:id", async ({ params, webhookScope }) => {
+  await deleteWebhook(params.id, webhookScope.userId, webhookScope.walletId);
+  return ok(null, "Webhook eliminado");
+}, {
+  params: t.Object({ id: t.String() }),
+  detail: { tags: ["Public Webhooks"], summary: "Eliminar webhook de la billetera (API key)" }
+});
+
 // src/public-api/public-api.ts
 sentry.init();
 async function startPublicApi() {
@@ -184247,9 +184329,11 @@ async function startPublicApi() {
       info: {
         title: "PAGUI Public API",
         version: "1.0.0",
-        description: "API pública con autenticación mediante API Key para operaciones QR."
+        description: "API pública con autenticación mediante API Key para operaciones QR y webhooks."
       },
-      servers: [{ url: `http://localhost:${port}`, description: "Public API local" }],
+      servers: [
+        { url: process.env.PUBLIC_API_URL || `http://localhost:${port}`, description: "API pública" }
+      ],
       security: [{ ApiKeyAuth: [] }],
       components: {
         securitySchemes: {
@@ -184262,7 +184346,7 @@ async function startPublicApi() {
         }
       }
     }
-  })).use(cors({ origin: () => true })).use(rateLimit({ windowMs: 60000, maxRequests: parseInt(process.env.RATE_LIMIT_MAX || "120") })).use(publicQrRoutes).onError(({ code, error, set: set2, request }) => {
+  })).use(cors({ origin: () => true })).use(rateLimit({ windowMs: 60000, maxRequests: parseInt(process.env.RATE_LIMIT_MAX || "120") })).use(publicQrRoutes).use(publicWebhookRoutes).onError(({ code, error, set: set2, request }) => {
     const path = new URL(request.url).pathname;
     const err = error;
     const isAppError = err?.statusCode != null && typeof err.statusCode === "number";

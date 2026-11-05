@@ -128,8 +128,29 @@ export const qrService = {
 
     const qr = await qrRepository.getByQrId(qrId)
     if (!qr) throw new AppError(404, 'QR no encontrado')
+    // El sondeo de sincronización puede haber claimado el QR primero; volver a pasar
+    // por acá duplicaría la liquidación y el webhook al comercio.
+    if (qr.status === 'used') return
 
     await qrRepository.updateStatus(qrId, 'used')
+
+    // Unico punto de emision del pago por QR: el comercio recibe lo mismo por via
+    // banco-notifica que por via sondeo, con su referencia (qr.transactionId).
+    eventBus.emit('qr.paid', {
+      qrId,
+      transactionId: qr.transactionId,
+      bankTransactionId: transactionId,
+      walletId: String(qr.walletId),
+      amount,
+      currency: currency || qr.currency,
+      paymentDate: paymentDate || new Date().toISOString(),
+      paymentHour,
+      senderName,
+      senderDocumentId,
+      senderAccount,
+      senderBankCode,
+      status: 'paid',
+    })
 
     // Si es QR de nota de débito, marcarla como pagada automáticamente (vía pasarela Pagui)
     try {
@@ -230,7 +251,7 @@ export const qrService = {
     }
 
     // QR sin userId — solo registrar movimiento (legacy/anon)
-    const movement = await walletRepository.createMovement({
+    await walletRepository.createMovement({
       walletId: qr.walletId, movementType: 'qr_payment', amount,
       balanceBefore: 0, balanceAfter: 0,
       description: `Pago QR ${qrId}`,
@@ -241,8 +262,6 @@ export const qrService = {
       referenceId: qr.transactionId, referenceType: 'qr',
       status: 'completed',
     })
-
-    eventBus.emit('qr.paid', { qrId, walletId: qr.walletId, amount, movementId: movement.id })
 
     notifService.getWalletUserIds(qr.walletId).then(userIds =>
       Promise.all(userIds.map(uid =>

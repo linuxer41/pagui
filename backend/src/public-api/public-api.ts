@@ -7,6 +7,7 @@ import { sentry } from '../shared/sentry'
 import { rateLimit } from '../shared/middleware/rate-limit'
 import { complianceHeaders } from '../shared/compliance/pci.service'
 import { publicQrRoutes } from './public-qr.routes'
+import { publicWebhookRoutes } from './public-webhook.routes'
 
 sentry.init()
 
@@ -35,9 +36,11 @@ export async function startPublicApi() {
         info: {
           title: 'PAGUI Public API',
           version: '1.0.0',
-          description: 'API pública con autenticación mediante API Key para operaciones QR.',
+          description: 'API pública con autenticación mediante API Key para operaciones QR y webhooks.',
         },
-        servers: [{ url: `http://localhost:${port}`, description: 'Public API local' }],
+        servers: [
+          { url: process.env.PUBLIC_API_URL || `http://localhost:${port}`, description: 'API pública' },
+        ],
         security: [{ ApiKeyAuth: [] }],
         components: {
           securitySchemes: {
@@ -54,6 +57,7 @@ export async function startPublicApi() {
     .use(cors({ origin: () => true }))
     .use(rateLimit({ windowMs: 60_000, maxRequests: parseInt(process.env.RATE_LIMIT_MAX || '120') }))
     .use(publicQrRoutes)
+    .use(publicWebhookRoutes)
     .onError(({ code, error, set, request }) => {
       const path = new URL(request.url).pathname
       const err = error as Record<string, unknown>

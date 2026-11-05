@@ -9580,16 +9580,50 @@ var init_apikey_repository = __esm(() => {
   };
 });
 
+// src/payments/events/event-bus.ts
+class EventBus {
+  listeners = new Map;
+  on(event, fn) {
+    if (!this.listeners.has(event))
+      this.listeners.set(event, new Set);
+    this.listeners.get(event).add(fn);
+    return () => this.listeners.get(event)?.delete(fn);
+  }
+  emit(event, ...args) {
+    this.listeners.get(event)?.forEach((fn) => {
+      try {
+        fn(...args);
+      } catch (e) {
+        logger.error("EventBus error", { event, error: String(e) });
+      }
+    });
+  }
+  removeAll() {
+    this.listeners.clear();
+  }
+}
+var eventBus;
+var init_event_bus = __esm(() => {
+  init_logger();
+  eventBus = new EventBus;
+});
+
 // src/payments/webhooks/webhook.service.ts
 init_pool();
 init_snowflake();
 init_logger();
 init_app_error();
 init_apikey_repository();
+init_event_bus();
 import { createHmac } from "node:crypto";
 var webhookProcessorStartedAt = null;
 var lastWebhookRunAt = null;
 var lastWebhookProcessedCount = 0;
+async function ownerUserIdForWallet(walletId) {
+  const result = await query(`SELECT user_id FROM wallet_permissions
+     WHERE wallet_id = $1 AND role = 'owner' AND deleted_at IS NULL LIMIT 1`, [walletId]);
+  return result.rowCount ? result.rows[0].user_id : null;
+}
 async function registerWebhook(params) {
   const keys = await apikeyRepository.listByWallet(BigInt(params.walletId));
   if (keys.length === 0) {
@@ -9600,9 +9634,9 @@ async function registerWebhook(params) {
      RETURNING id`, [nextSnowflake(), params.userId, params.walletId, params.url, params.events]);
   return { id: result.rows[0].id };
 }
-async function dispatch(event, payload) {
+async function dispatch(event, payload, walletId) {
   const webhooks = await query(`SELECT id, wallet_id, url FROM outgoing_webhooks
-     WHERE $1 = ANY(events) AND is_active = TRUE`, [event]);
+     WHERE $1 = ANY(events) AND is_active = TRUE AND ($2::bigint IS NULL OR wallet_id = $2)`, [event, walletId ?? null]);
   for (const wh of webhooks.rows) {
     await query(`INSERT INTO outgoing_webhook_jobs (id, webhook_id, event, payload)
        VALUES ($1, $2, $3, $4)`, [nextSnowflake(), wh.id, event, JSON.stringify(payload)]);
@@ -9674,6 +9708,9 @@ async function deleteWebhook(id, userId, walletId) {
 function createSignature(secret, payload) {
   return createHmac("sha256", secret).update(payload).digest("hex");
 }
+eventBus.on("qr.paid", (data) => {
+  dispatch("qr.paid", data, data?.walletId).catch((e) => logger.error("Webhook qr.paid no se pudo encolar", { error: String(e?.message || e), qrId: data?.qrId }));
+});
 async function startWebhookProcessor(intervalMs = 15000) {
   webhookProcessorStartedAt = Date.now();
   const timer = setInterval(processPendingJobs, intervalMs);

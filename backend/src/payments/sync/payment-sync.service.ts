@@ -55,7 +55,22 @@ export const paymentSyncService = {
             last_checked = CURRENT_TIMESTAMP, check_count = payment_sync_status.check_count + 1,
             success = true, final_status = 'completed'
         `, [qrId])
-        eventBus.emit('qr.paid', { qrId, walletId: qr.walletId, amount: status.amount, movementId: movement.id })
+        eventBus.emit('qr.paid', {
+          qrId,
+          transactionId: qr.transactionId,
+          bankTransactionId: status.bankTransactionId || null,
+          walletId: String(qr.walletId),
+          amount: status.amount,
+          currency: status.currency || qr.currency,
+          paymentDate: status.paymentDate || new Date().toISOString(),
+          paymentHour: status.paymentTime || null,
+          senderName: status.senderName || null,
+          senderDocumentId: status.senderDocumentId || null,
+          senderAccount: status.senderAccount || null,
+          senderBankCode: status.senderBankCode || null,
+          movementId: movement.id,
+          status: 'paid',
+        })
 
         notifService.getWalletUserIds(qr.walletId).then(userIds =>
           Promise.all(userIds.map(uid =>

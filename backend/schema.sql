@@ -433,7 +433,7 @@ CREATE TABLE outgoing_webhooks (
   user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   wallet_id BIGINT REFERENCES wallets(id) ON DELETE CASCADE,
   url VARCHAR(512) NOT NULL,
-  secret VARCHAR(255) NOT NULL,
+  secret VARCHAR(255) NOT NULL DEFAULT '',
   events TEXT[] NOT NULL DEFAULT '{}',
   is_active BOOLEAN DEFAULT true,
   last_sent_at TIMESTAMPTZ,

@@ -18,6 +18,7 @@
   let showCreate = $state(false)
   let url = $state('')
   let selectedEvents = $state<Record<string, boolean>>({
+    'qr.paid': true,
     'transfer.completed': true,
     'transfer.failed': true,
     'transfer.created': false,
@@ -28,6 +29,7 @@
   let deletingId = $state<string | null>(null)
 
   const eventLabels: Record<string, string> = {
+    'qr.paid': 'Pago por QR recibido',
     'transfer.created': 'Transferencia creada',
     'transfer.completed': 'Transferencia completada',
     'transfer.failed': 'Transferencia fallida',

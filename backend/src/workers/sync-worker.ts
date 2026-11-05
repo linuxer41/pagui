@@ -1,4 +1,7 @@
 import { paymentQueueService } from '../payments/sync/payment-queue.service'
+// Se importa por el efecto: registra la escucha de 'qr.paid' en este proceso, asi el pago
+// que detecta el sondeo (y no la notificacion del banco) tambien encola su webhook.
+import '../payments/webhooks/webhook.service'
 import { logger } from '../shared/logger'
 import { testConnection } from '../shared/database/pool'
 
